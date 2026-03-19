@@ -1,0 +1,273 @@
+/* ── Layout raíz ── */
+.GU-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.GU-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+.GU-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+  gap: 16px;
+}
+.GU-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+}
+.GU-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+.GU-brandAccent { color: #e8a000; }
+.GU-backBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s;
+}
+.GU-backBtn:hover { background: rgba(255,255,255,.2); }
+
+/* ── MAIN ── */
+.GU-main {
+  flex: 1;
+  padding: 36px 24px;
+}
+.GU-contenedor {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.GU-seccionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.GU-titulo {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f1928;
+  margin: 0 0 4px;
+}
+.GU-subtitulo {
+  font-size: 0.9rem;
+  color: #6b7a8d;
+  margin: 0;
+}
+.GU-loading {
+  text-align: center;
+  color: #6b7a8d;
+  padding: 40px;
+  font-size: 0.95rem;
+}
+.GU-btnNuevo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 20px;
+  font-size: 0.87rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.GU-btnNuevo:hover { opacity: 0.85; transform: translateY(-1px); }
+
+/* ── Tabla ── */
+.GU-tabla-wrap {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15,25,40,.08);
+  overflow: hidden;
+  overflow-x: auto;
+}
+.GU-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.GU-tabla thead tr {
+  background: #0f1928;
+  color: #fff;
+}
+.GU-tabla th {
+  padding: 13px 14px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.GU-th-cliente { text-align: center !important; min-width: 140px; }
+.GU-fila {
+  border-bottom: 1px solid #f0f2f5;
+  transition: background 0.12s;
+}
+.GU-fila:last-child { border-bottom: none; }
+.GU-fila:hover { background: #f8fafc; }
+.GU-tabla td { padding: 11px 14px; color: #1e2f45; vertical-align: middle; }
+.GU-td-usuario { font-weight: 700; font-size: 0.9rem; }
+.GU-badge {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #0f1928;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 100px;
+  letter-spacing: 0.3px;
+}
+.GU-td-check { text-align: center; }
+
+/* Toggle switch */
+.GU-toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.GU-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.GU-toggleSlider {
+  display: inline-block;
+  width: 42px; height: 24px;
+  background: #d1d5db;
+  border-radius: 100px;
+  transition: background 0.2s;
+  position: relative;
+}
+.GU-toggleSlider::after {
+  content: '';
+  position: absolute;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.GU-toggle input:checked + .GU-toggleSlider { background: #0f1928; }
+.GU-toggle input:checked + .GU-toggleSlider::after { transform: translateX(18px); }
+.GU-toggle input:disabled + .GU-toggleSlider { opacity: 0.5; cursor: not-allowed; }
+
+.GU-td-msg { font-size: 0.78rem; color: #6b7a8d; white-space: nowrap; min-width: 100px; }
+.GU-td-msg--ok  { color: #16a34a; font-weight: 700; }
+.GU-td-msg--err { color: #dc3545; }
+
+/* ── FOOTER ── */
+.GU-footer { background: #0f1928; border-top: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }
+.GU-footerInner {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; padding: 14px 28px;
+}
+.GU-footerBrand { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,.75); }
+.GU-footerLinks { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.GU-footerLink { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: rgba(255,255,255,.4); text-decoration: none; transition: color 0.2s; }
+.GU-footerLink:hover { color: #e8a000; }
+.GU-footerCopy { font-size: 0.75rem; color: rgba(255,255,255,.25); }
+
+/* ══ MODAL ══ */
+.GU-modalOverlay {
+  position: fixed; inset: 0;
+  background: rgba(15,25,40,.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px;
+  backdrop-filter: blur(2px);
+}
+.GU-modalCard {
+  background: #fff; border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(15,25,40,.25);
+  width: 100%; max-width: 560px;
+  max-height: 90vh; overflow-y: auto;
+}
+.GU-modalHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 28px 0;
+}
+.GU-modalTitulo { font-size: 1.1rem; font-weight: 800; color: #0f1928; margin: 0; }
+.GU-modalCerrar {
+  background: #f0f2f5; border: none; border-radius: 8px;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #6b7a8d; font-size: 0.9rem;
+  transition: background 0.15s;
+}
+.GU-modalCerrar:hover { background: #e2e6ea; color: #0f1928; }
+.GU-modalForm { padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 16px; }
+.GU-formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.GU-formGrupo { display: flex; flex-direction: column; gap: 5px; }
+.GU-formGrupo--full { grid-column: 1 / -1; }
+.GU-formLabel { font-size: 0.74rem; font-weight: 700; color: #6b7a8d; text-transform: uppercase; letter-spacing: 0.4px; }
+.GU-formInput {
+  padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 9px;
+  font-size: 0.9rem; color: #1e2f45; background: #f8fafc;
+  outline: none; font-family: inherit; width: 100%; box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.GU-formInput:focus { border-color: #0f1928; background: #fff; box-shadow: 0 0 0 3px rgba(15,25,40,.08); }
+.GU-formInput--upper { text-transform: uppercase; }
+.GU-checkGrupo { display: flex; gap: 20px; flex-wrap: wrap; padding: 8px 0 4px; }
+.GU-checkItem { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: #1e2f45; cursor: pointer; font-weight: 500; }
+.GU-checkItem input { width: 16px; height: 16px; cursor: pointer; accent-color: #0f1928; }
+.GU-formError { color: #dc3545; font-size: 0.84rem; background: #fff5f5; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 12px; margin: 0; }
+.GU-modalFooter { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+.GU-btnCancelar {
+  padding: 10px 20px; border: 1.5px solid #e2e8f0; border-radius: 9px;
+  background: none; font-size: 0.88rem; font-weight: 600; color: #6b7a8d;
+  cursor: pointer; font-family: inherit; transition: background 0.15s;
+}
+.GU-btnCancelar:hover { background: #f0f2f5; }
+.GU-btnGuardar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 22px; background: #0f1928; color: #fff;
+  border: none; border-radius: 9px;
+  font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: opacity 0.2s;
+}
+.GU-btnGuardar:hover:not(:disabled) { opacity: 0.85; }
+.GU-btnGuardar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .GU-main { padding: 20px 12px; }
+  .GU-formGrid { grid-template-columns: 1fr; }
+  .GU-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
+  .GU-footerLinks { display: none; }
+  .GU-headerInner { padding: 0 16px; }
+  .GU-modalCard { border-radius: 16px; }
+}

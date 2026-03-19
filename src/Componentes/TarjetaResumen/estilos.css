@@ -1,0 +1,72 @@
+/* Estilado principal */
+.TarjetaResumen-contenedor {
+  position: relative;
+  border: 1px solid #dcdcdc;
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 280px;
+  max-width: 300px;
+  text-align: center;
+  font-family: "Arial", sans-serif;
+  background-color: #f9f9f9;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.icono-novedad {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #ff0000;
+  cursor: pointer;
+}
+
+.icono {
+  font-size: 20px;
+}
+
+.TarjetaResumen-titulo {
+  font-size: 22px; 
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #4a4a8a;
+  text-transform: uppercase;
+}
+
+.TarjetaResumen-origenDestino {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 15px;
+  color: #555;
+  letter-spacing: 0.5px;
+}
+
+.TarjetaResumen-detalle {
+  font-size: 15px;
+  margin: 8px 0;
+  color: #333;
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.TarjetaResumen-detalle strong {
+  color: #4a4a8a;
+  font-weight: bold;
+}
+
+
+/* Hover - TarjetaResumen */
+.TarjetaResumen-contenedor:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 768px) {
+  .TarjetaResumen-contenedor {
+    width: 95%;
+    max-width: 100%;
+    margin-bottom: 15px;
+  }
+}

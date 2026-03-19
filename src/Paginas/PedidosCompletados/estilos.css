@@ -1,0 +1,276 @@
+/* ────────────────────────────────────────────────
+   PEDIDOS COMPLETADOS — Estilos
+   Sistema de diseño: Integra (#0f1928 / #e8a000)
+──────────────────────────────────────────────── */
+
+/* ── Layout raíz ── */
+.PC-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.PC-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+.PC-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 24px;
+  gap: 16px;
+}
+
+/* Marca / logo */
+.PC-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.PC-brandName {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1;
+}
+
+.PC-brandAccent { color: #e8a000; }
+
+/* Nav tabs */
+.PC-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+}
+
+.PC-navTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.PC-navTab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.PC-navTabActive {
+  color: #e8a000 !important;
+  background: rgba(232, 160, 0, 0.12) !important;
+  font-weight: 700;
+}
+
+/* Zona usuario */
+.PC-userZone {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.PC-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.PC-userBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.PC-userIcon {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.PC-userInfo {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.PC-userName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.PC-userPerfil {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.PC-chevron {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.PC-chevronOpen { transform: rotate(180deg); }
+
+/* Dropdown menú */
+.PC-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
+  z-index: 999;
+  overflow: hidden;
+  animation: PC-fadeDown 0.15s ease;
+}
+
+@keyframes PC-fadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.PC-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 0.88rem;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  text-align: left;
+}
+
+.PC-dropItem:hover { background: #f5f7fa; }
+
+.PC-dropDivider {
+  height: 1px;
+  background: #f0f2f5;
+  margin: 2px 0;
+}
+
+.PC-dropItemDanger { color: #c9302c; }
+.PC-dropItemDanger:hover { background: #fff5f5; }
+
+/* ── TABLA PRINCIPAL ── */
+.PC-main {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── FOOTER ── */
+.PC-footer {
+  background: #0f1928;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.PC-footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 24px;
+}
+
+.PC-footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.PC-footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.PC-footerLink {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.PC-footerLink:hover { color: #e8a000; }
+
+.PC-footerCopy {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .PC-nav { display: none; }
+
+  .PC-headerInner { padding: 0 14px; }
+
+  .PC-userInfo { display: none; }
+
+  .PC-footerInner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .PC-footerLinks { display: none; }
+}

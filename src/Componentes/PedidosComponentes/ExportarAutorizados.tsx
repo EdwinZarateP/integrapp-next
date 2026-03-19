@@ -1,0 +1,88 @@
+'use client';
+import React, { useEffect, useState } from 'react';
+import Cookies from 'js-cookie';
+import { exportarAutorizados } from '@/Funciones/ApiPedidos/apiPedidos';
+import Swal from 'sweetalert2';
+import './ExportarAutorizados.css';
+
+const ExportarAutorizados: React.FC = () => {
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const perfil = (Cookies.get('perfilPedidosCookie') || '').toUpperCase();
+    if (perfil === 'ADMIN' || perfil === 'ANALISTA') {
+      setVisible(true);
+    }
+  }, []);
+
+  const manejarExportacion = async () => {
+    setLoading(true);
+    try {
+      const { blob, filename } = await exportarAutorizados();
+
+      if (!(blob instanceof Blob)) {
+        throw new Error(`La respuesta no es un archivo descargable (tipo: ${typeof blob}).`);
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download =
+        filename ??
+        `pedidos_autorizados_${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}.xlsx`;
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 0);
+    } catch (err: any) {
+      console.error('Error exportando:', err);
+
+      let mensaje = 'Error desconocido';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const texto = await err.response.data.text();
+          try {
+            const json = JSON.parse(texto);
+            mensaje = json?.detail || json?.mensaje || texto;
+          } catch {
+            mensaje = texto || mensaje;
+          }
+        } catch {
+          mensaje = 'Ocurrió un error al procesar la respuesta del servidor.';
+        }
+      } else if (typeof err?.message === 'string') {
+        mensaje = err.message;
+      }
+
+      Swal.fire('Error', mensaje, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="ExportarAutorizados-contenedor">
+      <button
+        className="ExportarAutorizados-boton"
+        onClick={manejarExportacion}
+        disabled={loading}
+        aria-busy={loading}
+      >
+        {loading ? (
+          <>
+            Exportando Autorizados...
+            <span className="ExportarAutorizados-spinner" />
+          </>
+        ) : (
+          'Exportar pedidos autorizados'
+        )}
+      </button>
+    </div>
+  );
+};
+
+export default ExportarAutorizados;

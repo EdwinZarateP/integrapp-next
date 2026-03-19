@@ -1,0 +1,92 @@
+.HeaderLogo-contenedor {
+  display: flex;
+  flex-direction: row; /* Elementos en fila horizontal */
+  align-items: center; /* Centrado vertical */
+  justify-content: flex-start; /* Alineado a la izquierda */
+  padding: 0 30px; /* Espacio a los lados */
+  background-color: #2c3e50; /* Azul Oscuro (Mismo tono que tu referencia) */
+  height: 70px; /* Altura fija compacta */
+  width: 100%;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Sombra suave abajo */
+  position: fixed; /* CAMBIO CLAVE: Fixed para pegarlo a la pantalla, no al contenedor */
+  top: 0;       
+  left: 0;      
+  z-index: 1000;
+  box-sizing: border-box; /* Asegura que el padding no rompa el ancho */
+}
+
+/* Efecto hover sutil en toda la barra */
+.HeaderLogo-contenedor:hover {
+  background-color: #34495e; 
+}
+
+/* Imagen del logo */
+.HeaderLogo-img {
+  height: 65px;
+  width: auto;
+  margin-right: 15px;
+  margin-bottom: 0;
+  object-fit: contain;
+  filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+/* Título (IntegrApp) */
+.HeaderLogo-titulo {
+  display: flex;
+  font-size: 1.8rem; 
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+  font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif;
+  text-transform: uppercase; 
+}
+
+.HeaderLogo-titulo span:first-child { 
+  color: #ffffff; 
+}
+.HeaderLogo-titulo span:last-child { 
+  color: #bacf65; 
+}
+
+.HeaderLogo-subtitulo {
+  display: flex;
+  margin-left: -168px;
+  margin-top: 40px;
+  color: #ffffff;
+}
+.HeaderLogo-subtitulo span:first-child { 
+  color: #ffffff; 
+  margin-top: 5px;
+}
+.HeaderLogo-subtitulo span:last-child { 
+  color: #bacf65; 
+  margin: 5px;
+}
+
+
+/* AJUSTE PARA MÓVILES */
+@media (max-width: 768px) {
+  .HeaderLogo-contenedor {
+    padding: 0 15px;
+    height: 60px; 
+    justify-content: center; 
+  }
+  
+  .HeaderLogo-img {
+    height: 35px;
+    margin-right: 50px;
+    margin-top: -10px;
+  }
+  
+  .HeaderLogo-titulo {
+    font-size: 1.2rem;
+    margin-left: -40px;
+    margin-right: 60px;
+  }
+
+  .HeaderLogo-subtitulo {
+    margin-right: -40px;
+    margin-left: -210px;
+  }
+}

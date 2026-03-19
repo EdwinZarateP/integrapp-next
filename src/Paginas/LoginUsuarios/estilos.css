@@ -1,0 +1,316 @@
+/* ── Layout raíz ── */
+.LU-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.LU-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.LU-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+}
+
+.LU-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.LU-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.LU-brandAccent { color: #e8a000; }
+
+/* ── MAIN ── */
+.LU-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+/* Tarjeta de login */
+.LU-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(15,25,40,.12);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.LU-cardHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.LU-titulo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f1928;
+  margin: 0;
+}
+
+.LU-subtitulo {
+  font-size: 0.88rem;
+  color: #6b7a8d;
+  margin: 0;
+}
+
+/* Formulario */
+.LU-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.LU-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.LU-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6b7a8d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.LU-input {
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #1e2f45;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.LU-input:focus {
+  border-color: #0f1928;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(15,25,40,.08);
+}
+
+.LU-inputPassword { padding-right: 44px; }
+
+.LU-passwordWrap {
+  position: relative;
+}
+
+.LU-ojito {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7a8d;
+  font-size: 1rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+.LU-ojito:hover { color: #0f1928; }
+
+.LU-boton {
+  padding: 12px;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  margin-top: 4px;
+  font-family: inherit;
+}
+.LU-boton:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.LU-boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.LU-error {
+  color: #dc3545;
+  font-size: 0.85rem;
+  text-align: center;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+/* ── Selector de cliente ── */
+.LU-cardClientes {
+  max-width: 440px;
+}
+
+.LU-clientesLista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.LU-clienteCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 2px solid #0f1928;
+  border-radius: 14px;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
+  width: 100%;
+}
+.LU-clienteCard:hover {
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(15,25,40,.14);
+  transform: translateY(-2px);
+}
+
+.LU-clienteCardDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.LU-clienteCardTexto {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.LU-clienteCardNombre {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: #0f1928;
+}
+
+.LU-clienteCardDesc {
+  font-size: 0.78rem;
+  color: #6b7a8d;
+}
+
+.LU-clienteCardFlecha {
+  color: #6b7a8d;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.LU-volverBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7a8d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+  align-self: flex-start;
+  transition: color 0.2s;
+  font-family: inherit;
+}
+.LU-volverBtn:hover { color: #0f1928; }
+
+/* ── FOOTER ── */
+.LU-footer {
+  background: #0f1928;
+  border-top: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+}
+
+.LU-footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 28px;
+}
+
+.LU-footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.75);
+}
+
+.LU-footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.LU-footerLink {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,.4);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.LU-footerLink:hover { color: #e8a000; }
+
+.LU-footerCopy {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,.25);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .LU-card { padding: 28px 20px; }
+  .LU-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
+  .LU-footerLinks { display: none; }
+  .LU-headerInner { padding: 0 16px; }
+}

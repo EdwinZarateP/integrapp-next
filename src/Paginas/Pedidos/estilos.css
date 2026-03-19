@@ -1,0 +1,411 @@
+/* ────────────────────────────────────────────────
+   PEDIDOS — Estilos
+   Sistema de diseño: Integra (#0f1928 / #e8a000)
+──────────────────────────────────────────────── */
+
+/* ── Layout raíz ── */
+.Ped-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.Ped-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+}
+
+.Ped-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 24px;
+  gap: 16px;
+}
+
+/* Marca / logo */
+.Ped-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.Ped-brandName {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1;
+}
+
+.Ped-brandAccent { color: #e8a000; }
+
+/* Nav tabs */
+.Ped-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+}
+
+.Ped-navTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.Ped-navTab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.Ped-navTabActive {
+  color: #e8a000 !important;
+  background: rgba(232, 160, 0, 0.12) !important;
+  font-weight: 700;
+}
+
+/* Zona usuario */
+.Ped-userZone {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.Ped-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.Ped-userBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.Ped-userIcon {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.Ped-userInfo {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.Ped-userName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.Ped-userPerfil {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.Ped-chevron {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.Ped-chevronOpen { transform: rotate(180deg); }
+
+/* Dropdown menú */
+.Ped-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
+  z-index: 999;
+  overflow: hidden;
+  animation: Ped-fadeDown 0.15s ease;
+}
+
+@keyframes Ped-fadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.Ped-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 0.88rem;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  text-align: left;
+}
+
+.Ped-dropItem:hover { background: #f5f7fa; }
+
+.Ped-dropDivider {
+  height: 1px;
+  background: #f0f2f5;
+  margin: 2px 0;
+}
+
+.Ped-dropItemDanger { color: #c9302c; }
+.Ped-dropItemDanger:hover { background: #fff5f5; }
+
+/* ── TABLA PRINCIPAL ── */
+.Ped-main {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── FOOTER ── */
+.Ped-footer {
+  background: #0f1928;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.Ped-footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 24px;
+  max-width: 100%;
+}
+
+.Ped-footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.Ped-footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.Ped-footerLink {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.Ped-footerLink:hover { color: #e8a000; }
+
+.Ped-footerCopy {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* ── COMPONENTES FUERA DE PANTALLA ── */
+.Ped-accionesFuera {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+.Ped-accionesFuera > div {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+/* ── FAB SPEED DIAL ── */
+.Ped-fab-zona {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 500;
+}
+
+/* Botón FAB principal */
+.Ped-fab-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 6px 20px rgba(15, 25, 40, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s;
+  flex-shrink: 0;
+}
+
+.Ped-fab-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 10px 28px rgba(15, 25, 40, 0.55);
+}
+
+.Ped-fab-btn--open {
+  background: #c9302c;
+  box-shadow: 0 6px 20px rgba(201, 48, 44, 0.45);
+  transform: rotate(45deg);
+}
+
+.Ped-fab-btn--open:hover {
+  background: #a02724;
+  transform: rotate(45deg) scale(1.08);
+}
+
+/* Paleta de opciones */
+.Ped-fab-paleta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  animation: Ped-fabUp 0.2s ease;
+}
+
+@keyframes Ped-fabUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Cada opción */
+.Ped-fab-opcion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.Ped-fab-opcionLabel {
+  background: #0f1928;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: background 0.2s;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+}
+
+.Ped-fab-opcion:hover .Ped-fab-opcionLabel {
+  background: #1e2f45;
+}
+
+.Ped-fab-opcionIcono {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #0f1928;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 12px rgba(15, 25, 40, 0.35);
+  flex-shrink: 0;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.Ped-fab-opcion:hover .Ped-fab-opcionIcono {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(15, 25, 40, 0.45);
+}
+
+.Ped-fab-opcionIcono--amber { background: #e8a000; }
+.Ped-fab-opcionIcono--amber:hover { background: #c88800; }
+.Ped-fab-opcion:hover .Ped-fab-opcionIcono--amber { box-shadow: 0 6px 16px rgba(232, 160, 0, 0.45); }
+
+.Ped-fab-opcionIcono--teal { background: #0d6efd; }
+.Ped-fab-opcion:hover .Ped-fab-opcionIcono--teal { box-shadow: 0 6px 16px rgba(13, 110, 253, 0.45); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .Ped-nav { display: none; }
+
+  .Ped-headerInner { padding: 0 14px; }
+
+  .Ped-userInfo { display: none; }
+
+  .Ped-toolbarInner {
+    padding: 8px 14px;
+    gap: 8px;
+  }
+
+  .Ped-footerInner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .Ped-footerLinks { display: none; }
+}

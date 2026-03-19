@@ -1,0 +1,317 @@
+/* ============================================
+   TablaPedidosCompletados.css — Diseño Pro
+   Paleta: #0f1928 (navy) / #e8a000 (amber)
+   ============================================ */
+
+/* ── 1. Contenedor ── */
+.TablaPedidosCompletados-contenedor {
+  margin: 8px 10px;
+  overflow-x: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,.10);
+  border-radius: 10px;
+  background: #fff;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ── 2. Filtros escritorio ── */
+.TablaPedidosCompletados-filtros {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #0f1928;
+  border-radius: 10px 10px 0 0;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.TablaPedidosCompletados-filtros select,
+.TablaPedidosCompletados-filtros input[type="date"] {
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.18);
+  outline: none;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.TablaPedidosCompletados-filtros select { min-width: 150px; }
+.TablaPedidosCompletados-filtros input[type="date"] { color-scheme: dark; }
+.TablaPedidosCompletados-filtros select:hover,
+.TablaPedidosCompletados-filtros input[type="date"]:hover { background: rgba(255,255,255,.18); }
+.TablaPedidosCompletados-filtros select option { background: #1e2f45; color: #fff; }
+.TablaPedidosCompletados-filtros button {
+  background: #e8a000;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  padding: 7px 18px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 0.2s;
+}
+.TablaPedidosCompletados-filtros button:hover { background: #c88800; }
+
+/* ── 3. Botón filtros móvil ── */
+.TablaPedidosCompletados-btn-filtros-mobile {
+  display: none;
+  margin: 10px auto;
+  padding: 8px 20px;
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  z-index: 10;
+}
+
+/* ── 4. Modal filtros móvil ── */
+.TablaPedidosCompletados-modal-filtros {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.TablaPedidosCompletados-modal-contenido {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.TablaPedidosCompletados-modal-contenido select,
+.TablaPedidosCompletados-modal-contenido input[type="date"] {
+  padding: 9px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+}
+.TablaPedidosCompletados-modal-botones { display: flex; gap: 10px; }
+.TablaPedidosCompletados-modal-botones button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.TablaPedidosCompletados-modal-botones button:first-child { background: #198754; color: #fff; }
+.TablaPedidosCompletados-modal-botones button:last-child  { background: #dc3545; color: #fff; }
+
+/* ── 5. Wrapper de la tabla ── */
+.TablaPedidosCompletados-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  border-radius: 0 0 10px 10px;
+}
+
+/* ── 6. Tabla base ── */
+.TablaPedidosCompletados-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: auto;
+}
+
+/* ── 7. Cabecera ── */
+.TablaPedidosCompletados-table thead th {
+  background: #0f1928;
+  color: #fff;
+  padding: 12px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-right: 1px solid rgba(255,255,255,.06);
+}
+.TablaPedidosCompletados-table thead th:last-child { border-right: none; }
+
+/* ── 8. Celdas ── */
+.TablaPedidosCompletados-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+  background: #fff;
+  font-size: 0.85rem;
+  color: #1e2f45;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.TablaPedidosCompletados-table tbody tr:nth-child(even) td { background: #f8fafc; }
+.TablaPedidosCompletados-table tbody tr:hover td { background: #f0f6ff !important; }
+
+/* ── 9. Columnas destacadas (Total Solicitado y Total Teórico)
+   Persisten en hover, zebra y fila expandida ── */
+.TablaPedidosCompletados-table th:nth-child(12),
+.TablaPedidosCompletados-table th:nth-child(17) {
+  background: #1e2f45;
+  color: #e8a000;
+}
+.TablaPedidosCompletados-table td:nth-child(12),
+.TablaPedidosCompletados-table td:nth-child(17),
+.TablaPedidosCompletados-table tbody tr:hover td:nth-child(12),
+.TablaPedidosCompletados-table tbody tr:hover td:nth-child(17),
+.TablaPedidosCompletados-row--expanded td:nth-child(12),
+.TablaPedidosCompletados-row--expanded td:nth-child(17) {
+  font-weight: 800;
+  background: #0f1928 !important;
+  color: #e8a000 !important;
+}
+
+/* ── 10. Fila expandida ── */
+.TablaPedidosCompletados-row--expanded td { background: #fffbea !important; }
+.TablaPedidosCompletados-row--expanded:hover td { background: #fff7d6 !important; }
+
+/* ── 11. Detalles expandibles ── */
+.TablaPedidosCompletados-details td {
+  padding: 0 !important;
+  background: #f5f9ff !important;
+}
+
+/* ── 12. Subtabla ── */
+.TablaPedidosCompletados-subtable {
+  width: calc(100% - 50px);
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  margin: 12px 0 12px 50px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.TablaPedidosCompletados-subtable th {
+  background: #1e2f45 !important;
+  color: #fff;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  z-index: 10 !important;
+}
+.TablaPedidosCompletados-subtable td {
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  border-bottom: 1px dashed #e2e8f0;
+  color: #1e2f45;
+}
+
+/* ── 13. Botones dentro de la tabla ── */
+.TablaPedidosCompletados-button,
+.TablaPedidosCompletados-table button {
+  padding: 5px 12px;
+  margin: 2px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: filter 0.15s, transform 0.05s;
+  letter-spacing: 0.2px;
+}
+.TablaPedidosCompletados-table button:active { transform: translateY(1px); }
+.TablaPedidosCompletados-table button:hover  { filter: brightness(1.08); }
+
+/* ── Botón expandir fila (+ / −) ── */
+.TablaPedidosCompletados-table tbody td:first-child button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1rem;
+  font-weight: 800;
+  background: #f0f2f5;
+  color: #0f1928;
+  border: 1px solid #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.TablaPedidosCompletados-table tbody td:first-child button:hover {
+  background: #0f1928;
+  color: #e8a000;
+  border-color: #0f1928;
+}
+
+/* ── Botón Exportar a Excel (debajo de la tabla) ── */
+.TablaPedidosCompletados-button {
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+.TablaPedidosCompletados-button:hover { background: #1e2f45; }
+
+/* ── Loading ── */
+.TablaPedidosCompletados-loading {
+  padding: 40px;
+  text-align: center;
+  color: #6b7a8d;
+  font-size: 0.9rem;
+}
+
+/* ── 14. Celda error ── */
+.TablaPedidosCompletados-cell--error {
+  color: #dc3545 !important;
+  font-weight: 700;
+}
+
+/* ── 15. Scrollbar ── */
+.TablaPedidosCompletados-wrapper::-webkit-scrollbar { height: 8px; width: 8px; }
+.TablaPedidosCompletados-wrapper::-webkit-scrollbar-track { background: #f0f2f5; border-radius: 8px; }
+.TablaPedidosCompletados-wrapper::-webkit-scrollbar-thumb {
+  background: #c8d0d8; border-radius: 8px; border: 2px solid #f0f2f5;
+}
+.TablaPedidosCompletados-wrapper::-webkit-scrollbar-thumb:hover { background: #a0aab4; }
+
+/* ── 16. Responsive ── */
+@media (max-width: 1200px) {
+  .TablaPedidosCompletados-table th,
+  .TablaPedidosCompletados-table td { padding: 9px 8px; }
+}
+@media (max-width: 900px) {
+  .TablaPedidosCompletados-contenedor { height: 90%; }
+  .TablaPedidosCompletados-filtros { display: none; }
+  .TablaPedidosCompletados-btn-filtros-mobile { display: block; }
+  .TablaPedidosCompletados-wrapper { overflow-x: auto; }
+  .TablaPedidosCompletados-table { min-width: 1200px; }
+  .TablaPedidosCompletados-subtable { min-width: 1000px; }
+}
+@media (min-width: 901px) {
+  .TablaPedidosCompletados-btn-filtros-mobile { display: none; }
+}

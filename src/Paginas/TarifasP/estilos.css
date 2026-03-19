@@ -1,0 +1,381 @@
+/* ── Layout ── */
+.TAR-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.TAR-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+.TAR-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+  gap: 16px;
+}
+.TAR-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+}
+.TAR-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+.TAR-brandAccent { color: #e8a000; }
+.TAR-backBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s;
+}
+.TAR-backBtn:hover { background: rgba(255,255,255,.2); }
+
+/* ── MAIN ── */
+.TAR-main {
+  flex: 1;
+  padding: 36px 24px;
+}
+.TAR-contenedor {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.TAR-topBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.TAR-titulo {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f1928;
+  margin: 0 0 4px;
+}
+.TAR-subtitulo {
+  font-size: 0.9rem;
+  color: #6b7a8d;
+  margin: 0;
+}
+.TAR-btnNuevo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 20px;
+  font-size: 0.87rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.TAR-btnNuevo:hover { opacity: 0.85; transform: translateY(-1px); }
+
+/* ── Buscador ── */
+.TAR-busquedaBar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 480px;
+}
+
+.TAR-busquedaInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  color: #1e2f45;
+  background: #fff;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.TAR-busquedaInput:focus {
+  border-color: #0f1928;
+  box-shadow: 0 0 0 3px rgba(15,25,40,.08);
+}
+
+.TAR-btnBuscar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.87rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+.TAR-btnBuscar:hover { opacity: 0.85; }
+
+/* ── Miga de pan ── */
+.TAR-miga {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.83rem;
+  color: #6b7a8d;
+  min-height: 24px;
+}
+
+.TAR-migaItem {
+  font-weight: 600;
+  color: #0f1928;
+}
+
+.TAR-migaSep {
+  color: #c0c8d2;
+  font-size: 1rem;
+}
+
+.TAR-migaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e8f0fe;
+  color: #0f1928;
+  border-radius: 100px;
+  padding: 3px 10px 3px 12px;
+  font-size: 0.8rem;
+}
+
+.TAR-migaChipClear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7a8d;
+  font-size: 0.7rem;
+  padding: 0;
+  transition: color 0.15s;
+}
+.TAR-migaChipClear:hover { color: #dc3545; }
+
+.TAR-loading {
+  text-align: center;
+  color: #6b7a8d;
+  padding: 48px;
+  font-size: 0.95rem;
+}
+
+/* ── Tabla ── */
+.TAR-tabla-wrap {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15,25,40,.08);
+  overflow: hidden;
+  overflow-x: auto;
+}
+.TAR-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.87rem;
+}
+.TAR-tabla thead tr {
+  background: #0f1928;
+  color: #fff;
+}
+.TAR-tabla th {
+  padding: 13px 14px;
+  text-align: left;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.TAR-th-tarifa { text-align: right !important; min-width: 110px; }
+.TAR-fila {
+  border-bottom: 1px solid #f0f2f5;
+  transition: background 0.12s;
+}
+.TAR-fila:last-child { border-bottom: none; }
+.TAR-fila:hover { background: #f8fafc; }
+.TAR-tabla td { padding: 11px 14px; color: #1e2f45; vertical-align: middle; }
+.TAR-td-bold { font-weight: 700; }
+.TAR-badge {
+  display: inline-block;
+  background: #fff3cd;
+  color: #856404;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 100px;
+  letter-spacing: 0.3px;
+}
+.TAR-td-monto {
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.TAR-nd { color: #c0c8d2; }
+.TAR-td-acciones { display: flex; gap: 6px; align-items: center; }
+.TAR-btnAccion {
+  width: 30px; height: 30px;
+  border-radius: 7px; border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem;
+  transition: background 0.15s;
+}
+.TAR-btnAccion:disabled { opacity: 0.4; cursor: not-allowed; }
+.TAR-btnAccion--editar  { background: #e8f0fe; color: #0f1928; }
+.TAR-btnAccion--eliminar { background: #fff5f5; color: #dc3545; }
+.TAR-btnAccion--editar:hover  { background: #d0e2fc; }
+.TAR-btnAccion--eliminar:hover { background: #ffe0e0; }
+.TAR-td-vacio { text-align: center; padding: 48px; color: #6b7a8d; font-size: 0.9rem; }
+
+/* ── FOOTER ── */
+.TAR-footer { background: #0f1928; border-top: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }
+.TAR-footerInner {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; padding: 14px 28px;
+}
+.TAR-footerBrand { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,.75); }
+.TAR-footerLinks { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.TAR-footerLink { display: flex; align-items: center; gap: 5px; font-size: 0.78rem; color: rgba(255,255,255,.4); text-decoration: none; transition: color 0.2s; }
+.TAR-footerLink:hover { color: #e8a000; }
+.TAR-footerCopy { font-size: 0.75rem; color: rgba(255,255,255,.25); }
+
+/* ══ MODAL ══ */
+.TAR-modalOverlay {
+  position: fixed; inset: 0;
+  background: rgba(15,25,40,.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px;
+  backdrop-filter: blur(2px);
+}
+.TAR-modalCard {
+  background: #fff; border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(15,25,40,.25);
+  width: 100%; max-width: 620px;
+  max-height: 90vh; overflow-y: auto;
+}
+.TAR-modalHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 28px 0;
+}
+.TAR-modalTitulo { font-size: 1.1rem; font-weight: 800; color: #0f1928; margin: 0; }
+.TAR-modalCerrar {
+  background: #f0f2f5; border: none; border-radius: 8px;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #6b7a8d; font-size: 0.9rem;
+  transition: background 0.15s;
+}
+.TAR-modalCerrar:hover { background: #e2e6ea; color: #0f1928; }
+.TAR-modalForm { padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 16px; }
+.TAR-formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.TAR-formGrupo { display: flex; flex-direction: column; gap: 5px; }
+.TAR-formGrupo--full { grid-column: 1 / -1; }
+.TAR-formLabel { font-size: 0.74rem; font-weight: 700; color: #6b7a8d; text-transform: uppercase; letter-spacing: 0.4px; }
+.TAR-formInput {
+  padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 9px;
+  font-size: 0.9rem; color: #1e2f45; background: #f8fafc;
+  outline: none; font-family: inherit; width: 100%; box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.TAR-formInput:focus { border-color: #0f1928; background: #fff; box-shadow: 0 0 0 3px rgba(15,25,40,.08); }
+.TAR-formInput[readonly] { background: #f0f2f5; color: #6b7a8d; cursor: not-allowed; }
+.TAR-upper { text-transform: uppercase; }
+.TAR-formError {
+  color: #dc3545; font-size: 0.84rem;
+  background: #fff5f5; border: 1px solid #fecaca;
+  border-radius: 8px; padding: 8px 12px; margin: 0;
+}
+.TAR-modalFooter { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+.TAR-btnCancelar {
+  padding: 10px 20px; border: 1.5px solid #e2e8f0; border-radius: 9px;
+  background: none; font-size: 0.88rem; font-weight: 600; color: #6b7a8d;
+  cursor: pointer; font-family: inherit; transition: background 0.15s;
+}
+.TAR-btnCancelar:hover { background: #f0f2f5; }
+.TAR-btnGuardar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 22px; background: #0f1928; color: #fff;
+  border: none; border-radius: 9px;
+  font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: opacity 0.2s;
+}
+.TAR-btnGuardar:hover:not(:disabled) { opacity: 0.85; }
+.TAR-btnGuardar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Filas dinámicas de vehículo ── */
+.TAR-tarifasSeccion { display: flex; flex-direction: column; gap: 10px; }
+.TAR-tarifasHeader { display: flex; align-items: center; justify-content: space-between; }
+.TAR-btnAgregarFila {
+  display: flex; align-items: center; gap: 5px;
+  background: #f0f2f5; border: none; border-radius: 7px;
+  padding: 6px 12px; font-size: 0.8rem; font-weight: 700;
+  color: #0f1928; cursor: pointer; font-family: inherit;
+  transition: background 0.15s;
+}
+.TAR-btnAgregarFila:hover { background: #e2e6ea; }
+.TAR-tarifasFilas { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px; }
+.TAR-tarifaFila { display: flex; align-items: center; gap: 8px; }
+.TAR-tarifaKey { flex: 2; }
+.TAR-tarifaVal { flex: 3; }
+.TAR-tarifaSep { font-size: 0.9rem; color: #6b7a8d; flex-shrink: 0; }
+.TAR-btnEliminarFila {
+  width: 28px; height: 28px; border: none; border-radius: 6px;
+  background: #fff5f5; color: #dc3545; font-size: 0.75rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.15s;
+}
+.TAR-btnEliminarFila:hover { background: #ffe0e0; }
+.TAR-tarifasVacio { font-size: 0.83rem; color: #6b7a8d; text-align: center; padding: 12px 0; margin: 0; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .TAR-main { padding: 20px 12px; }
+  .TAR-formGrid { grid-template-columns: 1fr; }
+  .TAR-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
+  .TAR-footerLinks { display: none; }
+  .TAR-headerInner { padding: 0 16px; }
+}
