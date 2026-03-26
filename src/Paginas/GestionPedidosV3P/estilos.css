@@ -1,0 +1,741 @@
+/* ── Layout raíz ── */
+.GPV3-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.GPV3-header {
+  background: linear-gradient(90deg, #004d40 0%, #006b5e 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.GPV3-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+  gap: 16px;
+}
+
+.GPV3-backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,.1);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.GPV3-backBtn:hover { background: rgba(255,255,255,.18); }
+
+.GPV3-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.GPV3-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.GPV3-brandAccent { color: #80cbc4; }
+
+.GPV3-title {
+  flex: 1;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
+
+.GPV3-userZone {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.GPV3-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 8px 14px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.GPV3-userBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.GPV3-userIcon {
+  font-size: 1.2rem;
+}
+
+.GPV3-userInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.GPV3-userName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.GPV3-userPerfil {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+}
+
+.GPV3-chevron {
+  font-size: 0.8rem;
+  transition: transform 0.2s;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.GPV3-chevronOpen {
+  transform: rotate(180deg);
+}
+
+.GPV3-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+  min-width: 200px;
+  z-index: 100;
+  animation: GPV3-fadeIn 0.2s ease-out;
+}
+
+@keyframes GPV3-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.GPV3-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.GPV3-dropItem:hover {
+  background: #f0f2f5;
+  padding-left: 20px;
+}
+
+.GPV3-dropItemActive {
+  background: #e8f5e9;
+  color: #004d40;
+  font-weight: 700;
+}
+
+.GPV3-dropItemDanger {
+  color: #dc3545;
+  border-top: 1px solid #f0f2f5;
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.GPV3-dropItemDanger:hover {
+  background: #ffebee;
+}
+
+/* ── MAIN ── */
+.GPV3-main {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* ── Toolbar ── */
+.GPV3-toolbar {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  flex-wrap: wrap;
+}
+
+.GPV3-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 280px;
+  max-width: 500px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.GPV3-searchIcon {
+  color: #6b7a8d;
+  font-size: 1rem;
+}
+
+.GPV3-searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  outline: none;
+  color: #1e2f45;
+}
+.GPV3-searchInput::placeholder { color: #adb5bd; }
+
+.GPV3-filter {
+  display: flex;
+  align-items: center;
+}
+
+.GPV3-filterSelect {
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 250px;
+  font-family: inherit;
+}
+
+.GPV3-filterSelect:hover {
+  border-color: #004d40;
+  box-shadow: 0 2px 8px rgba(0, 77, 64, 0.1);
+}
+
+.GPV3-filterSelect:focus {
+  outline: none;
+  border-color: #004d40;
+  box-shadow: 0 0 0 3px rgba(0, 77, 64, 0.1);
+}
+
+.GPV3-filterSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.GPV3-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.GPV3-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.GPV3-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+}
+
+.GPV3-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.GPV3-btnPrimary {
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+}
+
+.GPV3-btnSuccess {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: #fff;
+}
+
+.GPV3-btnDanger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: #fff;
+}
+
+.GPV3-btnSecondary {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  color: #fff;
+}
+
+/* ── Content ── */
+.GPV3-content {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+
+/* ── Loading ── */
+.GPV3-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 20px;
+  color: #6b7a8d;
+}
+
+.GPV3-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f0f2f5;
+  border-top: 4px solid #004d40;
+  border-radius: 50%;
+  animation: GPV3-spin 1s linear infinite;
+}
+
+@keyframes GPV3-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ── Empty State ── */
+.GPV3-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 20px;
+  color: #6b7a8d;
+  text-align: center;
+}
+
+.GPV3-emptyIcon {
+  font-size: 4rem;
+  color: #adb5bd;
+}
+
+.GPV3-empty h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #004d40;
+  margin: 0;
+}
+
+.GPV3-empty p {
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ── Table Container ── */
+.GPV3-tableContainer {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.GPV3-table {
+  width: 100%;
+  min-width: 1800px;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.GPV3-table thead {
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+}
+
+.GPV3-table th {
+  padding: 16px;
+  text-align: left;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.GPV3-table tbody tr {
+  border-bottom: 1px solid #f0f2f5;
+  transition: background 0.15s;
+}
+
+.GPV3-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.GPV3-table td {
+  padding: 14px 16px;
+  color: #1e2f45;
+}
+
+.GPV3-actionsCell {
+  white-space: nowrap;
+  vertical-align: top;
+  padding-top: 20px;
+}
+
+.GPV3-cellContent {
+  padding: 8px;
+}
+
+.GPV3-cellLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #004d40;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.GPV3-cellLabelOriginal {
+  margin-top: 8px;
+  color: #6b7a8d;
+}
+
+.GPV3-cellOriginal {
+  font-size: 0.85rem;
+  color: #6b7a8d;
+  font-style: italic;
+  background: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
+.GPV3-cellValue {
+  font-size: 0.9rem;
+  color: #1e2f45;
+  font-weight: 500;
+}
+
+.GPV3-actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  margin-right: 6px;
+}
+
+.GPV3-actionBtn:hover {
+  transform: scale(1.1);
+}
+
+.GPV3-actionBtnEdit {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.GPV3-actionBtnEdit:hover {
+  background: #bbdefb;
+}
+
+.GPV3-actionBtnDelete {
+  background: #ffebee;
+  color: #dc3545;
+}
+
+.GPV3-actionBtnDelete:hover {
+  background: #ffcdd2;
+}
+
+/* ── Pagination ── */
+.GPV3-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px;
+  border-top: 2px solid #f0f2f5;
+}
+
+.GPV3-pageBtn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.GPV3-pageBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+}
+
+.GPV3-pageBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.GPV3-pageInfo {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6b7a8d;
+}
+
+/* ── Modal ── */
+.GPV3-modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.GPV3-modal {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.GPV3-modalLarge {
+  max-width: 800px;
+}
+
+.GPV3-modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 2px solid #f0f2f5;
+}
+
+.GPV3-modalHeader h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #004d40;
+}
+
+.GPV3-closeBtn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #f0f2f5;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #6b7a8d;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.GPV3-closeBtn:hover {
+  background: #e9ecef;
+  color: #dc3545;
+}
+
+.GPV3-modalBody {
+  padding: 28px;
+}
+
+.GPV3-modalInfo {
+  font-size: 0.95rem;
+  color: #6b7a8d;
+  line-height: 1.7;
+  text-align: center;
+  margin: 0;
+}
+
+.GPV3-modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 28px;
+  border-top: 2px solid #f0f2f5;
+}
+
+/* ── File Input ── */
+.GPV3-fileInput {
+  margin-bottom: 20px;
+}
+
+.GPV3-fileInput input {
+  display: none;
+}
+
+.GPV3-fileLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  border: 2px dashed #004d40;
+  border-radius: 16px;
+  background: #f8f9fa;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #004d40;
+  text-align: center;
+}
+
+.GPV3-fileLabel:hover {
+  background: #e8f5e9;
+  border-color: #006b5e;
+}
+
+/* ── Progress Bar ── */
+.GPV3-progreso {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 0;
+}
+
+.GPV3-progresoStage {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #004d40;
+  text-align: center;
+}
+
+.GPV3-progresoBar {
+  height: 12px;
+  background: #f0f2f5;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.GPV3-progresoFill {
+  height: 100%;
+  background: linear-gradient(90deg, #004d40 0%, #006b5e 100%);
+  transition: width 0.3s ease;
+  border-radius: 6px;
+}
+
+.GPV3-progresoStats {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #6b7a8d;
+  font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .GPV3-headerInner {
+    padding: 0 16px;
+  }
+
+  .GPV3-title {
+    font-size: 1rem;
+  }
+
+  .GPV3-main {
+    padding: 16px;
+  }
+
+  .GPV3-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .GPV3-search {
+    max-width: none;
+  }
+
+  .GPV3-actions {
+    flex-direction: column;
+  }
+
+  .GPV3-btn {
+    justify-content: center;
+  }
+
+  .GPV3-table {
+    font-size: 0.8rem;
+  }
+
+  .GPV3-table th,
+  .GPV3-table td {
+    padding: 10px 8px;
+  }
+
+  .GPV3-modal {
+    margin: 20px;
+    max-height: calc(100vh - 40px);
+  }
+
+  .GPV3-modalHeader,
+  .GPV3-modalBody,
+  .GPV3-modalFooter {
+    padding: 20px;
+  }
+}

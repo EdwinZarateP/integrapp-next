@@ -6,6 +6,7 @@ import {
   FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaChevronDown,
   FaPlus, FaTimes, FaFileUpload, FaFileDownload, FaCloudUploadAlt, FaUsers, FaTable,
+  FaBars,
 } from 'react-icons/fa';
 import CargarPedidos from '@/Componentes/PedidosComponentes/CargarPedidos';
 import TablaPedidos from '@/Componentes/PedidosComponentes/TablaPedidos';
@@ -21,6 +22,7 @@ const Pedidos: React.FC = () => {
   const regional = Cookies.get('regionalPedidosCookie') || '';
   const router = useRouter();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const [fabAbierto, setFabAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cargarRef = useRef<HTMLDivElement>(null);
@@ -66,13 +68,11 @@ const Pedidos: React.FC = () => {
             </span>
           </button>
 
+
           {/* Nav tabs */}
           <nav className="Ped-nav">
             <button className="Ped-navTab Ped-navTabActive" onClick={() => router.push('/Pedidos')}>
               <FaBoxOpen /> Gestión de Pedidos
-            </button>
-            <button className="Ped-navTab" onClick={() => router.push('/PedidosCompletados')}>
-              <FaCheckCircle /> Completados
             </button>
           </nav>
 
@@ -89,6 +89,9 @@ const Pedidos: React.FC = () => {
 
             {menuAbierto && (
               <div className="Ped-dropdown">
+                <button className="Ped-dropItem" onClick={() => { setMenuAbierto(false); router.push('/PedidosCompletados'); }}>
+                  <FaCheckCircle /> Pedidos Completados
+                </button>
                 <button className="Ped-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
                   <FaChartBar /> Indicadores
                 </button>

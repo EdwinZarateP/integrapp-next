@@ -46,6 +46,25 @@
   flex-shrink: 0;
 }
 
+/* Botón menú móvil */
+.PC-menuMobileBtn {
+  display: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.PC-menuMobileBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .PC-brandName {
   font-size: 1.25rem;
   font-weight: 800;
@@ -201,6 +220,66 @@
 .PC-dropItemDanger { color: #c9302c; }
 .PC-dropItemDanger:hover { background: #fff5f5; }
 
+/* ── MENÚ MÓVIL ── */
+.PC-menuMobile {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 199;
+  animation: PC-slideDown 0.2s ease;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+@keyframes PC-slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.PC-menuMobileItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  font-size: 0.95rem;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  text-align: left;
+  border-bottom: 1px solid #f5f7fa;
+}
+
+.PC-menuMobileItem:last-child {
+  border-bottom: none;
+}
+
+.PC-menuMobileItem:hover {
+  background: #f5f7fa;
+}
+
+.PC-menuMobileItemDanger {
+  color: #c9302c;
+  font-weight: 600;
+}
+
+.PC-menuMobileItemDanger:hover {
+  background: #fff5f5;
+}
+
+.PC-menuMobileDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
 /* ── TABLA PRINCIPAL ── */
 .PC-main {
   flex: 1 1 auto;
@@ -260,10 +339,27 @@
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
   .PC-nav { display: none; }
+  
+  .PC-menuMobileBtn { display: flex; }
 
-  .PC-headerInner { padding: 0 14px; }
+  .PC-headerInner { padding: 0 14px; gap: 10px; }
 
-  .PC-userInfo { display: none; }
+  .PC-userBtn { padding: 8px; }
+
+  .PC-brandName { display: none; }
+
+  /* Ajustar zona de usuario para que el dropdown se alinee a la derecha */
+  .PC-userZone {
+    margin-left: auto;
+  }
+
+  /* Dropdown alineado a la derecha en móviles */
+  .PC-dropdown {
+    right: 0;
+    left: auto !important;
+    min-width: 200px;
+    max-width: calc(100vw - 28px);
+  }
 
   .PC-footerInner {
     flex-direction: column;

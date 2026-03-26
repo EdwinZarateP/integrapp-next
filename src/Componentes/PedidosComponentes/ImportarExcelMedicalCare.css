@@ -1,0 +1,33 @@
+.ImportarExcelMedicalCare-contenedor {
+  display: inline-block;
+}
+
+.ImportarExcelMedicalCare-boton {
+  background: linear-gradient(135deg, #0f1928, #1e2f45);
+  color: #e8a000;
+  border: 2px solid #e8a000;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ImportarExcelMedicalCare-boton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e2f45, #0f1928);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.ImportarExcelMedicalCare-boton:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ImportarExcelMedicalCare-boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

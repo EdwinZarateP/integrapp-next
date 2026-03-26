@@ -166,17 +166,17 @@
 
 /* ── 9. Columnas destacadas (Total Solicitado y Total Teórico)
    Persisten en hover, zebra y fila expandida ── */
-.TablaPedidosCompletados-table th:nth-child(12),
-.TablaPedidosCompletados-table th:nth-child(17) {
+.TablaPedidosCompletados-table th:nth-child(13),
+.TablaPedidosCompletados-table th:nth-child(18) {
   background: #1e2f45;
   color: #e8a000;
 }
-.TablaPedidosCompletados-table td:nth-child(12),
-.TablaPedidosCompletados-table td:nth-child(17),
-.TablaPedidosCompletados-table tbody tr:hover td:nth-child(12),
-.TablaPedidosCompletados-table tbody tr:hover td:nth-child(17),
-.TablaPedidosCompletados-row--expanded td:nth-child(12),
-.TablaPedidosCompletados-row--expanded td:nth-child(17) {
+.TablaPedidosCompletados-table td:nth-child(13),
+.TablaPedidosCompletados-table td:nth-child(18),
+.TablaPedidosCompletados-table tbody tr:hover td:nth-child(13),
+.TablaPedidosCompletados-table tbody tr:hover td:nth-child(18),
+.TablaPedidosCompletados-row--expanded td:nth-child(13),
+.TablaPedidosCompletados-row--expanded td:nth-child(18) {
   font-weight: 800;
   background: #0f1928 !important;
   color: #e8a000 !important;

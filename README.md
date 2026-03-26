@@ -10,18 +10,279 @@ Frontend de la plataforma logística de **Integra Cadena de Servicios S.A.S.**, 
 
 Plataforma web multi-portal para la operación logística de Integra. Cada portal es un flujo de trabajo independiente con autenticación propia:
 
-| Portal | Ruta | Descripción |
-|---|---|---|
-| **Home** | `/` | Página de inicio con buscador de guías y acceso a portales |
-| **Portal Transportadores** | `/loginpropietarios` | Propietarios de vehículos: manifiestos, saldos, novedades |
-| **Portal Empleados** | `/CertificadoLaboralP` | Certificados laborales en PDF |
-| **Torre de Control — Kabi** | `/LoginUsuario` → `/Pedidos` | Gestión de pedidos Fresenius Kabi |
-| **Torre de Control — Medical Care** | `/LoginUsuario` → `/MedicalCare` | Portal Fresenius Medical Care (en construcción) |
-| **Portal Conductores** | `/LoginConductores` | Panel del conductor: revisión de vehículos, documentos, firmas |
-| **Portal Clientes** | `/PortalClientes` | Diseño y consulta de servicios |
-| **Portal Ventas** | `/PortalVentas` | Herramientas comerciales y creación de clientes |
+### Home (`/`)
+Página de inicio con:
+- Header con logo y navegación
+- Buscador de guías para rastreo rápido
+- Accesos a todos los portales del sistema
+- Información de la empresa
+- Footer con datos de contacto
 
-> La Torre de Control soporta múltiples clientes. Tras el login, si el usuario tiene acceso a más de un cliente se muestra un selector de portal. El cliente activo se guarda en la cookie `clientePedidosCookie`.
+### Portal Transportadores
+Flujo completo para propietarios de vehículos:
+
+**Login (`/loginpropietarios`):**
+- Autenticación con usuario y contraseña
+- Redirección a dashboard si credenciales son válidas
+
+**Dashboard (`/InicioPropietarios`):**
+- Resumen de manifiestos (activos, pagados, devueltos)
+- Navegación a diferentes estados de manifiestos
+- Información del propietario autenticado
+
+**Extracción de Datos (`/SalaEspera`):**
+- Animación de carga durante extracción de datos del backend
+- Extracción de manifiestos activos y pagados
+- Extracción de saldos pendientes
+
+**Selección de Estados (`/SeleccionEstados`):**
+- Selección de tipo de manifiesto a visualizar:
+  - ACTIVOS (manifiertos sin liquidar)
+  - PAGADOS (manifiestos liquidados)
+  - DEVUELTOS (manifiestos con devoluciones)
+
+**Vista de Manifiestos (`/Estados`):**
+- Tabla con manifiestos filtrados por estado
+- Información: número de manifiesto, fecha, origen, destino, destinatario, estado, valor
+- Opciones para ver detalles
+- Paginación para manejar grandes volúmenes
+
+**Detalle de Manifiesto (`/DetalleEstados`):**
+- Vista detallada de un manifiesto específico
+- Información completa: flete, saldos, fechas, estado
+- Opciones para registrar novedades
+
+**Registro de Novedades (`/Novedad`):**
+- Formulario para registrar incidentes en manifiestos
+- Carga de fotos como evidencia (componente FotoNovedad)
+- Descripción detallada de la novedad
+- Selección de tipo de novedad
+- Envío de notificación al backend
+
+### Torre de Control - Multi-Cliente
+Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius Kabi y Fresenius Medical Care):
+
+**Login de Dos Pasos (`/LoginUsuario`):**
+1. Primer paso: credenciales (usuario, clave)
+2. Segundo paso: selector de cliente (si tiene acceso a más de uno)
+3. Cookies de sesión: `usuarioPedidosCookie`, `perfilPedidosCookie`, `regionalPedidosCookie`, `clientePedidosCookie`
+4. Perfiles: ADMIN, OPERATIVO, SEGURIDAD, CONDUCTOR
+
+**Login Seguridad (`/LoginUsuariosSeguridad`):**
+- Login especial para perfil SEGURIDAD/ADMIN
+- Cookie de sesión: `seguridadId`
+- Acceso limitado a funciones de seguridad
+
+**Gestión de Pedidos - Kabi (`/Pedidos`):**
+- **Carga Masiva**: Subir Excel con pedidos
+  - Validación de formato
+  - Cálculo automático de totales
+  - Creación de consecutivos vehiculares
+  - Asignación de tarifas según origen/destino
+- **Tabla de Pedidos**: Vista agrupada por consecutivo_vehiculo
+  - Estados: AUTORIZADO, PREAUTORIZADO, PENDIENTE, NO AUTORIZADO
+  - Columnas: consecutivo, cantidad, kilos totales, costo real, costo teórico, estado
+  - Autorización según perfil (ADMIN: todos, OPERATIVO: autorizado/preautorizado)
+  - Confirmación de preautorizados
+  - Eliminación de pedidos
+- **FAB Speed Dial**: Botón flotante con acciones rápidas
+  - Cargar pedidos
+  - Exportar autorizados a Excel
+  - Importar desde Vulcano
+- **Exportación**: Descarga de pedidos autorizados en Excel con cálculo de tarifas
+
+**Pedidos Completados (`/PedidosCompletados`):**
+- Vista histórica de pedidos completados
+- Filtros por usuario, estados, regionales
+- Exportación a Excel
+- Acceso solo a usuarios autorizados
+
+**Gestión de Usuarios (`/GestionUsuarios`) - Solo ADMIN:**
+- Tabla de usuarios del sistema
+- Crear nuevos usuarios:
+  - Nombre, usuario, clave, perfil
+  - Regional asignada
+  - Correo y celular
+  - Clientes permitidos (KABI, MEDICAL_CARE o ambos)
+- Editar usuarios existentes
+- Asignación de clientes por usuario (toggles)
+- Búsqueda de usuarios
+
+**Gestión de Tarifas (`/Tarifas`) - Solo ADMIN:**
+- Tabla de tarifas de flete
+- Filtros: origen fijo (FUNZA), destino variable
+- Búsqueda por destino (startsWith para mayor precisión)
+- Crear nueva tarifa:
+  - Origen, destino
+  - Tipos de vehículo dinámicos: CAMIONETA, CARRY, 4X2, 6X2, 6X4, 8X2, 8X4
+  - Costos por tipo de vehículo
+- Editar tarifas existentes
+- Eliminar tarifas
+
+**Portal Medical Care (`/MedicalCare`):**
+- Header verde Fresenius Medical Care
+- **Gestión de Pacientes**:
+  - **Importación masiva de pacientes desde Excel**:
+    - Subida de archivos (.xlsx, .xls, .xlsm)
+    - Validación de columnas requeridas (paciente, cedula)
+    - Normalización automática de datos según reglas de Power Query
+    - Alertas con SweetAlert2 mostrando estadísticas de carga
+    - Solo visible para perfiles ADMIN y OPERATIVO
+  - **Tabla de pacientes importados**:
+    - Visualización de todos los pacientes con paginación (50 por página)
+    - Columnas: cédula, paciente, dirección, municipio, departamento, celular, sede, CEDI, ruta, fecha carga
+    - Estados: cargando, error, vacío, datos
+    - Navegación por páginas
+  - **FAB Speed Dial**: Botón flotante en esquina inferior derecha con opción "Importar Excel"
+  - **Menú de usuario**: Opción "Pacientes" para ir a la página de gestión completa
+  - Protegido: requiere sesión y cliente activo = MEDICAL_CARE
+
+**Gestión de Pedidos V3 (`/GestionPedidosV3`):**
+- Página completa de gestión CRUD para pedidos de Medical Care V3
+- **Carga masiva desde Excel**:
+  - Modal para subir archivos Excel con progreso en tiempo real via SSE
+  - Visualización de estadísticas de carga (registros exitosos, errores)
+  - Manejo de errores con lista detallada
+  - Solo visible para perfiles ADMIN y OPERATIVO
+- **Búsqueda de pedidos**: Por filtros múltiples con paginación
+- **Tabla de pedidos**:
+  - Visualización de campos normalizados y originales
+  - Paginación automática
+  - Navegación por páginas
+- **Creación de pedidos**: Modal con formulario completo
+- **Edición de pedidos**: Modal con carga de datos existentes
+- **Eliminación de pedidos**: Confirmación con SweetAlert2
+- **Navegación**: Botón para volver a Medical Care
+- **Protección**: Requiere sesión y cliente activo = MEDICAL_CARE
+
+**Gestión de Pacientes (`/GestionPacientes`):**
+- Página completa de gestión CRUD para pacientes de Medical Care
+- **Búsqueda de pacientes**: Por cédula o nombre con filtros en tiempo real
+- **Tabla de pacientes**:
+  - Visualización de campos normalizados y originales
+  - Columnas: paciente, cédula, dirección, municipio, celular, acciones
+  - Indicador visual cuando el valor original difiere del normalizado
+  - Paginación automática
+- **Creación de pacientes**:
+  - Modal con formulario completo
+  - Campos: sede, paciente, cédula, dirección, departamento, municipio, ruta, cedi, celular
+  - Validación de campos obligatorios
+  - Normalización automática en el backend
+- **Edición de pacientes**:
+  - Carga de datos existentes en el modal
+  - Edición de todos los campos
+  - Validación de duplicados al cambiar cédula
+- **Eliminación de pacientes**:
+  - Confirmación con SweetAlert2
+  - Eliminación individual de pacientes
+- **Carga masiva desde Excel**:
+  - Modal para subir archivos Excel
+  - Visualización de estadísticas de carga
+  - Manejo de errores con lista detallada
+- **Navegación**: Botón para volver a Medical Care
+- **Protección**: Requiere sesión y cliente activo = MEDICAL_CARE
+
+### Portal Conductores
+Panel para conductores de vehículos:
+
+**Login (`/LoginConductores`):**
+- Autenticación con usuario y contraseña
+- Cookie de sesión: `conductorId`
+
+**Registro de Conductor (`/RegistroConductor`):**
+- Formulario de registro nuevo
+- Datos personales, vehículo, licencia
+- Validación de campos
+
+**Recuperación de Clave (`/OlvidoClaveConductor`):**
+- Verificación de usuario
+- Envío de código de seguridad por correo
+- Validación de código
+- Restablecimiento de contraseña
+
+**Panel del Conductor (`/PanelConductores`):**
+- Información personal del conductor
+- Lista de vehículos asignados
+- Documentación de vehículos:
+  - SOAT, tecnomecánica, tarjeta de propiedad
+  - Seguro, licencia de conducción
+  - Estudios de seguridad
+  - Fotos del vehículo
+- Firma digital (componente con react-signature-canvas)
+- Estado de aprobación de vehículos
+- Descarga de hoja de vida en PDF (componente HvVehiculos con @react-pdf)
+
+**Revisión de Vehículo (`/revision`) - Perfil Seguridad:**
+- Lista de vehículos pendientes de revisión
+- Detalle de cada vehículo
+- Subir fotos de seguridad
+- Subir estudios de seguridad
+- Enviar observaciones
+- Aprobar o rechazar vehículo
+- Notificaciones automáticas al propietario
+
+### Portal Empleados
+Sistema de certificados laborales:
+
+**Certificados Laborales (`/CertificadoLaboralP`):**
+- Búsqueda de empleado por cédula
+- Vista previa del certificado en PDF
+- Opción de incluir o no información salarial
+- Envío del certificado por correo
+- Generación del PDF con @react-pdf/renderer
+- Descarga directa del PDF
+
+### Portal Clientes
+Herramientas para diseño y consulta de servicios:
+
+**Portal Clientes (`/PortalClientes`):**
+- Diseñador de servicios de transporte
+- Selección de origen y destino
+- Cálculo de tarifas
+- Visualización de rutas
+- Solicitud de servicio
+
+### Portal Ventas
+Herramientas comerciales:
+
+**Portal Ventas (`/PortalVentas`):**
+- Gestión de clientes
+- Creación de cotizaciones
+- Seguimiento de oportunidades
+- Reportes de ventas
+
+### Utilidades y Herramientas
+
+**Descargables (`/descargables`):**
+- Descarga del bot de recolecciones (bot_recolecciones.exe)
+- Documentación de uso
+
+**Indicadores (`/indicadores`):**
+- Dashboard PowerBI embebido (iframe)
+- Métricas de operación Kabi
+
+**Indicadores FMC (`/indicadoresfmc`):**
+- Dashboard PowerBI embebido (iframe)
+- Métricas de operación Medical Care
+
+**API2 (`/Api2`):**
+- Página de prueba de autenticación con Vulcano
+- Herramientas de debugging
+- No es producción
+
+**Registro de Propietario (`/Registro`):**
+- Formulario de registro para nuevos propietarios
+- Validación de datos
+- Envío al backend
+
+**Olvido de Clave (`/olvidoclave`):**
+- Recuperación de contraseña para propietarios
+- Envío de enlace con token al correo
+
+**Recuperación de Clave (`/recuperar-clave`):**
+- Confirmación de nueva contraseña con token
+- Validación de token del enlace del correo
+- Actualización de contraseña en backend
 
 ---
 
@@ -58,55 +319,87 @@ integrapp-next/
 │   │   ├── not-found.tsx
 │   │   │
 │   │   ├── loginpropietarios/      # Login propietarios de vehículos
+│   │   │   └── page.tsx
 │   │   ├── InicioPropietarios/     # Dashboard propietario (requiere auth)
+│   │   │   └── page.tsx
 │   │   ├── SalaEspera/             # Extracción de datos de la API
+│   │   │   └── page.tsx
 │   │   ├── SeleccionEstados/       # Selección: ACTIVOS / PAGADOS / DEVUELTOS
+│   │   │   └── page.tsx
 │   │   ├── Estados/                # Vista de manifiestos por estado
+│   │   │   └── page.tsx
 │   │   ├── Novedad/                # Registro de novedades con foto
+│   │   │   └── page.tsx
 │   │   ├── DetalleEstados/         # Detalle de un manifiesto
+│   │   │   └── page.tsx
 │   │   │
-│   │   ├── LoginUsuario/           # Login Torre de Control — flujo 2 pasos: credenciales → selector de cliente
+│   │   ├── LoginUsuario/           # Login Torre de Control — flujo 2 pasos
+│   │   │   └── page.tsx
 │   │   ├── LoginUsuariosSeguridad/ # Login perfil seguridad
-│   │   ├── Pedidos/                # Gestión de pedidos Fresenius Kabi: carga masiva, autorización, FAB de acciones
+│   │   │   └── page.tsx
+│   │   ├── Pedidos/                # Gestión de pedidos Fresenius Kabi
+│   │   │   └── page.tsx
 │   │   ├── PedidosCompletados/     # Vista de pedidos completados Kabi
-│   │   ├── MedicalCare/            # Portal Fresenius Medical Care (en construcción)
-│   │   ├── GestionUsuarios/        # Panel ADMIN: crear usuarios y asignar acceso por cliente
-│   │   ├── Tarifas/                # Gestión de tarifas de flete (CRUD, filtro por destino)
+│   │   │   └── page.tsx
+│   │   ├── MedicalCare/            # Portal Fresenius Medical Care
+│   │   │   └── page.tsx
+│   │   ├── GestionPacientes/      # Gestión CRUD de pacientes Medical Care
+│   │   │   ├── page.tsx
+│   │   │   └── estilos.css
+│   │   ├── GestionUsuarios/        # Panel ADMIN: gestión de usuarios
+│   │   │   └── page.tsx
+│   │   ├── Tarifas/               # Gestión de tarifas de flete
+│   │   │   └── page.tsx
 │   │   │
 │   │   ├── LoginConductores/       # Login conductores
+│   │   │   └── page.tsx
 │   │   ├── RegistroConductor/      # Registro de conductor
-│   │   ├── OlvidoClaveConductor/
-│   │   ├── PanelConductores/       # Panel del conductor (documentos, revisión, firmas)
+│   │   │   └── page.tsx
+│   │   ├── OlvidoClaveConductor/  # Recuperación clave conductor
+│   │   │   └── page.tsx
+│   │   ├── PanelConductores/       # Panel del conductor
+│   │   │   └── page.tsx
 │   │   ├── revision/               # Revisión del vehículo (inspector)
+│   │   │   └── page.tsx
 │   │   │
-│   │   ├── PortalClientes/
-│   │   ├── PortalVentas/
+│   │   ├── PortalClientes/         # Portal de clientes
+│   │   │   └── page.tsx
+│   │   ├── PortalVentas/           # Portal de ventas
+│   │   │   └── page.tsx
 │   │   ├── CertificadoLaboralP/    # Certificados laborales
+│   │   │   └── page.tsx
 │   │   │
 │   │   ├── Registro/               # Registro de propietario
-│   │   ├── olvidoclave/
-│   │   ├── recuperar-clave/        # Recuperación con token (link desde correo)
+│   │   │   └── page.tsx
+│   │   ├── olvidoclave/            # Olvido clave propietario
+│   │   │   └── page.tsx
+│   │   ├── recuperar-clave/        # Recuperación con token
+│   │   │   └── page.tsx
 │   │   │
 │   │   ├── indicadores/            # Dashboard PowerBI 1
+│   │   │   └── page.tsx
 │   │   ├── indicadoresfmc/         # Dashboard PowerBI 2
-│   │   ├── descargables/           # Descarga del bot de recolecciones (.exe)
-│   │   └── Api2/                   # Página de prueba autenticación Vulcano
+│   │   │   └── page.tsx
+│   │   ├── descargables/           # Descarga del bot de recolecciones
+│   │   │   └── page.tsx
+│   │   └── Api2/                  # Página de prueba autenticación Vulcano
+│   │       └── page.tsx
 │   │
 │   ├── Componentes/                # Componentes reutilizables (todos con 'use client')
 │   │   ├── Barra/                  # Barra de progreso
-│   │   ├── BotonEstados/
-│   │   ├── BotonSencillo/
+│   │   ├── BotonEstados/          # Botón para selección de estados
+│   │   ├── BotonSencillo/         # Botón simple reutilizable
 │   │   ├── CargaDocumento/         # Upload de archivos con preview
 │   │   ├── CertificadoLaboralC/    # Renderizador PDF certificado laboral
-│   │   ├── ClientProviders/        # GoogleOAuthProvider + ContextoApp (wrapper 'use client')
-│   │   ├── ContenedorTarjetas/
+│   │   ├── ClientProviders/        # GoogleOAuthProvider + ContextoApp wrapper
+│   │   ├── ContenedorTarjetas/     # Contenedor de tarjetas
 │   │   ├── Datos/                  # Selector de municipios colombianos
-│   │   ├── DisenoServicio/
+│   │   ├── DisenoServicio/         # Diseñador de servicios
 │   │   ├── FiltradoPlacas/         # Búsqueda y filtro de vehículos
 │   │   ├── FotoNovedad/            # Captura/subida de foto para novedades
-│   │   ├── HeaderIcono/
-│   │   ├── HeaderLogo/
-│   │   ├── HvVehiculos/            # Generación de PDF hoja de vida vehículo (@react-pdf)
+│   │   ├── HeaderIcono/            # Header con icono
+│   │   ├── HeaderLogo/             # Header con logo
+│   │   ├── HvVehiculos/            # Generación de PDF hoja de vida vehículo
 │   │   ├── LoginGoogle/            # Botón OAuth Google
 │   │   ├── Municipios/             # JSON con municipios de Colombia
 │   │   ├── PedidosComponentes/     # Subcomponentes del módulo de pedidos:
@@ -114,25 +407,28 @@ integrapp-next/
 │   │   │   ├── TablaPedidos        #   Tabla con autorización / eliminación
 │   │   │   ├── TablaPedidosCompletados
 │   │   │   ├── ExportarAutorizados
-│   │   │   └── importarPedidosVulcano
-│   │   ├── PortalClientesComp/
-│   │   ├── PortalVentasComp/
-│   │   ├── TarjetaDetalle/
-│   │   ├── TarjetaResumen/
+│   │   │   ├── importarPedidosVulcano
+│   │   │   ├── ImportarExcelMedicalCare    # Importación de pacientes Medical Care
+│   │   │   ├── FabMedicalCare             # FAB Speed Dial Medical Care
+│   │   │   └── TablaPacientesMedicalCare # Tabla de pacientes importados
+│   │   ├── PortalClientesComp/     # Componentes portal clientes
+│   │   ├── PortalVentasComp/       # Componentes portal ventas
+│   │   ├── TarjetaDetalle/         # Tarjeta de detalle
+│   │   ├── TarjetaResumen/         # Tarjeta de resumen
 │   │   └── VerDocumento/           # Visor de documentos (PDF/imagen)
 │   │
 │   ├── Contexto/
-│   │   └── index.tsx               # ContextoApp: estado global compartido entre portales
+│   │   └── index.tsx               # ContextoApp: estado global compartido
 │   │                               # Variables: nombre, tenedor, placa, estado, link,
 │   │                               #   DiccionarioManifiestosTodos, DiccionarioSaldos, etc.
 │   │
 │   ├── Funciones/                  # Capa de integración con la API
-│   │   ├── ApiPedidos/
-│   │   │   ├── apiPedidos.tsx      # CRUD completo de pedidos, carga masiva, exportación
+│   │   ├── ApiPedidos/             # Funciones API de pedidos:
+│   │   │   ├── apiPedidos.tsx      # CRUD completo de pedidos
 │   │   │   ├── clientes.tsx        # CRUD clientes
-│   │   │   ├── fletes.tsx          # CRUD tarifas de flete + interfaz Flete + obtenerFletes
-│   │   │   ├── usuarios.tsx        # Login y gestión de usuarios (Torre de Control)
-│   │   │   └── tipos.tsx           # Interfaces TypeScript compartidas
+│   │   │   ├── fletes.tsx          # CRUD tarifas de flete
+│   │   │   ├── usuarios.tsx        # Login y gestión de usuarios
+│   │   │   └── tipos.tsx           # Interfaces TypeScript
 │   │   ├── ConsultaNovedades/      # Consulta de novedades de manifiestos
 │   │   ├── ExtraccionTotal/        # Extracción completa de datos propietario
 │   │   ├── ExtraeNovedades/        # Novedades desde Vulcano
@@ -153,14 +449,15 @@ integrapp-next/
 │       └── AnimationPuntos.json    # Animación Lottie (carga)
 │
 ├── public/
-│   ├── bot_recolecciones.exe       # App Electron descargable (bot de recolecciones)
-│   ├── albatros192.png
-│   └── albatros512.png
+│   ├── bot_recolecciones.exe       # App Electron descargable
+│   ├── albatros192.png            # Iconos favicon
+│   ├── albatros512.png
+│   └── favicon.ico
 │
-├── next.config.mjs                 # Sin basePath (dev local). En producción agregar basePath: "/integrapp"
-├── tsconfig.json                   # target ES2015 (requerido por uso de Set/Map)
+├── next.config.mjs                 # Configuración Next.js
+├── tsconfig.json                   # Configuración TypeScript
 ├── .env.local                      # Variables de entorno (no subir al repo)
-└── package.json
+└── package.json                    # Dependencias npm
 ```
 
 ---
@@ -197,7 +494,7 @@ El sistema NO usa sesiones de servidor. Usa **cookies del browser** manejadas co
 
 Expiración por defecto: **14 días**.
 
-> Al cerrar sesión desde cualquier página de la Torre de Control se eliminan las cinco cookies: `usuarioPedidosCookie`, `regionalPedidosCookie`, `perfilPedidosCookie`, `clientePedidosCookie` y `perfilPedidosCookie`.
+> Al cerrar sesión desde cualquier página de la Torre de Control se eliminan las cinco cookies: `usuarioPedidosCookie`, `regionalPedidosCookie`, `perfilPedidosCookie`, `clientePedidosCookie` y `seguridadId`.
 
 ---
 
@@ -240,6 +537,203 @@ El CORS del backend (`integrappi`) debe incluir el dominio del frontend:
 
 ---
 
+## Sistema de Diseño
+
+Aplicado a todos los portales para consistencia visual:
+
+- **Header**: gradiente navy `linear-gradient(90deg, #0f1928, #1e2f45)`, altura 64 px
+- **Acento**: amber `#e8a000`
+- **Fondo general**: `#f0f2f5`
+- **Footer**: `#0f1928`
+- Cada página usa prefijo CSS único para evitar colisiones:
+  - `IP-` (InicioPropietarios)
+  - `LU-` (LoginUsuario)
+  - `CLP-` (CertificadoLaboralP)
+  - `Ped-` (Pedidos)
+  - `PC-` (PedidosCompletados)
+  - `MC-` (MedicalCare)
+  - `GU-` (GestionUsuarios)
+  - `TAR-` (Tarifas)
+  - `LC-` (LoginConductores)
+  - `PC-` (PanelConductores)
+  - `REV-` (Revision)
+
+---
+
+## Componentes Principales
+
+### Tabla de Pedidos
+- Cabecera navy con filas zebra
+- Hover effects en filas
+- Columnas `Total Solicitado` y `Total Teórico` siempre resaltadas en navy+amber
+- Botones de acción: autorizar, confirmar preautorizado, eliminar
+- Paginación para grandes volúmenes
+- Filtros por estados y regionales
+
+### FAB Speed Dial
+- Botón flotante en `/Pedidos` con acciones rápidas
+- Iconos para: cargar, exportar, importar
+- Componentes montados fuera de pantalla (`position: fixed; left: -9999px`)
+- Click programático sobre botones internos
+
+### Generación de PDF
+- `HvVehiculos`: Hoja de vida de vehículo con @react-pdf
+- `CertificadoLaboralC`: Certificados laborales
+- Opción de descarga directa o envío por correo
+
+### Gestión de Documentos
+- `CargaDocumento`: Upload con preview
+- `VerDocumento`: Visor de PDF e imágenes
+- Soporte para múltiples formatos: PDF, JPG, PNG, WEBP
+
+### Firma Digital
+- `react-signature-canvas` para capturar firmas
+- Limpieza de canvas
+- Guardado en base64
+- Envío al backend
+
+---
+
+## Funciones API Principales
+
+### ApiPedidos
+- `crearPedido()`: Crear nuevo pedido
+- `obtenerPedidos()`: Listar pedidos con filtros
+- `cargarPedidosMasivo()`: Carga desde Excel
+- `autorizarPedidos()`: Autorizar pedidos
+- `confirmarPreautorizados()`: Confirmar preautorizados
+- `eliminarPedidos()`: Eliminar pedidos
+- `exportarAutorizados()`: Exportar a Excel
+- `fusionarVehiculos()`: Fusionar vehículos
+- `dividirVehiculo()`: Dividir vehículo
+- `ajustarVehiculos()`: Ajustar totales
+
+### Usuarios
+- `loginBaseusuario()`: Login Torre de Control
+- `loginSeguridad()`: Login perfil seguridad
+- `loginConductor()`: Login conductor
+- `obtenerUsuarios()`: Listar usuarios
+- `crearUsuario()`: Crear usuario
+- `actualizarUsuario()`: Actualizar usuario
+- `actualizarClientesUsuario()`: Asignar clientes
+- `eliminarUsuario()`: Eliminar usuario
+
+### Fletes
+- `obtenerFletes()`: Listar tarifas
+- `crearFlete()`: Crear tarifa
+- `actualizarFlete()`: Actualizar tarifa
+- `eliminarFlete()`: Eliminar tarifa
+
+### Clientes
+- `obtenerClientes()`: Listar clientes
+- `crearCliente()`: Crear cliente
+- `actualizarCliente()`: Actualizar cliente
+
+### Medical Care (apiMedicalCare.tsx)
+- **`cargarPacientesMasivoStream(usuario, archivo, onProgress)`**: Importación masiva con progreso en tiempo real via Server-Sent Events (SSE)
+  - Lee el stream de eventos del backend y actualiza el estado de progreso
+  - Envia `usuario` como query string (no en FormData) para evitar error 422
+  - Callback `onProgress` recibe objetos con `stage`, `progress`, `message`, `processed`, `total`, `errores`
+  - Maneja errores de parseo SSE y muestra alertas con SweetAlert2
+- **`obtenerPacientes(skip, limit)`**: Obtener lista de pacientes con paginación
+- **`buscarPacientes(cedula?, paciente?)`**: Búsqueda por cédula o nombre de paciente
+- **`eliminarTodosPacientes(usuario)`**: Eliminar todos los pacientes (solo ADMIN)
+- **`crearPaciente(usuario, pacienteData)`**: Crear un nuevo paciente individual
+- **`actualizarPaciente(pacienteId, usuario, pacienteData)`**: Actualizar un paciente existente
+- **`eliminarPaciente(pacienteId, usuario)`**: Eliminar un paciente individual
+- **`obtenerPacientePorId(pacienteId)`**: Obtener un paciente por ID
+
+**Normalización de Datos (Backend - integrappi/Funciones/normalizacion_medical_care.py):**
+- **`fx_normalizar_paciente()`**: Normaliza nombres de pacientes
+  - Elimina caracteres especiales (comas, puntos, guiones, etc.)
+  - Mayúsculas y compactar espacios
+  - **Reordenamiento alfabético** de todas las palabras
+  - Primeras 4 palabras del resultado
+  - Ejemplo: "Zarate Edwin" → "EDWIN ZARATE"
+- **`fx_normalizar_direccion()`**: Normaliza direcciones completas
+  - Elimina signos de puntuación
+  - Corrige errores comunes: "CAKLE" → "CALLE", "CARREA" → "CARRERA", "TRASVERSAL" → "TRANSVERSAL"
+  - Normaliza abreviaturas: "KRA" → "CARRERA", "CLL" → "CALLE", "TV" → "TRANSVERSAL"
+  - **Reordenamiento alfabético** de todas las palabras
+  - Ejemplo: "CALLE 123 BARRIO CENTRO" → "123 BARRIO CALLE CENTRO"
+- **`fx_normalizar_celular()`**: Solo últimos 10 dígitos, elimina prefijos de país
+- **`fx_normalizar_municipio()`**: Mayúsculas, trim, compactar espacios (sin caracteres especiales, sin reordenamiento)
+- **`fx_normalizar_cedula()`**: Solo dígitos, elimina caracteres no numéricos
+- **`fx_normalizar_base()`**: Normalización básica para campos de ubicación (sede, departamento, CEDI, ruta)
+  - Elimina caracteres especiales
+  - Mayúsculas y compactar espacios
+  - **Corrige caracteres mal codificados (UTF-8 leído como Latin-1)**: `Ã³` → `O`, `Ãº` → `U`, `Ã¡` → `A`, `Ã©` → `E`, `Ã­` → `I`, `Ã‘` → `N`, etc.
+  - Sin reordenamiento alfabético
+
+**Nota sobre Reordenamiento Alfabético:**
+- El reordenamiento alfabético se aplica a **pacientes** y **direcciones** para consistencia en búsquedas
+- Este cambio permite que "Zarate Edwin" se encuentre al buscar "Edwin Zarate"
+- Las direcciones también se reordenan, aunque esto pueda cambiar la estructura original
+- Los campos de ubicación (sede, departamento, municipio, CEDI, ruta) NO se reordenan
+
+**Nota sobre Corrección de Caracteres Mal Codificados:**
+- El sistema corrige automáticamente caracteres UTF-8 que fueron leídos incorrectamente como Latin-1
+- Ejemplos de corrección: `Ã³` → `O`, `Ãº` → `U`, `Ã¡` → `A`, `Ã©` → `E`, `Ã­` → `I`, `Ã‘` → `N`, `Ã"ON` → `ON`, etc.
+- Esta corrección se aplica a TODOS los campos (pacientes, direcciones, municipio, sede, departamento, CEDI, ruta)
+
+**Tipos TypeScript (tiposMedicalCare.tsx):**
+- `PacienteMedicalCare`: Interfaz completa de paciente con campos originales y normalizados
+- `CrearActualizarPacienteData`: Interfaz para crear/actualizar pacientes (campos originales)
+- `CargarPacientesResponse`: Interfaz de respuesta de carga masiva
+- `ProgressEvent`: Interfaz de eventos de progreso SSE
+
+### Pedidos V3 (apiPedidosV3.tsx)
+- **`cargarPedidosV3Stream(usuario, archivo, onProgress)`**: Importación masiva de pedidos con progreso en tiempo real via Server-Sent Events (SSE)
+  - Lee el stream de eventos del backend y actualiza el estado de progreso
+  - Envia `usuario` como query string (no en FormData) para evitar error 422
+  - Callback `onProgress` recibe objetos con `stage`, `progress`, `message`, `processed`, `total`, `errores`
+  - Maneja errores de parseo SSE y muestra alertas con SweetAlert2
+- **`obtenerPedidosV3(skip, limit)`**: Obtener lista de pedidos con paginación
+- **`eliminarTodosPedidosV3(usuario)`**: Eliminar todos los pedidos (solo ADMIN)
+- **`crearPedidoV3(usuario, pedidoData)`**: Crear un nuevo pedido individual
+- **`actualizarPedidoV3(pedidoId, usuario, pedidoData)`**: Actualizar un pedido existente
+- **`eliminarPedidoV3(pedidoId, usuario)`**: Eliminar un pedido individual
+- **`obtenerPedidoV3PorId(pedidoId)`**: Obtener un pedido por ID
+
+**Normalización de Datos (Backend - integrappi/Funciones/normalizacion_medical_care.py):**
+- **Solo se normalizan dos campos específicos**:
+  - `cliente_destino`: Usa `fx_normalizar_paciente()` - Primeras 4 palabras, sin signos de puntuación, mayúsculas, reordenamiento alfabético
+    - Ejemplo: "Zarate Edwin" → "EDWIN ZARATE"
+  - `direccion_destino`: Usa `fx_normalizar_direccion()` - Normalización completa con corrección de errores comunes, reordenamiento alfabético
+    - Ejemplo: "CALLE 123 BARRIO CENTRO" → "123 BARRIO CALLE CENTRO"
+    - Corrige errores comunes: "CAKLE" → "CALLE", "CARREA" → "CARRERA", "TRASVERSAL" → "TRANSVERSAL"
+    - Normaliza abreviaturas: "KRA" → "CARRERA", "CLL" → "CALLE", "TV" → "TRANSVERSAL"
+- **Los demás campos se guardan tal cual vienen del Excel**: Sin normalización
+  - `codigo_pedido`, `codigo_cliente_destino`, `divipola`, `telefono`, `fecha_pedido`, `fecha_preferente`, `estado_pedido`, `piezas`, `peso_real`, `bodega_origen`, `ruta`, `municipio_destino`
+
+**Tabla de Pedidos:**
+- Muestra los campos normalizados y originales para trazabilidad
+- **Columnas visibles**:
+  - **Acciones**: botones para editar y eliminar pedidos
+  - **Código Pedido**: valor original del Excel
+  - **Cliente Destino**: muestra valor normalizado y original con etiquetas visuales
+  - **Dirección Destino**: muestra valor normalizado y original con etiquetas visuales
+  - **DESTINO**: valor original del Excel (solo muestra `municipio_destino` sin normalización)
+  - **Ruta**: valor original del Excel
+  - **Teléfono**: valor original del Excel
+  - **Fecha Pedido**: valor original del Excel
+  - **Fecha Preferente**: valor original del Excel
+  - **Estado Pedido**: valor original del Excel
+  - **Cajas**: valor original del Excel (corresponde al campo `piezas`)
+  - **Peso**: valor original del Excel (corresponde al campo `peso_real`)
+- **Estilos visuales**:
+  - Campos normalizados: texto regular en color verde oscuro
+  - Campos originales: texto en cursiva, color gris, con fondo gris claro
+  - Etiquetas "Normalizado:" y "Original:" para distinguir claramente los valores
+- **Responsive**: La tabla tiene scroll horizontal para manejar las múltiples columnas
+
+**Tipos TypeScript (apiPedidosV3.tsx):**
+- `CargarPedidosV3Response`: Interfaz de respuesta de carga masiva
+- `ObtenerPedidosV3Response`: Interfaz de respuesta de listado con paginación
+- `ProgressEvent`: Interfaz de eventos de progreso SSE
+
+---
+
 ## Historial de la migración
 
 - **Versión anterior**: React 18 + Vite (`../integrapp/`) — carpeta conservada como respaldo
@@ -250,8 +744,50 @@ El CORS del backend (`integrappi`) debe incluir el dominio del frontend:
   - `import.meta.env.VITE_*` → `process.env.NEXT_PUBLIC_*`
   - `main.tsx` → `app/layout.tsx` con `ClientProviders`
   - Todos los componentes con hooks llevan `'use client'`
-  - Home rediseñada: se eliminaron las secciones vacías (NOSOTROS, SERVICIOS, etc.)
+  - Home rediseñada: se eliminaron secciones vacías (NOSOTROS, SERVICIOS, etc.)
   - Portales reducidos a 3: Transportadores, Empleados, Torre de Control
+
+---
+
+## Historial de cambios relevantes
+
+### Marzo 2025 — Rediseño visual y sistema de diseño unificado
+
+**Sistema de diseño** aplicado a todos los portales:
+- Header: gradiente navy `linear-gradient(90deg, #0f1928, #1e2f45)`, altura 64 px
+- Acento amber `#e8a000`, fondo general `#f0f2f5`, footer `#0f1928`
+- Cada página usa prefijo CSS único para evitar colisiones
+
+**Páginas rediseñadas** con header + footer consistentes:
+- `/loginpropietarios` (`InicioPropietarios`) — prefijo IP-
+- `/LoginUsuario` (`LoginUsuarios`) — prefijo LU-
+- `/CertificadoLaboralP` — prefijo CLP-
+- `/Pedidos` — prefijo Ped-, FAB speed dial para acciones
+- `/PedidosCompletados` — prefijo PC-
+
+### Marzo 2025 — Multi-cliente (Fresenius Kabi + Fresenius Medical Care)
+
+**Login de dos pasos** (`/LoginUsuario`):
+1. Usuario ingresa credenciales → backend devuelve `clientes: string[]`
+2. Si tiene un solo cliente → redirige directo; si tiene dos → muestra selector de tarjetas
+3. El cliente elegido se guarda en `clientePedidosCookie` y redirige a `/Pedidos` (KABI) o `/MedicalCare` (MEDICAL_CARE)
+
+**Nueva página `/MedicalCare`**: header verde Fresenius Medical Care, placeholder "en construcción", protegida.
+
+**Panel de administración** (solo perfil ADMIN):
+- `/GestionUsuarios`: tabla de usuarios con toggles por cliente + modal para crear usuarios
+- `/Tarifas`: tabla de tarifas filtrada a origen FUNZA, buscador por destino, modal para crear/editar
+
+**Funciones API nuevas**:
+- `usuarios.tsx`: `actualizarClientesUsuario(id, clientes)`
+- `fletes.tsx`: CRUD completo de tarifas
+- `tipos.tsx`: `BaseUsuario` y `LoginRespuesta` con campo `clientes: string[]`
+
+### Marzo 2025 — Corrección buscador de tarifas (`/Tarifas`)
+
+- **Filtro `startsWith` en lugar de `includes`**: muestra filas cuyo destino *comienza* con el texto buscado
+- **`useMemo` en `colsVehiculo` y `tarifasFiltradas`**: ambos valores se memorizan para consistencia
+- **`key={busqueda}` en `<tbody>`**: fuerza reconstrucción completa al cambiar el filtro
 
 ---
 
@@ -263,50 +799,7 @@ El CORS del backend (`integrappi`) debe incluir el dominio del frontend:
 - [ ] `bot_recolecciones.exe` en `/public` es una app Electron para gestión de recolecciones — pendiente integración completa
 - [ ] Agregar `sharp` para optimización de imágenes en producción: `npm i sharp`
 - [ ] `/MedicalCare` es un portal en construcción — pendiente definir y desarrollar los módulos de Fresenius Medical Care
-
----
-
-## Historial de cambios relevantes
-
-### Marzo 2025 — Rediseño visual y sistema de diseño unificado
-
-**Sistema de diseño** aplicado a todos los portales:
-- Header: gradiente navy `linear-gradient(90deg, #0f1928, #1e2f45)`, altura 64 px
-- Acento amber `#e8a000`, fondo general `#f0f2f5`, footer `#0f1928`
-- Cada página usa prefijo CSS único (IP-, LU-, CLP-, Ped-, PC-, MC-, GU-, TAR-) para evitar colisiones
-
-**Páginas rediseñadas** con header + footer consistentes:
-- `/loginpropietarios` (`InicioPropietarios`) — prefijo IP-
-- `/LoginUsuario` (`LoginUsuarios`) — prefijo LU-
-- `/CertificadoLaboralP` — prefijo CLP-
-- `/Pedidos` — prefijo Ped-, FAB speed dial (botón flotante) para acciones de carga/exportación
-- `/PedidosCompletados` — prefijo PC-
-
-**FAB speed dial en `/Pedidos`**: los componentes `CargarPedidos`, `ExportarAutorizados` e `ImportarPedidosVulcano` se montan fuera de pantalla (`position: fixed; left: -9999px`) para mantenerlos vivos en el DOM; el FAB hace `.click()` programático sobre el botón interno de cada uno.
-
-**Tablas de pedidos**: rediseño con cabecera navy, filas zebra, hover, y columnas `Total Solicitado` y `Total Teórico` siempre resaltadas en navy+amber incluso en hover (declaración explícita de todos los estados en CSS para evitar que `tr:hover` las sobreescriba).
-
-### Marzo 2025 — Multi-cliente (Fresenius Kabi + Fresenius Medical Care)
-
-**Login de dos pasos** (`/LoginUsuario`):
-1. El usuario ingresa credenciales → el backend devuelve `clientes: string[]`
-2. Si tiene un solo cliente → redirige directo; si tiene dos → muestra selector de tarjetas
-3. El cliente elegido se guarda en `clientePedidosCookie` y redirige a `/Pedidos` (KABI) o `/MedicalCare` (MEDICAL_CARE)
-
-**Nueva página `/MedicalCare`**: header verde Fresenius Medical Care, placeholder "en construcción", footer. Protegida: redirige a login si no hay sesión o el cliente activo no es `MEDICAL_CARE`.
-
-**Panel de administración** (solo perfil ADMIN):
-- `/GestionUsuarios`: tabla de usuarios con toggles por cliente (KABI / MEDICAL_CARE) + modal para crear nuevos usuarios (campos: nombre, usuario, clave, perfil, regional, correo, celular, clientes)
-- `/Tarifas`: tabla de tarifas filtrada a origen FUNZA, buscador por destino (búsqueda manual con botón, no reactiva), miga de pan con chip eliminable, modal para crear/editar con tipos de vehículo dinámicos (filas clave-valor), origen fijo FUNZA y ruta fija ANACIONAL
-- Ambas páginas accesibles desde el dropdown del header en `/Pedidos` y `/PedidosCompletados` (solo si perfil = ADMIN)
-
-**Funciones API nuevas**:
-- `usuarios.tsx`: `actualizarClientesUsuario(id, clientes)`
-- `fletes.tsx`: `obtenerFletes()`, `crearFlete()`, `actualizarFlete()`, `eliminarFlete()` + interfaz `Flete`
-- `tipos.tsx`: `BaseUsuario` y `LoginRespuesta` actualizados con campo `clientes: string[]`
-
-### Marzo 2025 — Corrección buscador de tarifas (`/Tarifas`)
-
-- **Filtro `startsWith` en lugar de `includes`**: el buscador de destinos ahora solo muestra filas cuyo destino *comienza* con el texto buscado, evitando coincidencias parciales en medio del nombre.
-- **`useMemo` en `colsVehiculo` y `tarifasFiltradas`**: ambos valores se memorizan con dependencias `[tarifas]` y `[tarifas, busqueda]` respectivamente, garantizando que el cálculo del filtro sea consistente con el estado React en cada render.
-- **`key={busqueda}` en `<tbody>`**: fuerza a React a desmontar y reconstruir completamente el cuerpo de la tabla al cambiar el filtro, eliminando un bug de reconciliación de DOM donde filas antiguas permanecían visibles a pesar de que el estado interno ya mostraba el resultado correcto.
+- [ ] Implementar autenticación Google OAuth para los portales que lo requieran
+- [ ] Mejorar responsive design para móviles y tablets
+- [ ] Implementar sistema de notificaciones en tiempo real con Firebase
+- [ ] Agregar tests unitarios y de integración con Jest y React Testing Library

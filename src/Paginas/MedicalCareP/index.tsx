@@ -1,11 +1,10 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaSignOutAlt, FaChevronDown,
 } from 'react-icons/fa';
-import { useState, useRef } from 'react';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -72,6 +71,12 @@ const MedicalCareP: React.FC = () => {
 
             {menuAbierto && (
               <div className="MC-dropdown">
+                <button className="MC-dropItem" onClick={() => router.push('/GestionPacientes')}>
+                  <FaUserCircle /> Pacientes
+                </button>
+                <button className="MC-dropItem" onClick={() => router.push('/GestionPedidosV3')}>
+                  <FaUserCircle /> Pedidos V3
+                </button>
                 <button className="MC-dropItem MC-dropItemDanger" onClick={cerrarSesion}>
                   <FaSignOutAlt /> Cerrar sesión
                 </button>
@@ -83,15 +88,48 @@ const MedicalCareP: React.FC = () => {
 
       {/* ── MAIN ── */}
       <main className="MC-main">
-        <div className="MC-placeholder">
-          <div className="MC-placeholderIcon">🏗️</div>
-          <h2 className="MC-placeholderTitulo">Portal Fresenius Medical Care</h2>
-          <p className="MC-placeholderTexto">
-            Este espacio está reservado para las funcionalidades del portal de
-            <strong> Fresenius Medical Care</strong>. Próximamente se implementarán
-            las herramientas y módulos correspondientes a este cliente.
-          </p>
-          <div className="MC-placeholderTag">En construcción</div>
+        <div className="MC-welcome">
+          <div className="MC-welcomeCard">
+            <h1 className="MC-welcomeTitle">Gestión de Despachos Rutas</h1>
+            <p className="MC-welcomeText">
+              Sistema de gestión de despachos y rutas de Fresenius Medical Care. Utiliza el menú de usuario para acceder a las funciones disponibles.
+            </p>
+            
+            <div className="MC-welcomeActions">
+              <button 
+                className="MC-welcomeBtn MC-btnPrimary"
+                onClick={() => router.push('/GestionPacientes')}
+              >
+                <FaUserCircle /> Ir a Gestión de Pacientes
+              </button>
+              <button 
+                className="MC-welcomeBtn MC-btnSecondary"
+                onClick={() => router.push('/GestionPedidosV3')}
+              >
+                <FaUserCircle /> Ir a Gestión de Pedidos V3
+              </button>
+            </div>
+
+            <div className="MC-welcomeFeatures">
+              <div className="MC-feature">
+                <div className="MC-featureIcon">📊</div>
+                <h3 className="MC-featureTitle">Carga Masiva Pacientes</h3>
+                <p className="MC-featureText">Importa pacientes desde Excel con normalización automática de datos</p>
+              </div>
+              
+              <div className="MC-feature">
+                <div className="MC-featureIcon">📦</div>
+                <h3 className="MC-featureTitle">Carga Masiva Pedidos</h3>
+                <p className="MC-featureText">Importa pedidos desde Excel con progreso en tiempo real</p>
+              </div>
+              
+              <div className="MC-feature">
+                <div className="MC-featureIcon">✏️</div>
+                <h3 className="MC-featureTitle">Gestión Completa</h3>
+                <p className="MC-featureText">Crea, edita y elimina pacientes y pedidos individualmente</p>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 

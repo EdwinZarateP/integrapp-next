@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-images: {
+  output: 'export',
+  basePath: '/integrapp',
+  assetPrefix: '/integrapp',
+  images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",

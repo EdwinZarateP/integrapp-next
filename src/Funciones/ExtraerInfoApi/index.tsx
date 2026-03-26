@@ -59,6 +59,7 @@ const extraccionManifiestos = () => {
         agency: "001",
         proyect: "1",
         isGroup: 0,
+        close_previous_session:1
       };
 
       try {

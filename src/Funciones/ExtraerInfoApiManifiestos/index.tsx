@@ -97,6 +97,7 @@ const useExtraccionManifiestos = () => {
       agency: "001",
       proyect: "1",
       isGroup: 0,
+      close_previous_session:1
     };
 
     const loginResp = await axios.post<LoginResponse>(loginUrl, loginPayload, {

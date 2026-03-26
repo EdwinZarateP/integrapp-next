@@ -42,19 +42,27 @@ const TablaPedidosCompletados: React.FC = () => {
   const [data, setData] = useState<ListarCompletadosResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [modalFiltrosAbierto, setModalFiltrosAbierto] = useState(false);
 
   const [regionalFiltro, setRegionalFiltro] = useState<string>(
-    ['ADMIN', 'CONTROL', 'ANALISTA'].includes(perfil) ? 'TODOS' : usuarioRegional
+    ['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil) ? 'TODOS' : usuarioRegional
   );
   const [fechaInicial, setFechaInicial] = useState<string>(today);
   const [fechaFinal, setFechaFinal] = useState<string>(today);
 
   const buildFiltros = () => {
     const filtros: any = {};
-    if (['ADMIN', 'CONTROL', 'ANALISTA'].includes(perfil)) {
-      if (regionalFiltro !== 'TODOS') filtros.regionales = [regionalFiltro];
+    if (['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil)) {
+      // Perfiles con permisos amplios: solo enviar regionales si seleccionan una específica
+      if (regionalFiltro && regionalFiltro !== 'TODOS') {
+        filtros.regionales = [regionalFiltro];
+      }
+      // Si es TODOS, no enviar filtros.regionales (el backend muestra todo)
     } else {
-      filtros.regionales = [usuarioRegional];
+      // Otros perfiles: siempre filtrar por su regional
+      if (usuarioRegional && usuarioRegional.trim()) {
+        filtros.regionales = [usuarioRegional];
+      }
     }
     return filtros;
   };
@@ -148,9 +156,9 @@ const TablaPedidosCompletados: React.FC = () => {
 
   return (
     <div className="TablaPedidosCompletados-contenedor">
-      {/* Filtros */}
+      {/* Filtros escritorio */}
       <div className="TablaPedidosCompletados-filtros">
-        {['ADMIN', 'CONTROL', 'ANALISTA'].includes(perfil) && (
+        {['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil) && (
           <select
             value={regionalFiltro}
             onChange={e => setRegionalFiltro(e.target.value)}
@@ -180,6 +188,68 @@ const TablaPedidosCompletados: React.FC = () => {
           Filtrar
         </button>
       </div>
+
+      {/* Botón móvil para filtros */}
+      <button
+        className="TablaPedidosCompletados-btn-filtros-mobile"
+        onClick={() => setModalFiltrosAbierto(true)}
+      >
+        ⚙️ Filtros
+      </button>
+
+      {/* Modal filtros móvil */}
+      {modalFiltrosAbierto && (
+        <div className="TablaPedidosCompletados-modal-filtros" onClick={() => setModalFiltrosAbierto(false)}>
+          <div className="TablaPedidosCompletados-modal-contenido" onClick={(e) => e.stopPropagation()}>
+            {['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil) && (
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', fontSize: '0.85rem' }}>
+                  Regional:
+                </label>
+                <select
+                  value={regionalFiltro}
+                  onChange={e => setRegionalFiltro(e.target.value)}
+                >
+                  <option value="TODOS">Todas las regionales</option>
+                  {regionesDisponibles.map(r => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', fontSize: '0.85rem' }}>
+                Fecha Inicial:
+              </label>
+              <input
+                type="date"
+                value={fechaInicial}
+                onChange={e => setFechaInicial(e.target.value)}
+              />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', fontSize: '0.85rem' }}>
+                Fecha Final:
+              </label>
+              <input
+                type="date"
+                value={fechaFinal}
+                onChange={e => setFechaFinal(e.target.value)}
+              />
+            </div>
+            <div className="TablaPedidosCompletados-modal-botones">
+              <button onClick={() => { fetchData(); setModalFiltrosAbierto(false); }}>
+                Filtrar
+              </button>
+              <button onClick={() => setModalFiltrosAbierto(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="TablaPedidosCompletados-loading">Cargando...</p>

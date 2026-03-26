@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
   FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaChevronDown,
-  FaUsers, FaTable,
+  FaUsers, FaTable, FaBars, FaTimes,
 } from 'react-icons/fa';
 import TablaPedidosCompletados from '@/Componentes/PedidosComponentes/TablaPedidosCompletados';
 import Cookies from 'js-cookie';
@@ -18,6 +18,7 @@ const PedidosCompletados: React.FC = () => {
   const regional = Cookies.get('regionalPedidosCookie') || '';
   const router = useRouter();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const cerrarSesion = () => {
@@ -52,13 +53,11 @@ const PedidosCompletados: React.FC = () => {
             </span>
           </button>
 
+
           {/* Nav tabs */}
           <nav className="PC-nav">
-            <button className="PC-navTab" onClick={() => router.push('/Pedidos')}>
-              <FaBoxOpen /> Gestión de Pedidos
-            </button>
             <button className="PC-navTab PC-navTabActive" onClick={() => router.push('/PedidosCompletados')}>
-              <FaCheckCircle /> Completados
+              <FaCheckCircle /> Pedidos Completados
             </button>
           </nav>
 
@@ -75,6 +74,9 @@ const PedidosCompletados: React.FC = () => {
 
             {menuAbierto && (
               <div className="PC-dropdown">
+                <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/Pedidos'); }}>
+                  <FaBoxOpen /> Gestión de Pedidos
+                </button>
                 <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
                   <FaChartBar /> Indicadores
                 </button>

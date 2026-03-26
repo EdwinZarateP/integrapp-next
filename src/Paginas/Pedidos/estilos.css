@@ -47,6 +47,25 @@
   flex-shrink: 0;
 }
 
+/* Botón menú móvil */
+.Ped-menuMobileBtn {
+  display: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.Ped-menuMobileBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .Ped-brandName {
   font-size: 1.25rem;
   font-weight: 800;
@@ -201,6 +220,66 @@
 
 .Ped-dropItemDanger { color: #c9302c; }
 .Ped-dropItemDanger:hover { background: #fff5f5; }
+
+/* ── MENÚ MÓVIL ── */
+.Ped-menuMobile {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 199;
+  animation: Ped-slideDown 0.2s ease;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+@keyframes Ped-slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.Ped-menuMobileItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  font-size: 0.95rem;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  text-align: left;
+  border-bottom: 1px solid #f5f7fa;
+}
+
+.Ped-menuMobileItem:last-child {
+  border-bottom: none;
+}
+
+.Ped-menuMobileItem:hover {
+  background: #f5f7fa;
+}
+
+.Ped-menuMobileItemDanger {
+  color: #c9302c;
+  font-weight: 600;
+}
+
+.Ped-menuMobileItemDanger:hover {
+  background: #fff5f5;
+}
+
+.Ped-menuMobileDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
 
 /* ── TABLA PRINCIPAL ── */
 .Ped-main {
@@ -390,14 +469,28 @@
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
   .Ped-nav { display: none; }
+  
+  .Ped-menuMobileBtn { display: flex; }
 
-  .Ped-headerInner { padding: 0 14px; }
+  .Ped-headerInner { padding: 0 14px; gap: 10px; }
 
   .Ped-userInfo { display: none; }
 
-  .Ped-toolbarInner {
-    padding: 8px 14px;
-    gap: 8px;
+  .Ped-userBtn { padding: 8px; }
+
+  .Ped-brandName { display: none; }
+
+  /* Ajustar zona de usuario para que el dropdown se alinee a la derecha */
+  .Ped-userZone {
+    margin-left: auto;
+  }
+
+  /* Dropdown alineado a la derecha en móviles */
+  .Ped-dropdown {
+    right: 0;
+    left: auto !important;
+    min-width: 200px;
+    max-width: calc(100vw - 28px);
   }
 
   .Ped-footerInner {

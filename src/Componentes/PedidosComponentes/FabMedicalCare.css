@@ -1,0 +1,115 @@
+.FabMedicalCare {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.FabMedicalCare-boton {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f1928, #1e2f45);
+  color: #e8a000;
+  border: 2px solid #e8a000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  outline: none;
+}
+
+.FabMedicalCare-boton:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.FabMedicalCare-boton:active {
+  transform: scale(0.95);
+}
+
+.FabMedicalCare-iconoPrincipal {
+  font-size: 24px;
+  transition: transform 0.3s ease;
+}
+
+.FabMedicalCare-iconoPrincipal.abierto {
+  transform: rotate(45deg);
+}
+
+.FabMedicalCare-opcion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.FabMedicalCare-opcion:hover {
+  background: #f5f5f5;
+  transform: translateX(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.FabMedicalCare-label {
+  color: #0f1928;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.FabMedicalCare-icono {
+  color: #0f1928;
+  font-size: 20px;
+}
+
+/* Animación de entrada para opciones */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.FabMedicalCare-opcion {
+  animation: slideInRight 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .FabMedicalCare {
+    bottom: 16px;
+    right: 16px;
+  }
+  
+  .FabMedicalCare-boton {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .FabMedicalCare-iconoPrincipal {
+    font-size: 20px;
+  }
+  
+  .FabMedicalCare-opcion {
+    padding: 10px 16px;
+  }
+  
+  .FabMedicalCare-label {
+    font-size: 13px;
+  }
+}
