@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaSearch, FaChevronDown } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaChevronDown } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import logo from '@/Imagenes/albatros.png';
 import {
@@ -31,7 +31,6 @@ const GestionPedidosV3P: React.FC = () => {
 
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState('');
   const [skip, setSkip] = useState(0);
   const [limit] = useState(100);
   const [total, setTotal] = useState(0);
@@ -111,15 +110,6 @@ const GestionPedidosV3P: React.FC = () => {
   useEffect(() => {
     cargarPedidos();
   }, [estadoSeleccionado]);
-
-  const handleBuscar = () => {
-    // Implementar búsqueda
-    Swal.fire({
-      icon: 'info',
-      title: 'Búsqueda',
-      text: 'La búsqueda de pedidos aún no está implementada',
-    });
-  };
 
   const handleCargarExcel = async () => {
     if (!archivo) {
@@ -397,16 +387,6 @@ const GestionPedidosV3P: React.FC = () => {
       <main className="GPV3-main">
         {/* Barra de herramientas */}
         <div className="GPV3-toolbar">
-          <div className="GPV3-search">
-            <FaSearch className="GPV3-searchIcon" />
-            <input
-              type="text"
-              className="GPV3-searchInput"
-              placeholder="Buscar pedidos..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
-          </div>
           <div className="GPV3-filter">
             <select
               className="GPV3-filterSelect"

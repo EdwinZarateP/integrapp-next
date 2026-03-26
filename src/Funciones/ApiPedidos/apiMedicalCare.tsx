@@ -12,7 +12,9 @@ import type {
   ActualizarPacienteResponse,
   EliminarPacienteResponse,
   ObtenerPacienteResponse,
-  CrearActualizarPacienteData
+  CrearActualizarPacienteData,
+  OcupacionRutasResponse,
+  V3SinPacienteResponse
 } from './tiposMedicalCare';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -209,6 +211,26 @@ export async function eliminarPaciente(
     `${API_BASE_URL}/pacientes-medical-care/${pacienteId}?usuario=${encodeURIComponent(usuario)}`
   );
 
+  return response.data;
+}
+
+/**
+ * Obtiene ocupación de rutas comparando pacientes vs v3 por similitud de llave
+ */
+export async function obtenerOcupacionRutas(): Promise<OcupacionRutasResponse> {
+  const response = await axios.get<OcupacionRutasResponse>(
+    `${API_BASE_URL}/pacientes-medical-care/ocupacion-rutas`
+  );
+  return response.data;
+}
+
+/**
+ * Retorna registros de v3 sin paciente coincidente (similitud < 80%)
+ */
+export async function obtenerV3SinPaciente(): Promise<V3SinPacienteResponse> {
+  const response = await axios.get<V3SinPacienteResponse>(
+    `${API_BASE_URL}/pacientes-medical-care/v3-sin-paciente`
+  );
   return response.data;
 }
 

@@ -42,7 +42,8 @@ const GestionPacientes: React.FC = () => {
     municipio: '',
     ruta: '',
     cedi: '',
-    celular: ''
+    celular: '',
+    estado: 'ACTIVO'
   });
   const [archivoExcel, setArchivoExcel] = useState<File | null>(null);
   const [cargandoArchivo, setCargandoArchivo] = useState(false);
@@ -122,7 +123,8 @@ const GestionPacientes: React.FC = () => {
       municipio: '',
       ruta: '',
       cedi: '',
-      celular: ''
+      celular: '',
+      estado: 'ACTIVO'
     });
     setModalAbierto(true);
   };
@@ -134,11 +136,12 @@ const GestionPacientes: React.FC = () => {
       paciente: paciente.paciente_original,
       cedula: paciente.cedula_original,
       direccion: paciente.direccion_original,
-      departamento: paciente.departamento_original,
-      municipio: paciente.municipio_original,
-      ruta: paciente.ruta_original,
-      cedi: paciente.cedi_original,
-      celular: paciente.celular_original
+      departamento: paciente.departamento,
+      municipio: paciente.municipio,
+      ruta: paciente.ruta,
+      cedi: paciente.cedi,
+      celular: paciente.celular_original,
+      estado: paciente.estado || 'ACTIVO'
     });
     setModalAbierto(true);
   };
@@ -340,62 +343,25 @@ const GestionPacientes: React.FC = () => {
                   <th>Cédula</th>
                   <th>Dirección</th>
                   <th>Municipio</th>
+                  <th>Ruta</th>
                   <th>Celular</th>
+                  <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {pacientes.map((paciente) => (
                   <tr key={paciente._id}>
+                    <td>{paciente.paciente_original}</td>
+                    <td>{paciente.cedula_original}</td>
+                    <td>{paciente.direccion_original}</td>
+                    <td>{paciente.municipio}</td>
+                    <td>{paciente.ruta}</td>
+                    <td>{paciente.celular_original}</td>
                     <td>
-                      <div>
-                        <strong>{paciente.paciente}</strong>
-                        {paciente.paciente !== paciente.paciente_original && (
-                          <small className="GP-originalText">
-                            (Original: {paciente.paciente_original})
-                          </small>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div>
-                        {paciente.cedula}
-                        {paciente.cedula !== paciente.cedula_original && (
-                          <small className="GP-originalText">
-                            <br />(Original: {paciente.cedula_original})
-                          </small>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div>
-                        {paciente.direccion}
-                        {paciente.direccion !== paciente.direccion_original && (
-                          <small className="GP-originalText">
-                            <br />(Original: {paciente.direccion_original})
-                          </small>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div>
-                        {paciente.municipio}
-                        {paciente.municipio !== paciente.municipio_original && (
-                          <small className="GP-originalText">
-                            <br />(Original: {paciente.municipio_original})
-                          </small>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div>
-                        {paciente.celular}
-                        {paciente.celular !== paciente.celular_original && (
-                          <small className="GP-originalText">
-                            <br />(Original: {paciente.celular_original})
-                          </small>
-                        )}
-                      </div>
+                      <span className={`GP-estadoBadge GP-estado${paciente.estado || 'ACTIVO'}`}>
+                        {paciente.estado || 'ACTIVO'}
+                      </span>
                     </td>
                     <td>
                       <button onClick={() => handleEditar(paciente)} className="GP-btnIcon GP-btnEdit" title="Editar">
@@ -522,6 +488,20 @@ const GestionPacientes: React.FC = () => {
                       placeholder="CEDI"
                     />
                   </div>
+                  {pacienteEditando && (
+                    <div className="GP-formGroup">
+                      <label>Estado</label>
+                      <select
+                        value={formData.estado}
+                        onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+                        className="GP-input"
+                      >
+                        <option value="ACTIVO">ACTIVO</option>
+                        <option value="INACTIVO">INACTIVO</option>
+                        <option value="FALLECIDO">FALLECIDO</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <p className="GP-note">* Campos obligatorios. Los datos se normalizarán automáticamente.</p>
               </div>

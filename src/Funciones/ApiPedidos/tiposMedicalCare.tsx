@@ -12,19 +12,63 @@ export interface PacienteMedicalCare {
   direccion: string;
   direccion_original: string;
   departamento: string;
-  departamento_original: string;
   municipio: string;
-  municipio_original: string;
   ruta: string;
-  ruta_original: string;
   cedi: string;
-  cedi_original: string;
   celular: string;
   celular_original: string;
+  estado: string;
+  llave: string;
   usuario_carga: string;
   fecha_carga: string;
   usuario_actualizacion?: string;
   fecha_actualizacion?: string;
+}
+
+export interface PacienteOcupacion {
+  paciente: string;
+  cedula: string;
+  ruta: string;
+  llave: string;
+  similitud: number;
+  llave_v3: string;
+  en_v3: boolean;
+  estado: string;
+}
+
+export interface RutaOcupacion {
+  ruta: string;
+  total_pacientes: number;
+  pacientes_en_v3: number;
+  ocupacion_pct: number;
+  pacientes: PacienteOcupacion[];
+}
+
+export interface OcupacionRutasResponse {
+  rutas: RutaOcupacion[];
+}
+
+export interface RegistroV3SinPaciente {
+  codigo_pedido: string;
+  cliente_destino: string;
+  direccion_destino: string;
+  ruta: string;
+  estado_pedido: string;
+  telefono: string;
+  llave: string;
+  similitud: number;
+  llave_paciente_cercana: string;
+}
+
+export interface RutaV3SinPaciente {
+  ruta: string;
+  total: number;
+  registros: RegistroV3SinPaciente[];
+}
+
+export interface V3SinPacienteResponse {
+  total_sin_paciente: number;
+  rutas: RutaV3SinPaciente[];
 }
 
 export interface CargarPacientesResponse {
@@ -83,4 +127,5 @@ export interface CrearActualizarPacienteData {
   ruta?: string;
   cedi?: string;
   celular?: string;
+  estado?: string;
 }

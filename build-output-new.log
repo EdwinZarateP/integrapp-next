@@ -1,0 +1,63 @@
+
+> integrapp-next@0.1.0 build
+> next build
+
+  ▲ Next.js 14.2.35
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ ⚠ For production Image Optimization with Next.js, the optional 'sharp' package is strongly recommended. Run 'npm i sharp', and Next.js will use it automatically for Image Optimization.
+Read more: https://nextjs.org/docs/messages/sharp-missing-in-production
+ ⚠ For production Image Optimization with Next.js, the optional 'sharp' package is strongly recommended. Run 'npm i sharp', and Next.js will use it automatically for Image Optimization.
+Read more: https://nextjs.org/docs/messages/sharp-missing-in-production
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/33) ...
+   Generating static pages (8/33) 
+   Generating static pages (16/33) 
+   Generating static pages (24/33) 
+ ✓ Generating static pages (33/33)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    4.6 kB          105 kB
+├ ○ /_not-found                          143 B          88.1 kB
+├ ○ /Api2                                726 B           110 kB
+├ ○ /CertificadoLaboralP                 11.9 kB         133 kB
+├ ○ /descargables                        1.02 kB          89 kB
+├ ○ /DetalleEstados                      2.04 kB         120 kB
+├ ○ /Estados                             4 kB           98.6 kB
+├ ○ /GestionUsuarios                     3.19 kB         126 kB
+├ ○ /indicadores                         905 B          88.8 kB
+├ ○ /indicadoresfmc                      902 B          88.8 kB
+├ ○ /InicioPropietarios                  3.36 kB        91.3 kB
+├ ○ /LoginConductores                    2.83 kB         125 kB
+├ ○ /loginpropietarios                   5.44 kB         115 kB
+├ ○ /LoginUsuario                        2.61 kB         129 kB
+├ ○ /LoginUsuariosSeguridad              2.5 kB          116 kB
+├ ○ /MedicalCare                         2.27 kB         103 kB
+├ ○ /Novedad                             1.34 kB        89.3 kB
+├ ○ /olvidoclave                         2.13 kB        90.1 kB
+├ ○ /OlvidoClaveConductor                2.47 kB         121 kB
+├ ○ /PanelConductores                    128 kB          265 kB
+├ ○ /Pedidos                             13 kB           169 kB
+├ ○ /PedidosCompletados                  4.56 kB         161 kB
+├ ○ /PortalClientes                      3.48 kB        98.1 kB
+├ ○ /PortalVentas                        1.85 kB        89.8 kB
+├ ○ /recuperar-clave                     2 kB           89.9 kB
+├ ○ /Registro                            2.65 kB        94.8 kB
+├ ○ /RegistroConductor                   2.64 kB        94.8 kB
+├ ○ /revision                            519 kB          656 kB
+├ ○ /SalaEspera                          5.5 kB          115 kB
+├ ○ /SeleccionEstados                    4.02 kB          92 kB
+└ ○ /Tarifas                             3.89 kB         126 kB
++ First Load JS shared by all            87.9 kB
+  ├ chunks/2117-5860c6759a92a550.js      32 kB
+  ├ chunks/fd9d1056-6ab55f0950b860a9.js  53.6 kB
+  └ other shared chunks (total)          2.27 kB
+
+
+○  (Static)  prerendered as static content
+
