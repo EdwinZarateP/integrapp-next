@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaSignOutAlt, FaChevronDown,
-  FaPlus, FaEdit, FaTrash, FaFileExcel, FaSearch
+  FaPlus, FaEdit, FaTrash, FaFileExcel, FaSearch, FaRoute
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
@@ -21,10 +21,21 @@ import {
 import type { PacienteMedicalCare, CrearActualizarPacienteData } from '@/Funciones/ApiPedidos/tiposMedicalCare';
 import './estilos.css';
 
+const REGIONAL_A_CEDI: Record<string, string> = {
+  CO04: 'BARRANQUILLA',
+  CO05: 'CALI',
+  CO06: 'BUCARAMANGA',
+  CO07: 'FUNZA',
+  CO09: 'MEDELLIN',
+};
+
+const PERFILES_GLOBALES = ['ADMIN', 'COORDINADOR', 'ANALISTA'];
+
 const GestionPacientes: React.FC = () => {
   const router = useRouter();
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil] = useState('');
+  const [cediUsuario, setCediUsuario] = useState<string | undefined>(undefined);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [pacientes, setPacientes] = useState<PacienteMedicalCare[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,15 +71,21 @@ const GestionPacientes: React.FC = () => {
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     if (!match) { router.replace('/LoginUsuario'); return; }
-    
+
     const usuarioValue = match[2] || '';
     const perfilValue = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+    const regionalValue = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
     setUsuario(usuarioValue);
     setPerfil(perfilValue);
-    
+
+    const cedi = PERFILES_GLOBALES.includes(perfilValue)
+      ? undefined
+      : REGIONAL_A_CEDI[regionalValue];
+    setCediUsuario(cedi);
+
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
     if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/Pedidos');
-    cargarPacientes();
+    cargarPacientes(cedi);
   }, [router]);
 
   useEffect(() => {
@@ -81,10 +98,10 @@ const GestionPacientes: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const cargarPacientes = async () => {
+  const cargarPacientes = async (cedi?: string) => {
     setLoading(true);
     try {
-      const response = await obtenerPacientes();
+      const response = await obtenerPacientes(0, 100, cedi ?? cediUsuario);
       setPacientes(response.pacientes);
     } catch (error) {
       console.error('Error al cargar pacientes:', error);
@@ -99,10 +116,14 @@ const GestionPacientes: React.FC = () => {
       cargarPacientes();
       return;
     }
-    
+
     setLoading(true);
     try {
-      const response = await buscarPacientes(searchCedula || undefined, searchPaciente || undefined);
+      const response = await buscarPacientes(
+        searchCedula || undefined,
+        searchPaciente || undefined,
+        cediUsuario
+      );
       setPacientes(response.pacientes);
     } catch (error) {
       console.error('Error al buscar pacientes:', error);
@@ -161,7 +182,7 @@ const GestionPacientes: React.FC = () => {
     if (result.isConfirmed) {
       try {
         await eliminarPaciente(paciente._id, usuario);
-        await cargarPacientes();
+        await cargarPacientes(cediUsuario);
         Swal.fire('Eliminado', 'El paciente ha sido eliminado', 'success');
       } catch (error) {
         console.error('Error al eliminar paciente:', error);
@@ -185,7 +206,7 @@ const GestionPacientes: React.FC = () => {
         Swal.fire('Éxito', 'Paciente creado correctamente', 'success');
       }
       setModalAbierto(false);
-      await cargarPacientes();
+      await cargarPacientes(cediUsuario);
     } catch (error: any) {
       console.error('Error al guardar paciente:', error);
       const mensaje = error.response?.data?.detail || 'Error al guardar el paciente';
@@ -230,7 +251,7 @@ const GestionPacientes: React.FC = () => {
       
       setModalCargaMasivoAbierto(false);
       setArchivoExcel(null);
-      await cargarPacientes();
+      await cargarPacientes(cediUsuario);
     } catch (error: any) {
       console.error('Error al cargar Excel:', error);
       setProgresoCarga(null);
@@ -275,7 +296,16 @@ const GestionPacientes: React.FC = () => {
             {menuAbierto && (
               <div className="GP-dropdown">
                 <button className="GP-dropItem" onClick={() => router.push('/MedicalCare')}>
-                  <FaUserCircle /> Volver a Medical Care
+                  <FaUserCircle /> Medical Care
+                </button>
+                <button className="GP-dropItem GP-dropItemActive" onClick={() => setMenuAbierto(false)}>
+                  <FaUserCircle /> Pacientes
+                </button>
+                <button className="GP-dropItem" onClick={() => router.push('/GestionPedidosV3')}>
+                  <FaFileExcel /> Pedidos V3
+                </button>
+                <button className="GP-dropItem" onClick={() => router.push('/CrucePacientesV3')}>
+                  <FaRoute /> Cruce Pacientes ↔ V3
                 </button>
                 <button className="GP-dropItem GP-dropItemDanger" onClick={cerrarSesion}>
                   <FaSignOutAlt /> Cerrar sesión
@@ -312,6 +342,9 @@ const GestionPacientes: React.FC = () => {
             </button>
           </div>
           <div className="GP-actions">
+            {cediUsuario && (
+              <span className="GP-cediFilter">CEDI: {cediUsuario}</span>
+            )}
             <button onClick={handleCrear} className="GP-btn GP-btnPrimary">
               <FaPlus /> Nuevo Paciente
             </button>
@@ -343,6 +376,7 @@ const GestionPacientes: React.FC = () => {
                   <th>Cédula</th>
                   <th>Dirección</th>
                   <th>Municipio</th>
+                  <th>CEDI</th>
                   <th>Ruta</th>
                   <th>Celular</th>
                   <th>Estado</th>
@@ -356,6 +390,7 @@ const GestionPacientes: React.FC = () => {
                     <td>{paciente.cedula_original}</td>
                     <td>{paciente.direccion_original}</td>
                     <td>{paciente.municipio}</td>
+                    <td>{paciente.cedi}</td>
                     <td>{paciente.ruta}</td>
                     <td>{paciente.celular_original}</td>
                     <td>

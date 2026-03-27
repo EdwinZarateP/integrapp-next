@@ -28,7 +28,9 @@ export interface PacienteMedicalCare {
 export interface PacienteOcupacion {
   paciente: string;
   cedula: string;
+  direccion_original: string;
   ruta: string;
+  cedi: string;
   llave: string;
   similitud: number;
   llave_v3: string;
@@ -38,6 +40,7 @@ export interface PacienteOcupacion {
 
 export interface RutaOcupacion {
   ruta: string;
+  cedi: string;
   total_pacientes: number;
   pacientes_en_v3: number;
   ocupacion_pct: number;
@@ -46,6 +49,8 @@ export interface RutaOcupacion {
 
 export interface OcupacionRutasResponse {
   rutas: RutaOcupacion[];
+  fecha_calculo: string | null;
+  calculado_por: string | null;
 }
 
 export interface RegistroV3SinPaciente {
@@ -53,6 +58,7 @@ export interface RegistroV3SinPaciente {
   cliente_destino: string;
   direccion_destino: string;
   ruta: string;
+  cedi: string;
   estado_pedido: string;
   telefono: string;
   llave: string;
@@ -62,6 +68,7 @@ export interface RegistroV3SinPaciente {
 
 export interface RutaV3SinPaciente {
   ruta: string;
+  cedi: string;
   total: number;
   registros: RegistroV3SinPaciente[];
 }
@@ -69,6 +76,24 @@ export interface RutaV3SinPaciente {
 export interface V3SinPacienteResponse {
   total_sin_paciente: number;
   rutas: RutaV3SinPaciente[];
+  fecha_calculo: string | null;
+  calculado_por: string | null;
+}
+
+export interface RecalcularCruceProgress {
+  stage: 'loading' | 'comparing_patients' | 'comparing_v3' | 'saving' | 'complete';
+  progress: number;
+  message: string;
+  processed?: number;
+  total?: number;
+}
+
+export interface RecalcularCruceResponse {
+  rutas: RutaOcupacion[];
+  v3_sin_paciente: RutaV3SinPaciente[];
+  total_sin_paciente: number;
+  fecha_calculo: string;
+  calculado_por: string;
 }
 
 export interface CargarPacientesResponse {

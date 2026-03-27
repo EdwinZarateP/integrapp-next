@@ -120,67 +120,44 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 - Eliminar tarifas
 
 **Portal Medical Care (`/MedicalCare`):**
-- Header verde Fresenius Medical Care
-- **Gestión de Pacientes**:
-  - **Importación masiva de pacientes desde Excel**:
-    - Subida de archivos (.xlsx, .xls, .xlsm)
-    - Validación de columnas requeridas (paciente, cedula)
-    - Normalización automática de datos según reglas de Power Query
-    - Alertas con SweetAlert2 mostrando estadísticas de carga
-    - Solo visible para perfiles ADMIN y OPERATIVO
-  - **Tabla de pacientes importados**:
-    - Visualización de todos los pacientes con paginación (50 por página)
-    - Columnas: cédula, paciente, dirección, municipio, departamento, celular, sede, CEDI, ruta, fecha carga
-    - Estados: cargando, error, vacío, datos
-    - Navegación por páginas
-  - **FAB Speed Dial**: Botón flotante en esquina inferior derecha con opción "Importar Excel"
-  - **Menú de usuario**: Opción "Pacientes" para ir a la página de gestión completa
-  - Protegido: requiere sesión y cliente activo = MEDICAL_CARE
+- Header Fresenius Medical Care con accesos a Pacientes, Pedidos V3 y Cruce
+- **Botón "Ocupación por Rutas"**: navega a la página dedicada `/CrucePacientesV3`
+- Dropdown de usuario con accesos rápidos: Pacientes, Pedidos V3, Cruce Pacientes ↔ V3
+- Protegido: requiere sesión y cliente activo = MEDICAL_CARE
+
+**Cruce Pacientes ↔ V3 (`/CrucePacientesV3`):**
+- Página dedicada con el mismo header/menú que GestionPedidosV3 (logo, título, dropdown de usuario)
+- **Toolbar**: muestra fecha y usuario del último cálculo + filtro por regional + botón Exportar Excel + botón Recalcular
+- **Pestaña "Ocupación por Rutas"**: pacientes agrupados por ruta con badge de CEDI, muestra cuántos están en V3 con su % de ocupación. Color del badge: verde ≥80%, amarillo ≥50%, rojo <50%. Expandible por ruta para ver detalle de cada paciente (similitud %, llave V3 más cercana, en V3 sí/no)
+- **Pestaña "V3 sin Paciente"**: registros V3 que no tienen paciente coincidente (similitud <80%), agrupados por ruta con badge de CEDI. Muestra código de pedido, cliente, dirección, teléfono, estado y el paciente más cercano. Badge rojo con el total. Carga lazy al primer clic
+- **Filtro por regional**: selector "Todas las regionales / BARRANQUILLA / CALI / BUCARAMANGA / FUNZA / MEDELLIN" aplicado a ambas pestañas en tiempo real
+- **Exportar Excel**: descarga el cruce completo (o filtrado por regional) con dos hojas; filas coloreadas verde/amarillo/rojo
+- **Recalcular**: dispara recálculo SSE con overlay Lottie animado y barra de progreso real (0-100%) con pasos: Cargando datos → Comparando pacientes → Verificando pedidos V3 → Guardando resultados
+- Los resultados se leen desde cache en MongoDB (`cache_cruce_mc`); sólo se recalculan al presionar el botón
+- Protegido: requiere sesión y cliente activo = MEDICAL_CARE
 
 **Gestión de Pedidos V3 (`/GestionPedidosV3`):**
-- Página completa de gestión CRUD para pedidos de Medical Care V3
-- **Carga masiva desde Excel**:
-  - Modal para subir archivos Excel con progreso en tiempo real via SSE
-  - Visualización de estadísticas de carga (registros exitosos, errores)
-  - Manejo de errores con lista detallada
-  - Solo visible para perfiles ADMIN y OPERATIVO
-- **Búsqueda de pedidos**: Por filtros múltiples con paginación
-- **Tabla de pedidos**:
-  - Visualización de campos normalizados y originales
-  - Paginación automática
-  - Navegación por páginas
-- **Creación de pedidos**: Modal con formulario completo
-- **Edición de pedidos**: Modal con carga de datos existentes
-- **Eliminación de pedidos**: Confirmación con SweetAlert2
-- **Navegación**: Botón para volver a Medical Care
-- **Protección**: Requiere sesión y cliente activo = MEDICAL_CARE
+- Gestión CRUD de pedidos de Medical Care V3
+- **Carga masiva desde Excel**: modal con progreso en tiempo real via SSE
+- **Tabla de pedidos**: columnas con datos originales (cliente_destino_original, direccion_destino_original), filtro por estado, paginación
+- **Filtro por estado**: selector que consulta los estados únicos de la colección
+- **Eliminación individual y masiva** (masiva solo ADMIN)
+- **Sin buscador de texto**: el filtrado se hace por estado
+- **Protección**: requiere sesión y cliente activo = MEDICAL_CARE
 
 **Gestión de Pacientes (`/GestionPacientes`):**
-- Página completa de gestión CRUD para pacientes de Medical Care
-- **Búsqueda de pacientes**: Por cédula o nombre con filtros en tiempo real
-- **Tabla de pacientes**:
-  - Visualización de campos normalizados y originales
-  - Columnas: paciente, cédula, dirección, municipio, celular, acciones
-  - Indicador visual cuando el valor original difiere del normalizado
-  - Paginación automática
-- **Creación de pacientes**:
-  - Modal con formulario completo
-  - Campos: sede, paciente, cédula, dirección, departamento, municipio, ruta, cedi, celular
-  - Validación de campos obligatorios
-  - Normalización automática en el backend
-- **Edición de pacientes**:
-  - Carga de datos existentes en el modal
-  - Edición de todos los campos
-  - Validación de duplicados al cambiar cédula
-- **Eliminación de pacientes**:
-  - Confirmación con SweetAlert2
-  - Eliminación individual de pacientes
-- **Carga masiva desde Excel**:
-  - Modal para subir archivos Excel
-  - Visualización de estadísticas de carga
-  - Manejo de errores con lista detallada
-- **Navegación**: Botón para volver a Medical Care
-- **Protección**: Requiere sesión y cliente activo = MEDICAL_CARE
+- Gestión CRUD completa de pacientes de Medical Care
+- **Búsqueda**: por cédula o nombre
+- **Control de acceso regional**: perfiles ADMIN, COORDINADOR y ANALISTA ven todos los pacientes; otros perfiles ven solo los de su CEDI (mapeado desde la cookie `regionalPedidosCookie`: CO04=BARRANQUILLA, CO05=CALI, CO06=BUCARAMANGA, CO07=FUNZA, CO09=MEDELLIN). Badge visible cuando el filtro está activo
+- **Tabla de pacientes**: muestra los valores **originales** (no normalizados)
+  - Columnas: Paciente, Cédula, Dirección, Municipio, **CEDI**, Ruta, Celular, Estado, Acciones
+  - Badge de color por estado: verde (ACTIVO), amarillo (INACTIVO), rojo (FALLECIDO)
+- **Creación**: modal con campos sede, paciente, cédula, dirección, departamento, municipio, ruta, cedi, celular. El backend normaliza y genera `llave` automáticamente. Estado inicial: ACTIVO
+- **Edición**: carga valores originales en el formulario; incluye selector de estado (ACTIVO / INACTIVO / FALLECIDO). Solo visible al editar, no al crear
+- **Eliminación individual**: confirmación con SweetAlert2
+- **Carga masiva desde Excel**: modal con progreso en tiempo real via SSE. Todos los registros nuevos inician en estado ACTIVO
+- **Dropdown de usuario**: accesos rápidos a Pacientes (activo), Pedidos V3, Cruce Pacientes ↔ V3
+- **Protección**: requiere sesión y cliente activo = MEDICAL_CARE
 
 ### Portal Conductores
 Panel para conductores de vehículos:
@@ -343,9 +320,13 @@ integrapp-next/
 │   │   │   └── page.tsx
 │   │   ├── MedicalCare/            # Portal Fresenius Medical Care
 │   │   │   └── page.tsx
-│   │   ├── GestionPacientes/      # Gestión CRUD de pacientes Medical Care
+│   │   ├── GestionPacientes/      # Gestión CRUD de pacientes Medical Care (col. CEDI + filtro regional)
 │   │   │   ├── page.tsx
 │   │   │   └── estilos.css
+│   │   ├── GestionPedidosV3/       # Gestión de pedidos Medical Care V3
+│   │   │   └── page.tsx
+│   │   ├── CrucePacientesV3/       # Página dedicada de cruce Pacientes ↔ V3
+│   │   │   └── page.tsx
 │   │   ├── GestionUsuarios/        # Panel ADMIN: gestión de usuarios
 │   │   │   └── page.tsx
 │   │   ├── Tarifas/               # Gestión de tarifas de flete
@@ -422,13 +403,26 @@ integrapp-next/
 │   │                               # Variables: nombre, tenedor, placa, estado, link,
 │   │                               #   DiccionarioManifiestosTodos, DiccionarioSaldos, etc.
 │   │
+│   ├── Paginas/                    # Componentes de página cargados dinámicamente (ssr: false)
+│   │   ├── MedicalCareP/           # Portal Medical Care (header, accesos)
+│   │   │   ├── index.tsx
+│   │   │   └── estilos.css
+│   │   ├── GestionPedidosV3P/      # Gestión de pedidos V3 con carga masiva SSE
+│   │   │   ├── index.tsx
+│   │   │   └── estilos.css
+│   │   └── CrucePacientesV3P/      # Cruce Pacientes ↔ V3: filtro regional, Excel, Lottie SSE
+│   │       ├── index.tsx
+│   │       └── estilos.css
+│   │
 │   ├── Funciones/                  # Capa de integración con la API
 │   │   ├── ApiPedidos/             # Funciones API de pedidos:
 │   │   │   ├── apiPedidos.tsx      # CRUD completo de pedidos
 │   │   │   ├── clientes.tsx        # CRUD clientes
 │   │   │   ├── fletes.tsx          # CRUD tarifas de flete
 │   │   │   ├── usuarios.tsx        # Login y gestión de usuarios
-│   │   │   └── tipos.tsx           # Interfaces TypeScript
+│   │   │   ├── tipos.tsx           # Interfaces TypeScript (pedidos Kabi)
+│   │   │   ├── apiMedicalCare.tsx  # API Medical Care: pacientes, cruce SSE, exportar Excel
+│   │   │   └── tiposMedicalCare.tsx # Interfaces TypeScript Medical Care (pacientes, V3, cruce)
 │   │   ├── ConsultaNovedades/      # Consulta de novedades de manifiestos
 │   │   ├── ExtraccionTotal/        # Extracción completa de datos propietario
 │   │   ├── ExtraeNovedades/        # Novedades desde Vulcano

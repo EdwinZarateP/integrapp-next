@@ -2,12 +2,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Lottie from 'lottie-react';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute,
+  FaCheckCircle, FaCircle, FaFileExcel, FaFilter,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
-import { obtenerOcupacionRutas, obtenerV3SinPaciente } from '@/Funciones/ApiPedidos/apiMedicalCare';
-import type { RutaOcupacion, RutaV3SinPaciente } from '@/Funciones/ApiPedidos/tiposMedicalCare';
+import animationPuntos from '@/Imagenes/AnimationPuntos.json';
+import { obtenerOcupacionRutas, obtenerV3SinPaciente, recalcularCruce, exportarCruceExcel } from '@/Funciones/ApiPedidos/apiMedicalCare';
+import type { RutaOcupacion, RutaV3SinPaciente, RecalcularCruceProgress } from '@/Funciones/ApiPedidos/tiposMedicalCare';
 import './estilos.css';
 
 const MedicalCareP: React.FC = () => {
@@ -27,6 +30,12 @@ const MedicalCareP: React.FC = () => {
   const [totalV3Sin, setTotalV3Sin] = useState(0);
   const [loadingOcupacion, setLoadingOcupacion] = useState(false);
   const [loadingV3Sin, setLoadingV3Sin] = useState(false);
+  const [loadingRecalculo, setLoadingRecalculo] = useState(false);
+  const [loadingExport, setLoadingExport] = useState(false);
+  const [filtroRegional, setFiltroRegional] = useState<string>('TODAS');
+  const [progresoRecalculo, setProgresoRecalculo] = useState<RecalcularCruceProgress | null>(null);
+  const [fechaCalculo, setFechaCalculo] = useState<string | null>(null);
+  const [calculadoPor, setCalculadoPor] = useState<string | null>(null);
   const [rutaExpandida, setRutaExpandida] = useState<string | null>(null);
   const [rutaV3Expandida, setRutaV3Expandida] = useState<string | null>(null);
 
@@ -54,6 +63,8 @@ const MedicalCareP: React.FC = () => {
     try {
       const data = await obtenerOcupacionRutas();
       setRutas(data.rutas);
+      if (data.fecha_calculo) setFechaCalculo(data.fecha_calculo);
+      if (data.calculado_por) setCalculadoPor(data.calculado_por);
     } catch (error) {
       console.error('Error al obtener ocupación de rutas:', error);
     } finally {
@@ -69,12 +80,53 @@ const MedicalCareP: React.FC = () => {
       const data = await obtenerV3SinPaciente();
       setRutasV3Sin(data.rutas);
       setTotalV3Sin(data.total_sin_paciente);
+      if (data.fecha_calculo) setFechaCalculo(data.fecha_calculo);
+      if (data.calculado_por) setCalculadoPor(data.calculado_por);
     } catch (error) {
       console.error('Error al obtener V3 sin paciente:', error);
     } finally {
       setLoadingV3Sin(false);
     }
   };
+
+  const handleRecalcular = async () => {
+    setLoadingRecalculo(true);
+    setProgresoRecalculo({ stage: 'loading', progress: 0, message: 'Iniciando...' });
+    try {
+      const data = await recalcularCruce(usuario, (p) => setProgresoRecalculo(p));
+      setRutas(data.rutas);
+      setRutasV3Sin(data.v3_sin_paciente);
+      setTotalV3Sin(data.total_sin_paciente);
+      setFechaCalculo(data.fecha_calculo);
+      setCalculadoPor(data.calculado_por);
+    } catch (error) {
+      console.error('Error al recalcular cruce:', error);
+    } finally {
+      setLoadingRecalculo(false);
+      setProgresoRecalculo(null);
+    }
+  };
+
+  const handleExportar = async () => {
+    setLoadingExport(true);
+    try {
+      await exportarCruceExcel(filtroRegional !== 'TODAS' ? filtroRegional : undefined);
+    } catch (error) {
+      console.error('Error al exportar:', error);
+    } finally {
+      setLoadingExport(false);
+    }
+  };
+
+  const REGIONALES = ['TODAS', 'BARRANQUILLA', 'CALI', 'BUCARAMANGA', 'FUNZA', 'MEDELLIN'];
+
+  const rutasFiltradas = filtroRegional === 'TODAS'
+    ? rutas
+    : rutas.filter(r => (r.cedi || '').toUpperCase() === filtroRegional);
+
+  const rutasV3SinFiltradas = filtroRegional === 'TODAS'
+    ? rutasV3Sin
+    : rutasV3Sin.filter(r => (r.cedi || '').toUpperCase() === filtroRegional);
 
   const cerrarSesion = () => {
     ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(name => {
@@ -117,6 +169,9 @@ const MedicalCareP: React.FC = () => {
                 <button className="MC-dropItem" onClick={() => router.push('/GestionPedidosV3')}>
                   <FaUserCircle /> Pedidos V3
                 </button>
+                <button className="MC-dropItem" onClick={() => router.push('/CrucePacientesV3')}>
+                  <FaRoute /> Cruce Pacientes ↔ V3
+                </button>
                 <button className="MC-dropItem MC-dropItemDanger" onClick={cerrarSesion}>
                   <FaSignOutAlt /> Cerrar sesión
                 </button>
@@ -150,9 +205,9 @@ const MedicalCareP: React.FC = () => {
               </button>
               <button
                 className="MC-welcomeBtn MC-btnOcupacion"
-                onClick={handleOcupacionRutas}
+                onClick={() => router.push('/CrucePacientesV3')}
               >
-                <FaRoute /> Ocupación por Rutas
+                <FaRoute /> Cruce Pacientes ↔ V3
               </button>
             </div>
 
@@ -185,7 +240,42 @@ const MedicalCareP: React.FC = () => {
           <div className="MC-modalOcupacion" onClick={(e) => e.stopPropagation()}>
             <div className="MC-modalHeader">
               <h2><FaRoute /> Cruce Pacientes ↔ V3</h2>
-              <button className="MC-modalClose" onClick={() => setModalOcupacion(false)}>×</button>
+              <div className="MC-modalHeaderRight">
+                {fechaCalculo && (
+                  <span className="MC-fechaCalculo">
+                    {fechaCalculo}{calculadoPor ? ` · ${calculadoPor}` : ''}
+                  </span>
+                )}
+                <div className="MC-filtroRegional">
+                  <FaFilter className="MC-filtroIcon" />
+                  <select
+                    value={filtroRegional}
+                    onChange={e => setFiltroRegional(e.target.value)}
+                    className="MC-filtroSelect"
+                  >
+                    {REGIONALES.map(r => (
+                      <option key={r} value={r}>{r === 'TODAS' ? 'Todas las regionales' : r}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  className="MC-btnExportar"
+                  onClick={handleExportar}
+                  disabled={loadingExport || (!rutas.length && !rutasV3Sin.length)}
+                  title="Exportar a Excel"
+                >
+                  <FaFileExcel /> {loadingExport ? 'Exportando...' : 'Exportar'}
+                </button>
+                <button
+                  className="MC-btnRecalcular"
+                  onClick={handleRecalcular}
+                  disabled={loadingRecalculo}
+                  title="Recalcular cruce desde cero"
+                >
+                  {loadingRecalculo ? 'Calculando...' : 'Recalcular'}
+                </button>
+                <button className="MC-modalClose" onClick={() => setModalOcupacion(false)}>×</button>
+              </div>
             </div>
 
             {/* Pestañas */}
@@ -212,11 +302,11 @@ const MedicalCareP: React.FC = () => {
                     <div className="MC-spinner"></div>
                     <p>Calculando similitudes con V3...</p>
                   </div>
-                ) : rutas.length === 0 ? (
-                  <p className="MC-sinDatos">No hay datos disponibles.</p>
+                ) : rutasFiltradas.length === 0 ? (
+                  <p className="MC-sinDatos">No hay datos para la regional seleccionada.</p>
                 ) : (
                   <div className="MC-rutasLista">
-                    {rutas.map((r) => {
+                    {rutasFiltradas.map((r) => {
                       const color = r.ocupacion_pct >= 80 ? '#155724' : r.ocupacion_pct >= 50 ? '#856404' : '#721c24';
                       const bgColor = r.ocupacion_pct >= 80 ? '#d4edda' : r.ocupacion_pct >= 50 ? '#fff3cd' : '#f8d7da';
                       const expandida = rutaExpandida === r.ruta;
@@ -271,9 +361,10 @@ const MedicalCareP: React.FC = () => {
                 ) : (
                   <div className="MC-rutasLista">
                     <p className="MC-resumenV3Sin">
-                      <strong>{totalV3Sin}</strong> registros en V3 sin paciente coincidente (similitud &lt; 80%)
+                      <strong>{rutasV3SinFiltradas.reduce((s, r) => s + r.total, 0)}</strong> registros en V3 sin paciente coincidente (similitud &lt; 80%)
+                      {filtroRegional !== 'TODAS' && <span className="MC-filtroActivo"> · {filtroRegional}</span>}
                     </p>
-                    {rutasV3Sin.map((r) => {
+                    {rutasV3SinFiltradas.map((r) => {
                       const expandida = rutaV3Expandida === r.ruta;
                       return (
                         <div key={r.ruta} className="MC-rutaCard">
@@ -319,6 +410,63 @@ const MedicalCareP: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── OVERLAY DE RECÁLCULO ── */}
+      {loadingRecalculo && progresoRecalculo && (() => {
+        const steps: { key: RecalcularCruceProgress['stage']; label: string }[] = [
+          { key: 'loading',             label: 'Cargando datos' },
+          { key: 'comparing_patients',  label: 'Comparando pacientes' },
+          { key: 'comparing_v3',        label: 'Verificando pedidos V3' },
+          { key: 'saving',              label: 'Guardando resultados' },
+        ];
+        const stageOrder = ['loading', 'comparing_patients', 'comparing_v3', 'saving', 'complete'];
+        const currentIdx = stageOrder.indexOf(progresoRecalculo.stage);
+
+        return (
+          <div className="MC-recalcOverlay">
+            <div className="MC-recalcCard">
+              <div className="MC-recalcLottie">
+                <Lottie animationData={animationPuntos} loop style={{ width: 160, height: 160 }} />
+              </div>
+
+              <h2 className="MC-recalcTitle">Calculando Cruce</h2>
+              <p className="MC-recalcSubtitle">Pacientes ↔ Pedidos V3</p>
+
+              {/* Pasos */}
+              <div className="MC-recalcSteps">
+                {steps.map((s, i) => {
+                  const done = currentIdx > i;
+                  const active = stageOrder[currentIdx] === s.key;
+                  return (
+                    <div key={s.key} className={`MC-recalcStep ${done ? 'MC-stepDone' : active ? 'MC-stepActive' : 'MC-stepPending'}`}>
+                      {done
+                        ? <FaCheckCircle className="MC-stepIcon" />
+                        : <FaCircle className="MC-stepIcon" />}
+                      <span>{s.label}</span>
+                      {active && progresoRecalculo.processed !== undefined && (
+                        <span className="MC-stepCount">{progresoRecalculo.processed} / {progresoRecalculo.total}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Barra de progreso */}
+              <div className="MC-recalcBarWrap">
+                <div className="MC-recalcBar">
+                  <div
+                    className="MC-recalcBarFill"
+                    style={{ width: `${progresoRecalculo.progress}%` }}
+                  />
+                </div>
+                <span className="MC-recalcPct">{progresoRecalculo.progress}%</span>
+              </div>
+
+              <p className="MC-recalcMsg">{progresoRecalculo.message}</p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── FOOTER ── */}
       <footer className="MC-footer">

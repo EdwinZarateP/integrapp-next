@@ -169,6 +169,10 @@
   background: #f0f2f5;
 }
 
+.GP-dropItemActive {
+  font-weight: 700; color: #004d40; background: #e0f2f1;
+}
+
 .GP-dropItemDanger {
   color: #dc3545;
   border-top: 1px solid #e0e0e0;
@@ -245,7 +249,19 @@
 
 .GP-actions {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
+}
+
+.GP-cediFilter {
+  padding: 4px 12px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* Buttons */

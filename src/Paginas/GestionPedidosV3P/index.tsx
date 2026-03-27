@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaChevronDown } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaChevronDown, FaRoute } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import logo from '@/Imagenes/albatros.png';
 import {
@@ -372,7 +372,10 @@ const GestionPedidosV3P: React.FC = () => {
                   <FaUserCircle /> Pacientes
                 </button>
                 <button className="GPV3-dropItem GPV3-dropItemActive" onClick={() => setMenuAbierto(false)}>
-                  <FaUserCircle /> Pedidos V3
+                  <FaFileExcel /> Pedidos V3
+                </button>
+                <button className="GPV3-dropItem" onClick={() => router.push('/CrucePacientesV3')}>
+                  <FaRoute /> Cruce Pacientes ↔ V3
                 </button>
                 <button className="GPV3-dropItem GPV3-dropItemDanger" onClick={cerrarSesion}>
                   <FaSignOutAlt /> Cerrar sesión

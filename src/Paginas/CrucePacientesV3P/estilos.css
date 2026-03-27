@@ -1,0 +1,447 @@
+/* ════════════════════════════════════════════════════════
+   CrucePacientesV3 — estilos
+   Prefijo: CRV3-
+════════════════════════════════════════════════════════ */
+
+.CRV3-layout {
+  display: flex; flex-direction: column; min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+.CRV3-header {
+  background: linear-gradient(90deg, #004d40 0%, #006b5e 100%);
+  height: 64px; display: flex; align-items: center; flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.CRV3-headerInner {
+  display: flex; align-items: center; width: 100%;
+  padding: 0 28px; gap: 16px;
+}
+
+.CRV3-backBtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: rgba(255,255,255,.1);
+  border: none; border-radius: 10px; color: #fff;
+  font-size: 1rem; cursor: pointer; transition: background .2s;
+}
+.CRV3-backBtn:hover { background: rgba(255,255,255,.18); }
+
+.CRV3-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.CRV3-brandName {
+  font-size: 1.3rem; font-weight: 800; text-transform: uppercase;
+  color: #fff; letter-spacing: -0.3px;
+}
+.CRV3-brandAccent { color: #80cbc4; }
+
+.CRV3-title {
+  flex: 1; font-size: 1.1rem; font-weight: 700; color: #fff;
+  text-align: center; display: flex; align-items: center;
+  justify-content: center; gap: 8px; min-width: 0;
+}
+
+/* User zone */
+.CRV3-userZone { position: relative; display: flex; align-items: center; flex-shrink: 0; }
+
+.CRV3-userBtn {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+  border-radius: 10px; padding: 7px 14px; cursor: pointer;
+  transition: background .2s;
+}
+.CRV3-userBtn:hover { background: rgba(255,255,255,.18); }
+.CRV3-userIcon { font-size: 1.6rem; color: #fff; }
+.CRV3-userInfo { display: flex; flex-direction: column; align-items: flex-start; }
+.CRV3-userName  { font-size: .82rem; font-weight: 700; color: #fff; line-height: 1.2; }
+.CRV3-userPerfil{ font-size: .7rem;  color: #b2dfdb; line-height: 1.2; }
+.CRV3-chevron   { color: #fff; font-size: .8rem; transition: transform .2s; }
+.CRV3-chevronOpen{ transform: rotate(180deg); }
+
+.CRV3-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: #fff; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  min-width: 200px; z-index: 100; overflow: hidden;
+}
+.CRV3-dropItem {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 11px 16px; border: none; background: none;
+  font-size: .88rem; color: #333; cursor: pointer; transition: background .15s;
+}
+.CRV3-dropItem:hover { background: #f5f5f5; }
+.CRV3-dropItemActive { font-weight: 700; color: #004d40; background: #e0f2f1; }
+.CRV3-dropItemDanger { color: #c62828; }
+.CRV3-dropItemDanger:hover { background: #ffebee; }
+
+/* ── MAIN ───────────────────────────────────────────────── */
+.CRV3-main {
+  flex: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px;
+  max-width: 1400px; width: 100%; margin: 0 auto; box-sizing: border-box;
+}
+
+/* ── TOOLBAR ────────────────────────────────────────────── */
+.CRV3-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff; border-radius: 12px; padding: 12px 20px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.08); gap: 12px; flex-wrap: wrap;
+}
+
+.CRV3-toolbarLeft {
+  display: flex; align-items: center; gap: 12px;
+}
+
+.CRV3-fechaInfo {
+  font-size: .8rem; color: #78909c; line-height: 1.4;
+}
+
+.CRV3-toolbarRight {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+
+.CRV3-filtroRegional { display: flex; align-items: center; gap: 6px; }
+.CRV3-filtroIcon { color: #006b5e; font-size: .8rem; flex-shrink: 0; }
+.CRV3-filtroSelect {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid #b2dfdb;
+  background: #f0faf9; color: #004d40; font-size: .82rem;
+  cursor: pointer; outline: none; max-width: 160px;
+}
+.CRV3-filtroSelect:focus { border-color: #006b5e; }
+
+.CRV3-filtroRuta { display: flex; align-items: center; gap: 4px; }
+.CRV3-rutaInput {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid #b2dfdb;
+  background: #f0faf9; color: #004d40; font-size: .82rem;
+  outline: none; width: 150px;
+}
+.CRV3-rutaInput:focus { border-color: #006b5e; }
+.CRV3-btnBuscarRuta {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px; border: none;
+  background: #006b5e; color: #fff; cursor: pointer; font-size: .82rem;
+  transition: background .15s; flex-shrink: 0;
+}
+.CRV3-btnBuscarRuta:hover { background: #004d40; }
+.CRV3-btnLimpiarRuta {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 6px; border: none;
+  background: #ffcdd2; color: #c62828; cursor: pointer; font-size: .78rem;
+  transition: background .15s; flex-shrink: 0;
+}
+.CRV3-btnLimpiarRuta:hover { background: #ef9a9a; }
+
+/* Botones toolbar */
+.CRV3-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: 8px; border: none;
+  font-size: .84rem; font-weight: 600; cursor: pointer;
+  transition: background .15s, opacity .15s;
+  white-space: nowrap;
+}
+.CRV3-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.CRV3-btnExport  { background: #2e7d32; color: #fff; }
+.CRV3-btnExport:hover:not(:disabled)  { background: #1b5e20; }
+
+.CRV3-btnRecalc  { background: #006b5e; color: #fff; }
+.CRV3-btnRecalc:hover:not(:disabled)  { background: #004d40; }
+
+@keyframes CRV3-spin { to { transform: rotate(360deg); } }
+.CRV3-spin { animation: CRV3-spin .8s linear infinite; }
+
+/* ── TABS ───────────────────────────────────────────────── */
+.CRV3-tabs {
+  display: flex; gap: 0; background: #fff;
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,.08);
+}
+.CRV3-tab {
+  flex: 1; padding: 12px 20px; border: none; background: none;
+  font-size: .9rem; font-weight: 600; color: #78909c;
+  cursor: pointer; transition: background .15s, color .15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border-bottom: 3px solid transparent;
+}
+.CRV3-tab:hover { background: #f5f5f5; color: #333; }
+.CRV3-tabActive { color: #004d40; border-bottom-color: #006b5e; background: #e0f2f1; }
+
+.CRV3-badge {
+  background: #c62828; color: #fff; font-size: .72rem; font-weight: 700;
+  padding: 2px 7px; border-radius: 99px;
+}
+
+/* ── CONTENT ────────────────────────────────────────────── */
+.CRV3-content { flex: 1; }
+
+.CRV3-loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; padding: 60px 20px;
+  color: #78909c;
+}
+.CRV3-spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid #e0f2f1; border-top-color: #006b5e;
+  animation: CRV3-spin .8s linear infinite;
+}
+
+.CRV3-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; padding: 60px 20px;
+  color: #78909c; text-align: center;
+}
+.CRV3-emptyIcon { font-size: 3rem; color: #b2dfdb; }
+.CRV3-empty h3  { margin: 0; color: #546e7a; }
+.CRV3-empty p   { margin: 0; font-size: .88rem; }
+
+.CRV3-resumenV3 {
+  margin: 0 0 12px; font-size: .88rem; color: #546e7a;
+}
+.CRV3-filtroTag { color: #006b5e; font-weight: 600; }
+
+/* ── CARDS DE RUTA ──────────────────────────────────────── */
+.CRV3-rutasGrid {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.CRV3-rutaCard {
+  background: #fff; border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.07); overflow: hidden;
+}
+
+.CRV3-rutaHeader {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; cursor: pointer;
+  transition: background .15s;
+}
+.CRV3-rutaHeader:hover { background: #fafafa; }
+
+.CRV3-rutaMeta {
+  flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  min-width: 0;
+}
+
+.CRV3-cediTag {
+  font-size: .72rem; font-weight: 700; padding: 2px 8px;
+  background: #e0f2f1; color: #004d40; border-radius: 99px;
+  text-transform: uppercase; white-space: nowrap;
+}
+
+.CRV3-rutaNombre {
+  font-size: .92rem; font-weight: 600; color: #333;
+  word-break: break-word; min-width: 0;
+}
+
+.CRV3-rutaStats { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.CRV3-rutaCount { font-size: .8rem; color: #78909c; white-space: nowrap; }
+
+.CRV3-rutaPct {
+  font-size: .82rem; font-weight: 700; padding: 3px 10px;
+  border-radius: 99px; white-space: nowrap;
+}
+
+.CRV3-chevronRow { font-size: .75rem; color: #bdbdbd; flex-shrink: 0; }
+
+/* ── TABLA INTERNA ──────────────────────────────────────── */
+.CRV3-tableWrap { overflow-x: auto; border-top: 1px solid #f0f0f0; -webkit-overflow-scrolling: touch; }
+
+.CRV3-table {
+  width: 100%; border-collapse: collapse; font-size: .82rem;
+  min-width: 600px;
+}
+.CRV3-table th {
+  background: #f5f5f5; color: #546e7a; font-weight: 700;
+  padding: 8px 12px; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid #e0e0e0;
+}
+.CRV3-table td {
+  padding: 7px 12px; border-bottom: 1px solid #f5f5f5; color: #333;
+  vertical-align: middle;
+}
+.CRV3-table tr:last-child td { border-bottom: none; }
+.CRV3-table tr:hover td { background: #fafafa; }
+
+.CRV3-rowOk td { background: #f1f8f1; }
+.CRV3-rowNo td { background: #fff8f8; }
+
+.CRV3-enV3 { font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+.CRV3-enV3Yes { background: #c8e6c9; color: #1b5e20; }
+.CRV3-enV3No  { background: #ffcdd2; color: #b71c1c; }
+
+.CRV3-sim { font-weight: 700; }
+
+.CRV3-celularBadge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: .72rem; font-weight: 700; padding: 2px 8px;
+  border-radius: 99px; background: #e3f2fd; color: #1565c0;
+  white-space: nowrap;
+}
+
+.CRV3-llaveCell { font-size: .75rem; color: #78909c; max-width: 220px; word-break: break-word; }
+
+/* ── OVERLAY RECÁLCULO ──────────────────────────────────── */
+.CRV3-recalcOverlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0, 30, 25, 0.72); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+
+.CRV3-recalcCard {
+  background: #fff; border-radius: 20px; padding: 40px 48px;
+  width: 420px; max-width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35);
+  position: relative; overflow: hidden;
+}
+.CRV3-recalcCard::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #006b5e, #4db6ac, #006b5e);
+  background-size: 200% 100%;
+  animation: CRV3-shimmer 1.8s linear infinite;
+}
+@keyframes CRV3-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.CRV3-recalcLottie {
+  background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+  border-radius: 50%; width: 160px; height: 160px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,107,94,.2);
+}
+.CRV3-recalcTitle   { margin: 0; font-size: 1.35rem; font-weight: 700; color: #004d40; }
+.CRV3-recalcSubtitle{ margin: -8px 0 0; font-size: .88rem; color: #80cbc4; font-weight: 500; }
+
+.CRV3-recalcSteps { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.CRV3-recalcStep {
+  display: flex; align-items: center; gap: 10px;
+  font-size: .84rem; padding: 6px 10px; border-radius: 8px;
+}
+.CRV3-stepDone    { color: #2e7d32; background: #f1f8f1; }
+.CRV3-stepActive  { color: #006b5e; background: #e0f2f1; font-weight: 600; }
+.CRV3-stepPending { color: #bdbdbd; }
+.CRV3-stepIcon { font-size: .9rem; flex-shrink: 0; }
+.CRV3-stepDone   .CRV3-stepIcon { color: #4caf50; }
+.CRV3-stepActive .CRV3-stepIcon { color: #006b5e; animation: CRV3-pulse 1s ease-in-out infinite; }
+@keyframes CRV3-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.CRV3-stepCount {
+  margin-left: auto; font-size: .75rem; color: #00897b;
+  background: #b2dfdb; padding: 2px 8px; border-radius: 10px;
+}
+
+.CRV3-recalcBarWrap { width: 100%; display: flex; align-items: center; gap: 10px; }
+.CRV3-recalcBar { flex: 1; height: 10px; background: #e0f2f1; border-radius: 99px; overflow: hidden; }
+.CRV3-recalcBarFill {
+  height: 100%; background: linear-gradient(90deg, #006b5e, #4db6ac);
+  border-radius: 99px; transition: width .4s ease;
+}
+.CRV3-recalcPct { font-size: 1rem; font-weight: 700; color: #004d40; min-width: 44px; text-align: right; }
+.CRV3-recalcMsg { margin: 0; font-size: .8rem; color: #78909c; text-align: center; min-height: 18px; }
+
+.CRV3-toolbarBtns {
+  display: flex; gap: 8px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════════════════ */
+
+/* ── Tablet (≤ 900px) ───────────────────────────────────── */
+@media (max-width: 900px) {
+  .CRV3-headerInner { padding: 0 16px; gap: 10px; }
+  .CRV3-main { padding: 16px 16px; }
+
+  .CRV3-toolbar { padding: 10px 14px; gap: 10px; }
+  .CRV3-toolbarRight { gap: 8px; }
+  .CRV3-rutaInput { width: 130px; }
+
+  .CRV3-tab { padding: 10px 14px; font-size: .84rem; }
+}
+
+/* ── Mobile (≤ 600px) ───────────────────────────────────── */
+@media (max-width: 600px) {
+
+  /* Header */
+  .CRV3-header { height: auto; min-height: 56px; }
+  .CRV3-headerInner { padding: 10px 12px; gap: 8px; flex-wrap: nowrap; }
+  .CRV3-brandName { display: none; }
+  .CRV3-title { font-size: .88rem; gap: 5px; }
+  .CRV3-userInfo { display: none; }
+  .CRV3-userBtn { padding: 6px 10px; gap: 6px; }
+  .CRV3-backBtn { width: 36px; height: 36px; font-size: .9rem; }
+
+  /* Main */
+  .CRV3-main { padding: 12px; gap: 12px; }
+
+  /* Toolbar: apila todo verticalmente */
+  .CRV3-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  /* Fila 1: fecha */
+  .CRV3-toolbarLeft { justify-content: flex-start; }
+  .CRV3-fechaInfo { font-size: .76rem; }
+
+  /* Fila 2+: filtros y botones ocupan todo el ancho */
+  .CRV3-toolbarRight {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  /* Filtro regional y filtro ruta: cada uno en su fila */
+  .CRV3-filtroRegional {
+    width: 100%;
+  }
+  .CRV3-filtroSelect {
+    flex: 1; max-width: 100%; width: 100%;
+  }
+
+  .CRV3-filtroRuta { width: 100%; }
+  .CRV3-rutaInput  { flex: 1; width: 100%; }
+
+  /* Botones en fila horizontal, ocupando todo el ancho */
+  .CRV3-toolbar .CRV3-btn {
+    flex: 1; justify-content: center;
+  }
+  /* Agrupa los dos botones en una fila */
+  .CRV3-toolbarBtns {
+    display: flex; gap: 8px; width: 100%;
+  }
+
+  /* Tabs */
+  .CRV3-tabs { border-radius: 10px; }
+  .CRV3-tab { padding: 10px 8px; font-size: .78rem; gap: 5px; }
+
+  /* Cards de ruta */
+  .CRV3-rutaHeader { padding: 12px 14px; gap: 8px; }
+  .CRV3-rutaNombre { font-size: .85rem; }
+  .CRV3-rutaCount  { display: none; }          /* en mobile solo badge de % */
+  .CRV3-rutaPct    { font-size: .78rem; padding: 2px 8px; }
+
+  /* Tabla: scroll horizontal + fuente más pequeña */
+  .CRV3-table { font-size: .76rem; min-width: 520px; }
+  .CRV3-table th,
+  .CRV3-table td { padding: 6px 8px; }
+  .CRV3-llaveCell { max-width: 140px; }
+
+  /* Overlay recálculo */
+  .CRV3-recalcCard { padding: 24px 20px; gap: 12px; }
+  .CRV3-recalcLottie { width: 120px; height: 120px; }
+  .CRV3-recalcTitle { font-size: 1.1rem; }
+  .CRV3-recalcSubtitle { font-size: .82rem; }
+  .CRV3-recalcStep { font-size: .78rem; padding: 5px 8px; }
+}
+
+/* ── Extra pequeño (≤ 380px) ────────────────────────────── */
+@media (max-width: 380px) {
+  .CRV3-title { display: none; }   /* en pantallas muy pequeñas solo logo + user */
+  .CRV3-table { min-width: 460px; }
+  .CRV3-tab { font-size: .72rem; padding: 9px 6px; }
+}

@@ -358,6 +358,111 @@
   color: rgba(255,255,255,.25);
 }
 
+/* ── OVERLAY RECÁLCULO ── */
+.MC-recalcOverlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0, 30, 25, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.MC-recalcCard {
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px 48px;
+  width: 420px;
+  max-width: 92vw;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+  position: relative; overflow: hidden;
+}
+
+.MC-recalcCard::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #006b5e, #4db6ac, #006b5e);
+  background-size: 200% 100%;
+  animation: MC-shimmer 1.8s linear infinite;
+}
+
+@keyframes MC-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.MC-recalcLottie {
+  background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+  border-radius: 50%;
+  width: 180px; height: 180px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 107, 94, 0.2);
+}
+
+.MC-recalcTitle {
+  margin: 0; font-size: 1.35rem; font-weight: 700;
+  color: #004d40; letter-spacing: -0.3px;
+}
+
+.MC-recalcSubtitle {
+  margin: -8px 0 0; font-size: 0.88rem; color: #80cbc4; font-weight: 500;
+}
+
+/* Pasos */
+.MC-recalcSteps {
+  width: 100%; display: flex; flex-direction: column; gap: 8px;
+  margin: 4px 0;
+}
+
+.MC-recalcStep {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.84rem; padding: 6px 10px; border-radius: 8px;
+  transition: background .2s;
+}
+
+.MC-stepDone    { color: #2e7d32; background: #f1f8f1; }
+.MC-stepActive  { color: #006b5e; background: #e0f2f1; font-weight: 600; }
+.MC-stepPending { color: #bdbdbd; }
+
+.MC-stepIcon { font-size: 0.9rem; flex-shrink: 0; }
+.MC-stepDone   .MC-stepIcon { color: #4caf50; }
+.MC-stepActive .MC-stepIcon { color: #006b5e; animation: MC-pulse 1s ease-in-out infinite; }
+
+@keyframes MC-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.MC-stepCount {
+  margin-left: auto; font-size: 0.75rem;
+  color: #00897b; background: #b2dfdb;
+  padding: 2px 8px; border-radius: 10px;
+}
+
+/* Barra de progreso */
+.MC-recalcBarWrap {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+}
+
+.MC-recalcBar {
+  flex: 1; height: 10px; background: #e0f2f1; border-radius: 99px; overflow: hidden;
+}
+
+.MC-recalcBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #006b5e, #4db6ac);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.MC-recalcPct {
+  font-size: 1rem; font-weight: 700; color: #004d40; min-width: 44px; text-align: right;
+}
+
+.MC-recalcMsg {
+  margin: 0; font-size: 0.8rem; color: #78909c;
+  text-align: center; min-height: 18px;
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .MC-placeholder { padding: 40px 24px; }
@@ -394,6 +499,45 @@
   border-bottom: 1px solid #e0e0e0;
 }
 .MC-modalHeader h2 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+.MC-modalHeaderRight {
+  display: flex; align-items: center; gap: 10px;
+}
+.MC-fechaCalculo {
+  font-size: 0.75rem; color: #888; white-space: nowrap;
+}
+.MC-filtroRegional {
+  display: flex; align-items: center; gap: 5px;
+}
+.MC-filtroIcon { color: #006b5e; font-size: 0.8rem; flex-shrink: 0; }
+.MC-filtroSelect {
+  padding: 4px 8px; border-radius: 6px; border: 1px solid #b2dfdb;
+  background: #f0faf9; color: #004d40; font-size: 0.8rem;
+  cursor: pointer; outline: none;
+}
+.MC-filtroSelect:focus { border-color: #006b5e; }
+
+.MC-filtroActivo {
+  color: #006b5e; font-weight: 600;
+}
+
+.MC-btnExportar {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 6px; border: 1px solid #2e7d32;
+  background: #fff; color: #2e7d32; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.MC-btnExportar:hover:not(:disabled) { background: #2e7d32; color: #fff; }
+.MC-btnExportar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.MC-btnRecalcular {
+  padding: 5px 14px; border-radius: 6px; border: 1px solid #006b5e;
+  background: #fff; color: #006b5e; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.MC-btnRecalcular:hover:not(:disabled) { background: #006b5e; color: #fff; }
+.MC-btnRecalcular:disabled { opacity: 0.6; cursor: not-allowed; }
 .MC-modalClose {
   background: none; border: none; font-size: 1.6rem;
   cursor: pointer; color: #666; line-height: 1;
