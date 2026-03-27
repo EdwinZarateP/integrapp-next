@@ -341,6 +341,9 @@
 .CRV3-recalcPct { font-size: 1rem; font-weight: 700; color: #004d40; min-width: 44px; text-align: right; }
 .CRV3-recalcMsg { margin: 0; font-size: .8rem; color: #78909c; text-align: center; min-height: 18px; }
 
+.CRV3-toolbarBtns {
+  display: flex; gap: 8px;
+}
 
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE
