@@ -17,6 +17,8 @@ export interface PacienteMedicalCare {
   cedi: string;
   celular: string;
   celular_original: string;
+  telefono1?: string;
+  telefono2?: string;
   estado: string;
   llave: string;
   usuario_carga: string;

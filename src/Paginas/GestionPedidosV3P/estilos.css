@@ -45,6 +45,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .GPV3-brandName {
@@ -265,6 +269,13 @@
 .GPV3-filterSelect:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.GPV3-syncInfo {
+  font-size: 0.75rem;
+  color: #90a4ae;
+  white-space: nowrap;
+  align-self: center;
 }
 
 .GPV3-actions {

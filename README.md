@@ -127,6 +127,7 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 
 **Cruce Pacientes ↔ V3 (`/CrucePacientesV3`):**
 - Página dedicada con el mismo header/menú que GestionPedidosV3 (logo, título, dropdown de usuario)
+- **Logo/título clickeable**: navega a `/MedicalCare` (eliminado el botón de flecha separado)
 - **Toolbar**: muestra fecha y usuario del último cálculo + filtro por regional + botón Exportar Excel + botón Recalcular
 - **Pestaña "Ocupación por Rutas"**: pacientes agrupados por ruta con badge de CEDI, muestra cuántos están en V3 con su % de ocupación. Color del badge: verde ≥80%, amarillo ≥50%, rojo <50%. Expandible por ruta para ver detalle de cada paciente (similitud %, llave V3 más cercana, en V3 sí/no)
 - **Pestaña "V3 sin Paciente"**: registros V3 que no tienen paciente coincidente (similitud <80%), agrupados por ruta con badge de CEDI. Muestra código de pedido, cliente, dirección, teléfono, estado y el paciente más cercano. Badge rojo con el total. Carga lazy al primer clic
@@ -143,6 +144,8 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 - **Filtro por estado**: selector que consulta los estados únicos de la colección
 - **Eliminación individual y masiva** (masiva solo ADMIN)
 - **Sin buscador de texto**: el filtrado se hace por estado
+- **Logo/título clickeable**: navega a `/MedicalCare` (eliminado el botón de flecha separado)
+- **Indicador de última sincronización automática**: texto discreto en la toolbar (`⟳ 7 abr 2026 14:32`) que muestra la hora del último sync del backend. Consulta `GET /sync-v3/estado` cada 60s; solo recarga los pedidos si el timestamp cambió
 - **Protección**: requiere sesión y cliente activo = MEDICAL_CARE
 
 **Gestión de Pacientes (`/GestionPacientes`):**
@@ -150,12 +153,14 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 - **Búsqueda**: por cédula o nombre
 - **Control de acceso regional**: perfiles ADMIN, COORDINADOR y ANALISTA ven todos los pacientes; otros perfiles ven solo los de su CEDI (mapeado desde la cookie `regionalPedidosCookie`: CO04=BARRANQUILLA, CO05=CALI, CO06=BUCARAMANGA, CO07=FUNZA, CO09=MEDELLIN). Badge visible cuando el filtro está activo
 - **Tabla de pacientes**: muestra los valores **originales** (no normalizados)
-  - Columnas: Paciente, Cédula, Dirección, Municipio, **CEDI**, Ruta, Celular, Estado, Acciones
+  - Columnas: Paciente, Cédula, Dirección, Municipio, **CEDI**, Ruta, **Teléfono 1**, **Teléfono 2**, Estado, Acciones
+  - Teléfono 1 muestra `telefono1` (normalizado); Teléfono 2 muestra `telefono2` si existe, `-` si no
   - Badge de color por estado: verde (ACTIVO), amarillo (INACTIVO), rojo (FALLECIDO)
-- **Creación**: modal con campos sede, paciente, cédula, dirección, departamento, municipio, ruta, cedi, celular. El backend normaliza y genera `llave` automáticamente. Estado inicial: ACTIVO
-- **Edición**: carga valores originales en el formulario; incluye selector de estado (ACTIVO / INACTIVO / FALLECIDO). Solo visible al editar, no al crear
+- **Creación**: modal con campos sede, paciente, cédula, dirección, departamento, municipio, ruta, cedi, celular. El backend normaliza, separa en telefono1/telefono2 y genera `llave` automáticamente. Estado inicial: ACTIVO
+- **Edición**: carga `celular_original` en el formulario; incluye selector de estado (ACTIVO / INACTIVO / FALLECIDO). Solo visible al editar, no al crear
 - **Eliminación individual**: confirmación con SweetAlert2
 - **Carga masiva desde Excel**: modal con progreso en tiempo real via SSE. Todos los registros nuevos inician en estado ACTIVO
+- **Logo/título clickeable**: navega a `/MedicalCare` (igual que GestionPedidosV3 y CrucePacientesV3)
 - **Dropdown de usuario**: accesos rápidos a Pacientes (activo), Pedidos V3, Cruce Pacientes ↔ V3
 - **Protección**: requiere sesión y cliente activo = MEDICAL_CARE
 
@@ -671,7 +676,7 @@ Aplicado a todos los portales para consistencia visual:
 - Esta corrección se aplica a TODOS los campos (pacientes, direcciones, municipio, sede, departamento, CEDI, ruta)
 
 **Tipos TypeScript (tiposMedicalCare.tsx):**
-- `PacienteMedicalCare`: Interfaz completa de paciente con campos originales y normalizados
+- `PacienteMedicalCare`: Interfaz completa de paciente con campos originales y normalizados. Incluye `telefono1?: string` y `telefono2?: string`
 - `CrearActualizarPacienteData`: Interfaz para crear/actualizar pacientes (campos originales)
 - `CargarPacientesResponse`: Interfaz de respuesta de carga masiva
 - `ProgressEvent`: Interfaz de eventos de progreso SSE
@@ -792,7 +797,7 @@ Aplicado a todos los portales para consistencia visual:
 - [ ] `Api2` es una página de prueba de autenticación con Vulcano, no es producción
 - [ ] `bot_recolecciones.exe` en `/public` es una app Electron para gestión de recolecciones — pendiente integración completa
 - [ ] Agregar `sharp` para optimización de imágenes en producción: `npm i sharp`
-- [ ] `/MedicalCare` es un portal en construcción — pendiente definir y desarrollar los módulos de Fresenius Medical Care
+- [ ] `/MedicalCare` portal funcional con módulos: Pacientes, Pedidos V3, Cruce Pacientes ↔ V3. Pendiente: integración con API real (actualmente consume Excel local via sync automático)
 - [ ] Implementar autenticación Google OAuth para los portales que lo requieran
 - [ ] Mejorar responsive design para móviles y tablets
 - [ ] Implementar sistema de notificaciones en tiempo real con Firebase

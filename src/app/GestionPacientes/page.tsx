@@ -378,7 +378,8 @@ const GestionPacientes: React.FC = () => {
                   <th>Municipio</th>
                   <th>CEDI</th>
                   <th>Ruta</th>
-                  <th>Celular</th>
+                  <th>Teléfono 1</th>
+                  <th>Teléfono 2</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -392,7 +393,8 @@ const GestionPacientes: React.FC = () => {
                     <td>{paciente.municipio}</td>
                     <td>{paciente.cedi}</td>
                     <td>{paciente.ruta}</td>
-                    <td>{paciente.celular_original}</td>
+                    <td>{paciente.telefono1 || '-'}</td>
+                    <td>{paciente.telefono2 || '-'}</td>
                     <td>
                       <span className={`GP-estadoBadge GP-estado${paciente.estado || 'ACTIVO'}`}>
                         {paciente.estado || 'ACTIVO'}

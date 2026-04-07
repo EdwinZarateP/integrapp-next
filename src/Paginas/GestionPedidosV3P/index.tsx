@@ -46,9 +46,26 @@ const GestionPedidosV3P: React.FC = () => {
   const [estados, setEstados] = useState<EstadoV3[]>([]);
   const [estadoSeleccionado, setEstadoSeleccionado] = useState<string>('');
   const [loadingEstados, setLoadingEstados] = useState(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<string | null>(null);
 
   useEffect(() => {
     cargarEstados();
+    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+    let timestampActual: string | null = null;
+    const fetchSync = () =>
+      fetch(`${API}/sync-v3/estado`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.timestamp && d.timestamp !== timestampActual) {
+            timestampActual = d.timestamp;
+            setUltimaActualizacion(d.timestamp);
+            cargarPedidos();
+          }
+        })
+        .catch(() => {});
+    fetchSync();
+    const interval = setInterval(fetchSync, 60_000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -346,15 +363,12 @@ const GestionPedidosV3P: React.FC = () => {
       {/* HEADER */}
       <header className="GPV3-header">
         <div className="GPV3-headerInner">
-          <button className="GPV3-backBtn" onClick={() => router.push('/MedicalCare')} title="Volver">
-            <FaArrowLeft />
-          </button>
-          <div className="GPV3-brand">
+          <button className="GPV3-brand" onClick={() => router.push('/MedicalCare')} title="Volver a Medical Care">
             <Image src={logo} alt="Integra" height={40} priority />
             <span className="GPV3-brandName">
               Integr<span className="GPV3-brandAccent">App</span>
             </span>
-          </div>
+          </button>
           <div className="GPV3-title">Gestión de Pedidos V3</div>
           <div className="GPV3-userZone" ref={menuRef}>
             <button className="GPV3-userBtn" onClick={() => setMenuAbierto(o => !o)}>
@@ -405,6 +419,11 @@ const GestionPedidosV3P: React.FC = () => {
               ))}
             </select>
           </div>
+          {ultimaActualizacion && (
+            <span className="GPV3-syncInfo" title="Última sincronización automática">
+              ⟳ {new Date(ultimaActualizacion!.replace(' ', 'T')).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })} {ultimaActualizacion!.slice(11, 16)}
+            </span>
+          )}
           <div className="GPV3-actions">
             <button className="GPV3-btn GPV3-btnPrimary" onClick={() => setMostrarModalCarga(true)}>
               <FaFileExcel /> Cargar Excel

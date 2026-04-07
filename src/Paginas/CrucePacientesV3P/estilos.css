@@ -30,7 +30,7 @@
 }
 .CRV3-backBtn:hover { background: rgba(255,255,255,.18); }
 
-.CRV3-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.CRV3-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; background: none; border: none; padding: 0; cursor: pointer; }
 .CRV3-brandName {
   font-size: 1.3rem; font-weight: 800; text-transform: uppercase;
   color: #fff; letter-spacing: -0.3px;

@@ -170,13 +170,10 @@ const CrucePacientesV3P: React.FC = () => {
       {/* HEADER */}
       <header className="CRV3-header">
         <div className="CRV3-headerInner">
-          <button className="CRV3-backBtn" onClick={() => router.push('/MedicalCare')} title="Volver">
-            <FaArrowLeft />
-          </button>
-          <div className="CRV3-brand">
+          <button className="CRV3-brand" onClick={() => router.push('/MedicalCare')} title="Volver a Medical Care">
             <Image src={logo} alt="Integra" height={40} priority />
             <span className="CRV3-brandName">Integr<span className="CRV3-brandAccent">App</span></span>
-          </div>
+          </button>
           <div className="CRV3-title"><FaRoute /> Cruce Pacientes ↔ V3</div>
           <div className="CRV3-userZone" ref={menuRef}>
             <button className="CRV3-userBtn" onClick={() => setMenuAbierto(o => !o)}>
