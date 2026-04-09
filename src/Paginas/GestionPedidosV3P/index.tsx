@@ -20,12 +20,8 @@ import './estilos.css';
 
 const GestionPedidosV3P: React.FC = () => {
   const router = useRouter();
-  const usuario = typeof document !== 'undefined'
-    ? (document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '')
-    : '';
-  const perfil = typeof document !== 'undefined'
-    ? (document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '')
-    : '';
+  const [usuario, setUsuario] = useState('');
+  const [perfil, setPerfil]   = useState('');
   const [menuAbierto, setMenuAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -56,10 +52,11 @@ const GestionPedidosV3P: React.FC = () => {
       fetch(`${API}/sync-v3/estado`)
         .then(r => r.json())
         .then(d => {
-          if (d.timestamp && d.timestamp !== timestampActual) {
+          if (d.timestamp) {
+            const cambio = timestampActual !== null && d.timestamp !== timestampActual;
             timestampActual = d.timestamp;
             setUltimaActualizacion(d.timestamp);
-            cargarPedidos();
+            if (cambio) cargarPedidos(); // solo recarga si el sync corrió de nuevo
           }
         })
         .catch(() => {});
@@ -72,9 +69,11 @@ const GestionPedidosV3P: React.FC = () => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     if (!match) { router.replace('/LoginUsuario'); return; }
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
-    if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/MedicalCare');
+    if (cliente && cliente !== 'MEDICAL_CARE') { router.replace('/MedicalCare'); return; }
+    setUsuario(match[2] || '');
+    setPerfil(document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '');
     cargarPedidos();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -466,6 +465,8 @@ const GestionPedidosV3P: React.FC = () => {
                     <th>Teléfono</th>
                     <th>Fecha Pedido</th>
                     <th>Fecha Preferente</th>
+                    <th>Fecha Entrega</th>
+                    <th>Planilla</th>
                     <th>Estado Pedido</th>
                     <th>Cajas</th>
                     <th>Peso</th>
@@ -502,6 +503,8 @@ const GestionPedidosV3P: React.FC = () => {
                       <td>{pedido.telefono || '-'}</td>
                       <td>{formatearFecha(pedido.fecha_pedido)}</td>
                       <td>{formatearFecha(pedido.fecha_preferente)}</td>
+                      <td>{formatearFecha(pedido.fecha_entrega)}</td>
+                      <td>{pedido.planilla || '-'}</td>
                       <td>{pedido.estado_pedido || '-'}</td>
                       <td>{pedido.piezas || '-'}</td>
                       <td>{pedido.peso_real || '-'}</td>

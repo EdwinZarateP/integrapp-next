@@ -35,9 +35,17 @@ export interface PacienteOcupacion {
   cedi: string;
   llave: string;
   similitud: number;
+  match_tipo?: 'celular' | 'llave';
   llave_v3: string;
   en_v3: boolean;
   estado: string;
+  estado_pedido?: string;
+  fecha_pedido?: string;
+  fecha_preferente?: string;
+  fecha_entrega?: string;
+  planilla?: string;
+  municipio_destino?: string;
+  divipola?: string;
 }
 
 export interface RutaOcupacion {
@@ -46,6 +54,9 @@ export interface RutaOcupacion {
   total_pacientes: number;
   pacientes_en_v3: number;
   ocupacion_pct: number;
+  pacientes_entregados?: number;
+  pct_entregados?: number;
+  vehiculos?: number;
   pacientes: PacienteOcupacion[];
 }
 
@@ -80,6 +91,27 @@ export interface V3SinPacienteResponse {
   rutas: RutaV3SinPaciente[];
   fecha_calculo: string | null;
   calculado_por: string | null;
+}
+
+export interface MesHistorico {
+  anio: number;
+  mes: number;
+  fecha_corte: string;
+  total: number;
+}
+
+export interface HistoricoMesesResponse {
+  meses: MesHistorico[];
+}
+
+export interface HistoricoMesDetalle {
+  anio: number;
+  mes: number;
+  fecha_corte: string;
+  total: number;
+  rutas: RutaOcupacion[];
+  v3_sin_paciente: RutaV3SinPaciente[];
+  total_sin_paciente: number;
 }
 
 export interface RecalcularCruceProgress {

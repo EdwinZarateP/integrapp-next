@@ -16,7 +16,9 @@ import type {
   OcupacionRutasResponse,
   V3SinPacienteResponse,
   RecalcularCruceProgress,
-  RecalcularCruceResponse
+  RecalcularCruceResponse,
+  HistoricoMesesResponse,
+  HistoricoMesDetalle,
 } from './tiposMedicalCare';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -226,10 +228,11 @@ export async function eliminarPaciente(
  */
 export async function recalcularCruce(
   usuario: string,
-  onProgress: (progress: RecalcularCruceProgress) => void
+  onProgress: (progress: RecalcularCruceProgress) => void,
+  enviarCorreo: boolean = true
 ): Promise<RecalcularCruceResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/pacientes-medical-care/recalcular-cruce?usuario=${encodeURIComponent(usuario)}`,
+    `${API_BASE_URL}/pacientes-medical-care/recalcular-cruce?usuario=${encodeURIComponent(usuario)}&enviar_correo=${enviarCorreo}`,
     { method: 'POST' }
   );
 
@@ -297,6 +300,26 @@ export async function exportarCruceExcel(cedi?: string): Promise<void> {
   a.download = match ? match[1] : 'cruce_mc.xlsx';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Lista los meses archivados en el histórico
+ */
+export async function obtenerHistoricoMeses(): Promise<HistoricoMesesResponse> {
+  const response = await axios.get<HistoricoMesesResponse>(
+    `${API_BASE_URL}/sync-v3/historico`
+  );
+  return response.data;
+}
+
+/**
+ * Devuelve el cruce archivado de un mes específico
+ */
+export async function obtenerHistoricoMes(anio: number, mes: number): Promise<HistoricoMesDetalle> {
+  const response = await axios.get<HistoricoMesDetalle>(
+    `${API_BASE_URL}/sync-v3/historico/${anio}/${mes}`
+  );
+  return response.data;
 }
 
 /**

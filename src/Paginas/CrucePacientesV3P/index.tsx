@@ -14,11 +14,15 @@ import {
   obtenerV3SinPaciente,
   recalcularCruce,
   exportarCruceExcel,
+  obtenerHistoricoMeses,
+  obtenerHistoricoMes,
 } from '@/Funciones/ApiPedidos/apiMedicalCare';
 import type {
   RutaOcupacion,
   RutaV3SinPaciente,
   RecalcularCruceProgress,
+  MesHistorico,
+  HistoricoMesDetalle,
 } from '@/Funciones/ApiPedidos/tiposMedicalCare';
 import './estilos.css';
 
@@ -32,12 +36,20 @@ const CrucePacientesV3P: React.FC = () => {
   const [perfil, setPerfil]     = useState('');
   const [menuAbierto, setMenuAbierto] = useState(false);
 
-  const [tab, setTab]                       = useState<'ocupacion' | 'v3sin'>('ocupacion');
+  const [tab, setTab]                       = useState<'ocupacion' | 'v3sin' | 'historico'>('ocupacion');
+
+  // ── Histórico ──────────────────────────────────────────────────────────────
+  const [mesesHistorico, setMesesHistorico]       = useState<MesHistorico[]>([]);
+  const [loadingHistorico, setLoadingHistorico]   = useState(false);
+  const [mesSeleccionado, setMesSeleccionado]     = useState<{anio:number;mes:number} | null>(null);
+  const [detalleHistorico, setDetalleHistorico]   = useState<HistoricoMesDetalle | null>(null);
+  const [loadingDetalle, setLoadingDetalle]       = useState(false);
   const [rutas, setRutas]                   = useState<RutaOcupacion[]>([]);
   const [rutasV3Sin, setRutasV3Sin]         = useState<RutaV3SinPaciente[]>([]);
   const [totalV3Sin, setTotalV3Sin]         = useState(0);
   const [fechaCalculo, setFechaCalculo]     = useState<string | null>(null);
   const [calculadoPor, setCalculadoPor]     = useState<string | null>(null);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<string | null>(null);
 
   const [filtroRegional, setFiltroRegional] = useState('TODAS');
   const [filtroRutaInput, setFiltroRutaInput] = useState('');
@@ -50,6 +62,26 @@ const CrucePacientesV3P: React.FC = () => {
   const [loadingRecalculo, setLoadingRecalculo] = useState(false);
   const [loadingExport, setLoadingExport]       = useState(false);
   const [progresoRecalculo, setProgresoRecalculo] = useState<RecalcularCruceProgress | null>(null);
+  const [mostrarConfirmCorreo, setMostrarConfirmCorreo] = useState(false);
+
+  // ── Polling última sincronización V3 ────────────────────────────────────────
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+    let timestampActual: string | null = null;
+    const fetchSync = () =>
+      fetch(`${API}/sync-v3/estado`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.timestamp && d.timestamp !== timestampActual) {
+            timestampActual = d.timestamp;
+            setUltimaActualizacion(d.timestamp);
+          }
+        })
+        .catch(() => {});
+    fetchSync();
+    const id = setInterval(fetchSync, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -106,12 +138,49 @@ const CrucePacientesV3P: React.FC = () => {
     cargarV3Sin();
   };
 
+  const handleTabHistorico = async () => {
+    setTab('historico');
+    if (mesesHistorico.length > 0) return;
+    setLoadingHistorico(true);
+    try {
+      const data = await obtenerHistoricoMeses();
+      setMesesHistorico(data.meses);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingHistorico(false);
+    }
+  };
+
+  const handleVerMes = async (anio: number, mes: number) => {
+    if (mesSeleccionado?.anio === anio && mesSeleccionado?.mes === mes) {
+      setMesSeleccionado(null);
+      setDetalleHistorico(null);
+      return;
+    }
+    setMesSeleccionado({ anio, mes });
+    setLoadingDetalle(true);
+    try {
+      const data = await obtenerHistoricoMes(anio, mes);
+      setDetalleHistorico(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingDetalle(false);
+    }
+  };
+
   // ── Recalcular ───────────────────────────────────────────────────────────────
-  const handleRecalcular = async () => {
+  const handleRecalcular = () => {
+    setMostrarConfirmCorreo(true);
+  };
+
+  const ejecutarRecalculo = async (enviarCorreo: boolean) => {
+    setMostrarConfirmCorreo(false);
     setLoadingRecalculo(true);
     setProgresoRecalculo({ stage: 'loading', progress: 0, message: 'Iniciando...' });
     try {
-      const data = await recalcularCruce(usuario, (p) => setProgresoRecalculo(p));
+      const data = await recalcularCruce(usuario, (p) => setProgresoRecalculo(p), enviarCorreo);
       setRutas(data.rutas);
       setRutasV3Sin(data.v3_sin_paciente);
       setTotalV3Sin(data.total_sin_paciente);
@@ -210,12 +279,30 @@ const CrucePacientesV3P: React.FC = () => {
         {/* Toolbar */}
         <div className="CRV3-toolbar">
           <div className="CRV3-toolbarLeft">
-            {fechaCalculo && (
-              <span className="CRV3-fechaInfo">
-                Calculado: <strong>{fechaCalculo}</strong>
-                {calculadoPor && <> · <strong>{calculadoPor}</strong></>}
-              </span>
-            )}
+            {(() => {
+              const _meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+              const _fmt = (ts: string) => {
+                const d = new Date(ts.replace(' ', 'T'));
+                return `${d.getDate()} ${_meses[d.getMonth()]} ${d.getFullYear()} ${ts.slice(11, 16)}`;
+              };
+              // Mostrar el más reciente: recálculo manual vs sync automático
+              const esManual = fechaCalculo && (!ultimaActualizacion || fechaCalculo > ultimaActualizacion);
+              if (esManual) {
+                return (
+                  <span className="CRV3-syncInfo" title="Último recálculo manual">
+                    ⟳ {_fmt(fechaCalculo!)}{calculadoPor && calculadoPor !== 'sync_automatico' ? ` · ${calculadoPor}` : ''}
+                  </span>
+                );
+              }
+              if (ultimaActualizacion) {
+                return (
+                  <span className="CRV3-syncInfo" title="Última sincronización automática V3">
+                    ⟳ {_fmt(ultimaActualizacion)}
+                  </span>
+                );
+              }
+              return null;
+            })()}
           </div>
           <div className="CRV3-toolbarRight">
             <div className="CRV3-filtroRegional">
@@ -292,6 +379,15 @@ const CrucePacientesV3P: React.FC = () => {
               <span className="CRV3-badge">{totalV3Sin}</span>
             )}
           </button>
+          <button
+            className={`CRV3-tab ${tab === 'historico' ? 'CRV3-tabActive' : ''}`}
+            onClick={handleTabHistorico}
+          >
+            Histórico
+            {mesesHistorico.length > 0 && (
+              <span className="CRV3-badge" style={{ background: '#1565c0' }}>{mesesHistorico.length}</span>
+            )}
+          </button>
         </div>
 
         {/* Contenido */}
@@ -331,6 +427,21 @@ const CrucePacientesV3P: React.FC = () => {
                         <div className="CRV3-rutaStats">
                           <span className="CRV3-rutaCount">{r.pacientes_en_v3} / {r.total_pacientes}</span>
                           <span className="CRV3-rutaPct" style={{ background: bgColor, color }}>{r.ocupacion_pct}%</span>
+                          {r.pct_entregados !== undefined && (() => {
+                            const pct = r.pct_entregados!;
+                            const bg  = pct === 100 ? '#d4edda' : pct >= 50 ? '#fff3cd' : '#f8d7da';
+                            const cl  = pct === 100 ? '#155724' : pct >= 50 ? '#856404' : '#721c24';
+                            return (
+                              <span className="CRV3-rutaPctEntregados" style={{ background: bg, color: cl }} title={`${r.pacientes_entregados} entregados`}>
+                                {pct}% entregado
+                              </span>
+                            );
+                          })()}
+                          {!!r.vehiculos && (
+                            <span className="CRV3-vehiculosBadge" title="Vehículos (planillas únicas)">
+                              🚛 {r.vehiculos}
+                            </span>
+                          )}
                         </div>
                         <span className="CRV3-chevronRow">{expandida ? '▲' : '▼'}</span>
                       </div>
@@ -342,28 +453,50 @@ const CrucePacientesV3P: React.FC = () => {
                                 <th>Paciente</th>
                                 <th>Cédula</th>
                                 <th>Dirección</th>
-                                <th>Estado</th>
                                 <th>En V3</th>
+                                <th>Estado Pedido</th>
+                                <th>F. Pedido</th>
+                                <th>F. Preferente</th>
+                                <th>F. Entrega</th>
+                                <th>Planilla</th>
+                                <th>Municipio</th>
+                                <th>Divipola</th>
                                 <th>Similitud</th>
-                                <th>Cruce / Llave V3</th>
                               </tr>
                             </thead>
                             <tbody>
                               {r.pacientes.map((p, i) => {
-                                const porCelular = p.llave_v3 === 'CRUCE POR CELULAR';
+                                const hoy = new Date(); hoy.setHours(0,0,0,0);
+                                const limite = new Date(hoy); limite.setDate(limite.getDate() + 5);
+                                const fechaPref = p.fecha_preferente ? new Date(p.fecha_preferente) : null;
+                                const esEntregado = p.en_v3 && p.estado_pedido === 'ENTREGADO';
+                                const esRojo = !esEntregado && (
+                                  !p.en_v3 ||
+                                  p.estado_pedido === 'POR PROGRAMAR' ||
+                                  (fechaPref !== null && fechaPref <= limite)
+                                );
+                                const rowClass = esEntregado ? 'CRV3-rowEntregado' : esRojo ? 'CRV3-rowUrgente' : '';
                                 return (
-                                  <tr key={i} className={p.en_v3 ? 'CRV3-rowOk' : 'CRV3-rowNo'}>
+                                  <tr key={i} className={rowClass}>
                                     <td>{p.paciente}</td>
                                     <td>{p.cedula}</td>
                                     <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
-                                    <td>{p.estado}</td>
                                     <td>
                                       <span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>
                                         {p.en_v3 ? 'SÍ' : 'NO'}
                                       </span>
                                     </td>
+                                    <td>{p.estado_pedido || '—'}</td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
+                                    <td style={{ whiteSpace: 'nowrap', color: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? '#c62828' : undefined, fontWeight: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? 700 : undefined }}>
+                                      {p.fecha_preferente || '—'}
+                                    </td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_entrega || '—'}</td>
+                                    <td>{p.planilla || '—'}</td>
+                                    <td>{p.municipio_destino || '—'}</td>
+                                    <td>{p.divipola || '—'}</td>
                                     <td>
-                                      {porCelular ? (
+                                      {p.match_tipo === 'celular' && p.en_v3 ? (
                                         <span className="CRV3-celularBadge">📱 Celular</span>
                                       ) : (
                                         <span className="CRV3-sim" style={{
@@ -373,7 +506,6 @@ const CrucePacientesV3P: React.FC = () => {
                                         </span>
                                       )}
                                     </td>
-                                    <td className="CRV3-llaveCell">{p.llave_v3 || '—'}</td>
                                   </tr>
                                 );
                               })}
@@ -466,8 +598,167 @@ const CrucePacientesV3P: React.FC = () => {
               </>
             )
           )}
+
+          {/* ── Tab Histórico ── */}
+          {tab === 'historico' && (() => {
+            const _MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            return loadingHistorico ? (
+              <div className="CRV3-loading"><div className="CRV3-spinner" /><p>Cargando histórico...</p></div>
+            ) : mesesHistorico.length === 0 ? (
+              <div className="CRV3-empty">
+                <FaRoute className="CRV3-emptyIcon" />
+                <h3>Sin histórico disponible</h3>
+                <p>El primer corte se generará automáticamente el último día del mes a las 00:00.</p>
+              </div>
+            ) : (
+              <div className="CRV3-historicoGrid">
+                {mesesHistorico.map(m => {
+                  const clave = `${m.anio}-${m.mes}`;
+                  const activo = mesSeleccionado?.anio === m.anio && mesSeleccionado?.mes === m.mes;
+                  return (
+                    <div key={clave} className="CRV3-rutaCard">
+                      <div className="CRV3-rutaHeader" onClick={() => handleVerMes(m.anio, m.mes)}>
+                        <div className="CRV3-rutaMeta">
+                          <span className="CRV3-cediTag">{m.anio}</span>
+                          <span className="CRV3-rutaNombre">{_MESES_ES[m.mes - 1]}</span>
+                        </div>
+                        <div className="CRV3-rutaStats">
+                          <span className="CRV3-rutaCount">{m.total} pedidos</span>
+                          <span className="CRV3-rutaCount" style={{ color: '#78909c' }}>
+                            {m.fecha_corte?.slice(0, 10)}
+                          </span>
+                        </div>
+                        <span className="CRV3-chevronRow">{activo ? '▲' : '▼'}</span>
+                      </div>
+
+                      {activo && (
+                        loadingDetalle ? (
+                          <div className="CRV3-loading" style={{ padding: '24px' }}>
+                            <div className="CRV3-spinner" /><p>Cargando detalle...</p>
+                          </div>
+                        ) : detalleHistorico && (
+                          <div style={{ padding: '16px', borderTop: '1px solid #f0f0f0' }}>
+                            <p className="CRV3-resumenV3" style={{ marginBottom: 12 }}>
+                              Cruce al <strong>{m.fecha_corte?.slice(0, 10)}</strong> · {detalleHistorico.rutas.length} rutas · {detalleHistorico.total_sin_paciente} sin paciente
+                            </p>
+                            <div className="CRV3-rutasGrid">
+                              {detalleHistorico.rutas.map(r => {
+                                const color   = r.ocupacion_pct >= 80 ? '#155724' : r.ocupacion_pct >= 50 ? '#856404' : '#721c24';
+                                const bgColor = r.ocupacion_pct >= 80 ? '#d4edda' : r.ocupacion_pct >= 50 ? '#fff3cd' : '#f8d7da';
+                                const exp = `hist-${clave}-${r.ruta}`;
+                                const expandida = rutaExpandida === exp;
+                                return (
+                                  <div key={r.ruta} className="CRV3-rutaCard" style={{ boxShadow: 'none', border: '1px solid #e0e0e0' }}>
+                                    <div className="CRV3-rutaHeader" onClick={() => setRutaExpandida(expandida ? null : exp)}>
+                                      <div className="CRV3-rutaMeta">
+                                        {r.cedi && <span className="CRV3-cediTag">{r.cedi}</span>}
+                                        <span className="CRV3-rutaNombre">{r.ruta}</span>
+                                      </div>
+                                      <div className="CRV3-rutaStats">
+                                        <span className="CRV3-rutaCount">{r.pacientes_en_v3} / {r.total_pacientes}</span>
+                                        <span className="CRV3-rutaPct" style={{ background: bgColor, color }}>{r.ocupacion_pct}%</span>
+                                        {r.pct_entregados !== undefined && (() => {
+                                          const pct = r.pct_entregados!;
+                                          const bg  = pct === 100 ? '#d4edda' : pct >= 50 ? '#fff3cd' : '#f8d7da';
+                                          const cl  = pct === 100 ? '#155724' : pct >= 50 ? '#856404' : '#721c24';
+                                          return <span className="CRV3-rutaPctEntregados" style={{ background: bg, color: cl }}>{pct}% entregado</span>;
+                                        })()}
+                                        {!!r.vehiculos && (
+                                          <span className="CRV3-vehiculosBadge" title="Vehículos">🚛 {r.vehiculos}</span>
+                                        )}
+                                      </div>
+                                      <span className="CRV3-chevronRow">{expandida ? '▲' : '▼'}</span>
+                                    </div>
+                                    {expandida && (
+                                      <div className="CRV3-tableWrap">
+                                        <table className="CRV3-table">
+                                          <thead>
+                                            <tr>
+                                              <th>Paciente</th><th>Cédula</th><th>Dirección</th>
+                                              <th>En V3</th><th>Estado Pedido</th>
+                                              <th>F. Pedido</th><th>F. Preferente</th>
+                                              <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Similitud</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {r.pacientes.map((p, i) => {
+                                              const esEntregado = p.en_v3 && p.estado_pedido === 'ENTREGADO';
+                                              const esRojo = !esEntregado && (!p.en_v3 || p.estado_pedido === 'POR PROGRAMAR');
+                                              return (
+                                                <tr key={i} className={esEntregado ? 'CRV3-rowEntregado' : esRojo ? 'CRV3-rowUrgente' : ''}>
+                                                  <td>{p.paciente}</td>
+                                                  <td>{p.cedula}</td>
+                                                  <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
+                                                  <td><span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>{p.en_v3 ? 'SÍ' : 'NO'}</span></td>
+                                                  <td>{p.estado_pedido || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_preferente || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_entrega || '—'}</td>
+                                                  <td>{p.planilla || '—'}</td>
+                                                  <td>{p.municipio_destino || '—'}</td>
+                                                  <td>{p.divipola || '—'}</td>
+                                                  <td>
+                                                    {p.match_tipo === 'celular' && p.en_v3
+                                                      ? <span className="CRV3-celularBadge">📱 Celular</span>
+                                                      : <span className="CRV3-sim" style={{ color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24' }}>{p.similitud}%</span>
+                                                    }
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </main>
+
+      {/* MODAL CONFIRMACIÓN CORREO */}
+      {mostrarConfirmCorreo && (
+        <div className="CRV3-recalcOverlay">
+          <div className="CRV3-recalcCard" style={{ maxWidth: 420 }}>
+            <h2 className="CRV3-recalcTitle">Recalcular Cruce</h2>
+            <p className="CRV3-recalcSubtitle" style={{ marginBottom: 24 }}>
+              ¿Desea enviar el informe por correo a los usuarios de la app que tienen acceso?
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="CRV3-btn CRV3-btnRecalc"
+                onClick={() => ejecutarRecalculo(true)}
+              >
+                Sí, recalcular y enviar
+              </button>
+              <button
+                className="CRV3-btn"
+                style={{ background: '#546e7a', color: '#fff' }}
+                onClick={() => ejecutarRecalculo(false)}
+              >
+                Solo recalcular
+              </button>
+              <button
+                className="CRV3-btn"
+                style={{ background: '#e0e0e0', color: '#333' }}
+                onClick={() => setMostrarConfirmCorreo(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* OVERLAY RECÁLCULO */}
       {loadingRecalculo && progresoRecalculo && (() => {

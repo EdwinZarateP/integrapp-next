@@ -401,7 +401,7 @@ const GestionPacientes: React.FC = () => {
                       </span>
                     </td>
                     <td>
-                      <button onClick={() => handleEditar(paciente)} className="GP-btnIcon GP-btnEdit" title="Editar">
+                      <button onClick={() => handleEditar(paciente)} className="GP-btnIcon GP-btnEdit" title="Editar estado">
                         <FaEdit />
                       </button>
                       <button onClick={() => handleEliminar(paciente)} className="GP-btnIcon GP-btnDelete" title="Eliminar">
@@ -419,113 +419,35 @@ const GestionPacientes: React.FC = () => {
       {/* Modal de creación/edición */}
       {modalAbierto && (
         <div className="GP-modalOverlay">
-          <div className="GP-modal">
+          <div className="GP-modal" style={{ maxWidth: 420 }}>
             <div className="GP-modalHeader">
-              <h2>{pacienteEditando ? 'Editar Paciente' : 'Nuevo Paciente'}</h2>
+              <h2>{pacienteEditando ? 'Editar Estado' : 'Nuevo Paciente'}</h2>
               <button onClick={() => setModalAbierto(false)} className="GP-modalClose">×</button>
             </div>
             <div className="GP-modalBody">
               <div className="GP-form">
-                <div className="GP-formRow">
-                  <div className="GP-formGroup">
-                    <label>Paciente *</label>
-                    <input
-                      type="text"
-                      value={formData.paciente}
-                      onChange={(e) => setFormData({ ...formData, paciente: e.target.value })}
-                      className="GP-input"
-                      placeholder="Nombre completo del paciente"
-                    />
-                  </div>
-                  <div className="GP-formGroup">
-                    <label>Cédula *</label>
-                    <input
-                      type="text"
-                      value={formData.cedula}
-                      onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
-                      className="GP-input"
-                      placeholder="Número de cédula"
-                    />
-                  </div>
-                </div>
-                <div className="GP-formRow">
-                  <div className="GP-formGroup">
-                    <label>Sede</label>
-                    <input
-                      type="text"
-                      value={formData.sede}
-                      onChange={(e) => setFormData({ ...formData, sede: e.target.value })}
-                      className="GP-input"
-                      placeholder="Sede"
-                    />
-                  </div>
-                  <div className="GP-formGroup">
-                    <label>Departamento</label>
-                    <input
-                      type="text"
-                      value={formData.departamento}
-                      onChange={(e) => setFormData({ ...formData, departamento: e.target.value })}
-                      className="GP-input"
-                      placeholder="Departamento"
-                    />
-                  </div>
-                </div>
-                <div className="GP-formRow">
-                  <div className="GP-formGroup">
-                    <label>Municipio</label>
-                    <input
-                      type="text"
-                      value={formData.municipio}
-                      onChange={(e) => setFormData({ ...formData, municipio: e.target.value })}
-                      className="GP-input"
-                      placeholder="Municipio"
-                    />
-                  </div>
-                  <div className="GP-formGroup">
-                    <label>Celular</label>
-                    <input
-                      type="text"
-                      value={formData.celular}
-                      onChange={(e) => setFormData({ ...formData, celular: e.target.value })}
-                      className="GP-input"
-                      placeholder="Número celular"
-                    />
-                  </div>
-                </div>
-                <div className="GP-formRow">
-                  <div className="GP-formGroup">
-                    <label>Dirección</label>
-                    <input
-                      type="text"
-                      value={formData.direccion}
-                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                      className="GP-input"
-                      placeholder="Dirección completa"
-                    />
-                  </div>
-                  <div className="GP-formGroup">
-                    <label>Ruta</label>
-                    <input
-                      type="text"
-                      value={formData.ruta}
-                      onChange={(e) => setFormData({ ...formData, ruta: e.target.value })}
-                      className="GP-input"
-                      placeholder="Ruta"
-                    />
-                  </div>
-                </div>
-                <div className="GP-formRow">
-                  <div className="GP-formGroup">
-                    <label>CEDI</label>
-                    <input
-                      type="text"
-                      value={formData.cedi}
-                      onChange={(e) => setFormData({ ...formData, cedi: e.target.value })}
-                      className="GP-input"
-                      placeholder="CEDI"
-                    />
-                  </div>
-                  {pacienteEditando && (
+                {pacienteEditando ? (
+                  <>
+                    <div className="GP-formGroup">
+                      <label>Paciente</label>
+                      <input type="text" value={pacienteEditando.paciente_original} readOnly className="GP-input" style={{ background: '#f5f5f5', color: '#546e7a', cursor: 'default' }} />
+                    </div>
+                    <div className="GP-formGroup">
+                      <label>Teléfono 1</label>
+                      <input type="text" value={pacienteEditando.telefono1 || pacienteEditando.celular || '-'} readOnly className="GP-input" style={{ background: '#f5f5f5', color: '#546e7a', cursor: 'default' }} />
+                    </div>
+                    <div className="GP-formGroup">
+                      <label>Teléfono 2</label>
+                      <input type="text" value={pacienteEditando.telefono2 || '-'} readOnly className="GP-input" style={{ background: '#f5f5f5', color: '#546e7a', cursor: 'default' }} />
+                    </div>
+                    <div className="GP-formGroup">
+                      <label>Dirección</label>
+                      <textarea readOnly className="GP-input" rows={2} style={{ background: '#f5f5f5', color: '#546e7a', cursor: 'default', resize: 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{pacienteEditando.direccion_original || '-'}</textarea>
+                    </div>
+                    <div className="GP-formGroup">
+                      <label>Llave de cruce</label>
+                      <textarea readOnly className="GP-input" rows={2} style={{ background: '#f5f5f5', color: '#546e7a', cursor: 'default', resize: 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{pacienteEditando.llave || '-'}</textarea>
+                    </div>
                     <div className="GP-formGroup">
                       <label>Estado</label>
                       <select
@@ -538,9 +460,112 @@ const GestionPacientes: React.FC = () => {
                         <option value="FALLECIDO">FALLECIDO</option>
                       </select>
                     </div>
-                  )}
-                </div>
-                <p className="GP-note">* Campos obligatorios. Los datos se normalizarán automáticamente.</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="GP-formRow">
+                      <div className="GP-formGroup">
+                        <label>Paciente *</label>
+                        <input
+                          type="text"
+                          value={formData.paciente}
+                          onChange={(e) => setFormData({ ...formData, paciente: e.target.value })}
+                          className="GP-input"
+                          placeholder="Nombre completo del paciente"
+                        />
+                      </div>
+                      <div className="GP-formGroup">
+                        <label>Cédula *</label>
+                        <input
+                          type="text"
+                          value={formData.cedula}
+                          onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
+                          className="GP-input"
+                          placeholder="Número de cédula"
+                        />
+                      </div>
+                    </div>
+                    <div className="GP-formRow">
+                      <div className="GP-formGroup">
+                        <label>Sede</label>
+                        <input
+                          type="text"
+                          value={formData.sede}
+                          onChange={(e) => setFormData({ ...formData, sede: e.target.value })}
+                          className="GP-input"
+                          placeholder="Sede"
+                        />
+                      </div>
+                      <div className="GP-formGroup">
+                        <label>Departamento</label>
+                        <input
+                          type="text"
+                          value={formData.departamento}
+                          onChange={(e) => setFormData({ ...formData, departamento: e.target.value })}
+                          className="GP-input"
+                          placeholder="Departamento"
+                        />
+                      </div>
+                    </div>
+                    <div className="GP-formRow">
+                      <div className="GP-formGroup">
+                        <label>Municipio</label>
+                        <input
+                          type="text"
+                          value={formData.municipio}
+                          onChange={(e) => setFormData({ ...formData, municipio: e.target.value })}
+                          className="GP-input"
+                          placeholder="Municipio"
+                        />
+                      </div>
+                      <div className="GP-formGroup">
+                        <label>Celular</label>
+                        <input
+                          type="text"
+                          value={formData.celular}
+                          onChange={(e) => setFormData({ ...formData, celular: e.target.value })}
+                          className="GP-input"
+                          placeholder="Número celular"
+                        />
+                      </div>
+                    </div>
+                    <div className="GP-formRow">
+                      <div className="GP-formGroup">
+                        <label>Dirección</label>
+                        <input
+                          type="text"
+                          value={formData.direccion}
+                          onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                          className="GP-input"
+                          placeholder="Dirección completa"
+                        />
+                      </div>
+                      <div className="GP-formGroup">
+                        <label>Ruta</label>
+                        <input
+                          type="text"
+                          value={formData.ruta}
+                          onChange={(e) => setFormData({ ...formData, ruta: e.target.value })}
+                          className="GP-input"
+                          placeholder="Ruta"
+                        />
+                      </div>
+                    </div>
+                    <div className="GP-formRow">
+                      <div className="GP-formGroup">
+                        <label>CEDI</label>
+                        <input
+                          type="text"
+                          value={formData.cedi}
+                          onChange={(e) => setFormData({ ...formData, cedi: e.target.value })}
+                          className="GP-input"
+                          placeholder="CEDI"
+                        />
+                      </div>
+                    </div>
+                    <p className="GP-note">* Campos obligatorios. Los datos se normalizarán automáticamente.</p>
+                  </>
+                )}
               </div>
             </div>
             <div className="GP-modalFooter">
@@ -548,7 +573,7 @@ const GestionPacientes: React.FC = () => {
                 Cancelar
               </button>
               <button onClick={handleGuardar} className="GP-btn GP-btnPrimary">
-                {pacienteEditando ? 'Actualizar' : 'Crear'}
+                {pacienteEditando ? 'Guardar' : 'Crear'}
               </button>
             </div>
           </div>
