@@ -110,6 +110,7 @@ const CrucePacientesV3P: React.FC = () => {
       setRutas(data.rutas);
       if (data.fecha_calculo) setFechaCalculo(data.fecha_calculo);
       if (data.calculado_por) setCalculadoPor(data.calculado_por);
+      if (data.total_sin_paciente) setTotalV3Sin(data.total_sin_paciente);
     } catch (e) {
       console.error(e);
     } finally {

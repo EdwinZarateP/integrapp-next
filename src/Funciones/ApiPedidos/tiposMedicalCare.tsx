@@ -64,6 +64,7 @@ export interface OcupacionRutasResponse {
   rutas: RutaOcupacion[];
   fecha_calculo: string | null;
   calculado_por: string | null;
+  total_sin_paciente: number;
 }
 
 export interface RegistroV3SinPaciente {
