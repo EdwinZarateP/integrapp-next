@@ -46,6 +46,9 @@ export interface PacienteOcupacion {
   planilla?: string;
   municipio_destino?: string;
   divipola?: string;
+  ruta_v3?: string;
+  celular_paciente?: string;
+  telefono_v3?: string;
 }
 
 export interface RutaOcupacion {

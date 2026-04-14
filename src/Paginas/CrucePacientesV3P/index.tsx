@@ -465,6 +465,7 @@ const CrucePacientesV3P: React.FC = () => {
                                 <th>Cédula</th>
                                 <th>Dirección</th>
                                 <th>En V3</th>
+                                <th>Ruta V3</th>
                                 <th>Estado Pedido</th>
                                 <th>F. Pedido</th>
                                 <th>F. Preferente</th>
@@ -473,6 +474,8 @@ const CrucePacientesV3P: React.FC = () => {
                                 <th>Municipio</th>
                                 <th>Divipola</th>
                                 <th>Similitud</th>
+                                <th>Cel. Paciente</th>
+                                <th>Tel. V3</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -497,6 +500,9 @@ const CrucePacientesV3P: React.FC = () => {
                                         {p.en_v3 ? 'SÍ' : 'NO'}
                                       </span>
                                     </td>
+                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.ruta_v3 ? '#004d40' : '#aaa' }}>
+                                      {p.ruta_v3 || '—'}
+                                    </td>
                                     <td>{p.estado_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap', color: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? '#c62828' : undefined, fontWeight: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? 700 : undefined }}>
@@ -516,6 +522,12 @@ const CrucePacientesV3P: React.FC = () => {
                                           {p.similitud}%
                                         </span>
                                       )}
+                                    </td>
+                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.celular_paciente ? '#1565c0' : '#aaa' }}>
+                                      {p.celular_paciente || '—'}
+                                    </td>
+                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.telefono_v3 ? '#1565c0' : '#aaa' }}>
+                                      {p.telefono_v3 || '—'}
                                     </td>
                                   </tr>
                                 );
@@ -686,9 +698,10 @@ const CrucePacientesV3P: React.FC = () => {
                                           <thead>
                                             <tr>
                                               <th>Paciente</th><th>Cédula</th><th>Dirección</th>
-                                              <th>En V3</th><th>Estado Pedido</th>
+                                              <th>En V3</th><th>Ruta V3</th><th>Estado Pedido</th>
                                               <th>F. Pedido</th><th>F. Preferente</th>
                                               <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Similitud</th>
+                                              <th>Cel. Paciente</th><th>Tel. V3</th>
                                             </tr>
                                           </thead>
                                           <tbody>
@@ -701,6 +714,7 @@ const CrucePacientesV3P: React.FC = () => {
                                                   <td>{p.cedula}</td>
                                                   <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
                                                   <td><span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>{p.en_v3 ? 'SÍ' : 'NO'}</span></td>
+                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.ruta_v3 ? '#004d40' : '#aaa' }}>{p.ruta_v3 || '—'}</td>
                                                   <td>{p.estado_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_preferente || '—'}</td>
@@ -714,6 +728,8 @@ const CrucePacientesV3P: React.FC = () => {
                                                       : <span className="CRV3-sim" style={{ color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24' }}>{p.similitud}%</span>
                                                     }
                                                   </td>
+                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.celular_paciente ? '#1565c0' : '#aaa' }}>{p.celular_paciente || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.telefono_v3 ? '#1565c0' : '#aaa' }}>{p.telefono_v3 || '—'}</td>
                                                 </tr>
                                               );
                                             })}
