@@ -639,6 +639,19 @@
 @media (max-width: 768px) {
   .GP-headerInner {
     padding: 0 16px;
+    max-width: 100%;
+  }
+
+  .GP-brandName {
+    display: none;
+  }
+
+  .GP-clienteBadge {
+    display: none;
+  }
+
+  .GP-userInfo {
+    display: none;
   }
 
   .GP-main {
@@ -684,6 +697,54 @@
 
   .GP-footerLinks {
     display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .GP-headerInner {
+    padding: 0 12px;
+    gap: 0.75rem;
+  }
+
+  .GP-userBtn {
+    padding: 7px 10px;
+    gap: 6px;
+  }
+
+  .GP-main {
+    padding: 0.75rem;
+  }
+
+  .GP-toolbar {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .GP-search {
+    min-width: 0;
+  }
+
+  .GP-searchInput {
+    min-width: 0;
+  }
+
+  .GP-btn {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .GP-headerInner {
+    gap: 0.5rem;
+  }
+
+  .GP-main {
+    padding: 0.5rem;
+  }
+
+  .GP-toolbar {
+    padding: 0.75rem;
   }
 }
 

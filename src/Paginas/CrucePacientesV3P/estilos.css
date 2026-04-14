@@ -463,7 +463,8 @@
 
 /* ── Extra pequeño (≤ 380px) ────────────────────────────── */
 @media (max-width: 380px) {
-  .CRV3-title { display: none; }   /* en pantallas muy pequeñas solo logo + user */
+  .CRV3-headerInner { justify-content: space-between; } /* sin título, separa logo y user */
+  .CRV3-title { display: none; }
   .CRV3-table { min-width: 700px; }
   .CRV3-tab { font-size: .72rem; padding: 9px 6px; }
 }

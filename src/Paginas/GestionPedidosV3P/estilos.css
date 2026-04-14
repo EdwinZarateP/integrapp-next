@@ -67,6 +67,10 @@
   font-weight: 700;
   color: #fff;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .GPV3-userZone {
@@ -748,5 +752,65 @@
   .GPV3-modalBody,
   .GPV3-modalFooter {
     padding: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .GPV3-headerInner {
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .GPV3-brandName {
+    display: none;
+  }
+
+  .GPV3-userInfo {
+    display: none;
+  }
+
+  .GPV3-userBtn {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .GPV3-main {
+    padding: 12px;
+  }
+
+  .GPV3-toolbar {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .GPV3-search {
+    min-width: 0;
+  }
+
+  .GPV3-filterSelect {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .GPV3-syncInfo {
+    text-align: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .GPV3-headerInner {
+    justify-content: space-between;
+  }
+
+  .GPV3-title {
+    display: none;
+  }
+
+  .GPV3-main {
+    padding: 8px;
+  }
+
+  .GPV3-toolbar {
+    padding: 12px;
   }
 }

@@ -370,6 +370,16 @@ const CrucePacientesV3P: React.FC = () => {
             onClick={() => setTab('ocupacion')}
           >
             Ocupación por Rutas
+            {rutas.length > 0 && (() => {
+              const enV3  = rutas.reduce((s, r) => s + r.pacientes_en_v3, 0);
+              const total = rutas.reduce((s, r) => s + r.total_pacientes, 0);
+              const pct   = total > 0 ? Math.round(enV3 / total * 100) : 0;
+              return (
+                <span style={{ marginLeft: 6, fontSize: '0.78rem', fontWeight: 600, opacity: 0.75 }}>
+                  {enV3}/{total} · {pct}%
+                </span>
+              );
+            })()}
           </button>
           <button
             className={`CRV3-tab ${tab === 'v3sin' ? 'CRV3-tabActive' : ''}`}
