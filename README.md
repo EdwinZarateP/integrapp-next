@@ -129,8 +129,8 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 - Página dedicada con el mismo header/menú que GestionPedidosV3 (logo, título, dropdown de usuario)
 - **Logo/título clickeable**: navega a `/MedicalCare` (eliminado el botón de flecha separado)
 - **Toolbar**: muestra fecha y usuario del último cálculo + filtro por regional + botón Exportar Excel + botón Recalcular
-- **Pestaña "Ocupación por Rutas"**: pacientes agrupados por ruta con badge de CEDI, muestra cuántos están en V3 con su % de ocupación. Color del badge: verde ≥80%, amarillo ≥50%, rojo <50%. Expandible por ruta para ver detalle de cada paciente (similitud %, llave V3 más cercana, en V3 sí/no)
-- **Pestaña "V3 sin Paciente"**: registros V3 que no tienen paciente coincidente (similitud <80%), agrupados por ruta con badge de CEDI. Muestra código de pedido, cliente, dirección, teléfono, estado y el paciente más cercano. Badge rojo con el total. Carga lazy al primer clic
+- **Pestaña "Ocupación por Rutas"**: pacientes agrupados por ruta con badge de CEDI, muestra cuántos están en V3 con su % de ocupación. Color del badge: verde ≥80%, amarillo ≥50%, rojo <50%. Expandible por ruta para ver detalle de cada paciente (similitud %, llave V3 más cercana, en V3 sí/no). **Badge inline** `enV3/total · pct%` junto al nombre de la pestaña (sin fondo de color). Tabla de detalle incluye columna **"Ruta V3"** (ruta del pedido V3 que cruzó) y columnas **"Cel. Paciente"** / **"Tel. V3"** para auditoría de cruces por celular
+- **Pestaña "V3 sin Paciente"**: registros V3 que no tienen paciente coincidente (similitud <80%), agrupados por ruta con badge de CEDI. Muestra código de pedido, cliente, dirección, teléfono, estado y el paciente más cercano. **Badge rojo con el total visible desde el primer cargue** (dato `total_sin_paciente` incluido en `/ocupacion-rutas`)
 - **Filtro por regional**: selector "Todas las regionales / BARRANQUILLA / CALI / BUCARAMANGA / FUNZA / MEDELLIN" aplicado a ambas pestañas en tiempo real
 - **Exportar Excel**: descarga el cruce completo (o filtrado por regional) con dos hojas; filas coloreadas verde/amarillo/rojo
 - **Recalcular**: dispara recálculo SSE con overlay Lottie animado y barra de progreso real (0-100%) con pasos: Cargando datos → Comparando pacientes → Verificando pedidos V3 → Guardando resultados
@@ -799,6 +799,6 @@ Aplicado a todos los portales para consistencia visual:
 - [ ] Agregar `sharp` para optimización de imágenes en producción: `npm i sharp`
 - [ ] `/MedicalCare` portal funcional con módulos: Pacientes, Pedidos V3, Cruce Pacientes ↔ V3. Pendiente: integración con API real (actualmente consume Excel local via sync automático)
 - [ ] Implementar autenticación Google OAuth para los portales que lo requieran
-- [ ] Mejorar responsive design para móviles y tablets
+- [x] Responsive design para móviles y tablets: breakpoints 600px y 380px implementados en `CrucePacientesV3`, `GestionPedidosV3` y `GestionPacientes`. A ≤768px se ocultan brandName, badge de página e info de usuario en el header; a ≤600px se oculta la marca completa dejando solo logo + botón de usuario; a ≤380px el título se oculta y el header usa `justify-content: space-between`. Títulos de header con `white-space: nowrap` para evitar wrap que rompa la altura fija del header
 - [ ] Implementar sistema de notificaciones en tiempo real con Firebase
 - [ ] Agregar tests unitarios y de integración con Jest y React Testing Library
