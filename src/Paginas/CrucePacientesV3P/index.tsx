@@ -481,6 +481,8 @@ const CrucePacientesV3P: React.FC = () => {
                                 <th>Planilla</th>
                                 <th>Municipio</th>
                                 <th>Divipola</th>
+                                <th>Cel. Paciente</th>
+                                <th>Tel. V3</th>
                                 <th>Similitud</th>
                               </tr>
                             </thead>
@@ -508,12 +510,12 @@ const CrucePacientesV3P: React.FC = () => {
                                     </td>
                                     {(() => {
                                       const esCambio = p.en_v3 && (!p.ruta_v3 || p.ruta_v3 !== r.ruta);
-                                      return (
-                                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem',
-                                          background: esCambio ? '#7f0000' : 'transparent',
-                                          color: esCambio ? '#fff' : p.ruta_v3 ? '#004d40' : '#aaa',
-                                          fontWeight: esCambio ? 700 : 'normal',
-                                        }}>
+                                      return esCambio ? (
+                                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', background: '#7f0000', color: '#fff', fontWeight: 700 }}>
+                                          {p.ruta_v3 || '—'}
+                                        </td>
+                                      ) : (
+                                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
                                           {p.ruta_v3 || '—'}
                                         </td>
                                       );
@@ -527,6 +529,8 @@ const CrucePacientesV3P: React.FC = () => {
                                     <td>{p.planilla || '—'}</td>
                                     <td>{p.municipio_destino || '—'}</td>
                                     <td>{p.divipola || '—'}</td>
+                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.celular_paciente || '—'}</td>
+                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.telefono_v3 || '—'}</td>
                                     <td>
                                       {p.match_tipo === 'celular' && p.en_v3 && (
                                         <span className="CRV3-celularBadge">📱 Celular</span>
@@ -709,7 +713,7 @@ const CrucePacientesV3P: React.FC = () => {
                                               <th>Paciente</th><th>Cédula</th><th>Dirección</th>
                                               <th>En V3</th><th>Ruta V3</th><th>Estado Pedido</th>
                                               <th>F. Pedido</th><th>F. Preferente</th>
-                                              <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Similitud</th>
+                                              <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Cel. Paciente</th><th>Tel. V3</th><th>Similitud</th>
                                             </tr>
                                           </thead>
                                           <tbody>
@@ -724,12 +728,10 @@ const CrucePacientesV3P: React.FC = () => {
                                                   <td><span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>{p.en_v3 ? 'SÍ' : 'NO'}</span></td>
                                                   {(() => {
                                                     const esCambio = p.en_v3 && (!p.ruta_v3 || p.ruta_v3 !== r.ruta);
-                                                    return (
-                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem',
-                                                        background: esCambio ? '#7f0000' : 'transparent',
-                                                        color: esCambio ? '#fff' : p.ruta_v3 ? '#004d40' : '#aaa',
-                                                        fontWeight: esCambio ? 700 : 'normal',
-                                                      }}>{p.ruta_v3 || '—'}</td>
+                                                    return esCambio ? (
+                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', background: '#7f0000', color: '#fff', fontWeight: 700 }}>{p.ruta_v3 || '—'}</td>
+                                                    ) : (
+                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{p.ruta_v3 || '—'}</td>
                                                     );
                                                   })()}
                                                   <td>{p.estado_pedido || '—'}</td>
@@ -739,6 +741,8 @@ const CrucePacientesV3P: React.FC = () => {
                                                   <td>{p.planilla || '—'}</td>
                                                   <td>{p.municipio_destino || '—'}</td>
                                                   <td>{p.divipola || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.celular_paciente || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.telefono_v3 || '—'}</td>
                                                   <td>
                                                     {p.match_tipo === 'celular' && p.en_v3 && (
                                                       <span className="CRV3-celularBadge">📱 Celular</span>
