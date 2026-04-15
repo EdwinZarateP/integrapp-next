@@ -453,6 +453,14 @@ const CrucePacientesV3P: React.FC = () => {
                               🚛 {r.vehiculos}
                             </span>
                           )}
+                          {(() => {
+                            const cambiosRuta = r.pacientes.filter(p => p.en_v3 && p.ruta_v3 && p.ruta_v3 !== r.ruta).length;
+                            return cambiosRuta > 0 ? (
+                              <span className="CRV3-rutaCambio" title={`${cambiosRuta} paciente(s) cruzaron con una ruta V3 diferente a ${r.ruta} — requiere validación`}>
+                                ⚠️ {cambiosRuta} cambio{cambiosRuta > 1 ? 's' : ''}
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                         <span className="CRV3-chevronRow">{expandida ? '▲' : '▼'}</span>
                       </div>
@@ -511,15 +519,15 @@ const CrucePacientesV3P: React.FC = () => {
                                     <td>{p.municipio_destino || '—'}</td>
                                     <td>{p.divipola || '—'}</td>
                                     <td>
-                                      {p.match_tipo === 'celular' && p.en_v3 ? (
+                                      {p.match_tipo === 'celular' && p.en_v3 && (
                                         <span className="CRV3-celularBadge">📱 Celular</span>
-                                      ) : (
-                                        <span className="CRV3-sim" style={{
-                                          color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24'
-                                        }}>
-                                          {p.similitud}%
-                                        </span>
                                       )}
+                                      <span className="CRV3-sim" style={{
+                                        color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24',
+                                        display: 'block',
+                                      }}>
+                                        {p.similitud}%
+                                      </span>
                                     </td>
                                   </tr>
                                 );
@@ -714,10 +722,10 @@ const CrucePacientesV3P: React.FC = () => {
                                                   <td>{p.municipio_destino || '—'}</td>
                                                   <td>{p.divipola || '—'}</td>
                                                   <td>
-                                                    {p.match_tipo === 'celular' && p.en_v3
-                                                      ? <span className="CRV3-celularBadge">📱 Celular</span>
-                                                      : <span className="CRV3-sim" style={{ color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24' }}>{p.similitud}%</span>
-                                                    }
+                                                    {p.match_tipo === 'celular' && p.en_v3 && (
+                                                      <span className="CRV3-celularBadge">📱 Celular</span>
+                                                    )}
+                                                    <span className="CRV3-sim" style={{ color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24', display: 'block' }}>{p.similitud}%</span>
                                                   </td>
                                                 </tr>
                                               );

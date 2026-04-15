@@ -265,6 +265,14 @@
   background: #e3f2fd; color: #1565c0;
 }
 
+.CRV3-rutaCambio {
+  font-size: .78rem; font-weight: 700; padding: 3px 10px;
+  border-radius: 99px; white-space: nowrap;
+  background: #fff3cd; color: #7d4800;
+  border: 1px solid #f0ad00;
+  cursor: default;
+}
+
 /* ── TABLA INTERNA ──────────────────────────────────────── */
 .CRV3-tableWrap { overflow-x: auto; border-top: 1px solid #f0f0f0; -webkit-overflow-scrolling: touch; }
 
