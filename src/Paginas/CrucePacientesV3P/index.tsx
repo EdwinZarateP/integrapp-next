@@ -454,7 +454,7 @@ const CrucePacientesV3P: React.FC = () => {
                             </span>
                           )}
                           {(() => {
-                            const cambiosRuta = r.pacientes.filter(p => p.en_v3 && p.ruta_v3 && p.ruta_v3 !== r.ruta).length;
+                            const cambiosRuta = r.pacientes.filter(p => p.en_v3 && (!p.ruta_v3 || p.ruta_v3 !== r.ruta)).length;
                             return cambiosRuta > 0 ? (
                               <span className="CRV3-rutaCambio" title={`${cambiosRuta} paciente(s) cruzaron con una ruta V3 diferente a ${r.ruta} — requiere validación`}>
                                 ⚠️ {cambiosRuta} cambio{cambiosRuta > 1 ? 's' : ''}
@@ -506,9 +506,18 @@ const CrucePacientesV3P: React.FC = () => {
                                         {p.en_v3 ? 'SÍ' : 'NO'}
                                       </span>
                                     </td>
-                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.ruta_v3 ? '#004d40' : '#aaa' }}>
-                                      {p.ruta_v3 || '—'}
-                                    </td>
+                                    {(() => {
+                                      const esCambio = p.en_v3 && (!p.ruta_v3 || p.ruta_v3 !== r.ruta);
+                                      return (
+                                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem',
+                                          background: esCambio ? '#7f0000' : 'transparent',
+                                          color: esCambio ? '#fff' : p.ruta_v3 ? '#004d40' : '#aaa',
+                                          fontWeight: esCambio ? 700 : 'normal',
+                                        }}>
+                                          {p.ruta_v3 || '—'}
+                                        </td>
+                                      );
+                                    })()}
                                     <td>{p.estado_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap', color: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? '#c62828' : undefined, fontWeight: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? 700 : undefined }}>
@@ -713,7 +722,16 @@ const CrucePacientesV3P: React.FC = () => {
                                                   <td>{p.cedula}</td>
                                                   <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
                                                   <td><span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>{p.en_v3 ? 'SÍ' : 'NO'}</span></td>
-                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: p.ruta_v3 ? '#004d40' : '#aaa' }}>{p.ruta_v3 || '—'}</td>
+                                                  {(() => {
+                                                    const esCambio = p.en_v3 && (!p.ruta_v3 || p.ruta_v3 !== r.ruta);
+                                                    return (
+                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem',
+                                                        background: esCambio ? '#7f0000' : 'transparent',
+                                                        color: esCambio ? '#fff' : p.ruta_v3 ? '#004d40' : '#aaa',
+                                                        fontWeight: esCambio ? 700 : 'normal',
+                                                      }}>{p.ruta_v3 || '—'}</td>
+                                                    );
+                                                  })()}
                                                   <td>{p.estado_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_preferente || '—'}</td>
