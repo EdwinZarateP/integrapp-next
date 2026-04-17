@@ -404,6 +404,7 @@ export type DividirHastaTresPayload = {
   campo_destinatario?: 'ubicacion_descargue' | 'destino_real' | string;
   grupo_B?: GrupoDivision;
   grupo_C?: GrupoDivision;
+  grupo_D?: GrupoDivision;
 };
 
 

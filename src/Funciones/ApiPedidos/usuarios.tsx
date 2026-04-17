@@ -4,6 +4,12 @@ import { BaseUsuario, LoginRespuesta } from "./tipos";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 const BASE_URL = `${API_BASE}/baseusuarios`;
 
+// Obtener perfiles distintos que existen en la colección
+export const obtenerPerfilesDisponibles = async (): Promise<string[]> => {
+  const res = await axios.get<string[]>(`${BASE_URL}/perfiles-disponibles`);
+  return res.data;
+};
+
 // Obtener todos los usuarios
 export const obtenerUsuarios = async (): Promise<BaseUsuario[]> => {
   const res = await axios.get<BaseUsuario[]>(`${BASE_URL}/`);
@@ -38,6 +44,18 @@ export const eliminarUsuario = async (
   id: string
 ): Promise<{ mensaje: string }> => {
   const res = await axios.delete<{ mensaje: string }>(`${BASE_URL}/${id}`);
+  return res.data;
+};
+
+// Actualizar perfil de un usuario
+export const actualizarPerfilUsuario = async (
+  id: string,
+  perfil: string
+): Promise<{ mensaje: string; perfil: string }> => {
+  const res = await axios.patch<{ mensaje: string; perfil: string }>(
+    `${BASE_URL}/${id}/perfil`,
+    { perfil }
+  );
   return res.data;
 };
 

@@ -147,6 +147,24 @@
 .GU-fila:hover { background: #f8fafc; }
 .GU-tabla td { padding: 11px 14px; color: #1e2f45; vertical-align: middle; }
 .GU-td-usuario { font-weight: 700; font-size: 0.9rem; }
+.GU-select-perfil {
+  background: #e8f0fe;
+  color: #0f1928;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border-radius: 100px;
+  letter-spacing: 0.3px;
+  border: 1px solid #c5d5f0;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.GU-select-perfil:hover:not(:disabled) { border-color: #e8a000; }
+.GU-select-perfil:focus { border-color: #e8a000; box-shadow: 0 0 0 2px rgba(232,160,0,.2); }
+.GU-select-perfil:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .GU-badge {
   display: inline-block;
   background: #e8f0fe;
@@ -188,6 +206,21 @@
 .GU-td-msg { font-size: 0.78rem; color: #6b7a8d; white-space: nowrap; min-width: 100px; }
 .GU-td-msg--ok  { color: #16a34a; font-weight: 700; }
 .GU-td-msg--err { color: #dc3545; }
+
+.GU-td-acciones { text-align: center; width: 48px; }
+.GU-btn-eliminar {
+  background: none;
+  border: none;
+  color: #b0b8c4;
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.GU-btn-eliminar:hover:not(:disabled) { color: #dc3545; background: #ffeaea; }
+.GU-btn-eliminar:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── FOOTER ── */
 .GU-footer { background: #0f1928; border-top: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }

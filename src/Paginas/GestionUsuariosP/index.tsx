@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave, FaTrash,
 } from 'react-icons/fa';
-import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, eliminarUsuario } from '@/Funciones/ApiPedidos/usuarios';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
@@ -15,7 +15,7 @@ const CLIENTES_DISPONIBLES = [
   { key: 'MEDICAL_CARE', label: 'Fresenius Medical Care' },
 ];
 
-const PERFILES = ['ADMIN', 'OPERATIVO', 'SEGURIDAD', 'CONDUCTOR'];
+const PERFILES_FALLBACK = ['ADMIN', 'OPERATIVO', 'SEGURIDAD', 'CONDUCTOR', 'DESPACHADOR', 'COORDINADOR', 'ANALISTA'];
 
 const USUARIO_VACIO: BaseUsuario = {
   nombre: '', correo: '', regional: '', celular: '',
@@ -25,9 +25,12 @@ const USUARIO_VACIO: BaseUsuario = {
 const GestionUsuariosP: React.FC = () => {
   const router = useRouter();
   const [usuarios, setUsuarios] = useState<BaseUsuario[]>([]);
+  const [perfiles, setPerfiles] = useState<string[]>(PERFILES_FALLBACK);
   const [cargando, setCargando] = useState(true);
   const [guardandoCliente, setGuardandoCliente] = useState<string | null>(null);
   const [msgsCliente, setMsgsCliente] = useState<Record<string, string>>({});
+  const [guardandoPerfil, setGuardandoPerfil] = useState<string | null>(null);
+  const [eliminando, setEliminando] = useState<string | null>(null);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<BaseUsuario>(USUARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
@@ -37,8 +40,11 @@ const GestionUsuariosP: React.FC = () => {
     const perfil = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
     const usuario = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     if (!usuario || perfil !== 'ADMIN') { router.replace('/LoginUsuario'); return; }
-    obtenerUsuarios()
-      .then(data => setUsuarios(data))
+    Promise.all([obtenerUsuarios(), obtenerPerfilesDisponibles()])
+      .then(([users, prfs]) => {
+        setUsuarios(users);
+        if (prfs.length > 0) setPerfiles(prfs);
+      })
       .finally(() => setCargando(false));
   }, [router]);
 
@@ -63,6 +69,35 @@ const GestionUsuariosP: React.FC = () => {
       setMsgsCliente(m => ({ ...m, [usuario.id!]: 'Error al guardar.' }));
     } finally {
       setGuardandoCliente(null);
+    }
+  };
+
+  const cambiarPerfil = async (usuario: BaseUsuario, nuevoPerfil: string) => {
+    if (!usuario.id || nuevoPerfil === usuario.perfil) return;
+    setGuardandoPerfil(usuario.id);
+    try {
+      await actualizarPerfilUsuario(usuario.id, nuevoPerfil);
+      setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, perfil: nuevoPerfil } : u));
+    } catch {
+      // revertir visualmente al valor anterior
+      setUsuarios(prev => [...prev]);
+    } finally {
+      setGuardandoPerfil(null);
+    }
+  };
+
+  const confirmarEliminar = async (u: BaseUsuario) => {
+    if (!u.id) return;
+    const ok = window.confirm(`¿Eliminar el usuario "${u.usuario}"? Esta acción no se puede deshacer.`);
+    if (!ok) return;
+    setEliminando(u.id);
+    try {
+      await eliminarUsuario(u.id);
+      setUsuarios(prev => prev.filter(x => x.id !== u.id));
+    } catch {
+      alert('Error al eliminar el usuario.');
+    } finally {
+      setEliminando(null);
     }
   };
 
@@ -136,6 +171,7 @@ const GestionUsuariosP: React.FC = () => {
                       <th key={c.key} className="GU-th-cliente">{c.label}</th>
                     ))}
                     <th>Estado</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -145,7 +181,16 @@ const GestionUsuariosP: React.FC = () => {
                       <tr key={u.id} className="GU-fila">
                         <td className="GU-td-usuario">{u.usuario}</td>
                         <td>{u.nombre}</td>
-                        <td><span className="GU-badge">{u.perfil}</span></td>
+                        <td>
+                          <select
+                            className="GU-select-perfil"
+                            value={u.perfil}
+                            disabled={guardandoPerfil === u.id}
+                            onChange={e => cambiarPerfil(u, e.target.value)}
+                          >
+                            {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        </td>
                         <td>{u.regional}</td>
                         {CLIENTES_DISPONIBLES.map(c => (
                           <td key={c.key} className="GU-td-check">
@@ -162,6 +207,16 @@ const GestionUsuariosP: React.FC = () => {
                         ))}
                         <td className={`GU-td-msg ${msgsCliente[u.id || '']?.startsWith('✓') ? 'GU-td-msg--ok' : msgsCliente[u.id || ''] ? 'GU-td-msg--err' : ''}`}>
                           {guardandoCliente === u.id ? 'Guardando…' : msgsCliente[u.id || ''] || ''}
+                        </td>
+                        <td className="GU-td-acciones">
+                          <button
+                            className="GU-btn-eliminar"
+                            title="Eliminar usuario"
+                            disabled={eliminando === u.id}
+                            onClick={() => confirmarEliminar(u)}
+                          >
+                            {eliminando === u.id ? '…' : <FaTrash />}
+                          </button>
                         </td>
                       </tr>
                     );
@@ -219,7 +274,7 @@ const GestionUsuariosP: React.FC = () => {
                   <label className="GU-formLabel">Perfil *</label>
                   <select className="GU-formInput" required
                     value={form.perfil} onChange={e => setForm(f => ({ ...f, perfil: e.target.value }))}>
-                    {PERFILES.map(p => <option key={p} value={p}>{p}</option>)}
+                    {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
                 <div className="GU-formGrupo">
