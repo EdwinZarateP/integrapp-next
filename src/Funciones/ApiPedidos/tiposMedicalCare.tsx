@@ -35,7 +35,7 @@ export interface PacienteOcupacion {
   cedi: string;
   llave: string;
   similitud: number;
-  match_tipo?: 'celular' | 'llave';
+  match_tipo?: 'celular' | 'llave' | 'nombre';
   llave_v3: string;
   en_v3: boolean;
   estado: string;
@@ -47,6 +47,7 @@ export interface PacienteOcupacion {
   municipio_destino?: string;
   divipola?: string;
   ruta_v3?: string;
+  cliente_destino_v3?: string;
   celular_paciente?: string;
   telefono_v3?: string;
 }

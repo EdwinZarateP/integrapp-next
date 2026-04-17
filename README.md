@@ -135,11 +135,22 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
   - **Columna "Ruta V3"**: ruta del pedido V3 que cruzó. Celda con **fondo rojo oscuro y texto blanco** si la ruta V3 difiere de la ruta de la tarjeta o vino vacía (cambio de ruta); sin estilo especial (hereda color de fila) si coincide
   - **Columnas "Cel. Paciente" / "Tel. V3"**: posicionadas antes de Similitud, para auditoría de cruces por celular
   - **Columna "Divipola"**: código DIVIPOLA del municipio destino que trae el documento V3
+  - **Columna "Similitud" con indicadores visuales**:
+    - **👤 (persona verde)**: cruce por nombre ≥ 95%
+    - **🔑 (llave morada)**: cruce por llave (nombre+dirección) ≥ 73%
+    - **📱 (celular azul)**: cruce por número de celular exacto
+    - **Sin badge**: cuando no hay cruce
+    - Porcentaje numérico de similitud siempre visible debajo del badge
 - **Pestaña "V3 sin Paciente"**: registros V3 que no tienen paciente coincidente (similitud <80%), agrupados por ruta con badge de CEDI. Muestra código de pedido, cliente, dirección, teléfono, estado y el paciente más cercano. **Badge rojo con el total visible desde el primer cargue** (dato `total_sin_paciente` incluido en `/ocupacion-rutas`)
+- **Pestaña "Histórico"**: cortes mensuales automáticos que se generan el último día de cada mes a las 00:00. Muestra lista de meses disponibles con total de pedidos. Al expandir un mes, se ve el cruce completo de ese momento histórico con las mismas columnas y badges de tipo de cruce que la pestaña de ocupación
 - **Filtro por regional**: selector "Todas las regionales / BARRANQUILLA / CALI / BUCARAMANGA / FUNZA / MEDELLIN" aplicado a ambas pestañas en tiempo real
 - **Exportar Excel**: descarga el cruce completo (o filtrado por regional) con dos hojas; filas coloreadas verde/amarillo/rojo
-- **Recalcular**: dispara recálculo SSE con overlay Lottie animado y barra de progreso real (0-100%) con pasos: Cargando datos → Comparando pacientes → Verificando pedidos V3 → Guardando resultados
+- **Recalcular**: dispara recálculo SSE con overlay Lottie animado y barra de progreso real (0-100%) con pasos: Cargando datos → Comparando pacientes → Verificando pedidos V3 → Guardando resultados. Incluye opción de enviar informe por correo a todos los usuarios con acceso a MEDICAL_CARE
 - Los resultados se leen desde cache en MongoDB (`cache_cruce_mc`); sólo se recalculan al presionar el botón
+- **Algoritmo de cruce (backend)**:
+  1. **Nombre**: compara paciente normalizado vs cliente_destino V3 (≥95% similitud)
+  2. **Llave**: si no hay cruce por nombre, compara llave (paciente+dirección) vs llave V3 (≥73% similitud)
+  3. **Celular**: si no hay cruce por nombre ni llave, compara teléfonos normalizados (coincidencia exacta)
 - Protegido: requiere sesión y cliente activo = MEDICAL_CARE
 
 **Gestión de Pedidos V3 (`/GestionPedidosV3`):**
@@ -652,7 +663,9 @@ Aplicado a todos los portales para consistencia visual:
   - Elimina caracteres especiales (comas, puntos, guiones, etc.)
   - Mayúsculas y compactar espacios
   - **Reordenamiento alfabético** de todas las palabras
-  - Primeras 4 palabras del resultado
+  - **Máximo 2 ocurrencias por palabra** (las repeticiones extras se eliminan)
+  - Primeras **6** palabras del resultado
+  - Ejemplo: "DUVAN DUVAN DUVAN ESPITIA F FELIPE" → "DUVAN DUVAN ESPITIA F FELIPE"
   - Ejemplo: "Zarate Edwin" → "EDWIN ZARATE"
 - **`fx_normalizar_direccion()`**: Normaliza direcciones completas
   - Elimina signos de puntuación
@@ -701,7 +714,8 @@ Aplicado a todos los portales para consistencia visual:
 
 **Normalización de Datos (Backend - integrappi/Funciones/normalizacion_medical_care.py):**
 - **Solo se normalizan dos campos específicos**:
-  - `cliente_destino`: Usa `fx_normalizar_paciente()` - Primeras 4 palabras, sin signos de puntuación, mayúsculas, reordenamiento alfabético
+  - `cliente_destino`: Usa `fx_normalizar_paciente()` - Primeras 6 palabras, sin signos de puntuación, mayúsculas, reordenamiento alfabético, **máximo 2 ocurrencias por palabra**
+    - Ejemplo: "DUVAN DUVAN DUVAN ESPITIA F FELIPE" → "DUVAN DUVAN ESPITIA F F FELIPE" (tercer "DUVAN" eliminada)
     - Ejemplo: "Zarate Edwin" → "EDWIN ZARATE"
   - `direccion_destino`: Usa `fx_normalizar_direccion()` - Normalización completa con corrección de errores comunes, reordenamiento alfabético
     - Ejemplo: "CALLE 123 BARRIO CENTRO" → "123 BARRIO CALLE CENTRO"
@@ -792,6 +806,17 @@ Aplicado a todos los portales para consistencia visual:
 - **Filtro `startsWith` en lugar de `includes`**: muestra filas cuyo destino *comienza* con el texto buscado
 - **`useMemo` en `colsVehiculo` y `tarifasFiltradas`**: ambos valores se memorizan para consistencia
 - **`key={busqueda}` en `<tbody>`**: fuerza reconstrucción completa al cambiar el filtro
+
+### Abril 2026 — Mejoras visuales en Cruce Pacientes ↔ V3
+
+- **Badges con emojis**: reemplazo de texto por emojis en columna "Similitud":
+  - **👤 (verde)**: cruce por nombre ≥ 95%
+  - **🔑 (morado)**: cruce por llave (nombre+dirección) ≥ 73%
+  - **📱 (azul)**: cruce por celular exacto
+  - **Sin badge**: sin cruce
+- **Pestaña "Histórico"**: nuevos cortes mensuales automáticos que se generan el último día de cada mes. Lista de meses con total de pedidos, expandible para ver el cruce completo de ese momento histórico con las mismas columnas y badges que la pestaña de ocupación.
+- **Funcionalidad completa**: los cambios se aplican tanto en tabla principal como en tabla histórica
+- **Actualización de documentación**: README actualizado con descripción detallada del nuevo algoritmo de cruce (nombre → llave → celular) y significado de cada emoji
 
 ---
 

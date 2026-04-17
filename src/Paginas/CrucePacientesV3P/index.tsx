@@ -224,6 +224,20 @@ const CrucePacientesV3P: React.FC = () => {
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
     .filter(r => !filtroRuta || r.ruta.toUpperCase().includes(filtroRuta.toUpperCase()));
 
+  // ── Agrupar por CEDI/regional ───────────────────────────────────────────────────
+  const rutasAgrupadasPorCEDI = (() => {
+    const grupos: { [key: string]: typeof rutas } = {};
+    rutasFiltradas.forEach(r => {
+      const cedi = r.cedi || 'SIN CEDI';
+      if (!grupos[cedi]) grupos[cedi] = [];
+      grupos[cedi].push(r);
+    });
+    // Ordenar CEDIs alfabéticamente y mantener rutas ordenadas dentro de cada CEDI
+    return Object.entries(grupos)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cedi, rutasGrupo]) => ({ cedi, rutas: rutasGrupo.sort((a, b) => a.ruta.localeCompare(b.ruta)) }));
+  })();
+
   // ── Steps del overlay ────────────────────────────────────────────────────────
   const STEPS: { key: RecalcularCruceProgress['stage']; label: string }[] = [
     { key: 'loading',            label: 'Cargando datos' },
@@ -411,7 +425,7 @@ const CrucePacientesV3P: React.FC = () => {
                 <div className="CRV3-spinner" />
                 <p>Cargando datos del cache...</p>
               </div>
-            ) : rutasFiltradas.length === 0 ? (
+            ) : rutasAgrupadasPorCEDI.length === 0 ? (
               <div className="CRV3-empty">
                 <FaRoute className="CRV3-emptyIcon" />
                 <h3>{rutas.length === 0 ? 'Sin datos calculados' : 'Sin rutas para esta regional'}</h3>
@@ -424,12 +438,21 @@ const CrucePacientesV3P: React.FC = () => {
               </div>
             ) : (
               <div className="CRV3-rutasGrid">
-                {rutasFiltradas.map(r => {
-                  const color  = r.ocupacion_pct >= 80 ? '#155724' : r.ocupacion_pct >= 50 ? '#856404' : '#721c24';
-                  const bgColor= r.ocupacion_pct >= 80 ? '#d4edda' : r.ocupacion_pct >= 50 ? '#fff3cd' : '#f8d7da';
-                  const expandida = rutaExpandida === r.ruta;
-                  return (
-                    <div key={r.ruta} className="CRV3-rutaCard">
+                {rutasAgrupadasPorCEDI.map((grupo, grupoIdx) => (
+                  <div key={grupo.cedi} className="CRV3-regionalGroup">
+                    {/* Header separador de regional */}
+                    <div className="CRV3-regionalHeader">
+                      <span className="CRV3-regionalNombre">{grupo.cedi}</span>
+                      <span className="CRV3-regionalStats">
+                        {grupo.rutas.length} ruta{grupo.rutas.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {grupo.rutas.map(r => {
+                      const color  = r.ocupacion_pct >= 80 ? '#155724' : r.ocupacion_pct >= 50 ? '#856404' : '#721c24';
+                      const bgColor= r.ocupacion_pct >= 80 ? '#d4edda' : r.ocupacion_pct >= 50 ? '#fff3cd' : '#f8d7da';
+                      const expandida = rutaExpandida === r.ruta;
+                      return (
+                        <div key={r.ruta} className="CRV3-rutaCard">
                       <div className="CRV3-rutaHeader" onClick={() => setRutaExpandida(expandida ? null : r.ruta)}>
                         <div className="CRV3-rutaMeta">
                           {r.cedi && <span className="CRV3-cediTag">{r.cedi}</span>}
@@ -474,6 +497,7 @@ const CrucePacientesV3P: React.FC = () => {
                                 <th>Dirección</th>
                                 <th>En V3</th>
                                 <th>Ruta V3</th>
+                                <th>Cliente Destino</th>
                                 <th>Estado Pedido</th>
                                 <th>F. Pedido</th>
                                 <th>F. Preferente</th>
@@ -520,6 +544,7 @@ const CrucePacientesV3P: React.FC = () => {
                                         </td>
                                       );
                                     })()}
+                                    <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
                                     <td>{p.estado_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap', color: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? '#c62828' : undefined, fontWeight: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? 700 : undefined }}>
@@ -532,8 +557,14 @@ const CrucePacientesV3P: React.FC = () => {
                                     <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.celular_paciente || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.telefono_v3 || '—'}</td>
                                     <td>
-                                      {p.match_tipo === 'celular' && p.en_v3 && (
-                                        <span className="CRV3-celularBadge">📱 Celular</span>
+                                      {p.en_v3 && p.match_tipo === 'nombre' && (
+                                        <span className="CRV3-matchBadge CRV3-matchBadge--nombre">👤</span>
+                                      )}
+                                      {p.en_v3 && p.match_tipo === 'llave' && (
+                                        <span className="CRV3-matchBadge CRV3-matchBadge--llave">🔑</span>
+                                      )}
+                                      {p.en_v3 && p.match_tipo === 'celular' && (
+                                        <span className="CRV3-matchBadge CRV3-matchBadge--celular">📱</span>
                                       )}
                                       <span className="CRV3-sim" style={{
                                         color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24',
@@ -550,8 +581,10 @@ const CrucePacientesV3P: React.FC = () => {
                         </div>
                       )}
                     </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )
           )}
@@ -711,7 +744,7 @@ const CrucePacientesV3P: React.FC = () => {
                                           <thead>
                                             <tr>
                                               <th>Paciente</th><th>Cédula</th><th>Dirección</th>
-                                              <th>En V3</th><th>Ruta V3</th><th>Estado Pedido</th>
+                                              <th>En V3</th><th>Ruta V3</th><th>Cliente Destino</th><th>Estado Pedido</th>
                                               <th>F. Pedido</th><th>F. Preferente</th>
                                               <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Cel. Paciente</th><th>Tel. V3</th><th>Similitud</th>
                                             </tr>
@@ -734,6 +767,7 @@ const CrucePacientesV3P: React.FC = () => {
                                                       <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{p.ruta_v3 || '—'}</td>
                                                     );
                                                   })()}
+                                                  <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
                                                   <td>{p.estado_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_preferente || '—'}</td>
@@ -744,8 +778,14 @@ const CrucePacientesV3P: React.FC = () => {
                                                   <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.celular_paciente || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.telefono_v3 || '—'}</td>
                                                   <td>
-                                                    {p.match_tipo === 'celular' && p.en_v3 && (
-                                                      <span className="CRV3-celularBadge">📱 Celular</span>
+                                                    {p.en_v3 && p.match_tipo === 'nombre' && (
+                                                      <span className="CRV3-matchBadge CRV3-matchBadge--nombre">👤</span>
+                                                    )}
+                                                    {p.en_v3 && p.match_tipo === 'llave' && (
+                                                      <span className="CRV3-matchBadge CRV3-matchBadge--llave">🔑</span>
+                                                    )}
+                                                    {p.en_v3 && p.match_tipo === 'celular' && (
+                                                      <span className="CRV3-matchBadge CRV3-matchBadge--celular">📱</span>
                                                     )}
                                                     <span className="CRV3-sim" style={{ color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24', display: 'block' }}>{p.similitud}%</span>
                                                   </td>

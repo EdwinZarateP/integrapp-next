@@ -211,6 +211,32 @@
   display: flex; flex-direction: column; gap: 8px;
 }
 
+/* Grupo por regional/CEDI */
+.CRV3-regionalGroup {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 20px;
+}
+
+.CRV3-regionalHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(90deg, #004d40, #006b5e);
+  color: #fff; padding: 10px 16px; border-radius: 10px;
+  font-weight: 700; font-size: 0.92rem;
+  box-shadow: 0 2px 6px rgba(0,77,64,.2);
+  position: sticky; top: 0; z-index: 10;
+}
+
+.CRV3-regionalNombre {
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: #80cbc4;
+}
+
+.CRV3-regionalStats {
+  font-size: 0.8rem; font-weight: 600;
+  background: rgba(255,255,255,.15); padding: 4px 10px;
+  border-radius: 99px;
+}
+
 .CRV3-rutaCard {
   background: #fff; border-radius: 12px;
   box-shadow: 0 1px 6px rgba(0,0,0,.07); overflow: hidden;
@@ -301,12 +327,14 @@
 
 .CRV3-sim { font-weight: 700; }
 
-.CRV3-celularBadge {
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: .72rem; font-weight: 700; padding: 2px 8px;
-  border-radius: 99px; background: #e3f2fd; color: #1565c0;
-  white-space: nowrap;
+.CRV3-matchBadge {
+  display: inline-flex; align-items: center;
+  font-size: .6rem; font-weight: 700; padding: 2px 6px;
+  border-radius: 99px; white-space: nowrap; margin-bottom: 2px;
 }
+.CRV3-matchBadge--nombre  { background: #e8f5e9; color: #1b5e20; }
+.CRV3-matchBadge--llave   { background: #ede7f6; color: #4527a0; }
+.CRV3-matchBadge--celular { background: #e3f2fd; color: #1565c0; }
 
 .CRV3-llaveCell { font-size: .75rem; color: #78909c; max-width: 220px; word-break: break-word; }
 
