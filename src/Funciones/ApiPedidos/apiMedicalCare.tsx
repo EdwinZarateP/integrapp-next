@@ -19,6 +19,8 @@ import type {
   RecalcularCruceResponse,
   HistoricoMesesResponse,
   HistoricoMesDetalle,
+  CronogramaMesResponse,
+  CargarCronogramaResponse,
 } from './tiposMedicalCare';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -320,6 +322,77 @@ export async function obtenerHistoricoMes(anio: number, mes: number): Promise<Hi
     `${API_BASE_URL}/sync-v3/historico/${anio}/${mes}`
   );
   return response.data;
+}
+
+/**
+ * Retorna el cronograma del mes actual (fecha_entrega por cedula)
+ */
+export async function obtenerCronogramaMesActual(anioMes?: string): Promise<CronogramaMesResponse> {
+  const params = anioMes ? { anio_mes: anioMes } : {};
+  const response = await axios.get<CronogramaMesResponse>(
+    `${API_BASE_URL}/cronograma-mc/mes-actual`,
+    { params }
+  );
+  return response.data;
+}
+
+/**
+ * Carga masiva del cronograma desde Excel con progreso SSE.
+ * Columnas: cedula, fecha_entrega, fecha_cronograma
+ */
+export async function cargarCronogramaMasivoStream(
+  usuario: string,
+  archivo: File,
+  onProgress: (progress: {
+    stage: string;
+    progress: number;
+    message: string;
+    processed?: number;
+    total?: number;
+  }) => void
+): Promise<CargarCronogramaResponse> {
+  const formData = new FormData();
+  formData.append('archivo', archivo);
+
+  const response = await fetch(
+    `${API_BASE_URL}/cronograma-mc/cargar-masivo-stream?usuario=${encodeURIComponent(usuario)}`,
+    { method: 'POST', body: formData }
+  );
+
+  if (!response.body) throw new Error('No se pudo leer el stream de respuesta');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const parsed = JSON.parse(line.slice(6));
+        if (parsed.error) throw new Error(parsed.error);
+        if (parsed.stage === 'complete') {
+          return {
+            mensaje: parsed.mensaje,
+            tiempo_segundos: parsed.tiempo_segundos,
+            registros_nuevos: parsed.registros_nuevos,
+            registros_actualizados: parsed.registros_actualizados,
+            registros_con_errores: parsed.registros_con_errores,
+            errores: parsed.errores,
+          };
+        }
+        onProgress(parsed);
+      } catch (e) {
+        if (e instanceof Error && !e.message.includes('JSON')) throw e;
+      }
+    }
+  }
+  throw new Error('La carga no se completó correctamente');
 }
 
 /**

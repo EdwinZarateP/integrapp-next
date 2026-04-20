@@ -16,7 +16,9 @@ import {
   crearPaciente,
   actualizarPaciente,
   eliminarPaciente,
-  cargarPacientesMasivoStream
+  cargarPacientesMasivoStream,
+  obtenerCronogramaMesActual,
+  cargarCronogramaMasivoStream,
 } from '@/Funciones/ApiPedidos/apiMedicalCare';
 import type { PacienteMedicalCare, CrearActualizarPacienteData } from '@/Funciones/ApiPedidos/tiposMedicalCare';
 import './estilos.css';
@@ -43,7 +45,6 @@ const GestionPacientes: React.FC = () => {
   const [modalCargaMasivoAbierto, setModalCargaMasivoAbierto] = useState(false);
   const [pacienteEditando, setPacienteEditando] = useState<PacienteMedicalCare | null>(null);
   const [searchCedula, setSearchCedula] = useState('');
-  const [searchPaciente, setSearchPaciente] = useState('');
   const [formData, setFormData] = useState<CrearActualizarPacienteData>({
     sede: '',
     paciente: '',
@@ -66,6 +67,22 @@ const GestionPacientes: React.FC = () => {
     total?: number;
     errores?: string[];
   } | null>(null);
+  // Cronograma
+  const [cronograma, setCronograma] = useState<Map<string, string>>(new Map());
+  const [mesCronograma, setMesCronograma] = useState<string>(() => {
+    const hoy = new Date();
+    return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [modalCronogramaAbierto, setModalCronogramaAbierto] = useState(false);
+  const [archivoCronograma, setArchivoCronograma] = useState<File | null>(null);
+  const [cargandoCronograma, setCargandoCronograma] = useState(false);
+  const [progresoCronograma, setProgresoCronograma] = useState<{
+    stage: string;
+    progress: number;
+    message: string;
+    processed?: number;
+    total?: number;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,6 +103,7 @@ const GestionPacientes: React.FC = () => {
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
     if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/Pedidos');
     cargarPacientes(cedi);
+    cargarCronograma();
   }, [router]);
 
   useEffect(() => {
@@ -97,6 +115,22 @@ const GestionPacientes: React.FC = () => {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const cargarCronograma = async (mes?: string) => {
+    try {
+      const res = await obtenerCronogramaMesActual(mes ?? mesCronograma);
+      const mapa = new Map<string, string>();
+      res.registros.forEach(r => mapa.set(r.cedula, r.fecha_entrega));
+      setCronograma(mapa);
+    } catch {
+      // El cronograma es opcional; no bloquear la carga de pacientes
+    }
+  };
+
+  const handleMesCronogramaChange = async (nuevoMes: string) => {
+    setMesCronograma(nuevoMes);
+    await cargarCronograma(nuevoMes);
+  };
 
   const cargarPacientes = async (cedi?: string) => {
     setLoading(true);
@@ -112,7 +146,7 @@ const GestionPacientes: React.FC = () => {
   };
 
   const handleBuscar = async () => {
-    if (!searchCedula && !searchPaciente) {
+    if (!searchCedula) {
       cargarPacientes();
       return;
     }
@@ -121,7 +155,7 @@ const GestionPacientes: React.FC = () => {
     try {
       const response = await buscarPacientes(
         searchCedula || undefined,
-        searchPaciente || undefined,
+        undefined,
         cediUsuario
       );
       setPacientes(response.pacientes);
@@ -262,6 +296,37 @@ const GestionPacientes: React.FC = () => {
     }
   };
 
+  const handleCargarCronograma = async () => {
+    if (!archivoCronograma) {
+      Swal.fire('Error', 'Por favor selecciona un archivo Excel', 'error');
+      return;
+    }
+    setCargandoCronograma(true);
+    setProgresoCronograma({ stage: 'reading', progress: 0, message: 'Iniciando carga...' });
+    try {
+      const res = await cargarCronogramaMasivoStream(usuario, archivoCronograma, (p) => setProgresoCronograma(p));
+      setProgresoCronograma(null);
+      const detalles = `Nuevos: ${res.registros_nuevos} · Actualizados: ${res.registros_actualizados}${res.registros_con_errores ? ` · Errores: ${res.registros_con_errores}` : ''}`;
+      if (res.errores && res.errores.length > 0) {
+        Swal.fire({
+          title: 'Cronograma cargado con errores',
+          html: `<p>${detalles}</p><details><summary>Ver errores</summary><ul style="max-height:200px;overflow-y:auto">${res.errores.map(e => `<li>${e}</li>`).join('')}</ul></details>`,
+          icon: 'warning',
+        });
+      } else {
+        Swal.fire('Éxito', `${res.mensaje}\n${detalles}`, 'success');
+      }
+      setModalCronogramaAbierto(false);
+      setArchivoCronograma(null);
+      await cargarCronograma();
+    } catch (error: any) {
+      setProgresoCronograma(null);
+      Swal.fire('Error', error.message || 'Error al procesar el archivo', 'error');
+    } finally {
+      setCargandoCronograma(false);
+    }
+  };
+
   const cerrarSesion = () => {
     ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(name => {
       document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
@@ -321,22 +386,23 @@ const GestionPacientes: React.FC = () => {
         {/* Barra de herramientas */}
         <div className="GP-toolbar">
           <div className="GP-search">
-            <input
-              type="text"
-              placeholder="Buscar por cédula..."
-              value={searchCedula}
-              onChange={(e) => setSearchCedula(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
-              className="GP-searchInput"
-            />
-            <input
-              type="text"
-              placeholder="Buscar por nombre..."
-              value={searchPaciente}
-              onChange={(e) => setSearchPaciente(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
-              className="GP-searchInput"
-            />
+            <div className="GP-searchInputWrapper">
+              <input
+                type="text"
+                placeholder="Buscar por cédula..."
+                value={searchCedula}
+                onChange={(e) => setSearchCedula(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
+                className="GP-searchInput"
+              />
+              {searchCedula && (
+                <button
+                  className="GP-searchClear"
+                  onClick={() => { setSearchCedula(''); cargarPacientes(cediUsuario); }}
+                  title="Limpiar búsqueda"
+                >×</button>
+              )}
+            </div>
             <button onClick={handleBuscar} className="GP-searchBtn" title="Buscar">
               <FaSearch />
             </button>
@@ -350,6 +416,16 @@ const GestionPacientes: React.FC = () => {
             </button>
             <button onClick={() => setModalCargaMasivoAbierto(true)} className="GP-btn GP-btnSuccess">
               <FaFileExcel /> Carga Masiva
+            </button>
+            <input
+              type="month"
+              value={mesCronograma}
+              onChange={(e) => handleMesCronogramaChange(e.target.value)}
+              className="GP-monthInput"
+              title="Mes del cronograma de entregas"
+            />
+            <button onClick={() => setModalCronogramaAbierto(true)} className="GP-btn GP-btnSuccess" title="Subir cronograma de fechas de entrega del mes">
+              <FaFileExcel /> Cronograma
             </button>
           </div>
         </div>
@@ -380,6 +456,7 @@ const GestionPacientes: React.FC = () => {
                   <th>Ruta</th>
                   <th>Teléfono 1</th>
                   <th>Teléfono 2</th>
+                  <th>Fecha Entrega</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -395,6 +472,7 @@ const GestionPacientes: React.FC = () => {
                     <td>{paciente.ruta}</td>
                     <td>{paciente.telefono1 || '-'}</td>
                     <td>{paciente.telefono2 || '-'}</td>
+                    <td>{cronograma.get(paciente.cedula) || '-'}</td>
                     <td>
                       <span className={`GP-estadoBadge GP-estado${paciente.estado || 'ACTIVO'}`}>
                         {paciente.estado || 'ACTIVO'}
@@ -612,6 +690,71 @@ const GestionPacientes: React.FC = () => {
               <button onClick={handleCargarExcel} className="GP-btn GP-btnSuccess" disabled={cargandoArchivo || !archivoExcel}>
                 {cargandoArchivo ? 'Cargando...' : 'Cargar Archivo'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal cronograma — selección de archivo */}
+      {modalCronogramaAbierto && !cargandoCronograma && (
+        <div className="GP-modalOverlay">
+          <div className="GP-modal">
+            <div className="GP-modalHeader">
+              <h2>Cargar Cronograma del Mes</h2>
+              <button onClick={() => setModalCronogramaAbierto(false)} className="GP-modalClose">×</button>
+            </div>
+            <div className="GP-modalBody">
+              <div className="GP-upload">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.xlsm"
+                  onChange={(e) => setArchivoCronograma(e.target.files?.[0] || null)}
+                  className="GP-fileInput"
+                />
+                {archivoCronograma && (
+                  <p className="GP-fileName">Archivo: {archivoCronograma.name}</p>
+                )}
+                <p className="GP-note">
+                  El archivo debe tener las columnas: <strong>cedula</strong>, <strong>fecha_entrega</strong>, <strong>fecha_cronograma</strong> (formato DD/MM/AAAA).
+                  Si el paciente ya tiene cronograma ese mes, se actualizará.
+                </p>
+              </div>
+            </div>
+            <div className="GP-modalFooter">
+              <button onClick={() => setModalCronogramaAbierto(false)} className="GP-btn GP-btnCancel">
+                Cancelar
+              </button>
+              <button onClick={handleCargarCronograma} className="GP-btn GP-btnSuccess" disabled={!archivoCronograma}>
+                Cargar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de progreso cronograma */}
+      {cargandoCronograma && progresoCronograma && (
+        <div className="GP-modalOverlay GP-progressOverlay">
+          <div className="GP-modal GP-progressModal">
+            <div className="GP-progressContent">
+              <div className="GP-progressAnimation">
+                <Lottie animationData={animationPuntos} loop style={{ width: 150, height: 150 }} />
+              </div>
+              <h2 className="GP-progressTitle">Cargando Cronograma</h2>
+              <div className="GP-progressInfo">
+                <p className="GP-progressMessage">{progresoCronograma.message}</p>
+                {progresoCronograma.stage === 'processing' && progresoCronograma.processed !== undefined && progresoCronograma.total !== undefined && (
+                  <p className="GP-progressDetails">
+                    Procesados: <strong>{progresoCronograma.processed}</strong> de <strong>{progresoCronograma.total}</strong>
+                  </p>
+                )}
+              </div>
+              <div className="GP-progressBarContainer">
+                <div className="GP-progressBar">
+                  <div className="GP-progressFill" style={{ width: `${progresoCronograma.progress}%` }} />
+                </div>
+                <span className="GP-progressPercent">{progresoCronograma.progress.toFixed(1)}%</span>
+              </div>
             </div>
           </div>
         </div>

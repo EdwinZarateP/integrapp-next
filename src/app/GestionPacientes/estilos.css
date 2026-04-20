@@ -264,6 +264,47 @@
   white-space: nowrap;
 }
 
+/* Input de búsqueda con botón limpiar */
+.GP-searchInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.GP-searchInputWrapper .GP-searchInput {
+  padding-right: 2rem;
+}
+.GP-searchClear {
+  position: absolute;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: #90a4ae;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.GP-searchClear:hover {
+  color: #e53935;
+}
+
+/* Selector de mes para cronograma */
+.GP-monthInput {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #00695c;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #004d40;
+  background: #fff;
+  cursor: pointer;
+  height: 42px;
+}
+.GP-monthInput:focus {
+  outline: none;
+  border-color: #004d40;
+  box-shadow: 0 0 0 3px rgba(0,105,92,0.15);
+}
+
 /* Buttons */
 .GP-btn {
   padding: 0.75rem 1.5rem;

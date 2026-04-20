@@ -498,6 +498,7 @@ const CrucePacientesV3P: React.FC = () => {
                                 <th>En V3</th>
                                 <th>Ruta V3</th>
                                 <th>Cliente Destino</th>
+                                <th>F. Pref. Teórica</th>
                                 <th>Estado Pedido</th>
                                 <th>F. Pedido</th>
                                 <th>F. Preferente</th>
@@ -545,6 +546,7 @@ const CrucePacientesV3P: React.FC = () => {
                                       );
                                     })()}
                                     <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
+                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{p.f_pref_teorica || '—'}</td>
                                     <td>{p.estado_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                     <td style={{ whiteSpace: 'nowrap', color: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? '#c62828' : undefined, fontWeight: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? 700 : undefined }}>
@@ -744,7 +746,7 @@ const CrucePacientesV3P: React.FC = () => {
                                           <thead>
                                             <tr>
                                               <th>Paciente</th><th>Cédula</th><th>Dirección</th>
-                                              <th>En V3</th><th>Ruta V3</th><th>Cliente Destino</th><th>Estado Pedido</th>
+                                              <th>En V3</th><th>Ruta V3</th><th>Cliente Destino</th><th>F. Pref. Teórica</th><th>Estado Pedido</th>
                                               <th>F. Pedido</th><th>F. Preferente</th>
                                               <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Cel. Paciente</th><th>Tel. V3</th><th>Similitud</th>
                                             </tr>
@@ -768,6 +770,7 @@ const CrucePacientesV3P: React.FC = () => {
                                                     );
                                                   })()}
                                                   <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{p.f_pref_teorica || '—'}</td>
                                                   <td>{p.estado_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
                                                   <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_preferente || '—'}</td>

@@ -50,6 +50,7 @@ export interface PacienteOcupacion {
   cliente_destino_v3?: string;
   celular_paciente?: string;
   telefono_v3?: string;
+  f_pref_teorica?: string;
 }
 
 export interface RutaOcupacion {
@@ -179,6 +180,27 @@ export interface EliminarPacienteResponse {
 
 export interface ObtenerPacienteResponse {
   paciente: PacienteMedicalCare;
+}
+
+export interface CronogramaPaciente {
+  cedula: string;
+  fecha_entrega: string;
+  fecha_cronograma: string;
+}
+
+export interface CronogramaMesResponse {
+  anio_mes: string;
+  total: number;
+  registros: CronogramaPaciente[];
+}
+
+export interface CargarCronogramaResponse {
+  mensaje: string;
+  tiempo_segundos: number;
+  registros_nuevos: number;
+  registros_actualizados: number;
+  registros_con_errores: number;
+  errores?: string[];
 }
 
 export interface CrearActualizarPacienteData {
