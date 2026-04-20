@@ -28,6 +28,54 @@ import './estilos.css';
 
 const REGIONALES = ['TODAS', 'BARRANQUILLA', 'CALI', 'BUCARAMANGA', 'FUNZA', 'MEDELLIN'];
 
+// ── Función para formatear fechas (DD MMM YYYY) ───────────────────────────────
+const formatearFecha = (fechaStr: string | undefined): string => {
+  if (!fechaStr) return '—';
+  if (fechaStr === '—') return '—';
+
+  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  let fecha: Date;
+
+  // Intentar parsear diferentes formatos
+  if (fechaStr.includes('/')) {
+    // Formato DD/MM/YYYY o DD/MM/YY
+    const partes = fechaStr.split('/');
+    if (partes.length === 3) {
+      const dia = parseInt(partes[0], 10);
+      const mes = parseInt(partes[1], 10) - 1; // Meses en JS son 0-11
+      let anio = parseInt(partes[2], 10);
+      if (anio < 100) anio += 2000; // Para años de 2 dígitos
+      fecha = new Date(anio, mes, dia);
+    } else {
+      return fechaStr;
+    }
+  } else if (fechaStr.includes('-')) {
+    // Formato YYYY-MM-DD o ISO
+    fecha = new Date(fechaStr.includes(' ') ? fechaStr.replace(' ', 'T') : fechaStr);
+  } else {
+    return fechaStr;
+  }
+
+  if (isNaN(fecha.getTime())) return fechaStr;
+
+  return `${String(fecha.getDate()).padStart(2, '0')} ${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
+};
+
+// ── Función para obtener el estilo según el estado del cruce ─────────────────
+const getEstiloEstado = (estado: string | undefined): React.CSSProperties => {
+  switch (estado) {
+    case 'sin cruce':
+      return { background: '#f8bbd0', fontWeight: 700, color: '#880e4f' };
+    case 'retraso FMC':
+      return { background: '#ff5252', fontWeight: 700, color: '#ffffff' };
+    case 'retraso operación':
+      return { background: '#ffcc80', fontWeight: 700, color: '#e65100' };
+    default:
+      return {};
+  }
+};
+
 const CrucePacientesV3P: React.FC = () => {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -237,6 +285,56 @@ const CrucePacientesV3P: React.FC = () => {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([cedi, rutasGrupo]) => ({ cedi, rutas: rutasGrupo.sort((a, b) => a.ruta.localeCompare(b.ruta)) }));
   })();
+
+  // Agrupar V3 sin paciente por CEDI/regional
+  const rutasV3SinAgrupadasPorCEDI = (() => {
+    const grupos: { [key: string]: typeof rutasV3Sin } = {};
+    rutasV3SinFiltradas.forEach(r => {
+      const cedi = r.cedi || 'SIN CEDI';
+      if (!grupos[cedi]) grupos[cedi] = [];
+      grupos[cedi].push(r);
+    });
+    // Ordenar CEDIs alfabéticamente y mantener rutas ordenadas dentro de cada CEDI
+    return Object.entries(grupos)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cedi, rutasGrupo]) => ({ cedi, rutas: rutasGrupo.sort((a, b) => a.ruta.localeCompare(b.ruta)) }));
+  })();
+
+  // ── Scroll automático al expandir ruta ────────────────────────────────────────
+  useEffect(() => {
+    if (rutaExpandida) {
+      // Pequeño delay para esperar que la tabla se renderice
+      setTimeout(() => {
+        const tabla = document.getElementById(`tabla-${rutaExpandida}`);
+        if (tabla) {
+          const rect = tabla.getBoundingClientRect();
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          const offset = 120; // Espacio para dejar visible el header de la ruta
+          window.scrollTo({
+            top: rect.top + scrollTop - offset,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [rutaExpandida]);
+
+  useEffect(() => {
+    if (rutaV3Expandida) {
+      setTimeout(() => {
+        const tabla = document.getElementById(`tabla-v3-${rutaV3Expandida}`);
+        if (tabla) {
+          const rect = tabla.getBoundingClientRect();
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          const offset = 120; // Espacio para dejar visible el header de la ruta
+          window.scrollTo({
+            top: rect.top + scrollTop - offset,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [rutaV3Expandida]);
 
   // ── Steps del overlay ────────────────────────────────────────────────────────
   const STEPS: { key: RecalcularCruceProgress['stage']; label: string }[] = [
@@ -489,42 +587,33 @@ const CrucePacientesV3P: React.FC = () => {
                       </div>
                       {expandida && (
                         <div className="CRV3-tableWrap">
-                          <table className="CRV3-table">
+                          <table id={`tabla-${r.ruta}`} className="CRV3-table">
                             <thead>
                               <tr>
+                                <th>Estado</th>
                                 <th>Paciente</th>
                                 <th>Cédula</th>
                                 <th>Dirección</th>
                                 <th>En V3</th>
                                 <th>Ruta V3</th>
-                                <th>Cliente Destino</th>
-                                <th>F. Pref. Teórica</th>
+                                <th>Paciente V3</th>
                                 <th>Estado Pedido</th>
                                 <th>F. Pedido</th>
-                                <th>F. Preferente</th>
+                                <th>F. Pref SAP</th>
+                                <th>F. Pref. Integra</th>
                                 <th>F. Entrega</th>
                                 <th>Planilla</th>
                                 <th>Municipio</th>
                                 <th>Divipola</th>
-                                <th>Cel. Paciente</th>
-                                <th>Tel. V3</th>
                                 <th>Similitud</th>
+                                <th>cant. pedidos</th>
                               </tr>
                             </thead>
                             <tbody>
                               {r.pacientes.map((p, i) => {
-                                const hoy = new Date(); hoy.setHours(0,0,0,0);
-                                const limite = new Date(hoy); limite.setDate(limite.getDate() + 5);
-                                const fechaPref = p.fecha_preferente ? new Date(p.fecha_preferente) : null;
-                                const esEntregado = p.en_v3 && p.estado_pedido === 'ENTREGADO';
-                                const esRojo = !esEntregado && (
-                                  !p.en_v3 ||
-                                  p.estado_pedido === 'POR PROGRAMAR' ||
-                                  (fechaPref !== null && fechaPref <= limite)
-                                );
-                                const rowClass = esEntregado ? 'CRV3-rowEntregado' : esRojo ? 'CRV3-rowUrgente' : '';
                                 return (
-                                  <tr key={i} className={rowClass}>
+                                  <tr key={i}>
+                                    <td style={getEstiloEstado(p.estado_cruce)}>{p.estado_cruce || '—'}</td>
                                     <td>{p.paciente}</td>
                                     <td>{p.cedula}</td>
                                     <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
@@ -546,18 +635,16 @@ const CrucePacientesV3P: React.FC = () => {
                                       );
                                     })()}
                                     <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
-                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{p.f_pref_teorica || '—'}</td>
                                     <td>{p.estado_pedido || '—'}</td>
-                                    <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
-                                    <td style={{ whiteSpace: 'nowrap', color: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? '#c62828' : undefined, fontWeight: (fechaPref !== null && fechaPref <= limite && !esEntregado) ? 700 : undefined }}>
-                                      {p.fecha_preferente || '—'}
+                                    <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_pedido)}</td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                      {formatearFecha(p.fecha_preferente)}
                                     </td>
-                                    <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_entrega || '—'}</td>
+                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{formatearFecha(p.f_pref_teorica)}</td>
+                                    <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_entrega)}</td>
                                     <td>{p.planilla || '—'}</td>
                                     <td>{p.municipio_destino || '—'}</td>
                                     <td>{p.divipola || '—'}</td>
-                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.celular_paciente || '—'}</td>
-                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.telefono_v3 || '—'}</td>
                                     <td>
                                       {p.en_v3 && p.match_tipo === 'nombre' && (
                                         <span className="CRV3-matchBadge CRV3-matchBadge--nombre">👤</span>
@@ -575,6 +662,7 @@ const CrucePacientesV3P: React.FC = () => {
                                         {p.similitud}%
                                       </span>
                                     </td>
+                                    <td style={{ textAlign: 'center', fontWeight: 600 }}>{p.cant_pedidos_v3 || 0}</td>
                                   </tr>
                                 );
                               })}
@@ -605,16 +693,20 @@ const CrucePacientesV3P: React.FC = () => {
                 <p>{rutasV3Sin.length === 0 ? 'Usa el botón Recalcular.' : `No hay V3 sin paciente en ${filtroRegional}.`}</p>
               </div>
             ) : (
-              <>
-                <p className="CRV3-resumenV3">
-                  <strong>{rutasV3SinFiltradas.reduce((s, r) => s + r.total, 0)}</strong> registros V3 sin paciente (similitud &lt; 80%)
-                  {filtroRegional !== 'TODAS' && <span className="CRV3-filtroTag"> · {filtroRegional}</span>}
-                </p>
-                <div className="CRV3-rutasGrid">
-                  {rutasV3SinFiltradas.map(r => {
-                    const expandida = rutaV3Expandida === r.ruta;
-                    return (
-                      <div key={r.ruta} className="CRV3-rutaCard">
+              <div className="CRV3-rutasGrid">
+                {rutasV3SinAgrupadasPorCEDI.map((grupo, grupoIdx) => (
+                  <div key={grupo.cedi} className="CRV3-regionalGroup">
+                    {/* Header separador de regional */}
+                    <div className="CRV3-regionalHeader">
+                      <span className="CRV3-regionalNombre">{grupo.cedi}</span>
+                      <span className="CRV3-regionalStats">
+                        {grupo.rutas.reduce((s, r) => s + r.total, 0)} registros · {grupo.rutas.length} ruta{grupo.rutas.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {grupo.rutas.map(r => {
+                      const expandida = rutaV3Expandida === r.ruta;
+                      return (
+                        <div key={r.ruta} className="CRV3-rutaCard">
                         <div className="CRV3-rutaHeader" onClick={() => setRutaV3Expandida(expandida ? null : r.ruta)}>
                           <div className="CRV3-rutaMeta">
                             {r.cedi && <span className="CRV3-cediTag">{r.cedi}</span>}
@@ -628,7 +720,7 @@ const CrucePacientesV3P: React.FC = () => {
                         </div>
                         {expandida && (
                           <div className="CRV3-tableWrap">
-                            <table className="CRV3-table">
+                            <table id={`tabla-v3-${r.ruta}`} className="CRV3-table">
                               <thead>
                                 <tr>
                                   <th>Cód. Pedido</th>
@@ -666,7 +758,8 @@ const CrucePacientesV3P: React.FC = () => {
                     );
                   })}
                 </div>
-              </>
+                ))}
+              </div>
             )
           )}
 
@@ -742,21 +835,22 @@ const CrucePacientesV3P: React.FC = () => {
                                     </div>
                                     {expandida && (
                                       <div className="CRV3-tableWrap">
-                                        <table className="CRV3-table">
+                                        <table id={`tabla-${exp}`} className="CRV3-table">
                                           <thead>
                                             <tr>
+                                              <th>Estado</th>
                                               <th>Paciente</th><th>Cédula</th><th>Dirección</th>
-                                              <th>En V3</th><th>Ruta V3</th><th>Cliente Destino</th><th>F. Pref. Teórica</th><th>Estado Pedido</th>
-                                              <th>F. Pedido</th><th>F. Preferente</th>
-                                              <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Cel. Paciente</th><th>Tel. V3</th><th>Similitud</th>
+                                              <th>En V3</th><th>Ruta V3</th><th>Paciente V3</th><th>Estado Pedido</th>
+                                              <th>F. Pedido</th><th>F. Pref SAP</th><th>F. Pref. Integra</th>
+                                              <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Similitud</th>
+                                              <th>cant. pedidos</th>
                                             </tr>
                                           </thead>
                                           <tbody>
                                             {r.pacientes.map((p, i) => {
-                                              const esEntregado = p.en_v3 && p.estado_pedido === 'ENTREGADO';
-                                              const esRojo = !esEntregado && (!p.en_v3 || p.estado_pedido === 'POR PROGRAMAR');
                                               return (
-                                                <tr key={i} className={esEntregado ? 'CRV3-rowEntregado' : esRojo ? 'CRV3-rowUrgente' : ''}>
+                                                <tr key={i}>
+                                                  <td style={getEstiloEstado(p.estado_cruce)}>{p.estado_cruce || '—'}</td>
                                                   <td>{p.paciente}</td>
                                                   <td>{p.cedula}</td>
                                                   <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
@@ -770,16 +864,14 @@ const CrucePacientesV3P: React.FC = () => {
                                                     );
                                                   })()}
                                                   <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
-                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{p.f_pref_teorica || '—'}</td>
                                                   <td>{p.estado_pedido || '—'}</td>
-                                                  <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_pedido || '—'}</td>
-                                                  <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_preferente || '—'}</td>
-                                                  <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_entrega || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_pedido)}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_preferente)}</td>
+                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{formatearFecha(p.f_pref_teorica)}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_entrega)}</td>
                                                   <td>{p.planilla || '—'}</td>
                                                   <td>{p.municipio_destino || '—'}</td>
                                                   <td>{p.divipola || '—'}</td>
-                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.celular_paciente || '—'}</td>
-                                                  <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', color: '#555' }}>{p.telefono_v3 || '—'}</td>
                                                   <td>
                                                     {p.en_v3 && p.match_tipo === 'nombre' && (
                                                       <span className="CRV3-matchBadge CRV3-matchBadge--nombre">👤</span>
@@ -792,6 +884,7 @@ const CrucePacientesV3P: React.FC = () => {
                                                     )}
                                                     <span className="CRV3-sim" style={{ color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24', display: 'block' }}>{p.similitud}%</span>
                                                   </td>
+                                                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{p.cant_pedidos_v3 || 0}</td>
                                                 </tr>
                                               );
                                             })}

@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaChevronDown, FaRoute } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaChevronDown, FaRoute, FaSearch } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import logo from '@/Imagenes/albatros.png';
 import {
@@ -43,6 +43,9 @@ const GestionPedidosV3P: React.FC = () => {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState<string>('');
   const [loadingEstados, setLoadingEstados] = useState(false);
   const [ultimaActualizacion, setUltimaActualizacion] = useState<string | null>(null);
+  const [codigoBusqueda, setCodigoBusqueda] = useState('');
+  const [buscandoCodigo, setBuscandoCodigo] = useState(false);
+  const inicializadoRef = useRef(false);
 
   useEffect(() => {
     cargarEstados();
@@ -72,7 +75,13 @@ const GestionPedidosV3P: React.FC = () => {
     if (cliente && cliente !== 'MEDICAL_CARE') { router.replace('/MedicalCare'); return; }
     setUsuario(match[2] || '');
     setPerfil(document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '');
-    cargarPedidos();
+
+    // Cargar datos iniciales solo una vez
+    cargarEstados();
+    if (!inicializadoRef.current) {
+      inicializadoRef.current = true;
+      cargarPedidos();
+    }
   }, []);
 
   useEffect(() => {
@@ -104,13 +113,29 @@ const GestionPedidosV3P: React.FC = () => {
     }
   };
 
-  const cargarPedidos = async () => {
+  const cargarPedidos = useCallback(async (codigo?: string) => {
     try {
       setLoading(true);
-      const response = await obtenerPedidosV3(skip, limit, estadoSeleccionado || undefined);
-      setPedidos(response.pedidos);
-      setTotal(response.total);
-      setPaginas(Math.ceil(response.total / limit));
+      let response;
+
+      if (codigo && codigo.trim()) {
+        // Buscar por código de pedido específico
+        response = await obtenerPedidosV3(0, 1000, estadoSeleccionado || undefined);
+        const filtrados = response.pedidos.filter((p: any) =>
+          p.codigo_pedido && p.codigo_pedido.toString().includes(codigo.trim())
+        );
+        setPedidos(filtrados);
+        setTotal(filtrados.length);
+        setPaginas(1);
+        setSkip(0);
+        setPaginaActual(1);
+      } else {
+        // Cargar normalmente
+        response = await obtenerPedidosV3(skip, limit, estadoSeleccionado || undefined);
+        setPedidos(response.pedidos);
+        setTotal(response.total);
+        setPaginas(Math.ceil(response.total / limit));
+      }
     } catch (error) {
       console.error('Error al cargar pedidos:', error);
       Swal.fire({
@@ -121,11 +146,22 @@ const GestionPedidosV3P: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [skip, limit, estadoSeleccionado, buscandoCodigo]); // dependencias de useCallback
 
+  // Este useEffect solo maneja cambios en el estado seleccionado (no la carga inicial)
+  const estadoPrevioRef = useRef<string>('');
   useEffect(() => {
-    cargarPedidos();
-  }, [estadoSeleccionado]);
+    // Solo recargar si cambia el estado seleccionado y ya está inicializado
+    if (inicializadoRef.current && estadoSeleccionado !== estadoPrevioRef.current && !buscandoCodigo) {
+      estadoPrevioRef.current = estadoSeleccionado;
+      setPaginaActual(1);
+      setSkip(0);
+      cargarPedidos();
+    } else if (inicializadoRef.current) {
+      estadoPrevioRef.current = estadoSeleccionado;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estadoSeleccionado, buscandoCodigo]);
 
   const handleCargarExcel = async () => {
     if (!archivo) {
@@ -257,7 +293,7 @@ const GestionPedidosV3P: React.FC = () => {
   };
 
   const handlePaginaAnterior = () => {
-    if (paginaActual > 1) {
+    if (paginaActual > 1 && !buscandoCodigo) {
       const nuevoSkip = (paginaActual - 2) * limit;
       setSkip(nuevoSkip);
       setPaginaActual(paginaActual - 1);
@@ -266,7 +302,7 @@ const GestionPedidosV3P: React.FC = () => {
   };
 
   const handlePaginaSiguiente = () => {
-    if (paginaActual < paginas) {
+    if (paginaActual < paginas && !buscandoCodigo) {
       const nuevoSkip = paginaActual * limit;
       setSkip(nuevoSkip);
       setPaginaActual(paginaActual + 1);
@@ -357,6 +393,25 @@ const GestionPedidosV3P: React.FC = () => {
     setSkip(0);
   };
 
+  const handleBuscarCodigo = () => {
+    setBuscandoCodigo(true);
+    cargarPedidos(codigoBusqueda);
+  };
+
+  const handleLimpiarBusqueda = () => {
+    setCodigoBusqueda('');
+    setBuscandoCodigo(false);
+    setPaginaActual(1);
+    setSkip(0);
+    cargarPedidos();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleBuscarCodigo();
+    }
+  };
+
   return (
     <div className="GPV3-layout">
       {/* HEADER */}
@@ -417,6 +472,34 @@ const GestionPedidosV3P: React.FC = () => {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="GPV3-buscadorCodigo">
+            <input
+              type="text"
+              className="GPV3-buscadorInput"
+              placeholder="Buscar por código de pedido..."
+              value={codigoBusqueda}
+              onChange={(e) => setCodigoBusqueda(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <button
+              className="GPV3-buscadorBtn"
+              onClick={handleBuscarCodigo}
+              disabled={loading || !codigoBusqueda.trim()}
+              title="Buscar pedido"
+            >
+              <FaSearch />
+            </button>
+            {buscandoCodigo && (
+              <button
+                className="GPV3-buscadorLimpiar visible"
+                onClick={handleLimpiarBusqueda}
+                title="Limpiar búsqueda"
+              >
+                ✕
+              </button>
+            )}
           </div>
           {ultimaActualizacion && (
             <span className="GPV3-syncInfo" title="Última sincronización automática">
@@ -518,17 +601,20 @@ const GestionPedidosV3P: React.FC = () => {
                 <button
                   className="GPV3-pageBtn"
                   onClick={handlePaginaAnterior}
-                  disabled={paginaActual === 1}
+                  disabled={paginaActual === 1 || buscandoCodigo}
                 >
                   Anterior
                 </button>
                 <span className="GPV3-pageInfo">
-                  Página {paginaActual} de {paginas || 1} ({total} total)
+                  {buscandoCodigo
+                    ? `Resultados de búsqueda: ${total}`
+                    : `Página ${paginaActual} de ${paginas || 1} (${total} total)`
+                  }
                 </span>
                 <button
                   className="GPV3-pageBtn"
                   onClick={handlePaginaSiguiente}
-                  disabled={paginaActual >= paginas}
+                  disabled={paginaActual >= paginas || buscandoCodigo}
                 >
                   Siguiente
                 </button>
@@ -550,12 +636,6 @@ const GestionPedidosV3P: React.FC = () => {
               {progreso ? (
                 <div className="GPV3-progreso">
                   <div className="GPV3-progresoStage">{progreso.message}</div>
-                  <div className="GPV3-progresoBar">
-                    <div
-                      className="GPV3-progresoFill"
-                      style={{ width: `${progreso.progress}%` }}
-                    ></div>
-                  </div>
                   {progreso.stage === 'processing' && (
                     <div className="GPV3-progresoStats">
                       {progreso.processed} / {progreso.total} registros

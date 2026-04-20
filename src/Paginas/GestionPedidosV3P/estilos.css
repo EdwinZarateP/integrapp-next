@@ -282,6 +282,82 @@
   align-self: center;
 }
 
+/* ── Buscador de Código de Pedido ── */
+.GPV3-buscadorCodigo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 8px 12px;
+  border: 2px solid #e9ecef;
+  transition: all 0.2s;
+}
+
+.GPV3-buscadorCodigo:focus-within {
+  border-color: #004d40;
+  box-shadow: 0 0 0 3px rgba(0, 77, 64, 0.1);
+}
+
+.GPV3-buscadorInput {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.9rem;
+  color: #1e2f45;
+  min-width: 180px;
+}
+
+.GPV3-buscadorInput::placeholder {
+  color: #adb5bd;
+}
+
+.GPV3-buscadorBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.GPV3-buscadorBtn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 77, 64, 0.3);
+}
+
+.GPV3-buscadorBtn:active {
+  transform: scale(0.95);
+}
+
+.GPV3-buscadorLimpiar {
+  display: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: #ffebee;
+  color: #dc3545;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.GPV3-buscadorLimpiar:hover {
+  background: #ffcdd2;
+}
+
+.GPV3-buscadorLimpiar.visible {
+  display: flex;
+}
+
 .GPV3-actions {
   display: flex;
   gap: 10px;
@@ -400,6 +476,7 @@
 .GPV3-tableContainer {
   overflow-x: auto;
   max-width: 100%;
+  max-height: 70vh;
 }
 
 .GPV3-table {
@@ -412,6 +489,9 @@
 .GPV3-table thead {
   background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
   color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .GPV3-table th {
@@ -683,17 +763,21 @@
 }
 
 .GPV3-progresoBar {
-  height: 12px;
+  width: 100%;
+  height: 16px;
   background: #f0f2f5;
-  border-radius: 6px;
+  border-radius: 10px;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .GPV3-progresoFill {
   height: 100%;
+  width: 0;
   background: linear-gradient(90deg, #004d40 0%, #006b5e 100%);
   transition: width 0.3s ease;
-  border-radius: 6px;
+  border-radius: 10px;
+  box-sizing: border-box;
 }
 
 .GPV3-progresoStats {

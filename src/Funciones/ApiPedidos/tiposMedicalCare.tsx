@@ -51,6 +51,8 @@ export interface PacienteOcupacion {
   celular_paciente?: string;
   telefono_v3?: string;
   f_pref_teorica?: string;
+  cant_pedidos_v3?: number;
+  estado_cruce?: string;
 }
 
 export interface RutaOcupacion {

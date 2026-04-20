@@ -323,14 +323,16 @@
   border-bottom: 1px solid #e0e0e0;
 }
 /* Anchos mínimos para columnas clave */
-.CRV3-table th:nth-child(1) { min-width: 140px; } /* Paciente */
-.CRV3-table th:nth-child(2) { min-width: 90px; }  /* Cédula */
-.CRV3-table th:nth-child(3) { min-width: 180px; } /* Dirección */
-.CRV3-table th:nth-child(4) { min-width: 60px; }  /* En V3 */
-.CRV3-table th:nth-child(5) { min-width: 70px; }  /* Ruta V3 */
-.CRV3-table th:nth-child(8) { min-width: 80px; }  /* F. Preferente */
-.CRV3-table th:nth-child(9) { min-width: 80px; }  /* F. Entrega */
-.CRV3-table th:nth-child(16) { min-width: 60px; } /* Similitud */
+.CRV3-table th:nth-child(1) { min-width: 120px; } /* Estado */
+.CRV3-table th:nth-child(2) { min-width: 140px; } /* Paciente */
+.CRV3-table th:nth-child(3) { min-width: 90px; }  /* Cédula */
+.CRV3-table th:nth-child(4) { min-width: 180px; } /* Dirección */
+.CRV3-table th:nth-child(5) { min-width: 60px; }  /* En V3 */
+.CRV3-table th:nth-child(6) { min-width: 70px; }  /* Ruta V3 */
+.CRV3-table th:nth-child(9) { min-width: 80px; }  /* F. Preferente */
+.CRV3-table th:nth-child(10) { min-width: 80px; } /* F. Entrega */
+.CRV3-table th:nth-child(17) { min-width: 60px; } /* Similitud */
+.CRV3-table th:nth-child(18) { min-width: 80px; } /* cant. pedidos */
 
 .CRV3-table td {
   padding: 7px 12px; border-bottom: 1px solid #f5f5f5; color: #333;
@@ -338,9 +340,6 @@
 }
 .CRV3-table tr:last-child td { border-bottom: none; }
 .CRV3-table tr:hover td { background: #fafafa; }
-
-.CRV3-rowEntregado td { background: #f1f8f1; }
-.CRV3-rowUrgente td   { background: #fff3f3; }
 
 .CRV3-enV3 { font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
 .CRV3-enV3Yes { background: #c8e6c9; color: #1b5e20; }
