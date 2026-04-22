@@ -69,13 +69,13 @@ export async function cargarPedidosV3Stream(
 
   while (true) {
     const { done, value } = await reader.read();
-    
+
     if (done) {
       break;
     }
 
     buffer += decoder.decode(value, { stream: true });
-    
+
     // Procesar líneas completas (SSE events)
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
@@ -85,11 +85,11 @@ export async function cargarPedidosV3Stream(
         const data = line.slice(6);
         try {
           const parsed = JSON.parse(data);
-          
+
           if (parsed.error) {
             throw new Error(parsed.error);
           }
-          
+
           if (parsed.stage === 'complete') {
             return {
               mensaje: parsed.mensaje,
@@ -99,7 +99,7 @@ export async function cargarPedidosV3Stream(
               errores: parsed.errores,
             };
           }
-          
+
           onProgress(parsed);
         } catch (e) {
           console.error('Error al parsear evento SSE:', e);
@@ -117,11 +117,16 @@ export async function cargarPedidosV3Stream(
 export async function obtenerPedidosV3(
   skip: number = 0,
   limit: number = 100,
-  estado?: string
+  estado?: string,
+  mes_actual?: boolean
 ): Promise<ObtenerPedidosV3Response> {
   const params: any = { skip, limit };
   if (estado) {
     params.estado = estado;
+  }
+  if (mes_actual !== undefined) {
+    // Python usa 'mes_actual' con tilde
+    params['mes_actual'] = mes_actual;
   }
 
   const response = await axios.get<ObtenerPedidosV3Response>(

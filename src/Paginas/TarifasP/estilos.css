@@ -105,6 +105,29 @@
   transition: opacity 0.2s, transform 0.1s;
 }
 .TAR-btnNuevo:hover { opacity: 0.85; transform: translateY(-1px); }
+.TAR-topBarActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.TAR-btnExportar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #107c41;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 18px;
+  font-size: 0.87rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.TAR-btnExportar:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+.TAR-btnExportar:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Buscador ── */
 .TAR-busquedaBar {

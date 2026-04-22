@@ -282,6 +282,39 @@
   align-self: center;
 }
 
+/* ── Total Badge ── */
+.GPV3-totalBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  padding: 8px 16px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 77, 64, 0.15);
+}
+
+.GPV3-totalLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.GPV3-totalValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.GPV3-totalNote {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 4px;
+  font-style: italic;
+}
+
 /* ── Buscador de Código de Pedido ── */
 .GPV3-buscadorCodigo {
   display: flex;
@@ -878,6 +911,25 @@
 
   .GPV3-syncInfo {
     text-align: center;
+  }
+
+  .GPV3-totalBadge {
+    padding: 6px 12px;
+  }
+
+  .GPV3-totalLabel {
+    font-size: 0.7rem;
+  }
+
+  .GPV3-totalValue {
+    font-size: 0.95rem;
+  }
+
+  .GPV3-totalNote {
+    font-size: 0.65rem;
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
   }
 }
 

@@ -2,15 +2,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaChevronDown, FaRoute, FaSearch } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaEdit, FaTrash, FaArrowLeft, FaChevronDown, FaRoute, FaSearch } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import logo from '@/Imagenes/albatros.png';
 import {
   cargarPedidosV3Stream,
   obtenerPedidosV3,
   obtenerEstadosV3,
-  eliminarTodosPedidosV3,
-  crearPedidoV3,
   actualizarPedidoV3,
   eliminarPedidoV3,
   obtenerPedidoV3PorId,
@@ -31,7 +29,6 @@ const GestionPedidosV3P: React.FC = () => {
   const [limit] = useState(100);
   const [total, setTotal] = useState(0);
   const [mostrarModalCarga, setMostrarModalCarga] = useState(false);
-  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [progreso, setProgreso] = useState<ProgressEvent | null>(null);
@@ -45,6 +42,8 @@ const GestionPedidosV3P: React.FC = () => {
   const [ultimaActualizacion, setUltimaActualizacion] = useState<string | null>(null);
   const [codigoBusqueda, setCodigoBusqueda] = useState('');
   const [buscandoCodigo, setBuscandoCodigo] = useState(false);
+  const [cargandoExcel, setCargandoExcel] = useState(false);
+  const cargandoExcelRef = useRef(false);
   const inicializadoRef = useRef(false);
 
   useEffect(() => {
@@ -120,7 +119,7 @@ const GestionPedidosV3P: React.FC = () => {
 
       if (codigo && codigo.trim()) {
         // Buscar por código de pedido específico
-        response = await obtenerPedidosV3(0, 1000, estadoSeleccionado || undefined);
+        response = await obtenerPedidosV3(0, 1000, estadoSeleccionado || undefined, true);
         const filtrados = response.pedidos.filter((p: any) =>
           p.codigo_pedido && p.codigo_pedido.toString().includes(codigo.trim())
         );
@@ -130,8 +129,8 @@ const GestionPedidosV3P: React.FC = () => {
         setSkip(0);
         setPaginaActual(1);
       } else {
-        // Cargar normalmente
-        response = await obtenerPedidosV3(skip, limit, estadoSeleccionado || undefined);
+        // Cargar normalmente (solo mes actual por defecto)
+        response = await obtenerPedidosV3(skip, limit, estadoSeleccionado || undefined, true);
         setPedidos(response.pedidos);
         setTotal(response.total);
         setPaginas(Math.ceil(response.total / limit));
@@ -164,6 +163,7 @@ const GestionPedidosV3P: React.FC = () => {
   }, [estadoSeleccionado, buscandoCodigo]);
 
   const handleCargarExcel = async () => {
+    if (cargandoExcelRef.current) return;
     if (!archivo) {
       Swal.fire({
         icon: 'warning',
@@ -172,6 +172,9 @@ const GestionPedidosV3P: React.FC = () => {
       });
       return;
     }
+
+    cargandoExcelRef.current = true;
+    setCargandoExcel(true);
 
     try {
       const response: CargarPedidosV3Response = await cargarPedidosV3Stream(
@@ -215,27 +218,9 @@ const GestionPedidosV3P: React.FC = () => {
         title: 'Error',
         text: error.message || 'No se pudo cargar el archivo Excel',
       });
-    }
-  };
-
-  const handleCrearPedido = async () => {
-    try {
-      await crearPedidoV3(usuario, formulario);
-      setMostrarModalCrear(false);
-      setFormulario({});
-      Swal.fire({
-        icon: 'success',
-        title: 'Pedido Creado',
-        text: 'El pedido se creó exitosamente',
-      });
-      cargarPedidos();
-    } catch (error: any) {
-      console.error('Error al crear pedido:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: error.response?.data?.detail || 'No se pudo crear el pedido',
-      });
+    } finally {
+      cargandoExcelRef.current = false;
+      setCargandoExcel(false);
     }
   };
 
@@ -310,46 +295,6 @@ const GestionPedidosV3P: React.FC = () => {
     }
   };
 
-  const handleEliminarTodos = async () => {
-    if (perfil !== 'ADMIN') {
-      Swal.fire({
-        icon: 'error',
-        title: 'No autorizado',
-        text: 'Solo los administradores pueden eliminar todos los pedidos',
-      });
-      return;
-    }
-
-    const result = await Swal.fire({
-      icon: 'warning',
-      title: '¿Eliminar TODOS los pedidos?',
-      text: 'Esta acción eliminará TODOS los pedidos y no se puede deshacer',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar todos',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#dc3545',
-    });
-
-    if (result.isConfirmed) {
-      try {
-        const response = await eliminarTodosPedidosV3(usuario);
-        Swal.fire({
-          icon: 'success',
-          title: 'Pedidos Eliminados',
-          text: `Se eliminaron ${response.registros_eliminados} pedidos`,
-        });
-        cargarPedidos();
-      } catch (error: any) {
-        console.error('Error al eliminar pedidos:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: error.response?.data?.detail || 'No se pudieron eliminar los pedidos',
-        });
-      }
-    }
-  };
-
   const formatearFecha = (fecha: string | null | undefined): string => {
     if (!fecha) return '-';
     
@@ -371,7 +316,7 @@ const GestionPedidosV3P: React.FC = () => {
   const cargarPagina = async (nuevoSkip: number) => {
     try {
       setLoading(true);
-      const response = await obtenerPedidosV3(nuevoSkip, limit, estadoSeleccionado || undefined);
+      const response = await obtenerPedidosV3(nuevoSkip, limit, estadoSeleccionado || undefined, true);
       setPedidos(response.pedidos);
       setTotal(response.total);
     } catch (error) {
@@ -506,18 +451,15 @@ const GestionPedidosV3P: React.FC = () => {
               ⟳ {new Date(ultimaActualizacion!.replace(' ', 'T')).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })} {ultimaActualizacion!.slice(11, 16)}
             </span>
           )}
+          <div className="GPV3-totalBadge" title="Total de pedidos V3 del mes actual">
+            <span className="GPV3-totalLabel">Total:</span>
+            <span className="GPV3-totalValue">{total.toLocaleString('es-CO')}</span>
+            <span className="GPV3-totalNote">(mes actual)</span>
+          </div>
           <div className="GPV3-actions">
             <button className="GPV3-btn GPV3-btnPrimary" onClick={() => setMostrarModalCarga(true)}>
               <FaFileExcel /> Cargar Excel
             </button>
-            <button className="GPV3-btn GPV3-btnSuccess" onClick={() => setMostrarModalCrear(true)}>
-              <FaPlus /> Crear Pedido
-            </button>
-            {perfil === 'ADMIN' && (
-              <button className="GPV3-btn GPV3-btnDanger" onClick={handleEliminarTodos}>
-                <FaTrash /> Eliminar Todos
-              </button>
-            )}
           </div>
         </div>
 
@@ -672,35 +614,12 @@ const GestionPedidosV3P: React.FC = () => {
                 <button
                   className="GPV3-btn GPV3-btnPrimary"
                   onClick={handleCargarExcel}
-                  disabled={!archivo}
+                  disabled={!archivo || cargandoExcel}
                 >
-                  Cargar
+                  {cargandoExcel ? 'Cargando...' : 'Cargar'}
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal Crear Pedido */}
-      {mostrarModalCrear && (
-        <div className="GPV3-modalOverlay" onClick={() => setMostrarModalCrear(false)}>
-          <div className="GPV3-modal GPV3-modalLarge" onClick={(e) => e.stopPropagation()}>
-            <div className="GPV3-modalHeader">
-              <h2>Crear Nuevo Pedido</h2>
-              <button className="GPV3-closeBtn" onClick={() => setMostrarModalCrear(false)}>×</button>
-            </div>
-            <div className="GPV3-modalBody">
-              <p className="GPV3-modalInfo">El formulario de creación de pedidos aún no está implementado</p>
-            </div>
-            <div className="GPV3-modalFooter">
-              <button
-                className="GPV3-btn GPV3-btnSecondary"
-                onClick={() => setMostrarModalCrear(false)}
-              >
-                Cancelar
-              </button>
-            </div>
           </div>
         </div>
       )}

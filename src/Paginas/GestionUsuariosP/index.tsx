@@ -15,7 +15,7 @@ const CLIENTES_DISPONIBLES = [
   { key: 'MEDICAL_CARE', label: 'Fresenius Medical Care' },
 ];
 
-const PERFILES_FALLBACK = ['ADMIN', 'OPERATIVO', 'SEGURIDAD', 'CONDUCTOR', 'DESPACHADOR', 'COORDINADOR', 'ANALISTA'];
+const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CONDUCTOR', 'CONTROL', 'COORDINADOR', 'DESPACHADOR', 'OPERADOR', 'OPERATIVO', 'SEGURIDAD'];
 
 const USUARIO_VACIO: BaseUsuario = {
   nombre: '', correo: '', regional: '', celular: '',

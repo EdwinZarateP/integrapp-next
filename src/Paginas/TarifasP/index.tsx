@@ -2,9 +2,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import * as XLSX from 'xlsx';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft,
   FaPlus, FaEdit, FaTrash, FaTimes, FaSave, FaSearch,
+  FaFileExcel,
 } from 'react-icons/fa';
 import { obtenerFletes, crearFlete, actualizarFlete, eliminarFlete, Flete } from '@/Funciones/ApiPedidos/fletes';
 import logo from '@/Imagenes/albatros.png';
@@ -135,6 +137,35 @@ const TarifasP: React.FC = () => {
     setBusqueda('');
   };
 
+  const exportarExcel = () => {
+    const datos = tarifasFiltradas.map(t => {
+      const fila: Record<string, any> = {
+        Origen: t.origen,
+        Destino: t.destino,
+        Ruta: t.ruta,
+        Tipo: t.tipo,
+        PagoCargueDesc: t.pago_cargue_desc,
+        EqCentroCosto: t.equivalencia_centro_costo,
+      };
+      for (const col of colsVehiculo) {
+        fila[col] = t.tarifas[col] ?? '';
+      }
+      return fila;
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(datos);
+
+    ws['!cols'] = [
+      { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 },
+      ...colsVehiculo.map(() => ({ wch: 12 })),
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Tarifas');
+    const fecha = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Tarifas_${fecha}.xlsx`);
+  };
+
   // Columnas dinámicas de vehículo
   const colsVehiculo = useMemo(
     () => Array.from(new Set(tarifas.flatMap(t => Object.keys(t.tarifas)))).sort(),
@@ -175,9 +206,14 @@ const TarifasP: React.FC = () => {
               <h1 className="TAR-titulo">Tarifas de fletes</h1>
               <p className="TAR-subtitulo">Consulta, crea y modifica las tarifas por ruta y tipo de vehículo.</p>
             </div>
-            <button className="TAR-btnNuevo" onClick={abrirNueva}>
-              <FaPlus /> Nueva tarifa
-            </button>
+            <div className="TAR-topBarActions">
+              <button className="TAR-btnExportar" onClick={exportarExcel} disabled={cargando || tarifasFiltradas.length === 0}>
+                <FaFileExcel /> Exportar
+              </button>
+              <button className="TAR-btnNuevo" onClick={abrirNueva}>
+                <FaPlus /> Nueva tarifa
+              </button>
+            </div>
           </div>
 
           {/* Buscador */}

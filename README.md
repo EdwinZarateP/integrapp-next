@@ -129,7 +129,7 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 - Página dedicada con el mismo header/menú que GestionPedidosV3 (logo, título, dropdown de usuario)
 - **Logo/título clickeable**: navega a `/MedicalCare` (eliminado el botón de flecha separado)
 - **Toolbar**: muestra fecha y usuario del último cálculo + filtro por regional + botón Exportar Excel + botón Recalcular
-- **Pestaña "Ocupación por Rutas"**: pacientes agrupados por ruta con badge de CEDI, muestra cuántos están en V3 con su % de ocupación. Color del badge: verde ≥80%, amarillo ≥50%, rojo <50%. Expandible por ruta para ver detalle de cada paciente. **Badge inline** `enV3/total · pct%` junto al nombre de la pestaña (sin fondo de color). Funcionalidades de la tarjeta por ruta:
+- **Pestaña "Ocupación por Rutas"**: pacientes agrupados por ruta con badge de CEDI, muestra cuántos están en V3 con su % de ocupación. Color del badge: verde ≥80%, amarillo ≥50%, rojo <50%. Expandible por ruta para ver detalle de cada paciente. **Badge inline** `enV3/total pacientes · pct% · 📄 X de Y pedidos` junto al nombre de la pestaña, donde Y = `total_v3` (total real de V3 en Mongo) y X = Y − sin_paciente − zona_gris − llave_vacia (evita double-counting cuando varios pacientes coinciden con la misma llave). Funcionalidades de la tarjeta por ruta:
   - **Ordenamiento**: primero aparecen los pacientes que sí cruzaron (`en_v3 = true`), luego los que no, cada grupo ordenado por similitud descendente
   - **Badge ⚠️ cambios de ruta**: en el encabezado de cada tarjeta aparece un badge ambar (`⚠️ N cambio(s)`) cuando hay pacientes cuyo cruce V3 pertenece a una ruta diferente a la de la tarjeta, o cuya ruta V3 vino vacía. Incluye tooltip con detalle
   - **Columna "Ruta V3"**: ruta del pedido V3 que cruzó. Celda con **fondo rojo oscuro y texto blanco** si la ruta V3 difiere de la ruta de la tarjeta o vino vacía (cambio de ruta); sin estilo especial (hereda color de fila) si coincide
@@ -154,15 +154,15 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 - Protegido: requiere sesión y cliente activo = MEDICAL_CARE
 
 **Gestión de Pedidos V3 (`/GestionPedidosV3`):**
-- Gestión CRUD de pedidos de Medical Care V3
-- **Carga masiva desde Excel**: modal con progreso en tiempo real via SSE
+- Gestión de pedidos de Medical Care V3 (solo edición y eliminación individual; la carga masiva reemplaza toda la base automáticamente)
+- **Carga masiva desde Excel**: modal con progreso SSE. El backend elimina todos los pedidos anteriores antes de insertar los nuevos. Protegido contra carga múltiple simultánea con `cargandoExcelRef` (ref síncrono) + estado visual "Cargando..." en el botón
 - **Tabla de pedidos**: columnas con datos originales (cliente_destino_original, direccion_destino_original), filtro por estado, paginación
 - **Filtro por estado**: selector que consulta los estados únicos de la colección
-- **Eliminación individual y masiva** (masiva solo ADMIN)
-- **Sin buscador de texto**: el filtrado se hace por estado
-- **Logo/título clickeable**: navega a `/MedicalCare` (eliminado el botón de flecha separado)
+- **Buscador por código de pedido**: campo de texto + botón de búsqueda, con opción de limpiar
+- **Logo/título clickeable**: navega a `/MedicalCare`
 - **Indicador de última sincronización automática**: texto discreto en la toolbar (`⟳ 7 abr 2026 14:32`) que muestra la hora del último sync del backend. Consulta `GET /sync-v3/estado` cada 60s; solo recarga los pedidos si el timestamp cambió
 - **Protección**: requiere sesión y cliente activo = MEDICAL_CARE
+- **Botones eliminados**: "Crear Pedido" y "Eliminar Todos" fueron removidos porque la carga masiva es la única fuente de datos y ya limpia la colección antes de insertar
 
 **Gestión de Pacientes (`/GestionPacientes`):**
 - Gestión CRUD completa de pacientes de Medical Care
@@ -806,6 +806,34 @@ Aplicado a todos los portales para consistencia visual:
 - **Filtro `startsWith` en lugar de `includes`**: muestra filas cuyo destino *comienza* con el texto buscado
 - **`useMemo` en `colsVehiculo` y `tarifasFiltradas`**: ambos valores se memorizan para consistencia
 - **`key={busqueda}` en `<tbody>`**: fuerza reconstrucción completa al cambiar el filtro
+
+### Abril 2026 — Eliminación de "zona gris" en Cruce Pacientes ↔ V3
+
+- Backend: la zona gris dejó de existir como categoría. Los V3 con similitud ≥ 75% contra cualquier paciente se consideran emparejados (quedaban como falso negativo cuando otro V3 había sido reclamado primero por ese paciente).
+- Frontend: el badge de la pestaña "Ocupación por Rutas" ya incluye estos registros en `pedidos_matched` automáticamente (fórmula `total_v3 − sin_paciente − zona_gris − llave_vacia`, con `zona_gris = 0`).
+- La sección visual "Zona Gris" en la pestaña "V3 sin Paciente" no renderiza cuando está vacía — queda desactivada por el conditional rendering existente.
+
+---
+
+### Abril 2026 — Correcciones GestionPedidosV3 y conteo de pedidos en cruce
+
+**`GestionPedidosV3P/index.tsx` — Botones removidos:**
+- Eliminados "Crear Pedido" y "Eliminar Todos". La carga masiva Excel es la única fuente de datos y ya vacía la colección antes de insertar — los botones eran redundantes o peligrosos.
+
+**`GestionPedidosV3P/index.tsx` — Protección contra carga múltiple:**
+- Nuevo `cargandoExcelRef` (ref síncrono): bloquea cualquier click adicional mientras hay un stream activo, sin depender del ciclo de render de React.
+- Estado `cargandoExcel` para feedback visual ("Cargando…" + botón deshabilitado).
+- Ambos se liberan en `finally` para recuperarse también de errores.
+
+**`CrucePacientesV3P/index.tsx` — Corrección del badge "X de Y pedidos":**
+- Antes: `Y = sum(cant_pedidos_v3)` por paciente, inflado cuando dos pacientes coinciden con las mismas llaves V3.
+- Ahora: `Y = total_v3` (total real de V3 en Mongo) y `X = Y − sin_paciente − zona_gris − llave_vacia`.
+- Nuevo estado `totalV3` poblado desde `GET /ocupacion-rutas`, `GET /v3-sin-paciente` y el SSE de recalcular.
+
+**`tiposMedicalCare.tsx`:**
+- `total_v3: number` añadido a `OcupacionRutasResponse`, `V3SinPacienteResponse` y `RecalcularCruceResponse`.
+
+---
 
 ### Abril 2026 — Mejoras visuales en Cruce Pacientes ↔ V3
 

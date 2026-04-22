@@ -72,6 +72,9 @@ export interface OcupacionRutasResponse {
   fecha_calculo: string | null;
   calculado_por: string | null;
   total_sin_paciente: number;
+  total_zona_gris: number;
+  total_llave_vacia: number;
+  total_v3: number;
 }
 
 export interface RegistroV3SinPaciente {
@@ -85,6 +88,19 @@ export interface RegistroV3SinPaciente {
   llave: string;
   similitud: number;
   llave_paciente_cercana: string;
+  fecha_preferente?: string;
+}
+
+export interface RegistroV3LlaveVacia {
+  codigo_pedido: string;
+  cliente_destino: string;
+  direccion_destino: string;
+  ruta: string;
+  cedi: string;
+  estado_pedido: string;
+  telefono: string;
+  fecha_preferente: string;
+  llave: string;
 }
 
 export interface RutaV3SinPaciente {
@@ -97,6 +113,11 @@ export interface RutaV3SinPaciente {
 export interface V3SinPacienteResponse {
   total_sin_paciente: number;
   rutas: RutaV3SinPaciente[];
+  v3_zona_gris: RutaV3SinPaciente[];
+  total_zona_gris: number;
+  v3_llave_vacia: RegistroV3LlaveVacia[];
+  total_llave_vacia: number;
+  total_v3: number;
   fecha_calculo: string | null;
   calculado_por: string | null;
 }
@@ -133,7 +154,12 @@ export interface RecalcularCruceProgress {
 export interface RecalcularCruceResponse {
   rutas: RutaOcupacion[];
   v3_sin_paciente: RutaV3SinPaciente[];
+  v3_zona_gris: RutaV3SinPaciente[];
+  total_zona_gris: number;
+  v3_llave_vacia: RegistroV3LlaveVacia[];
+  total_llave_vacia: number;
   total_sin_paciente: number;
+  total_v3: number;
   fecha_calculo: string;
   calculado_por: string;
 }

@@ -20,6 +20,7 @@ import {
 import type {
   RutaOcupacion,
   RutaV3SinPaciente,
+  RegistroV3LlaveVacia,
   RecalcularCruceProgress,
   MesHistorico,
   HistoricoMesDetalle,
@@ -92,9 +93,14 @@ const CrucePacientesV3P: React.FC = () => {
   const [mesSeleccionado, setMesSeleccionado]     = useState<{anio:number;mes:number} | null>(null);
   const [detalleHistorico, setDetalleHistorico]   = useState<HistoricoMesDetalle | null>(null);
   const [loadingDetalle, setLoadingDetalle]       = useState(false);
-  const [rutas, setRutas]                   = useState<RutaOcupacion[]>([]);
-  const [rutasV3Sin, setRutasV3Sin]         = useState<RutaV3SinPaciente[]>([]);
-  const [totalV3Sin, setTotalV3Sin]         = useState(0);
+  const [rutas, setRutas]                     = useState<RutaOcupacion[]>([]);
+  const [rutasV3Sin, setRutasV3Sin]           = useState<RutaV3SinPaciente[]>([]);
+  const [totalV3Sin, setTotalV3Sin]           = useState(0);
+  const [rutasV3ZonaGris, setRutasV3ZonaGris] = useState<RutaV3SinPaciente[]>([]);
+  const [totalV3ZonaGris, setTotalV3ZonaGris] = useState(0);
+  const [v3LlaveVacia, setV3LlaveVacia]       = useState<RegistroV3LlaveVacia[]>([]);
+  const [totalV3LlaveVacia, setTotalV3LlaveVacia] = useState(0);
+  const [totalV3, setTotalV3]               = useState(0);
   const [fechaCalculo, setFechaCalculo]     = useState<string | null>(null);
   const [calculadoPor, setCalculadoPor]     = useState<string | null>(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState<string | null>(null);
@@ -102,6 +108,7 @@ const CrucePacientesV3P: React.FC = () => {
   const [filtroRegional, setFiltroRegional] = useState('TODAS');
   const [filtroRutaInput, setFiltroRutaInput] = useState('');
   const [filtroRuta, setFiltroRuta]           = useState('');
+  const [filtroPedidosMultiples, setFiltroPedidosMultiples] = useState(false);
   const [rutaExpandida, setRutaExpandida]   = useState<string | null>(null);
   const [rutaV3Expandida, setRutaV3Expandida] = useState<string | null>(null);
 
@@ -159,6 +166,9 @@ const CrucePacientesV3P: React.FC = () => {
       if (data.fecha_calculo) setFechaCalculo(data.fecha_calculo);
       if (data.calculado_por) setCalculadoPor(data.calculado_por);
       if (data.total_sin_paciente) setTotalV3Sin(data.total_sin_paciente);
+      if (data.total_zona_gris) setTotalV3ZonaGris(data.total_zona_gris);
+      if (data.total_llave_vacia) setTotalV3LlaveVacia(data.total_llave_vacia);
+      if (data.total_v3) setTotalV3(data.total_v3);
     } catch (e) {
       console.error(e);
     } finally {
@@ -167,12 +177,17 @@ const CrucePacientesV3P: React.FC = () => {
   };
 
   const cargarV3Sin = async () => {
-    if (rutasV3Sin.length > 0) return;
+    if (rutasV3Sin.length > 0 || rutasV3ZonaGris.length > 0 || v3LlaveVacia.length > 0) return;
     setLoadingV3Sin(true);
     try {
       const data = await obtenerV3SinPaciente();
       setRutasV3Sin(data.rutas);
       setTotalV3Sin(data.total_sin_paciente);
+      setRutasV3ZonaGris(data.v3_zona_gris ?? []);
+      setTotalV3ZonaGris(data.total_zona_gris ?? 0);
+      setV3LlaveVacia(data.v3_llave_vacia ?? []);
+      setTotalV3LlaveVacia(data.total_llave_vacia ?? 0);
+      if (data.total_v3) setTotalV3(data.total_v3);
       if (data.fecha_calculo) setFechaCalculo(data.fecha_calculo);
       if (data.calculado_por) setCalculadoPor(data.calculado_por);
     } catch (e) {
@@ -233,6 +248,11 @@ const CrucePacientesV3P: React.FC = () => {
       setRutas(data.rutas);
       setRutasV3Sin(data.v3_sin_paciente);
       setTotalV3Sin(data.total_sin_paciente);
+      setRutasV3ZonaGris(data.v3_zona_gris ?? []);
+      setTotalV3ZonaGris(data.total_zona_gris ?? 0);
+      setV3LlaveVacia(data.v3_llave_vacia ?? []);
+      setTotalV3LlaveVacia(data.total_llave_vacia ?? 0);
+      if (data.total_v3) setTotalV3(data.total_v3);
       setFechaCalculo(data.fecha_calculo);
       setCalculadoPor(data.calculado_por);
     } catch (e) {
@@ -266,7 +286,8 @@ const CrucePacientesV3P: React.FC = () => {
   // ── Filtros derivados ────────────────────────────────────────────────────────
   const rutasFiltradas = rutas
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
-    .filter(r => !filtroRuta || r.ruta.toUpperCase().includes(filtroRuta.toUpperCase()));
+    .filter(r => !filtroRuta || r.ruta.toUpperCase().includes(filtroRuta.toUpperCase()))
+    .filter(r => !filtroPedidosMultiples || r.pacientes.some(p => (p.cant_pedidos_v3 ?? 0) > 1));
 
   const rutasV3SinFiltradas = rutasV3Sin
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
@@ -294,11 +315,30 @@ const CrucePacientesV3P: React.FC = () => {
       if (!grupos[cedi]) grupos[cedi] = [];
       grupos[cedi].push(r);
     });
-    // Ordenar CEDIs alfabéticamente y mantener rutas ordenadas dentro de cada CEDI
     return Object.entries(grupos)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([cedi, rutasGrupo]) => ({ cedi, rutas: rutasGrupo.sort((a, b) => a.ruta.localeCompare(b.ruta)) }));
   })();
+
+  // Zona gris: filtrar + agrupar igual que sin paciente
+  const rutasV3ZonaGrisFiltradas = rutasV3ZonaGris
+    .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
+    .filter(r => !filtroRuta || r.ruta.toUpperCase().includes(filtroRuta.toUpperCase()));
+  const rutasV3ZonaGrisAgrupadas = (() => {
+    const grupos: { [key: string]: typeof rutasV3ZonaGris } = {};
+    rutasV3ZonaGrisFiltradas.forEach(r => {
+      const cedi = r.cedi || 'SIN CEDI';
+      if (!grupos[cedi]) grupos[cedi] = [];
+      grupos[cedi].push(r);
+    });
+    return Object.entries(grupos)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cedi, rutasGrupo]) => ({ cedi, rutas: rutasGrupo.sort((a, b) => a.ruta.localeCompare(b.ruta)) }));
+  })();
+
+  // Llave vacía: filtrar por regional
+  const v3LlaveVaciaFiltrada = v3LlaveVacia
+    .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional);
 
   // ── Scroll automático al expandir ruta ────────────────────────────────────────
   useEffect(() => {
@@ -455,6 +495,17 @@ const CrucePacientesV3P: React.FC = () => {
                 </button>
               )}
             </div>
+            <label
+              className="CRV3-filtroCheck"
+              title="Mostrar solo rutas con pacientes que tienen más de 1 pedido en V3"
+            >
+              <input
+                type="checkbox"
+                checked={filtroPedidosMultiples}
+                onChange={e => setFiltroPedidosMultiples(e.target.checked)}
+              />
+              Multi-pedido
+            </label>
             <div className="CRV3-toolbarBtns">
               <button
                 className="CRV3-btn CRV3-btnExport"
@@ -486,9 +537,11 @@ const CrucePacientesV3P: React.FC = () => {
               const enV3  = rutas.reduce((s, r) => s + r.pacientes_en_v3, 0);
               const total = rutas.reduce((s, r) => s + r.total_pacientes, 0);
               const pct   = total > 0 ? Math.round(enV3 / total * 100) : 0;
+              // Pedidos V3 reclamados por pacientes = total V3 - buckets sin match
+              const pedidosMatched = Math.max(0, totalV3 - totalV3Sin - totalV3ZonaGris - totalV3LlaveVacia);
               return (
                 <span style={{ marginLeft: 6, fontSize: '0.78rem', fontWeight: 600, opacity: 0.75 }}>
-                  {enV3}/{total} · {pct}%
+                  {enV3.toLocaleString('es-CO')} pacientes cruzados ({pct}% de {total.toLocaleString('es-CO')}) · {pedidosMatched.toLocaleString('es-CO')} pedidos emparejados de {totalV3.toLocaleString('es-CO')}
                 </span>
               );
             })()}
@@ -497,10 +550,10 @@ const CrucePacientesV3P: React.FC = () => {
             className={`CRV3-tab ${tab === 'v3sin' ? 'CRV3-tabActive' : ''}`}
             onClick={handleTabV3Sin}
           >
-            V3 sin Paciente
-            {totalV3Sin > 0 && (
-              <span className="CRV3-badge">{totalV3Sin}</span>
-            )}
+            {(totalV3Sin + totalV3ZonaGris + totalV3LlaveVacia) > 0
+              ? <>{(totalV3Sin + totalV3ZonaGris + totalV3LlaveVacia).toLocaleString('es-CO')} pedidos de V3 sin paciente</>
+              : 'V3 sin Paciente'
+            }
           </button>
           <button
             className={`CRV3-tab ${tab === 'historico' ? 'CRV3-tabActive' : ''}`}
@@ -610,7 +663,7 @@ const CrucePacientesV3P: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {r.pacientes.map((p, i) => {
+                              {(filtroPedidosMultiples ? r.pacientes.filter(p => (p.cant_pedidos_v3 ?? 0) > 1) : r.pacientes).map((p, i) => {
                                 return (
                                   <tr key={i}>
                                     <td style={getEstiloEstado(p.estado_cruce)}>{p.estado_cruce || '—'}</td>
@@ -680,88 +733,167 @@ const CrucePacientesV3P: React.FC = () => {
           )}
 
           {/* ── Tab V3 sin Paciente ── */}
-          {tab === 'v3sin' && (
-            loadingV3Sin ? (
+          {tab === 'v3sin' && (() => {
+            const hayDatos = rutasV3SinFiltradas.length > 0 || rutasV3ZonaGrisFiltradas.length > 0 || v3LlaveVaciaFiltrada.length > 0;
+            const sinDatosCalc = rutasV3Sin.length === 0 && rutasV3ZonaGris.length === 0 && v3LlaveVacia.length === 0;
+
+            // Renderiza tarjetas de rutas (reutilizable para sin_paciente y zona_gris)
+            const renderRutasCards = (
+              agrupadas: { cedi: string; rutas: RutaV3SinPaciente[] }[],
+              prefijo: string,
+              bgBadge: string,
+              colorBadge: string,
+              label: string,
+            ) => agrupadas.map(grupo => (
+              <div key={`${prefijo}-${grupo.cedi}`} className="CRV3-regionalGroup">
+                <div className="CRV3-regionalHeader">
+                  <span className="CRV3-regionalNombre">{grupo.cedi}</span>
+                  <span className="CRV3-regionalStats">
+                    {grupo.rutas.reduce((s, r) => s + r.total, 0)} registros · {grupo.rutas.length} ruta{grupo.rutas.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                {grupo.rutas.map(r => {
+                  const key = `${prefijo}-${r.ruta}`;
+                  const expandida = rutaV3Expandida === key;
+                  return (
+                    <div key={key} className="CRV3-rutaCard">
+                      <div className="CRV3-rutaHeader" onClick={() => setRutaV3Expandida(expandida ? null : key)}>
+                        <div className="CRV3-rutaMeta">
+                          {r.cedi && <span className="CRV3-cediTag">{r.cedi}</span>}
+                          <span className="CRV3-rutaNombre">{r.ruta}</span>
+                        </div>
+                        <div className="CRV3-rutaStats">
+                          <span className="CRV3-rutaCount">{r.total} {label}</span>
+                          <span className="CRV3-rutaPct" style={{ background: bgBadge, color: colorBadge }}>{r.total}</span>
+                        </div>
+                        <span className="CRV3-chevronRow">{expandida ? '▲' : '▼'}</span>
+                      </div>
+                      {expandida && (
+                        <div className="CRV3-tableWrap">
+                          <table className="CRV3-table">
+                            <thead>
+                              <tr>
+                                <th>Cód. Pedido</th>
+                                <th>Cliente Destino</th>
+                                <th>Dirección</th>
+                                <th>Teléfono</th>
+                                <th>F. Preferente</th>
+                                <th>Estado Pedido</th>
+                                <th>Similitud</th>
+                                <th>Paciente más cercano</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {r.registros.map((reg, i) => (
+                                <tr key={i}>
+                                  <td>{reg.codigo_pedido}</td>
+                                  <td>{reg.cliente_destino}</td>
+                                  <td>{reg.direccion_destino}</td>
+                                  <td>{reg.telefono}</td>
+                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(reg.fecha_preferente)}</td>
+                                  <td>{reg.estado_pedido}</td>
+                                  <td>
+                                    <span className="CRV3-sim" style={{ color: reg.similitud >= 75 ? '#155724' : reg.similitud >= 50 ? '#856404' : '#721c24' }}>
+                                      {reg.similitud}%
+                                    </span>
+                                  </td>
+                                  <td className="CRV3-llaveCell">{reg.llave_paciente_cercana || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ));
+
+            return loadingV3Sin ? (
               <div className="CRV3-loading">
                 <div className="CRV3-spinner" />
                 <p>Cargando datos del cache...</p>
               </div>
-            ) : rutasV3SinFiltradas.length === 0 ? (
+            ) : !hayDatos ? (
               <div className="CRV3-empty">
                 <FaRoute className="CRV3-emptyIcon" />
-                <h3>{rutasV3Sin.length === 0 ? 'Sin datos calculados' : 'Sin registros para esta regional'}</h3>
-                <p>{rutasV3Sin.length === 0 ? 'Usa el botón Recalcular.' : `No hay V3 sin paciente en ${filtroRegional}.`}</p>
+                <h3>{sinDatosCalc ? 'Sin datos calculados' : 'Sin registros para esta regional'}</h3>
+                <p>{sinDatosCalc ? 'Usa el botón Recalcular.' : `No hay registros V3 sin paciente en ${filtroRegional}.`}</p>
               </div>
             ) : (
               <div className="CRV3-rutasGrid">
-                {rutasV3SinAgrupadasPorCEDI.map((grupo, grupoIdx) => (
-                  <div key={grupo.cedi} className="CRV3-regionalGroup">
-                    {/* Header separador de regional */}
-                    <div className="CRV3-regionalHeader">
-                      <span className="CRV3-regionalNombre">{grupo.cedi}</span>
-                      <span className="CRV3-regionalStats">
-                        {grupo.rutas.reduce((s, r) => s + r.total, 0)} registros · {grupo.rutas.length} ruta{grupo.rutas.length !== 1 ? 's' : ''}
-                      </span>
+
+                {/* ── Sección 1: Sin Paciente (sim < 75%) ── */}
+                {rutasV3SinAgrupadasPorCEDI.length > 0 && (
+                  <>
+                    <div style={{ gridColumn: '1 / -1', padding: '8px 12px', background: '#f8d7da', borderRadius: 6, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '1rem' }}>🔴</span>
+                      <strong style={{ color: '#721c24' }}>Sin Paciente</strong>
+                      <span style={{ color: '#721c24', fontSize: '0.85rem' }}>similitud &lt; 75% — {totalV3Sin} registros</span>
                     </div>
-                    {grupo.rutas.map(r => {
-                      const expandida = rutaV3Expandida === r.ruta;
-                      return (
-                        <div key={r.ruta} className="CRV3-rutaCard">
-                        <div className="CRV3-rutaHeader" onClick={() => setRutaV3Expandida(expandida ? null : r.ruta)}>
-                          <div className="CRV3-rutaMeta">
-                            {r.cedi && <span className="CRV3-cediTag">{r.cedi}</span>}
-                            <span className="CRV3-rutaNombre">{r.ruta}</span>
-                          </div>
-                          <div className="CRV3-rutaStats">
-                            <span className="CRV3-rutaCount">{r.total} sin paciente</span>
-                            <span className="CRV3-rutaPct" style={{ background: '#f8d7da', color: '#721c24' }}>{r.total}</span>
-                          </div>
-                          <span className="CRV3-chevronRow">{expandida ? '▲' : '▼'}</span>
-                        </div>
-                        {expandida && (
-                          <div className="CRV3-tableWrap">
-                            <table id={`tabla-v3-${r.ruta}`} className="CRV3-table">
-                              <thead>
-                                <tr>
-                                  <th>Cód. Pedido</th>
-                                  <th>Cliente Destino</th>
-                                  <th>Dirección</th>
-                                  <th>Teléfono</th>
-                                  <th>Estado Pedido</th>
-                                  <th>Similitud</th>
-                                  <th>Paciente más cercano</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {r.registros.map((reg, i) => (
-                                  <tr key={i}>
-                                    <td>{reg.codigo_pedido}</td>
-                                    <td>{reg.cliente_destino}</td>
-                                    <td>{reg.direccion_destino}</td>
-                                    <td>{reg.telefono}</td>
-                                    <td>{reg.estado_pedido}</td>
-                                    <td>
-                                      <span className="CRV3-sim" style={{
-                                        color: reg.similitud >= 50 ? '#856404' : '#721c24'
-                                      }}>
-                                        {reg.similitud}%
-                                      </span>
-                                    </td>
-                                    <td className="CRV3-llaveCell">{reg.llave_paciente_cercana || '—'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
+                    {renderRutasCards(rutasV3SinAgrupadasPorCEDI, 'sp', '#f8d7da', '#721c24', 'sin paciente')}
+                  </>
+                )}
+
+                {/* ── Sección 2: Zona Gris (sim >= 75%, no reclamado) ── */}
+                {rutasV3ZonaGrisAgrupadas.length > 0 && (
+                  <>
+                    <div style={{ gridColumn: '1 / -1', padding: '8px 12px', background: '#fff3cd', borderRadius: 6, marginBottom: 4, marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '1rem' }}>🟠</span>
+                      <strong style={{ color: '#856404' }}>Zona Gris</strong>
+                      <span style={{ color: '#856404', fontSize: '0.85rem' }}>similitud &ge; 75% pero ningún paciente lo eligió como mejor match — {totalV3ZonaGris} registros</span>
+                    </div>
+                    {renderRutasCards(rutasV3ZonaGrisAgrupadas, 'zg', '#fff3cd', '#856404', 'zona gris')}
+                  </>
+                )}
+
+                {/* ── Sección 3: Llave Vacía (sin datos para cruzar) ── */}
+                {v3LlaveVaciaFiltrada.length > 0 && (
+                  <>
+                    <div style={{ gridColumn: '1 / -1', padding: '8px 12px', background: '#e9ecef', borderRadius: 6, marginBottom: 4, marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '1rem' }}>⚫</span>
+                      <strong style={{ color: '#495057' }}>Sin Datos</strong>
+                      <span style={{ color: '#495057', fontSize: '0.85rem' }}>llave vacía (cliente_destino y dirección vacíos) — {v3LlaveVaciaFiltrada.length} registros</span>
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <div className="CRV3-tableWrap">
+                        <table className="CRV3-table">
+                          <thead>
+                            <tr>
+                              <th>Cód. Pedido</th>
+                              <th>Cliente Destino</th>
+                              <th>Dirección</th>
+                              <th>Ruta</th>
+                              <th>CEDI</th>
+                              <th>Teléfono</th>
+                              <th>F. Preferente</th>
+                              <th>Estado Pedido</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {v3LlaveVaciaFiltrada.map((reg, i) => (
+                              <tr key={i}>
+                                <td>{reg.codigo_pedido}</td>
+                                <td>{reg.cliente_destino || '—'}</td>
+                                <td>{reg.direccion_destino || '—'}</td>
+                                <td>{reg.ruta}</td>
+                                <td>{reg.cedi}</td>
+                                <td>{reg.telefono || '—'}</td>
+                                <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(reg.fecha_preferente)}</td>
+                                <td>{reg.estado_pedido || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    );
-                  })}
-                </div>
-                ))}
+                    </div>
+                  </>
+                )}
+
               </div>
-            )
-          )}
+            );
+          })()}
 
           {/* ── Tab Histórico ── */}
           {tab === 'historico' && (() => {

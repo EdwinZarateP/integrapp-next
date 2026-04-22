@@ -117,6 +117,13 @@
 .CRV3-filtroSelect:focus { border-color: #006b5e; }
 
 .CRV3-filtroRuta { display: flex; align-items: center; gap: 4px; }
+.CRV3-filtroCheck {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .82rem; color: #004d40; cursor: pointer;
+  padding: 5px 10px; border-radius: 8px; border: 1px solid #b2dfdb;
+  background: #f0faf9; user-select: none; white-space: nowrap;
+}
+.CRV3-filtroCheck input { cursor: pointer; accent-color: #006b5e; }
 .CRV3-rutaInput {
   padding: 6px 10px; border-radius: 8px; border: 1px solid #b2dfdb;
   background: #f0faf9; color: #004d40; font-size: .82rem;
