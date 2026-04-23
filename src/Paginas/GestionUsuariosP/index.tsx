@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey,
 } from 'react-icons/fa';
-import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
@@ -51,6 +51,18 @@ const GestionUsuariosP: React.FC = () => {
   const [form, setForm] = useState<BaseUsuario>(USUARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [modalEditar, setModalEditar] = useState<BaseUsuario | null>(null);
+  const [formEditar, setFormEditar] = useState({ nombre: '', correo: '', regional: '', celular: '', clave: '' });
+  const [guardandoEditar, setGuardandoEditar] = useState(false);
+  const [errorEditar, setErrorEditar] = useState('');
+  const [modalReset, setModalReset] = useState<BaseUsuario | null>(null);
+  const [formReset, setFormReset] = useState({ nuevaClave: '', confirmarClave: '' });
+  const [guardandoReset, setGuardandoReset] = useState(false);
+  const [errorReset, setErrorReset] = useState('');
+  const [modalClavePerfil, setModalClavePerfil] = useState<{ usuario: BaseUsuario; nuevoPerfil: string } | null>(null);
+  const [clavePerfil, setClavePerfil] = useState('');
+  const [guardandoClavePerfil, setGuardandoClavePerfil] = useState(false);
+  const [errorClavePerfil, setErrorClavePerfil] = useState('');
 
   useEffect(() => {
     const perfil = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
@@ -88,17 +100,55 @@ const GestionUsuariosP: React.FC = () => {
     }
   };
 
-  const cambiarPerfil = async (usuario: BaseUsuario, nuevoPerfil: string) => {
+  const cambiarPerfil = async (usuario: BaseUsuario, nuevoPerfil: string, eraClienteFmc = false) => {
     if (!usuario.id || nuevoPerfil === usuario.perfil) return;
+
+    // Si viene de CLIENTE_FMC a un perfil que requiere acceso, pedir clave
+    if (eraClienteFmc && nuevoPerfil !== 'CLIENTE_FMC') {
+      setModalClavePerfil({ usuario, nuevoPerfil });
+      setClavePerfil('');
+      setErrorClavePerfil('');
+      return;
+    }
+
     setGuardandoPerfil(usuario.id);
     try {
       await actualizarPerfilUsuario(usuario.id, nuevoPerfil);
       setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, perfil: nuevoPerfil } : u));
     } catch {
-      // revertir visualmente al valor anterior
       setUsuarios(prev => [...prev]);
     } finally {
       setGuardandoPerfil(null);
+    }
+  };
+
+  const confirmarCambioPerfil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalClavePerfil) return;
+    setErrorClavePerfil('');
+
+    if (clavePerfil.length < 4) {
+      setErrorClavePerfil('La contraseña debe tener al menos 4 caracteres.');
+      return;
+    }
+
+    setGuardandoClavePerfil(true);
+    try {
+      const { usuario, nuevoPerfil } = modalClavePerfil;
+      await actualizarPerfilUsuario(usuario.id, nuevoPerfil);
+      await actualizarDatosUsuario(usuario.id, {
+        nombre: usuario.nombre,
+        correo: usuario.correo || undefined,
+        regional: usuario.regional,
+        celular: usuario.celular || undefined,
+        clave: clavePerfil,
+      });
+      setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, perfil: nuevoPerfil } : u));
+      setModalClavePerfil(null);
+    } catch {
+      setErrorClavePerfil('Error al cambiar el perfil.');
+    } finally {
+      setGuardandoClavePerfil(false);
     }
   };
 
@@ -140,6 +190,73 @@ const GestionUsuariosP: React.FC = () => {
     }
   };
 
+  const abrirEditar = (u: BaseUsuario) => {
+    setFormEditar({
+      nombre:   u.nombre || '',
+      correo:   u.correo || '',
+      regional: u.regional || '',
+      celular:  u.celular || '',
+      clave:    '',
+    });
+    setErrorEditar('');
+    setModalEditar(u);
+  };
+
+  const guardarEditar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalEditar?.id) return;
+    setErrorEditar('');
+    setGuardandoEditar(true);
+    try {
+      const res = await actualizarDatosUsuario(modalEditar.id, {
+        nombre:   formEditar.nombre,
+        correo:   formEditar.correo || undefined,
+        regional: formEditar.regional,
+        celular:  formEditar.celular || undefined,
+        clave:    formEditar.clave || undefined,
+      });
+      setUsuarios(prev => prev.map(u => u.id === modalEditar.id ? { ...u, ...res.usuario } : u));
+      setModalEditar(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setErrorEditar(msg || 'Error al guardar.');
+    } finally {
+      setGuardandoEditar(false);
+    }
+  };
+
+  const guardarReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalReset?.id) return;
+    setErrorReset('');
+
+    if (formReset.nuevaClave.length < 4) {
+      setErrorReset('La contraseña debe tener al menos 4 caracteres.');
+      return;
+    }
+    if (formReset.nuevaClave !== formReset.confirmarClave) {
+      setErrorReset('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setGuardandoReset(true);
+    try {
+      await actualizarDatosUsuario(modalReset.id, {
+        nombre: modalReset.nombre,
+        correo: modalReset.correo || undefined,
+        regional: modalReset.regional,
+        celular: modalReset.celular || undefined,
+        clave: formReset.nuevaClave,
+      });
+      setModalReset(null);
+      setFormReset({ nuevaClave: '', confirmarClave: '' });
+    } catch {
+      setErrorReset('Error al cambiar la contraseña.');
+    } finally {
+      setGuardandoReset(false);
+    }
+  };
+
   const abrirModal = () => {
     setForm(USUARIO_VACIO);
     setError('');
@@ -155,6 +272,8 @@ const GestionUsuariosP: React.FC = () => {
         ...form,
         usuario: form.usuario.toUpperCase().trim(),
         nombre: form.nombre.toUpperCase().trim(),
+        clave: form.perfil === 'CLIENTE_FMC' ? 'SIN_ACCESO' : form.clave,
+        clientes: form.perfil === 'CLIENTE_FMC' ? [] : form.clientes,
       });
       setUsuarios(prev => [...prev, res.usuario]);
       setModal(false);
@@ -204,6 +323,7 @@ const GestionUsuariosP: React.FC = () => {
                   <tr>
                     <th>Usuario</th>
                     <th>Nombre</th>
+                    <th>Correo</th>
                     <th>Perfil</th>
                     <th>Regional</th>
                     {CLIENTES_DISPONIBLES.map(c => (
@@ -218,16 +338,18 @@ const GestionUsuariosP: React.FC = () => {
                   {usuarios.map(u => {
                     const clientesUsuario = u.clientes || ['KABI'];
                     const activo = u.activo ?? true;
+                    const esSoloNotif = u.perfil === 'CLIENTE_FMC';
                     return (
                       <tr key={u.id} className={`GU-fila${activo ? '' : ' GU-fila--inactiva'}`}>
                         <td className="GU-td-usuario">{u.usuario}</td>
                         <td>{u.nombre}</td>
+                        <td className="GU-td-correo">{u.correo || ''}</td>
                         <td>
                           <select
-                            className="GU-select-perfil"
+                            className={`GU-select-perfil${esSoloNotif ? ' GU-select-perfil--notif' : ''}`}
                             value={u.perfil}
                             disabled={guardandoPerfil === u.id || !activo}
-                            onChange={e => cambiarPerfil(u, e.target.value)}
+                            onChange={e => cambiarPerfil(u, e.target.value, esSoloNotif)}
                           >
                             {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
@@ -235,6 +357,7 @@ const GestionUsuariosP: React.FC = () => {
                         <td>{u.regional}</td>
                         {CLIENTES_DISPONIBLES.map(c => (
                           <td key={c.key} className="GU-td-check">
+                            {esSoloNotif ? null : (
                             <label className="GU-toggle">
                               <input
                                 type="checkbox"
@@ -244,10 +367,11 @@ const GestionUsuariosP: React.FC = () => {
                               />
                               <span className="GU-toggleSlider" />
                             </label>
+                            )}
                           </td>
                         ))}
                         <td className="GU-td-notif-mc">
-                          {clientesUsuario.includes('MEDICAL_CARE') ? (
+                          {clientesUsuario.includes('MEDICAL_CARE') || esSoloNotif ? (
                             <button
                               className={`GU-btn-notif-mc${(u.notificaciones_mc || []).length > 0 ? ' GU-btn-notif-mc--activa' : ''}`}
                               title="Editar notificaciones Medical Care"
@@ -265,6 +389,23 @@ const GestionUsuariosP: React.FC = () => {
                           {guardandoCliente === u.id ? 'Guardando…' : msgsCliente[u.id || ''] || ''}
                         </td>
                         <td className="GU-td-acciones">
+                          {esSoloNotif ? null : (
+                          <>
+                          <button
+                            className="GU-btn-reset"
+                            title="Resetear contraseña"
+                            disabled={!activo}
+                            onClick={() => { setModalReset(u); setFormReset({ nuevaClave: '', confirmarClave: '' }); setErrorReset(''); }}
+                          >
+                            <FaKey />
+                          </button>
+                          <button
+                            className="GU-btn-editar"
+                            title="Editar datos del usuario"
+                            onClick={() => abrirEditar(u)}
+                          >
+                            <FaPencilAlt />
+                          </button>
                           <button
                             className={activo ? 'GU-btn-desactivar' : 'GU-btn-activar'}
                             title={activo ? 'Desactivar usuario' : 'Activar usuario'}
@@ -273,6 +414,8 @@ const GestionUsuariosP: React.FC = () => {
                           >
                             {toggling === u.id ? '…' : activo ? <FaToggleOn /> : <FaToggleOff />}
                           </button>
+                          </>
+                          )}
                         </td>
                       </tr>
                     );
@@ -322,25 +465,28 @@ const GestionUsuariosP: React.FC = () => {
                     value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))} />
                 </div>
                 <div className="GU-formGrupo">
-                  <label className="GU-formLabel">Contraseña *</label>
-                  <input className="GU-formInput" type="text" placeholder="Contraseña inicial" required
-                    value={form.clave} onChange={e => setForm(f => ({ ...f, clave: e.target.value }))} />
-                </div>
-                <div className="GU-formGrupo">
                   <label className="GU-formLabel">Perfil *</label>
                   <select className="GU-formInput" required
                     value={form.perfil} onChange={e => setForm(f => ({ ...f, perfil: e.target.value }))}>
                     {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
+                {form.perfil !== 'CLIENTE_FMC' && (
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Contraseña *</label>
+                  <input className="GU-formInput" type="text" placeholder="Contraseña inicial" required
+                    value={form.clave} onChange={e => setForm(f => ({ ...f, clave: e.target.value }))} />
+                </div>
+                )}
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Regional *</label>
                   <input className="GU-formInput" type="text" placeholder="FUNZA" required
                     value={form.regional} onChange={e => setForm(f => ({ ...f, regional: e.target.value }))} />
                 </div>
                 <div className="GU-formGrupo">
-                  <label className="GU-formLabel">Correo</label>
+                  <label className="GU-formLabel">Correo {form.perfil === 'CLIENTE_FMC' && '*'}</label>
                   <input className="GU-formInput" type="email" placeholder="correo@ejemplo.com"
+                    required={form.perfil === 'CLIENTE_FMC'}
                     value={form.correo || ''} onChange={e => setForm(f => ({ ...f, correo: e.target.value }))} />
                 </div>
                 <div className="GU-formGrupo">
@@ -348,6 +494,7 @@ const GestionUsuariosP: React.FC = () => {
                   <input className="GU-formInput" type="text" placeholder="3001234567"
                     value={form.celular || ''} onChange={e => setForm(f => ({ ...f, celular: e.target.value }))} />
                 </div>
+                {form.perfil !== 'CLIENTE_FMC' && (
                 <div className="GU-formGrupo GU-formGrupo--full">
                   <label className="GU-formLabel">Acceso a clientes</label>
                   <div className="GU-checkGrupo">
@@ -369,6 +516,7 @@ const GestionUsuariosP: React.FC = () => {
                     ))}
                   </div>
                 </div>
+                )}
               </div>
 
               {error && <p className="GU-formError">{error}</p>}
@@ -383,6 +531,135 @@ const GestionUsuariosP: React.FC = () => {
           </div>
         </div>
       )}
+      {/* ══ MODAL: EDITAR USUARIO ══ */}
+      {modalEditar && (
+        <div className="GU-modalOverlay" onClick={() => setModalEditar(null)}>
+          <div className="GU-modalCard" onClick={e => e.stopPropagation()}>
+            <div className="GU-modalHeader">
+              <div>
+                <h3 className="GU-modalTitulo">Editar usuario</h3>
+                <p className="GU-modal-sub">{modalEditar.usuario}</p>
+              </div>
+              <button className="GU-modalCerrar" onClick={() => setModalEditar(null)}><FaTimes /></button>
+            </div>
+            <form className="GU-modalForm" onSubmit={guardarEditar}>
+              <div className="GU-formGrid">
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Nombre completo *</label>
+                  <input className="GU-formInput" type="text" required
+                    value={formEditar.nombre}
+                    onChange={e => setFormEditar(f => ({ ...f, nombre: e.target.value }))} />
+                </div>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Regional *</label>
+                  <input className="GU-formInput" type="text" required
+                    value={formEditar.regional}
+                    onChange={e => setFormEditar(f => ({ ...f, regional: e.target.value }))} />
+                </div>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Correo</label>
+                  <input className="GU-formInput" type="email" placeholder="correo@ejemplo.com"
+                    value={formEditar.correo}
+                    onChange={e => setFormEditar(f => ({ ...f, correo: e.target.value }))} />
+                </div>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Celular</label>
+                  <input className="GU-formInput" type="text" placeholder="3001234567"
+                    value={formEditar.celular}
+                    onChange={e => setFormEditar(f => ({ ...f, celular: e.target.value }))} />
+                </div>
+                <div className="GU-formGrupo GU-formGrupo--full">
+                  <label className="GU-formLabel">Nueva contraseña <span className="GU-formLabel--opcional">(dejar vacío para no cambiarla)</span></label>
+                  <input className="GU-formInput" type="text" placeholder="Nueva contraseña"
+                    value={formEditar.clave}
+                    onChange={e => setFormEditar(f => ({ ...f, clave: e.target.value }))} />
+                </div>
+              </div>
+              {errorEditar && <p className="GU-formError">{errorEditar}</p>}
+              <div className="GU-modalFooter">
+                <button type="button" className="GU-btnCancelar" onClick={() => setModalEditar(null)}>Cancelar</button>
+                <button type="submit" className="GU-btnGuardar" disabled={guardandoEditar}>
+                  <FaSave /> {guardandoEditar ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL: RESETEAR CONTRASEÑA ══ */}
+      {modalReset && (
+        <div className="GU-modalOverlay" onClick={() => setModalReset(null)}>
+          <div className="GU-modalCard GU-modalCard--sm" onClick={e => e.stopPropagation()}>
+            <div className="GU-modalHeader">
+              <div>
+                <h3 className="GU-modalTitulo"><FaKey style={{ marginRight: 8, color: '#b45309' }} />Resetear contraseña</h3>
+                <p className="GU-modal-sub">{modalReset.nombre} ({modalReset.usuario})</p>
+              </div>
+              <button className="GU-modalCerrar" onClick={() => setModalReset(null)}><FaTimes /></button>
+            </div>
+            <form className="GU-modalForm" onSubmit={guardarReset}>
+              <div className="GU-formGrid" style={{ gridTemplateColumns: '1fr' }}>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Nueva contraseña *</label>
+                  <input className="GU-formInput" type="text" placeholder="Nueva contraseña"
+                    value={formReset.nuevaClave}
+                    onChange={e => setFormReset(f => ({ ...f, nuevaClave: e.target.value }))}
+                    required autoFocus />
+                </div>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Confirmar contraseña *</label>
+                  <input className="GU-formInput" type="text" placeholder="Repetir contraseña"
+                    value={formReset.confirmarClave}
+                    onChange={e => setFormReset(f => ({ ...f, confirmarClave: e.target.value }))}
+                    required />
+                </div>
+              </div>
+              {errorReset && <p className="GU-formError">{errorReset}</p>}
+              <div className="GU-modalFooter">
+                <button type="button" className="GU-btnCancelar" onClick={() => setModalReset(null)}>Cancelar</button>
+                <button type="submit" className="GU-btnGuardar" disabled={guardandoReset}>
+                  <FaSave /> {guardandoReset ? 'Guardando…' : 'Cambiar contraseña'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL: CLAVE AL CAMBIAR PERFIL ══ */}
+      {modalClavePerfil && (
+        <div className="GU-modalOverlay" onClick={() => setModalClavePerfil(null)}>
+          <div className="GU-modalCard GU-modalCard--sm" onClick={e => e.stopPropagation()}>
+            <div className="GU-modalHeader">
+              <div>
+                <h3 className="GU-modalTitulo">Asignar contraseña</h3>
+                <p className="GU-modal-sub">Al cambiar de <strong>CLIENTE_FMC</strong> a <strong>{modalClavePerfil.nuevoPerfil}</strong> se requiere una contraseña para el acceso al sistema.</p>
+              </div>
+              <button className="GU-modalCerrar" onClick={() => { setModalClavePerfil(null); setUsuarios(prev => [...prev]); }}><FaTimes /></button>
+            </div>
+            <form className="GU-modalForm" onSubmit={confirmarCambioPerfil}>
+              <div className="GU-formGrid" style={{ gridTemplateColumns: '1fr' }}>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Nueva contraseña *</label>
+                  <input className="GU-formInput" type="text" placeholder="Contraseña de acceso"
+                    value={clavePerfil}
+                    onChange={e => setClavePerfil(e.target.value)}
+                    required autoFocus />
+                </div>
+              </div>
+              {errorClavePerfil && <p className="GU-formError">{errorClavePerfil}</p>}
+              <div className="GU-modalFooter">
+                <button type="button" className="GU-btnCancelar" onClick={() => { setModalClavePerfil(null); setUsuarios(prev => [...prev]); }}>Cancelar</button>
+                <button type="submit" className="GU-btnGuardar" disabled={guardandoClavePerfil}>
+                  <FaSave /> {guardandoClavePerfil ? 'Guardando…' : 'Confirmar cambio'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ══ MODAL: NOTIFICACIONES MC ══ */}
       {modalNotifMc && (
         <div className="GU-modalOverlay" onClick={() => setModalNotifMc(null)}>

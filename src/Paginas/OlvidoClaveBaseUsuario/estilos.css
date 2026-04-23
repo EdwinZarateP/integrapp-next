@@ -1,0 +1,218 @@
+/* ── Olvido Clave Base Usuario ── */
+.OCBU-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+.OCBU-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.OCBU-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+}
+
+.OCBU-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.OCBU-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.OCBU-brandAccent { color: #e8a000; }
+
+.OCBU-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.OCBU-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(15,25,40,.12);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.OCBU-cardHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.OCBU-titulo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f1928;
+  margin: 0;
+}
+
+.OCBU-subtitulo {
+  font-size: 0.88rem;
+  color: #6b7a8d;
+  margin: 0;
+}
+
+.OCBU-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.OCBU-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6b7a8d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.OCBU-input {
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #1e2f45;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.OCBU-input:focus {
+  border-color: #0f1928;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(15,25,40,.08);
+}
+
+.OCBU-inputPassword { padding-right: 44px; }
+
+.OCBU-passwordWrap { position: relative; }
+
+.OCBU-ojito {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7a8d;
+  font-size: 1rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+.OCBU-ojito:hover { color: #0f1928; }
+
+.OCBU-boton {
+  padding: 12px;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  font-family: inherit;
+  width: 100%;
+}
+
+.OCBU-boton:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.OCBU-boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.OCBU-error {
+  color: #dc3545;
+  font-size: 0.85rem;
+  text-align: center;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.OCBU-exito {
+  color: #0f766e;
+  font-size: 0.85rem;
+  text-align: center;
+  background: #e6f6f5;
+  border: 1px solid #0f766e;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.OCBU-link {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: #6b7a8d;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.OCBU-link:hover { color: #0f1928; }
+
+.OCBU-volver {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7a8d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+  align-self: center;
+  transition: color 0.2s;
+  font-family: inherit;
+}
+
+.OCBU-volver:hover { color: #0f1928; }
+
+@media (max-width: 600px) {
+  .OCBU-card { padding: 28px 20px; }
+  .OCBU-headerInner { padding: 0 16px; }
+}

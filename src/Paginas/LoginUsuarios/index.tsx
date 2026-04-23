@@ -5,6 +5,7 @@ import Image from "next/image";
 import { loginUsuario } from "@/Funciones/ApiPedidos/usuarios";
 import confetti from "canvas-confetti";
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash, FaChevronRight } from "react-icons/fa";
+import Link from "next/link";
 import logo from '@/Imagenes/albatros.png';
 import "./estilos.css";
 
@@ -149,6 +150,10 @@ const LoginUsuario: React.FC = () => {
               <button className="LU-boton" type="submit" disabled={cargando}>
                 {cargando ? "Verificando…" : "Ingresar"}
               </button>
+
+              <Link href="/OlvidoClaveBaseUsuario" className="LU-olvidaste">
+                ¿Olvidaste tu contraseña?
+              </Link>
             </form>
           </div>
         )}

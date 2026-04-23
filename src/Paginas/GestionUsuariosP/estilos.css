@@ -150,6 +150,7 @@
 .GU-fila:hover { background: #f8fafc; }
 .GU-tabla td { padding: clamp(10px, 1.1vw, 16px) clamp(12px, 1.4vw, 22px); color: #1e2f45; vertical-align: middle; }
 .GU-td-usuario { font-weight: 700; font-size: clamp(0.86rem, 1.05vw, 1.05rem); }
+.GU-td-correo { font-size: 0.82rem; color: #6b7a8d; text-transform: uppercase; }
 .GU-select-perfil {
   background: #e8f0fe;
   color: #0f1928;
@@ -167,6 +168,7 @@
 .GU-select-perfil:hover:not(:disabled) { border-color: #e8a000; }
 .GU-select-perfil:focus { border-color: #e8a000; box-shadow: 0 0 0 2px rgba(232,160,0,.2); }
 .GU-select-perfil:disabled { opacity: 0.6; cursor: not-allowed; }
+.GU-select-perfil--notif { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
 
 .GU-badge {
   display: inline-block;
@@ -210,7 +212,34 @@
 .GU-td-msg--ok  { color: #16a34a; font-weight: 700; }
 .GU-td-msg--err { color: #dc3545; }
 
-.GU-td-acciones { text-align: center; width: 56px; }
+.GU-td-acciones { text-align: center; width: 120px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+.GU-btn-reset {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: #b45309;
+}
+.GU-btn-reset:hover:not(:disabled) { color: #92400e; background: #fef3c7; }
+.GU-btn-reset:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.GU-btn-editar {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+  font-size: 1rem;
+  line-height: 1;
+  color: #6b7a8d;
+}
+.GU-btn-editar:hover { color: #0f1928; background: #e8f0fe; }
 
 .GU-btn-desactivar,
 .GU-btn-activar {
@@ -353,6 +382,7 @@
 .GU-checkItem { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: #1e2f45; cursor: pointer; font-weight: 500; }
 .GU-checkItem input { width: 16px; height: 16px; cursor: pointer; accent-color: #0f1928; }
 .GU-formError { color: #dc3545; font-size: 0.84rem; background: #fff5f5; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 12px; margin: 0; }
+.GU-formLabel--opcional { font-weight: 400; color: #adb5bd; text-transform: none; letter-spacing: 0; font-size: 0.72rem; }
 .GU-modalFooter { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 .GU-btnCancelar {
   padding: 10px 20px; border: 1.5px solid #e2e8f0; border-radius: 9px;

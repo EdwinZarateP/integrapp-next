@@ -173,6 +173,18 @@
   cursor: not-allowed;
 }
 
+.LU-olvidaste {
+  display: block;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #6b7a8d;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+  margin-top: -4px;
+}
+.LU-olvidaste:hover { color: #0f1928; }
+
 .LU-error {
   color: #dc3545;
   font-size: 0.85rem;
