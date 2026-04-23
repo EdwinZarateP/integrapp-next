@@ -135,8 +135,8 @@ const GestionUsuariosP: React.FC = () => {
     setGuardandoClavePerfil(true);
     try {
       const { usuario, nuevoPerfil } = modalClavePerfil;
-      await actualizarPerfilUsuario(usuario.id, nuevoPerfil);
-      await actualizarDatosUsuario(usuario.id, {
+      await actualizarPerfilUsuario(usuario.id!, nuevoPerfil);
+      await actualizarDatosUsuario(usuario.id!, {
         nombre: usuario.nombre,
         correo: usuario.correo || undefined,
         regional: usuario.regional,

@@ -78,6 +78,7 @@ const opcionesObservacionesAjuste = [
   'problemas con sicetact',
   'vehiculo de socio',
   'pagar aforo',
+  'negociacion del flete',
 ] as const;
 
 const opcionesObservacionesAjusteDivision = [

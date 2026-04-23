@@ -835,6 +835,24 @@ Aplicado a todos los portales para consistencia visual:
 
 ---
 
+### Abril 2026 — Recuperación de clave, GestionUsuarios mejorado y perfil CLIENTE_FMC
+
+**Nueva página `/OlvidoClaveBaseUsuario`:**
+- Flujo de 3 pasos: correo → código de verificación → nueva contraseña.
+- Llama a `/baseusuarios/recuperar/solicitar` y `/baseusuarios/recuperar/confirmar`.
+- Botón mostrar/ocultar contraseña con `FaEye`/`FaEyeSlash`.
+- Redirige automáticamente a `/LoginUsuario` tras éxito.
+- Link "¿Olvidaste tu contraseña?" agregado en `LoginUsuarios`.
+
+**GestionUsuarios (`GestionUsuariosP`):**
+- Columna "Correo" visible en la tabla (mostrado en mayúsculas).
+- Botón de reset de contraseña para admin (icono llave, modal con nueva contraseña).
+- Perfil `CLIENTE_FMC`: sin campo de contraseña al crear, sin edición directa, sin toggle de clientes — solo campanita de Notificaciones MC.
+- Cambio de perfil desde CLIENTE_FMC a otro perfil abre modal exigiendo asignar contraseña.
+- Creación: campo perfil aparece antes que contraseña; contraseña se oculta si es CLIENTE_FMC.
+
+---
+
 ### Abril 2026 — Mejoras visuales en Cruce Pacientes ↔ V3
 
 - **Badges con emojis**: reemplazo de texto por emojis en columna "Similitud":
