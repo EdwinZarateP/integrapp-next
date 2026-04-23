@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave, FaTrash,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell,
 } from 'react-icons/fa';
-import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, eliminarUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario } from '@/Funciones/ApiPedidos/usuarios';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
@@ -13,6 +13,19 @@ import './estilos.css';
 const CLIENTES_DISPONIBLES = [
   { key: 'KABI', label: 'Fresenius Kabi' },
   { key: 'MEDICAL_CARE', label: 'Fresenius Medical Care' },
+];
+
+const NOTIFICACIONES_MC = [
+  {
+    key: 'retraso_operacion',
+    label: 'Retraso Operación',
+    desc: 'Recibe el Excel completo: ocupación de rutas y V3 sin paciente.',
+  },
+  {
+    key: 'sin_cruce',
+    label: 'Sin Cruce',
+    desc: 'Recibe solo los pedidos V3 que no tienen un paciente asignado.',
+  },
 ];
 
 const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CONDUCTOR', 'CONTROL', 'COORDINADOR', 'DESPACHADOR', 'OPERADOR', 'OPERATIVO', 'SEGURIDAD'];
@@ -30,7 +43,10 @@ const GestionUsuariosP: React.FC = () => {
   const [guardandoCliente, setGuardandoCliente] = useState<string | null>(null);
   const [msgsCliente, setMsgsCliente] = useState<Record<string, string>>({});
   const [guardandoPerfil, setGuardandoPerfil] = useState<string | null>(null);
-  const [eliminando, setEliminando] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const [guardandoNotifMc, setGuardandoNotifMc] = useState<string | null>(null);
+  const [msgsNotifMc, setMsgsNotifMc] = useState<Record<string, string>>({});
+  const [modalNotifMc, setModalNotifMc] = useState<BaseUsuario | null>(null);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<BaseUsuario>(USUARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
@@ -86,18 +102,41 @@ const GestionUsuariosP: React.FC = () => {
     }
   };
 
-  const confirmarEliminar = async (u: BaseUsuario) => {
+  const toggleActivo = async (u: BaseUsuario) => {
     if (!u.id) return;
-    const ok = window.confirm(`¿Eliminar el usuario "${u.usuario}"? Esta acción no se puede deshacer.`);
+    const nuevoEstado = !(u.activo ?? true);
+    const accion = nuevoEstado ? 'activar' : 'desactivar';
+    const ok = window.confirm(`¿Deseas ${accion} al usuario "${u.usuario}"?`);
     if (!ok) return;
-    setEliminando(u.id);
+    setToggling(u.id);
     try {
-      await eliminarUsuario(u.id);
-      setUsuarios(prev => prev.filter(x => x.id !== u.id));
+      await toggleActivoUsuario(u.id, nuevoEstado);
+      setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, activo: nuevoEstado } : x));
     } catch {
-      alert('Error al eliminar el usuario.');
+      alert(`Error al ${accion} el usuario.`);
     } finally {
-      setEliminando(null);
+      setToggling(null);
+    }
+  };
+
+  const toggleNotifMc = async (usuario: BaseUsuario, notifKey: string) => {
+    if (!usuario.id) return;
+    const actuales = usuario.notificaciones_mc || [];
+    const nuevas = actuales.includes(notifKey)
+      ? actuales.filter(n => n !== notifKey)
+      : [...actuales, notifKey];
+    setGuardandoNotifMc(usuario.id);
+    setMsgsNotifMc(m => ({ ...m, [usuario.id!]: '' }));
+    try {
+      await actualizarNotificacionesMcUsuario(usuario.id, nuevas);
+      setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, notificaciones_mc: nuevas } : u));
+      setModalNotifMc(prev => prev?.id === usuario.id ? { ...prev, notificaciones_mc: nuevas } as BaseUsuario : prev);
+      setMsgsNotifMc(m => ({ ...m, [usuario.id!]: '✓ Guardado' }));
+      setTimeout(() => setMsgsNotifMc(m => ({ ...m, [usuario.id!]: '' })), 2000);
+    } catch {
+      setMsgsNotifMc(m => ({ ...m, [usuario.id!]: 'Error al guardar' }));
+    } finally {
+      setGuardandoNotifMc(null);
     }
   };
 
@@ -170,6 +209,7 @@ const GestionUsuariosP: React.FC = () => {
                     {CLIENTES_DISPONIBLES.map(c => (
                       <th key={c.key} className="GU-th-cliente">{c.label}</th>
                     ))}
+                    <th className="GU-th-notif-mc">Notif. MC</th>
                     <th>Estado</th>
                     <th></th>
                   </tr>
@@ -177,15 +217,16 @@ const GestionUsuariosP: React.FC = () => {
                 <tbody>
                   {usuarios.map(u => {
                     const clientesUsuario = u.clientes || ['KABI'];
+                    const activo = u.activo ?? true;
                     return (
-                      <tr key={u.id} className="GU-fila">
+                      <tr key={u.id} className={`GU-fila${activo ? '' : ' GU-fila--inactiva'}`}>
                         <td className="GU-td-usuario">{u.usuario}</td>
                         <td>{u.nombre}</td>
                         <td>
                           <select
                             className="GU-select-perfil"
                             value={u.perfil}
-                            disabled={guardandoPerfil === u.id}
+                            disabled={guardandoPerfil === u.id || !activo}
                             onChange={e => cambiarPerfil(u, e.target.value)}
                           >
                             {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
@@ -198,24 +239,39 @@ const GestionUsuariosP: React.FC = () => {
                               <input
                                 type="checkbox"
                                 checked={clientesUsuario.includes(c.key)}
-                                disabled={guardandoCliente === u.id}
+                                disabled={guardandoCliente === u.id || !activo}
                                 onChange={() => toggleCliente(u, c.key)}
                               />
                               <span className="GU-toggleSlider" />
                             </label>
                           </td>
                         ))}
+                        <td className="GU-td-notif-mc">
+                          {clientesUsuario.includes('MEDICAL_CARE') ? (
+                            <button
+                              className={`GU-btn-notif-mc${(u.notificaciones_mc || []).length > 0 ? ' GU-btn-notif-mc--activa' : ''}`}
+                              title="Editar notificaciones Medical Care"
+                              disabled={!activo}
+                              onClick={() => setModalNotifMc(u)}
+                            >
+                              <FaBell />
+                              {(u.notificaciones_mc || []).length > 0 && (
+                                <span className="GU-notif-mc-badge">{(u.notificaciones_mc || []).length}</span>
+                              )}
+                            </button>
+                          ) : null}
+                        </td>
                         <td className={`GU-td-msg ${msgsCliente[u.id || '']?.startsWith('✓') ? 'GU-td-msg--ok' : msgsCliente[u.id || ''] ? 'GU-td-msg--err' : ''}`}>
                           {guardandoCliente === u.id ? 'Guardando…' : msgsCliente[u.id || ''] || ''}
                         </td>
                         <td className="GU-td-acciones">
                           <button
-                            className="GU-btn-eliminar"
-                            title="Eliminar usuario"
-                            disabled={eliminando === u.id}
-                            onClick={() => confirmarEliminar(u)}
+                            className={activo ? 'GU-btn-desactivar' : 'GU-btn-activar'}
+                            title={activo ? 'Desactivar usuario' : 'Activar usuario'}
+                            disabled={toggling === u.id}
+                            onClick={() => toggleActivo(u)}
                           >
-                            {eliminando === u.id ? '…' : <FaTrash />}
+                            {toggling === u.id ? '…' : activo ? <FaToggleOn /> : <FaToggleOff />}
                           </button>
                         </td>
                       </tr>
@@ -324,6 +380,48 @@ const GestionUsuariosP: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ══ MODAL: NOTIFICACIONES MC ══ */}
+      {modalNotifMc && (
+        <div className="GU-modalOverlay" onClick={() => setModalNotifMc(null)}>
+          <div className="GU-modalCard GU-modalCard--sm" onClick={e => e.stopPropagation()}>
+            <div className="GU-modalHeader">
+              <div>
+                <h3 className="GU-modalTitulo"><FaBell style={{ marginRight: 8, color: '#004d40' }} />Notificaciones MC</h3>
+                <p className="GU-modal-sub">{modalNotifMc.nombre}</p>
+              </div>
+              <button className="GU-modalCerrar" onClick={() => setModalNotifMc(null)}><FaTimes /></button>
+            </div>
+            <div className="GU-notif-mc-body">
+              {NOTIFICACIONES_MC.map(n => {
+                const checked = (modalNotifMc.notificaciones_mc || []).includes(n.key);
+                const saving = guardandoNotifMc === modalNotifMc.id;
+                return (
+                  <label
+                    key={n.key}
+                    className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={saving}
+                      onChange={() => toggleNotifMc(modalNotifMc, n.key)}
+                    />
+                    <div className="GU-notif-mc-opcion-info">
+                      <span className="GU-notif-mc-opcion-label">{n.label}</span>
+                      <span className="GU-notif-mc-opcion-desc">{n.desc}</span>
+                    </div>
+                  </label>
+                );
+              })}
+              {msgsNotifMc[modalNotifMc.id || ''] && (
+                <p className={`GU-notif-mc-feedback${msgsNotifMc[modalNotifMc.id || ''].startsWith('✓') ? '--ok' : '--err'}`}>
+                  {msgsNotifMc[modalNotifMc.id || '']}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

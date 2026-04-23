@@ -1,14 +1,15 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaSignOutAlt, FaChevronDown,
-  FaPlus, FaEdit, FaTrash, FaFileExcel, FaSearch, FaRoute
+  FaPhone, FaEnvelope, FaMapMarkerAlt,
+  FaPlus, FaEdit, FaTrash, FaFileExcel, FaSearch
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
+import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
 import {
   obtenerPacientes,
@@ -38,7 +39,6 @@ const GestionPacientes: React.FC = () => {
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil] = useState('');
   const [cediUsuario, setCediUsuario] = useState<string | undefined>(undefined);
-  const [menuAbierto, setMenuAbierto] = useState(false);
   const [pacientes, setPacientes] = useState<PacienteMedicalCare[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -83,8 +83,6 @@ const GestionPacientes: React.FC = () => {
     processed?: number;
     total?: number;
   } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     if (!match) { router.replace('/LoginUsuario'); return; }
@@ -105,16 +103,6 @@ const GestionPacientes: React.FC = () => {
     cargarPacientes(cedi);
     cargarCronograma();
   }, [router]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuAbierto(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   const cargarCronograma = async (mes?: string) => {
     try {
@@ -327,59 +315,12 @@ const GestionPacientes: React.FC = () => {
     }
   };
 
-  const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(name => {
-      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
-    });
-    router.push('/LoginUsuario');
-  };
+
 
   return (
     <div className="GP-layout">
       {/* HEADER */}
-      <header className="GP-header">
-        <div className="GP-headerInner">
-          <button className="GP-brand" onClick={() => router.push('/MedicalCare')} title="Volver">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="GP-brandName">
-              Integr<span className="GP-brandAccent">App</span>
-            </span>
-          </button>
-
-          <div className="GP-clienteBadge">Gestión de Pacientes</div>
-
-          <div className="GP-userZone" ref={menuRef}>
-            <button className="GP-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="GP-userIcon" />
-              <div className="GP-userInfo">
-                <span className="GP-userName">{usuario || 'Usuario'}</span>
-                <span className="GP-userPerfil">{perfil}</span>
-              </div>
-              <FaChevronDown className={`GP-chevron ${menuAbierto ? 'GP-chevronOpen' : ''}`} />
-            </button>
-
-            {menuAbierto && (
-              <div className="GP-dropdown">
-                <button className="GP-dropItem" onClick={() => router.push('/MedicalCare')}>
-                  <FaUserCircle /> Medical Care
-                </button>
-                <button className="GP-dropItem GP-dropItemActive" onClick={() => setMenuAbierto(false)}>
-                  <FaUserCircle /> Pacientes
-                </button>
-                <button className="GP-dropItem" onClick={() => router.push('/GestionPedidosV3')}>
-                  <FaFileExcel /> Pedidos V3
-                </button>
-                <button className="GP-dropItem" onClick={() => router.push('/CrucePacientesV3')}>
-                  <FaRoute /> Cruce Pacientes ↔ V3
-                </button>
-                <button className="GP-dropItem GP-dropItemDanger" onClick={cerrarSesion}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <NavMedicalCare paginaActual="pacientes" />
 
       {/* MAIN */}
       <main className="GP-main">

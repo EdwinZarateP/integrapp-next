@@ -1,14 +1,15 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute,
-  FaCheckCircle, FaCircle, FaFileExcel, FaFilter,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle,
+  FaCheckCircle, FaCircle, FaFileExcel, FaFilter, FaRoute,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
+import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import { obtenerOcupacionRutas, obtenerV3SinPaciente, recalcularCruce, exportarCruceExcel } from '@/Funciones/ApiPedidos/apiMedicalCare';
 import type { RutaOcupacion, RutaV3SinPaciente, RecalcularCruceProgress } from '@/Funciones/ApiPedidos/tiposMedicalCare';
 import './estilos.css';
@@ -18,11 +19,6 @@ const MedicalCareP: React.FC = () => {
   const usuario = typeof document !== 'undefined'
     ? (document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '')
     : '';
-  const perfil = typeof document !== 'undefined'
-    ? (document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '')
-    : '';
-  const [menuAbierto, setMenuAbierto] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [modalOcupacion, setModalOcupacion] = useState(false);
   const [tabActiva, setTabActiva] = useState<'ocupacion' | 'v3sinpaciente'>('ocupacion');
   const [rutas, setRutas] = useState<RutaOcupacion[]>([]);
@@ -46,15 +42,6 @@ const MedicalCareP: React.FC = () => {
     if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/Pedidos');
   }, [router]);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuAbierto(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   const handleOcupacionRutas = async () => {
     setModalOcupacion(true);
@@ -128,58 +115,11 @@ const MedicalCareP: React.FC = () => {
     ? rutasV3Sin
     : rutasV3Sin.filter(r => (r.cedi || '').toUpperCase() === filtroRegional);
 
-  const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(name => {
-      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
-    });
-    router.push('/LoginUsuario');
-  };
 
   return (
     <div className="MC-layout">
 
-      {/* ── HEADER ── */}
-      <header className="MC-header">
-        <div className="MC-headerInner">
-
-          <button className="MC-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="MC-brandName">
-              Integr<span className="MC-brandAccent">App</span>
-            </span>
-          </button>
-
-          <div className="MC-clienteBadge">Fresenius Medical Care</div>
-
-          <div className="MC-userZone" ref={menuRef}>
-            <button className="MC-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="MC-userIcon" />
-              <div className="MC-userInfo">
-                <span className="MC-userName">{usuario || 'Usuario'}</span>
-                <span className="MC-userPerfil">{perfil}</span>
-              </div>
-              <FaChevronDown className={`MC-chevron ${menuAbierto ? 'MC-chevronOpen' : ''}`} />
-            </button>
-
-            {menuAbierto && (
-              <div className="MC-dropdown">
-                <button className="MC-dropItem" onClick={() => router.push('/GestionPacientes')}>
-                  <FaUserCircle /> Pacientes
-                </button>
-                <button className="MC-dropItem" onClick={() => router.push('/GestionPedidosV3')}>
-                  <FaUserCircle /> Pedidos V3
-                </button>
-                <button className="MC-dropItem" onClick={() => router.push('/CrucePacientesV3')}>
-                  <FaRoute /> Cruce Pacientes ↔ V3
-                </button>
-                <button className="MC-dropItem MC-dropItemDanger" onClick={cerrarSesion}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <NavMedicalCare paginaActual="medicalcare" />
 
       {/* ── MAIN ── */}
       <main className="MC-main">

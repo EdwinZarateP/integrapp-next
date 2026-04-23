@@ -39,11 +39,15 @@ export const actualizarUsuario = async (
   return res.data;
 };
 
-// Eliminar usuario por ID
-export const eliminarUsuario = async (
-  id: string
-): Promise<{ mensaje: string }> => {
-  const res = await axios.delete<{ mensaje: string }>(`${BASE_URL}/${id}`);
+// Activar o desactivar usuario
+export const toggleActivoUsuario = async (
+  id: string,
+  activo: boolean
+): Promise<{ mensaje: string; activo: boolean }> => {
+  const res = await axios.patch<{ mensaje: string; activo: boolean }>(
+    `${BASE_URL}/${id}/activo`,
+    { activo }
+  );
   return res.data;
 };
 
@@ -55,6 +59,18 @@ export const actualizarPerfilUsuario = async (
   const res = await axios.patch<{ mensaje: string; perfil: string }>(
     `${BASE_URL}/${id}/perfil`,
     { perfil }
+  );
+  return res.data;
+};
+
+// Actualizar notificaciones MC de un usuario
+export const actualizarNotificacionesMcUsuario = async (
+  id: string,
+  notificaciones_mc: string[]
+): Promise<{ mensaje: string; notificaciones_mc: string[] }> => {
+  const res = await axios.patch<{ mensaje: string; notificaciones_mc: string[] }>(
+    `${BASE_URL}/${id}/notificaciones_mc`,
+    { notificaciones_mc }
   );
   return res.data;
 };

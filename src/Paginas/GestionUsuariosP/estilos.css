@@ -20,7 +20,9 @@
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 0 28px;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 3vw, 48px);
   gap: 16px;
 }
 .GU-brand {
@@ -61,14 +63,15 @@
 /* ── MAIN ── */
 .GU-main {
   flex: 1;
-  padding: 36px 24px;
+  padding: clamp(20px, 3vw, 48px) clamp(16px, 4vw, 48px);
 }
 .GU-contenedor {
-  max-width: 900px;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: clamp(16px, 2vw, 28px);
 }
 .GU-seccionHeader {
   display: flex;
@@ -78,13 +81,13 @@
   flex-wrap: wrap;
 }
 .GU-titulo {
-  font-size: 1.6rem;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
   font-weight: 800;
   color: #0f1928;
   margin: 0 0 4px;
 }
 .GU-subtitulo {
-  font-size: 0.9rem;
+  font-size: clamp(0.85rem, 1.1vw, 1rem);
   color: #6b7a8d;
   margin: 0;
 }
@@ -102,8 +105,8 @@
   color: #fff;
   border: none;
   border-radius: 9px;
-  padding: 10px 20px;
-  font-size: 0.87rem;
+  padding: clamp(9px, 1vw, 13px) clamp(16px, 1.8vw, 28px);
+  font-size: clamp(0.82rem, 0.95vw, 1rem);
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
@@ -123,16 +126,16 @@
 .GU-tabla {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: clamp(0.82rem, 1vw, 1rem);
 }
 .GU-tabla thead tr {
   background: #0f1928;
   color: #fff;
 }
 .GU-tabla th {
-  padding: 13px 14px;
+  padding: clamp(11px, 1.2vw, 18px) clamp(12px, 1.4vw, 22px);
   text-align: left;
-  font-size: 0.75rem;
+  font-size: clamp(0.7rem, 0.85vw, 0.88rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -145,8 +148,8 @@
 }
 .GU-fila:last-child { border-bottom: none; }
 .GU-fila:hover { background: #f8fafc; }
-.GU-tabla td { padding: 11px 14px; color: #1e2f45; vertical-align: middle; }
-.GU-td-usuario { font-weight: 700; font-size: 0.9rem; }
+.GU-tabla td { padding: clamp(10px, 1.1vw, 16px) clamp(12px, 1.4vw, 22px); color: #1e2f45; vertical-align: middle; }
+.GU-td-usuario { font-weight: 700; font-size: clamp(0.86rem, 1.05vw, 1.05rem); }
 .GU-select-perfil {
   background: #e8f0fe;
   color: #0f1928;
@@ -207,26 +210,98 @@
 .GU-td-msg--ok  { color: #16a34a; font-weight: 700; }
 .GU-td-msg--err { color: #dc3545; }
 
-.GU-td-acciones { text-align: center; width: 48px; }
-.GU-btn-eliminar {
+.GU-td-acciones { text-align: center; width: 56px; }
+
+.GU-btn-desactivar,
+.GU-btn-activar {
   background: none;
   border: none;
-  color: #b0b8c4;
   cursor: pointer;
   padding: 5px 7px;
   border-radius: 6px;
   transition: color .15s, background .15s;
-  font-size: 0.85rem;
+  font-size: 1.3rem;
   line-height: 1;
 }
-.GU-btn-eliminar:hover:not(:disabled) { color: #dc3545; background: #ffeaea; }
-.GU-btn-eliminar:disabled { opacity: 0.4; cursor: not-allowed; }
+.GU-btn-desactivar { color: #16a34a; }
+.GU-btn-desactivar:hover:not(:disabled) { color: #15803d; background: #dcfce7; }
+.GU-btn-activar { color: #b0b8c4; }
+.GU-btn-activar:hover:not(:disabled) { color: #16a34a; background: #dcfce7; }
+.GU-btn-desactivar:disabled,
+.GU-btn-activar:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.GU-fila--inactiva { opacity: 0.45; background: #f8f9fa; }
+
+/* ── Notificaciones MC — botón en tabla ── */
+.GU-th-notif-mc { text-align: center !important; min-width: 80px; }
+.GU-td-notif-mc { text-align: center; }
+
+.GU-btn-notif-mc {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  background: #f0f2f5;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  color: #adb5bd;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.GU-btn-notif-mc:hover:not(:disabled) { background: #e8f5e9; border-color: #a5d6a7; color: #004d40; }
+.GU-btn-notif-mc--activa { background: #e8f5e9; border-color: #80cbc4; color: #004d40; }
+.GU-btn-notif-mc--activa:hover:not(:disabled) { background: #c8e6c9; border-color: #004d40; }
+.GU-btn-notif-mc:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.GU-notif-mc-badge {
+  position: absolute;
+  top: -5px; right: -5px;
+  width: 16px; height: 16px;
+  background: #004d40;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid #fff;
+}
+
+/* ── Modal notificaciones MC ── */
+.GU-modalCard--sm { max-width: 400px; }
+.GU-modal-sub { font-size: 0.82rem; color: #6b7a8d; margin: 2px 0 0; font-weight: 500; }
+
+.GU-notif-mc-body { padding: 16px 28px 28px; display: flex; flex-direction: column; gap: 12px; }
+
+.GU-notif-mc-opcion {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 16px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #f8fafc;
+}
+.GU-notif-mc-opcion:hover { border-color: #80cbc4; background: #f0faf9; }
+.GU-notif-mc-opcion--activa { border-color: #004d40; background: #e8f5e9; }
+
+.GU-notif-mc-opcion input {
+  width: 18px; height: 18px; margin-top: 2px;
+  cursor: pointer; accent-color: #004d40; flex-shrink: 0;
+}
+.GU-notif-mc-opcion-info { display: flex; flex-direction: column; gap: 3px; }
+.GU-notif-mc-opcion-label { font-size: 0.9rem; font-weight: 700; color: #0f1928; }
+.GU-notif-mc-opcion-desc  { font-size: 0.78rem; color: #6b7a8d; line-height: 1.4; }
+
+.GU-notif-mc-feedback--ok  { margin: 0; font-size: 0.84rem; color: #16a34a; font-weight: 700; text-align: center; }
+.GU-notif-mc-feedback--err { margin: 0; font-size: 0.84rem; color: #dc3545; text-align: center; }
 
 /* ── FOOTER ── */
 .GU-footer { background: #0f1928; border-top: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }
 .GU-footerInner {
   display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 12px; padding: 14px 28px;
+  flex-wrap: wrap; gap: 12px;
+  max-width: 1600px; margin: 0 auto;
+  padding: 14px clamp(16px, 3vw, 48px);
 }
 .GU-footerBrand { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,.75); }
 .GU-footerLinks { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -297,10 +372,17 @@
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
-  .GU-main { padding: 20px 12px; }
   .GU-formGrid { grid-template-columns: 1fr; }
-  .GU-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
+  .GU-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; }
   .GU-footerLinks { display: none; }
-  .GU-headerInner { padding: 0 16px; }
   .GU-modalCard { border-radius: 16px; }
+}
+
+@media (min-width: 1920px) {
+  .GU-header { height: 72px; }
+  .GU-brandName { font-size: 1.5rem; }
+  .GU-select-perfil { font-size: 0.82rem; padding: 5px 10px; }
+  .GU-toggleSlider { width: 50px; height: 28px; }
+  .GU-toggleSlider::after { width: 22px; height: 22px; }
+  .GU-toggle input:checked + .GU-toggleSlider::after { transform: translateX(22px); }
 }

@@ -1,14 +1,12 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
-  FaUserCircle, FaSignOutAlt, FaArrowLeft, FaChevronDown,
-  FaRoute, FaFileExcel, FaFilter, FaCheckCircle, FaCircle, FaSync, FaSearch,
+  FaArrowLeft, FaRoute, FaFileExcel, FaFilter, FaCheckCircle, FaCircle, FaSync, FaSearch,
 } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
+import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import {
   obtenerOcupacionRutas,
   obtenerV3SinPaciente,
@@ -79,11 +77,8 @@ const getEstiloEstado = (estado: string | undefined): React.CSSProperties => {
 
 const CrucePacientesV3P: React.FC = () => {
   const router = useRouter();
-  const menuRef = useRef<HTMLDivElement>(null);
-
   const [usuario, setUsuario]   = useState('');
   const [perfil, setPerfil]     = useState('');
-  const [menuAbierto, setMenuAbierto] = useState(false);
 
   const [tab, setTab]                       = useState<'ocupacion' | 'v3sin' | 'historico'>('ocupacion');
 
@@ -148,14 +143,6 @@ const CrucePacientesV3P: React.FC = () => {
     setPerfil(document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '');
     cargarOcupacion();
   }, [router]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAbierto(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // ── Carga inicial desde cache ────────────────────────────────────────────────
   const cargarOcupacion = async () => {
@@ -275,14 +262,6 @@ const CrucePacientesV3P: React.FC = () => {
     }
   };
 
-  // ── Cerrar sesión ────────────────────────────────────────────────────────────
-  const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(n => {
-      document.cookie = `${n}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
-    });
-    router.push('/LoginUsuario');
-  };
-
   // ── Filtros derivados ────────────────────────────────────────────────────────
   const rutasFiltradas = rutas
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
@@ -389,42 +368,7 @@ const CrucePacientesV3P: React.FC = () => {
   return (
     <div className="CRV3-layout">
 
-      {/* HEADER */}
-      <header className="CRV3-header">
-        <div className="CRV3-headerInner">
-          <button className="CRV3-brand" onClick={() => router.push('/MedicalCare')} title="Volver a Medical Care">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="CRV3-brandName">Integr<span className="CRV3-brandAccent">App</span></span>
-          </button>
-          <div className="CRV3-title"><FaRoute /> Cruce Pacientes ↔ V3</div>
-          <div className="CRV3-userZone" ref={menuRef}>
-            <button className="CRV3-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="CRV3-userIcon" />
-              <div className="CRV3-userInfo">
-                <span className="CRV3-userName">{usuario || 'Usuario'}</span>
-                <span className="CRV3-userPerfil">{perfil}</span>
-              </div>
-              <FaChevronDown className={`CRV3-chevron ${menuAbierto ? 'CRV3-chevronOpen' : ''}`} />
-            </button>
-            {menuAbierto && (
-              <div className="CRV3-dropdown">
-                <button className="CRV3-dropItem" onClick={() => router.push('/GestionPacientes')}>
-                  <FaUserCircle /> Pacientes
-                </button>
-                <button className="CRV3-dropItem" onClick={() => router.push('/GestionPedidosV3')}>
-                  <FaFileExcel /> Pedidos V3
-                </button>
-                <button className="CRV3-dropItem CRV3-dropItemActive" onClick={() => setMenuAbierto(false)}>
-                  <FaRoute /> Cruce Pacientes ↔ V3
-                </button>
-                <button className="CRV3-dropItem CRV3-dropItemDanger" onClick={cerrarSesion}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <NavMedicalCare paginaActual="cruce" />
 
       {/* MAIN */}
       <main className="CRV3-main">

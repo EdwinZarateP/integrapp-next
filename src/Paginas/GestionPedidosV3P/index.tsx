@@ -1,10 +1,9 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { FaUserCircle, FaSignOutAlt, FaFileExcel, FaEdit, FaTrash, FaArrowLeft, FaChevronDown, FaRoute, FaSearch } from 'react-icons/fa';
+import { FaFileExcel, FaEdit, FaTrash, FaArrowLeft, FaSearch } from 'react-icons/fa';
 import Swal from 'sweetalert2';
-import logo from '@/Imagenes/albatros.png';
+import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import {
   cargarPedidosV3Stream,
   obtenerPedidosV3,
@@ -20,8 +19,7 @@ const GestionPedidosV3P: React.FC = () => {
   const router = useRouter();
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil]   = useState('');
-  const [menuAbierto, setMenuAbierto] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+
 
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,23 +80,6 @@ const GestionPedidosV3P: React.FC = () => {
       cargarPedidos();
     }
   }, []);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuAbierto(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(name => {
-      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
-    });
-    router.push('/LoginUsuario');
-  };
 
   const cargarEstados = async () => {
     try {
@@ -359,45 +340,7 @@ const GestionPedidosV3P: React.FC = () => {
 
   return (
     <div className="GPV3-layout">
-      {/* HEADER */}
-      <header className="GPV3-header">
-        <div className="GPV3-headerInner">
-          <button className="GPV3-brand" onClick={() => router.push('/MedicalCare')} title="Volver a Medical Care">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="GPV3-brandName">
-              Integr<span className="GPV3-brandAccent">App</span>
-            </span>
-          </button>
-          <div className="GPV3-title">Gestión de Pedidos V3</div>
-          <div className="GPV3-userZone" ref={menuRef}>
-            <button className="GPV3-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="GPV3-userIcon" />
-              <div className="GPV3-userInfo">
-                <span className="GPV3-userName">{usuario || 'Usuario'}</span>
-                <span className="GPV3-userPerfil">{perfil}</span>
-              </div>
-              <FaChevronDown className={`GPV3-chevron ${menuAbierto ? 'GPV3-chevronOpen' : ''}`} />
-            </button>
-
-            {menuAbierto && (
-              <div className="GPV3-dropdown">
-                <button className="GPV3-dropItem" onClick={() => router.push('/GestionPacientes')}>
-                  <FaUserCircle /> Pacientes
-                </button>
-                <button className="GPV3-dropItem GPV3-dropItemActive" onClick={() => setMenuAbierto(false)}>
-                  <FaFileExcel /> Pedidos V3
-                </button>
-                <button className="GPV3-dropItem" onClick={() => router.push('/CrucePacientesV3')}>
-                  <FaRoute /> Cruce Pacientes ↔ V3
-                </button>
-                <button className="GPV3-dropItem GPV3-dropItemDanger" onClick={cerrarSesion}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <NavMedicalCare paginaActual="pedidosv3" />
 
       {/* MAIN */}
       <main className="GPV3-main">

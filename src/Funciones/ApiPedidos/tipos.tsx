@@ -8,6 +8,8 @@ export interface BaseUsuario {
   usuario: string;
   clave: string;
   clientes?: string[];
+  activo?: boolean;
+  notificaciones_mc?: string[];
 }
 
 export interface LoginRespuesta {
