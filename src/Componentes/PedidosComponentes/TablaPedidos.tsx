@@ -66,7 +66,7 @@ const regionesDisponibles = ['FUNZA', 'CELTA', 'GIRARDOTA', 'BUCARAMANGA', 'CALI
 const perfilesConEdicion = ['ADMIN', 'DESPACHADOR', 'ANALISTA', 'OPERADOR'] as const;
 const opcionesObservacionesAjuste = [
   'tarifa sicetac',
-  'desvio ruta por cierre',
+  'desvio ruta',
   'volumen de entregas',
   'vehiculo contratado por dia',
   'dificultad consecucion de vehiculos',
@@ -75,7 +75,9 @@ const opcionesObservacionesAjuste = [
   'lleva paqueteo',
   'Flete errado de base',
   'si aplica descargue',
-  'sin novedad',
+  'problemas con sicetact',
+  'vehiculo de socio',
+  'pagar aforo',
 ] as const;
 
 const opcionesObservacionesAjusteDivision = [
