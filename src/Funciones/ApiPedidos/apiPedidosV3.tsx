@@ -220,3 +220,77 @@ export async function obtenerPedidoV3PorId(
 
   return response.data;
 }
+
+/**
+ * Carga masiva de pedidos v3 desde API de Siscore con progreso en tiempo real (SSE)
+ * Calcula automáticamente el rango de fechas (1er día de hace 2 meses → hoy)
+ */
+export async function cargarPedidosV3DesdeApiStream(
+  usuario: string,
+  onProgress: (progress: ProgressEvent) => void
+): Promise<CargarPedidosV3Response> {
+  const response = await fetch(
+    `${API_BASE_URL}/pedidos-v3/cargar-desde-api-stream?usuario=${encodeURIComponent(usuario)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Error ${response.status}: ${response.statusText}`);
+  }
+
+  if (!response.body) {
+    throw new Error('No se pudo leer el stream de respuesta');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Procesar líneas completas (SSE events)
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        try {
+          const parsed = JSON.parse(data);
+
+          if (parsed.error) {
+            throw new Error(parsed.error);
+          }
+
+          if (parsed.stage === 'complete') {
+            return {
+              mensaje: parsed.mensaje,
+              tiempo_segundos: parsed.tiempo_segundos,
+              registros_exitosos: parsed.registros_insertados,
+              registros_con_errores: parsed.registros_con_errores,
+              errores: parsed.errores,
+            };
+          }
+
+          onProgress(parsed);
+        } catch (e) {
+          console.error('Error al parsear evento SSE:', e);
+        }
+      }
+    }
+  }
+
+  throw new Error('La carga no se completó correctamente');
+}

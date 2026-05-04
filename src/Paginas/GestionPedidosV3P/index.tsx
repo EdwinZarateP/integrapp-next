@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaFileExcel, FaEdit, FaTrash, FaArrowLeft, FaSearch } from 'react-icons/fa';
+import { FaSync, FaEdit, FaTrash, FaArrowLeft, FaSearch } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import {
-  cargarPedidosV3Stream,
+  cargarPedidosV3DesdeApiStream,
   obtenerPedidosV3,
   obtenerEstadosV3,
   actualizarPedidoV3,
@@ -28,7 +28,6 @@ const GestionPedidosV3P: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [mostrarModalCarga, setMostrarModalCarga] = useState(false);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
-  const [archivo, setArchivo] = useState<File | null>(null);
   const [progreso, setProgreso] = useState<ProgressEvent | null>(null);
   const [pedidoEditando, setPedidoEditando] = useState<any>(null);
   const [formulario, setFormulario] = useState<any>({});
@@ -40,8 +39,8 @@ const GestionPedidosV3P: React.FC = () => {
   const [ultimaActualizacion, setUltimaActualizacion] = useState<string | null>(null);
   const [codigoBusqueda, setCodigoBusqueda] = useState('');
   const [buscandoCodigo, setBuscandoCodigo] = useState(false);
-  const [cargandoExcel, setCargandoExcel] = useState(false);
-  const cargandoExcelRef = useRef(false);
+  const [cargandoApi, setCargandoApi] = useState(false);
+  const cargandoApiRef = useRef(false);
   const inicializadoRef = useRef(false);
 
   useEffect(() => {
@@ -143,43 +142,32 @@ const GestionPedidosV3P: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoSeleccionado, buscandoCodigo]);
 
-  const handleCargarExcel = async () => {
-    if (cargandoExcelRef.current) return;
-    if (!archivo) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Archivo requerido',
-        text: 'Por favor selecciona un archivo Excel',
-      });
-      return;
-    }
+  const handleActualizarDesdeApi = async () => {
+    if (cargandoApiRef.current) return;
 
-    cargandoExcelRef.current = true;
-    setCargandoExcel(true);
+    cargandoApiRef.current = true;
+    setCargandoApi(true);
 
     try {
-      const response: CargarPedidosV3Response = await cargarPedidosV3Stream(
+      const response: CargarPedidosV3Response = await cargarPedidosV3DesdeApiStream(
         usuario,
-        archivo,
         (progress) => {
           setProgreso(progress);
         }
       );
 
       setMostrarModalCarga(false);
-      setArchivo(null);
       setProgreso(null);
 
       Swal.fire({
         icon: response.registros_con_errores > 0 ? 'warning' : 'success',
-        title: 'Carga Completada',
+        title: 'Actualización Completada',
         html: `
           <div style="text-align: left;">
-            <p><strong>Registros exitosos:</strong> ${response.registros_exitosos}</p>
-            <p><strong>Registros con errores:</strong> ${response.registros_con_errores}</p>
+            <p><strong>Registros insertados:</strong> ${response.registros_exitosos}</p>
             <p><strong>Tiempo de procesamiento:</strong> ${response.tiempo_segundos.toFixed(2)} segundos</p>
             ${response.errores.length > 0 ? `
-              <p><strong>Primeros errores:</strong></p>
+              <p><strong>Errores:</strong></p>
               <ul style="max-height: 200px; overflow-y: auto;">
                 ${response.errores.map((err, i) => `<li key="${i}">${err}</li>`).join('')}
               </ul>
@@ -190,18 +178,17 @@ const GestionPedidosV3P: React.FC = () => {
 
       cargarPedidos();
     } catch (error: any) {
-      console.error('Error al cargar Excel:', error);
+      console.error('Error al actualizar desde API:', error);
       setMostrarModalCarga(false);
-      setArchivo(null);
       setProgreso(null);
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: error.message || 'No se pudo cargar el archivo Excel',
+        text: error.message || 'No se pudo conectar con la API de Siscore',
       });
     } finally {
-      cargandoExcelRef.current = false;
-      setCargandoExcel(false);
+      cargandoApiRef.current = false;
+      setCargandoApi(false);
     }
   };
 
@@ -401,7 +388,7 @@ const GestionPedidosV3P: React.FC = () => {
           </div>
           <div className="GPV3-actions">
             <button className="GPV3-btn GPV3-btnPrimary" onClick={() => setMostrarModalCarga(true)}>
-              <FaFileExcel /> Cargar Excel
+              <FaSync /> Actualizar V3
             </button>
           </div>
         </div>
@@ -415,9 +402,9 @@ const GestionPedidosV3P: React.FC = () => {
             </div>
           ) : pedidos.length === 0 ? (
             <div className="GPV3-empty">
-              <FaFileExcel className="GPV3-emptyIcon" />
+              <FaSync className="GPV3-emptyIcon" />
               <h3>No hay pedidos</h3>
-              <p>Carga un archivo Excel o crea un nuevo pedido</p>
+              <p>Actualiza los pedidos V3 desde Siscore</p>
             </div>
           ) : (
             <div className="GPV3-tableContainer">
@@ -509,41 +496,39 @@ const GestionPedidosV3P: React.FC = () => {
         </div>
       </main>
 
-      {/* Modal de Carga Excel */}
+      {/* Modal de Actualización V3 */}
       {mostrarModalCarga && (
         <div className="GPV3-modalOverlay" onClick={() => setMostrarModalCarga(false)}>
           <div className="GPV3-modal" onClick={(e) => e.stopPropagation()}>
             <div className="GPV3-modalHeader">
-              <h2>Cargar Pedidos desde Excel</h2>
+              <h2>Actualizar Pedidos V3 desde Siscore</h2>
               <button className="GPV3-closeBtn" onClick={() => setMostrarModalCarga(false)}>×</button>
             </div>
             <div className="GPV3-modalBody">
               {progreso ? (
                 <div className="GPV3-progreso">
                   <div className="GPV3-progresoStage">{progreso.message}</div>
-                  {progreso.stage === 'processing' && (
+                  {progreso.stage === 'processing' && progreso.total && (
                     <div className="GPV3-progresoStats">
-                      {progreso.processed} / {progreso.total} registros
+                      {progreso.processed || 0} / {progreso.total} registros
+                    </div>
+                  )}
+                  {progreso.stage === 'processing' && progreso.inserted !== undefined && (
+                    <div className="GPV3-progresoStats">
+                      Insertados: {progreso.inserted} | Filtrados: {progreso.filtered || 0}
                     </div>
                   )}
                 </div>
               ) : (
-                <>
-                  <div className="GPV3-fileInput">
-                    <input
-                      type="file"
-                      id="excelFile"
-                      accept=".xlsx,.xls,.xlsm"
-                      onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-                    />
-                    <label htmlFor="excelFile" className="GPV3-fileLabel">
-                      {archivo ? archivo.name : 'Seleccionar archivo Excel'}
-                    </label>
-                  </div>
-                  <div className="GPV3-modalInfo">
-                    <p>Formatos aceptados: .xlsx, .xls, .xlsm</p>
-                  </div>
-                </>
+                <div className="GPV3-modalInfo">
+                  <p>Se actualizarán los pedidos V3 consumiendo directamente del API de Siscore.</p>
+                  <p><strong>Rango de fechas:</strong> desde el 1er día de hace 2 meses hasta hoy</p>
+                  <p><strong>Filtros aplicados:</strong></p>
+                  <ul style={{textAlign: 'left', marginLeft: '20px'}}>
+                    <li>Solo registros del mes actual según "Fecha Solicitada"</li>
+                    <li>Exclusión de clientes institucionales (DAVITA, VANTIVE, CLINICA, etc.)</li>
+                  </ul>
+                </div>
               )}
             </div>
             {!progreso && (
@@ -556,10 +541,10 @@ const GestionPedidosV3P: React.FC = () => {
                 </button>
                 <button
                   className="GPV3-btn GPV3-btnPrimary"
-                  onClick={handleCargarExcel}
-                  disabled={!archivo || cargandoExcel}
+                  onClick={handleActualizarDesdeApi}
+                  disabled={cargandoApi}
                 >
-                  {cargandoExcel ? 'Cargando...' : 'Cargar'}
+                  {cargandoApi ? 'Actualizando...' : 'Actualizar'}
                 </button>
               </div>
             )}

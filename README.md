@@ -156,6 +156,7 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 **Gestión de Pedidos V3 (`/GestionPedidosV3`):**
 - Gestión de pedidos de Medical Care V3 (solo edición y eliminación individual; la carga masiva reemplaza toda la base automáticamente)
 - **Carga masiva desde Excel**: modal con progreso SSE. El backend elimina todos los pedidos anteriores antes de insertar los nuevos. Protegido contra carga múltiple simultánea con `cargandoExcelRef` (ref síncrono) + estado visual "Cargando..." en el botón
+- **Carga masiva desde API de Siscore** (nueva funcionalidad): carga automática desde `https://integra-wms.appsiscore.com/app/ws/informe_v3.php` con cálculo automático de rango de fechas (desde el 1er día de hace 2 meses hasta hoy). Reemplaza la carga manual de Excel. Usa el mismo endpoint SSE con progreso en tiempo real.
 - **Tabla de pedidos**: columnas con datos originales (cliente_destino_original, direccion_destino_original), filtro por estado, paginación
 - **Filtro por estado**: selector que consulta los estados únicos de la colección
 - **Buscador por código de pedido**: campo de texto + botón de búsqueda, con opción de limpiar
@@ -700,11 +701,17 @@ Aplicado a todos los portales para consistencia visual:
 - `ProgressEvent`: Interfaz de eventos de progreso SSE
 
 ### Pedidos V3 (apiPedidosV3.tsx)
-- **`cargarPedidosV3Stream(usuario, archivo, onProgress)`**: Importación masiva de pedidos con progreso en tiempo real via Server-Sent Events (SSE)
+- **`cargarPedidosV3Stream(usuario, archivo, onProgress)`**: Importación masiva de pedidos desde Excel con progreso en tiempo real via Server-Sent Events (SSE)
   - Lee el stream de eventos del backend y actualiza el estado de progreso
   - Envia `usuario` como query string (no en FormData) para evitar error 422
   - Callback `onProgress` recibe objetos con `stage`, `progress`, `message`, `processed`, `total`, `errores`
   - Maneja errores de parseo SSE y muestra alertas con SweetAlert2
+- **`cargarPedidosV3DesdeApiStream(usuario, onProgress)`**: Importación masiva de pedidos desde API de Siscore con progreso en tiempo real via Server-Sent Events (SSE)
+  - Lee el stream de eventos del backend y actualiza el estado de progreso
+  - Envia `usuario` como query string
+  - Callback `onProgress` recibe objetos con `stage`, `progress`, `message`, `registros_insertados`, `registros_filtrados`, `rango_fechas`
+  - El backend calcula automáticamente el rango de fechas (desde el 1er día de hace 2 meses hasta hoy)
+  - Maneja errores de conexión HTTP y validación de respuesta API
 - **`obtenerPedidosV3(skip, limit)`**: Obtener lista de pedidos con paginación
 - **`eliminarTodosPedidosV3(usuario)`**: Eliminar todos los pedidos (solo ADMIN)
 - **`crearPedidoV3(usuario, pedidoData)`**: Crear un nuevo pedido individual
@@ -768,6 +775,25 @@ Aplicado a todos los portales para consistencia visual:
 ---
 
 ## Historial de cambios relevantes
+
+### Mayo 2026 — Integración con API de Siscore V3 para carga automática de pedidos
+
+**`GestionPedidosV3P/index.tsx` — Nueva funcionalidad de carga desde API:**
+- **Nueva opción de carga**: Botón para cargar pedidos directamente desde API de Siscore (además de la carga desde Excel existente)
+- **Endpoint del backend**: `POST /pedidos-v3/cargar-desde-api-stream?usuario=USUARIO`
+- **Cálculo automático de rango de fechas**: desde el 1er día de hace 2 meses hasta hoy (ej: 2026-05-04 → consulta desde 2026-03-01)
+- **Progreso en tiempo real via SSE**: Mismo patrón que carga Excel con stages 'calculating', 'fetching', 'processing', 'saving', 'complete'
+- **Respuesta final**: Incluye `registros_insertados`, `registros_filtrados`, `rango_fechas`, `tiempo_segundos`
+- **API de Siscore**: `https://integra-wms.appsiscore.com/app/ws/informe_v3.php`
+
+**`apiPedidosV3.tsx` — Nueva función API:**
+- **`cargarPedidosV3DesdeApiStream(usuario, onProgress)`**: Llama al endpoint de carga desde API con manejo de SSE
+- Callback `onProgress` recibe objetos con `stage`, `progress`, `message`, `registros_insertados`, `registros_filtrados`, `rango_fechas`
+- Maneja errores de conexión HTTP y validación de respuesta API
+
+**Documentación actualizada:**
+- `integrapp-next/README.md`: Sección "Gestión de Pedidos V3" actualizada con nueva funcionalidad
+- `integrappi/README.md`: Nueva documentación completa del endpoint y funciones auxiliares
 
 ### Marzo 2025 — Rediseño visual y sistema de diseño unificado
 
