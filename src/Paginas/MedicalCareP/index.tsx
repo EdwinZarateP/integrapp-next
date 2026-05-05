@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle,
-  FaCheckCircle, FaCircle, FaFileExcel, FaFilter, FaRoute,
+  FaCheckCircle, FaCircle, FaFileExcel, FaFilter, FaRoute, FaCog, FaPlus, FaTrash,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
@@ -19,7 +19,11 @@ const MedicalCareP: React.FC = () => {
   const usuario = typeof document !== 'undefined'
     ? (document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '')
     : '';
+  const perfil = typeof document !== 'undefined'
+    ? (document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '')
+    : '';
   const [modalOcupacion, setModalOcupacion] = useState(false);
+  const [modalConfig, setModalConfig] = useState(false);
   const [tabActiva, setTabActiva] = useState<'ocupacion' | 'v3sinpaciente'>('ocupacion');
   const [rutas, setRutas] = useState<RutaOcupacion[]>([]);
   const [rutasV3Sin, setRutasV3Sin] = useState<RutaV3SinPaciente[]>([]);
@@ -35,11 +39,22 @@ const MedicalCareP: React.FC = () => {
   const [rutaExpandida, setRutaExpandida] = useState<string | null>(null);
   const [rutaV3Expandida, setRutaV3Expandida] = useState<string | null>(null);
 
+  // Configuración de sync
+  const [syncConfig, setSyncConfig] = useState<{ horarios: string[], activo: boolean } | null>(null);
+  const [nuevoHorario, setNuevoHorario] = useState('');
+  const [loadingConfig, setLoadingConfig] = useState(false);
+
+  // Verificar si el usuario puede ver configuración (solo ADMIN y COORDINADOR)
+  const puedeVerConfig = perfil === 'ADMIN' || perfil === 'COORDINADOR';
+
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     if (!match) { router.replace('/LoginUsuario'); return; }
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
     if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/Pedidos');
+
+    // Cargar configuración de sync al inicio
+    cargarConfigSync();
   }, [router]);
 
 
@@ -105,6 +120,85 @@ const MedicalCareP: React.FC = () => {
     }
   };
 
+  // Funciones de configuración de sync
+  const cargarConfigSync = async () => {
+    setLoadingConfig(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/sync-v3/config`);
+      if (response.ok) {
+        const data = await response.json();
+        setSyncConfig({ horarios: data.horarios || [], activo: data.activo ?? true });
+      }
+    } catch (error) {
+      console.error('Error al cargar config:', error);
+    } finally {
+      setLoadingConfig(false);
+    }
+  };
+
+  const handleAgregarHorario = async () => {
+    if (!nuevoHorario) return;
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/sync-v3/horarios?horario=${nuevoHorario}`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSyncConfig({ horarios: data.horarios, activo: data.activo });
+        setNuevoHorario('');
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Error al agregar horario');
+      }
+    } catch (error) {
+      console.error('Error al agregar horario:', error);
+      alert('Error al agregar horario');
+    }
+  };
+
+  const handleEliminarHorario = async (horario: string) => {
+    if (!confirm(`¿Eliminar el horario ${horario}?`)) return;
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/sync-v3/horarios/${horario}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSyncConfig({ horarios: data.horarios, activo: data.activo });
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Error al eliminar horario');
+      }
+    } catch (error) {
+      console.error('Error al eliminar horario:', error);
+      alert('Error al eliminar horario');
+    }
+  };
+
+  const handleToggleActivo = async () => {
+    if (!syncConfig) return;
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/sync-v3/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activo: !syncConfig.activo }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSyncConfig({ horarios: data.horarios, activo: data.activo });
+      }
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
+    }
+  };
+
   const REGIONALES = ['TODAS', 'BARRANQUILLA', 'CALI', 'BUCARAMANGA', 'FUNZA', 'MEDELLIN'];
 
   const rutasFiltradas = filtroRegional === 'TODAS'
@@ -149,26 +243,14 @@ const MedicalCareP: React.FC = () => {
               >
                 <FaRoute /> Cruce Pacientes ↔ V3
               </button>
-            </div>
-
-            <div className="MC-welcomeFeatures">
-              <div className="MC-feature">
-                <div className="MC-featureIcon">📊</div>
-                <h3 className="MC-featureTitle">Carga Masiva Pacientes</h3>
-                <p className="MC-featureText">Importa pacientes desde Excel con normalización automática de datos</p>
-              </div>
-              
-              <div className="MC-feature">
-                <div className="MC-featureIcon">📦</div>
-                <h3 className="MC-featureTitle">Carga Masiva Pedidos</h3>
-                <p className="MC-featureText">Importa pedidos desde Excel con progreso en tiempo real</p>
-              </div>
-              
-              <div className="MC-feature">
-                <div className="MC-featureIcon">✏️</div>
-                <h3 className="MC-featureTitle">Gestión Completa</h3>
-                <p className="MC-featureText">Crea, edita y elimina pacientes y pedidos individualmente</p>
-              </div>
+              {puedeVerConfig && (
+                <button
+                  className="MC-welcomeBtn MC-btnConfig"
+                  onClick={() => setModalConfig(true)}
+                >
+                  <FaCog /> Configuración Sync
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -407,6 +489,105 @@ const MedicalCareP: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* ── MODAL CONFIGURACIÓN SYNC ── */}
+      {modalConfig && (
+        <div className="MC-modalOverlay" onClick={() => setModalConfig(false)}>
+          <div className="MC-modalConfig" onClick={(e) => e.stopPropagation()}>
+            <div className="MC-modalHeader">
+              <h2><FaCog /> Configuración de Sincronización V3</h2>
+              <button className="MC-modalClose" onClick={() => setModalConfig(false)}>×</button>
+            </div>
+
+            <div className="MC-modalBody MC-configBody">
+              {loadingConfig ? (
+                <div className="MC-loadingConfig">
+                  <div className="MC-spinner"></div>
+                  <p>Cargando configuración...</p>
+                </div>
+              ) : syncConfig ? (
+                <>
+                  <div className="MC-configSection">
+                    <div className="MC-configHeader">
+                      <h3>Estado del Sync</h3>
+                      <button
+                        className={`MC-toggleBtn ${syncConfig.activo ? 'MC-toggleActivo' : 'MC-toggleInactivo'}`}
+                        onClick={handleToggleActivo}
+                      >
+                        {syncConfig.activo ? '● Activo' : '○ Inactivo'}
+                      </button>
+                    </div>
+                    <p className="MC-configHint">
+                      {syncConfig.activo
+                        ? 'El sync se ejecutará automáticamente en los horarios configurados'
+                        : 'El sync está pausado. No se ejecutará automáticamente.'}
+                    </p>
+                  </div>
+
+                  <div className="MC-configSection">
+                    <h3>Horarios Programados</h3>
+                    <p className="MC-configHint">Formato HH:MM (ej: 08:00, 14:30)</p>
+
+                    <div className="MC-agregarHorario">
+                      <input
+                        type="time"
+                        className="MC-timeInput"
+                        value={nuevoHorario}
+                        onChange={e => setNuevoHorario(e.target.value)}
+                      />
+                      <button
+                        className="MC-btnAgregarHorario"
+                        onClick={handleAgregarHorario}
+                        disabled={!nuevoHorario}
+                      >
+                        <FaPlus /> Agregar
+                      </button>
+                    </div>
+
+                    <div className="MC-horariosList">
+                      {syncConfig.horarios.length === 0 ? (
+                        <p className="MC-sinHorarios">No hay horarios configurados</p>
+                      ) : (
+                        syncConfig.horarios.map(horario => (
+                          <div key={horario} className="MC-horarioItem">
+                            <span className="MC-horarioTime">{horario}</span>
+                            <button
+                              className="MC-btnEliminarHorario"
+                              onClick={() => handleEliminarHorario(horario)}
+                              title="Eliminar horario"
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="MC-configInfo">
+                    <p><strong>Información:</strong></p>
+                    <ul>
+                      <li>El sync consume datos del API de Siscore V3 automáticamente</li>
+                      <li>Se ejecuta a la hora exacta en cada horario configurado</li>
+                      <li>Puedes agregar o quitar horarios según lo necesites</li>
+                      <li>Los cambios se guardan en la base de datos inmediatamente</li>
+                    </ul>
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            <div className="MC-modalFooter">
+              <button
+                className="MC-btnCerrarConfig"
+                onClick={() => setModalConfig(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── FOOTER ── */}
       <footer className="MC-footer">

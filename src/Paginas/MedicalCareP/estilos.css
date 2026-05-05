@@ -617,3 +617,355 @@
   background: #fff3cd; border-radius: 6px;
   font-size: 0.88rem; color: #856404;
 }
+
+/* Botón de configuración */
+.MC-btnConfig {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+.MC-btnConfig:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
+  transform: translateY(-1px);
+}
+
+/* Modal de configuración */
+.MC-modalConfig {
+  width: 90%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+.MC-modalConfig .MC-modalHeader {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 20px 24px;
+}
+
+.MC-modalConfig .MC-modalHeader h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.MC-modalConfig .MC-modalClose {
+  color: rgba(255,255,255,0.9);
+  font-size: 1.5rem;
+  transition: all 0.2s;
+}
+.MC-modalConfig .MC-modalClose:hover {
+  color: #fff;
+  transform: rotate(90deg);
+}
+
+.MC-configBody {
+  padding: 24px;
+  background: #f8f9fa;
+}
+
+.MC-loadingConfig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 16px;
+}
+.MC-loadingConfig .MC-spinner {
+  border-top-color: #667eea;
+}
+
+/* Secciones de configuración */
+.MC-configSection {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid #e8e9ea;
+}
+.MC-configSection:last-of-type {
+  margin-bottom: 0;
+}
+
+.MC-configSection h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.MC-configHint {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.MC-configHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Toggle de estado mejorado */
+.MC-toggleBtn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 24px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.3px;
+}
+
+.MC-toggleActivo {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+}
+
+.MC-toggleActivo::before {
+  content: '✓';
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.MC-toggleInactivo {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  color: #fff;
+}
+
+.MC-toggleInactivo::before {
+  content: '○';
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.MC-toggleBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+
+/* Input de hora mejorado */
+.MC-agregarHorario {
+  display: flex;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.MC-timeInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+  background: #fff;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.MC-timeInput:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.MC-timeInput::-webkit-time-picker-icon {
+  filter: invert(0.5);
+}
+
+.MC-btnAgregarHorario {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.25s;
+}
+
+.MC-btnAgregarHorario:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.MC-btnAgregarHorario:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.MC-btnAgregarHorario:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Lista de horarios mejorada */
+.MC-horariosList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.MC-sinHorarios {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  padding: 20px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  border: 2px dashed #d1d5db;
+}
+
+.MC-horarioItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.MC-horarioItem:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.MC-horarioTime {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.MC-horarioTime::before {
+  content: '🕐';
+  font-size: 0.9rem;
+}
+
+.MC-btnEliminarHorario {
+  background: #fff;
+  color: #ef4444;
+  border: 2px solid #fee2e2;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s;
+  font-size: 0.85rem;
+}
+
+.MC-btnEliminarHorario:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+  transform: scale(1.05);
+}
+
+/* Información de config mejorada */
+.MC-configInfo {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-left: 4px solid #3b82f6;
+  padding: 16px 18px;
+  border-radius: 10px;
+  font-size: 0.83rem;
+  margin-top: 8px;
+}
+
+.MC-configInfo p {
+  margin: 0 0 10px;
+  font-weight: 700;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.MC-configInfo p::before {
+  content: 'ℹ️';
+  font-size: 0.9rem;
+}
+
+.MC-configInfo ul {
+  margin: 0;
+  padding-left: 4px;
+  list-style: none;
+}
+
+.MC-configInfo li {
+  margin-bottom: 6px;
+  color: #1e3a8a;
+  padding-left: 16px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.MC-configInfo li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+.MC-configInfo li:last-child {
+  margin-bottom: 0;
+}
+
+/* Footer del modal */
+.MC-modalConfig .MC-modalFooter {
+  padding: 16px 24px;
+  background: #fff;
+  border-top: 1px solid #e8e9ea;
+  border-radius: 0 0 16px 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.MC-btnCerrarConfig {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+  transition: all 0.25s;
+}
+
+.MC-btnCerrarConfig:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+}
