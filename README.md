@@ -155,15 +155,13 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 
 **Gestión de Pedidos V3 (`/GestionPedidosV3`):**
 - Gestión de pedidos de Medical Care V3 (solo edición y eliminación individual; la carga masiva reemplaza toda la base automáticamente)
-- **Carga masiva desde Excel**: modal con progreso SSE. El backend elimina todos los pedidos anteriores antes de insertar los nuevos. Protegido contra carga múltiple simultánea con `cargandoExcelRef` (ref síncrono) + estado visual "Cargando..." en el botón
-- **Carga masiva desde API de Siscore** (nueva funcionalidad): carga automática desde `https://integra-wms.appsiscore.com/app/ws/informe_v3.php` con cálculo automático de rango de fechas (desde el 1er día de hace 2 meses hasta hoy). Reemplaza la carga manual de Excel. Usa el mismo endpoint SSE con progreso en tiempo real.
+- **Carga masiva desde API de Siscore**: carga automática desde `https://integra-wms.appsiscore.com/app/ws/informe_v3.php` con cálculo automático de rango de fechas (desde el 1er día de hace 2 meses hasta hoy). Usa endpoint SSE con progreso en tiempo real. Modal muestra información del rango de fechas y filtros aplicados (mes actual + exclusión de clientes institucionales).
 - **Tabla de pedidos**: columnas con datos originales (cliente_destino_original, direccion_destino_original), filtro por estado, paginación
 - **Filtro por estado**: selector que consulta los estados únicos de la colección
 - **Buscador por código de pedido**: campo de texto + botón de búsqueda, con opción de limpiar
 - **Logo/título clickeable**: navega a `/MedicalCare`
 - **Indicador de última sincronización automática**: texto discreto en la toolbar (`⟳ 7 abr 2026 14:32`) que muestra la hora del último sync del backend. Consulta `GET /sync-v3/estado` cada 60s; solo recarga los pedidos si el timestamp cambió
 - **Protección**: requiere sesión y cliente activo = MEDICAL_CARE
-- **Botones eliminados**: "Crear Pedido" y "Eliminar Todos" fueron removidos porque la carga masiva es la única fuente de datos y ya limpia la colección antes de insertar
 
 **Gestión de Pacientes (`/GestionPacientes`):**
 - Gestión CRUD completa de pacientes de Medical Care
@@ -701,11 +699,6 @@ Aplicado a todos los portales para consistencia visual:
 - `ProgressEvent`: Interfaz de eventos de progreso SSE
 
 ### Pedidos V3 (apiPedidosV3.tsx)
-- **`cargarPedidosV3Stream(usuario, archivo, onProgress)`**: Importación masiva de pedidos desde Excel con progreso en tiempo real via Server-Sent Events (SSE)
-  - Lee el stream de eventos del backend y actualiza el estado de progreso
-  - Envia `usuario` como query string (no en FormData) para evitar error 422
-  - Callback `onProgress` recibe objetos con `stage`, `progress`, `message`, `processed`, `total`, `errores`
-  - Maneja errores de parseo SSE y muestra alertas con SweetAlert2
 - **`cargarPedidosV3DesdeApiStream(usuario, onProgress)`**: Importación masiva de pedidos desde API de Siscore con progreso en tiempo real via Server-Sent Events (SSE)
   - Lee el stream de eventos del backend y actualiza el estado de progreso
   - Envia `usuario` como query string
@@ -776,24 +769,25 @@ Aplicado a todos los portales para consistencia visual:
 
 ## Historial de cambios relevantes
 
-### Mayo 2026 — Integración con API de Siscore V3 para carga automática de pedidos
+### Mayo 2026 — Reemplazo de carga Excel por API de Siscore V3
 
-**`GestionPedidosV3P/index.tsx` — Nueva funcionalidad de carga desde API:**
-- **Nueva opción de carga**: Botón para cargar pedidos directamente desde API de Siscore (además de la carga desde Excel existente)
+**`GestionPedidosV3P/index.tsx` — Carga desde API reemplaza a Excel:**
+- **Botón "Actualizar V3"**: Reemplaza el botón "Cargar Excel". Carga pedidos directamente desde API de Siscore
 - **Endpoint del backend**: `POST /pedidos-v3/cargar-desde-api-stream?usuario=USUARIO`
 - **Cálculo automático de rango de fechas**: desde el 1er día de hace 2 meses hasta hoy (ej: 2026-05-04 → consulta desde 2026-03-01)
-- **Progreso en tiempo real via SSE**: Mismo patrón que carga Excel con stages 'calculating', 'fetching', 'processing', 'saving', 'complete'
-- **Respuesta final**: Incluye `registros_insertados`, `registros_filtrados`, `rango_fechas`, `tiempo_segundos`
+- **Progreso en tiempo real via SSE**: stages 'calculating', 'fetching', 'processing', 'saving', 'complete'
+- **Modal actualizado**: Muestra información del rango de fechas y filtros aplicados (sin campo de archivo)
 - **API de Siscore**: `https://integra-wms.appsiscore.com/app/ws/informe_v3.php`
+- **Estados eliminados**: `archivo`, `cargandoExcel`, `cargandoExcelRef` (reemplazados por `cargandoApi`, `cargandoApiRef`)
 
-**`apiPedidosV3.tsx` — Nueva función API:**
-- **`cargarPedidosV3DesdeApiStream(usuario, onProgress)`**: Llama al endpoint de carga desde API con manejo de SSE
+**`apiPedidosV3.tsx` — Función API simplificada:**
+- **`cargarPedidosV3DesdeApiStream(usuario, onProgress)`**: Única función de carga (Excel eliminado)
 - Callback `onProgress` recibe objetos con `stage`, `progress`, `message`, `registros_insertados`, `registros_filtrados`, `rango_fechas`
 - Maneja errores de conexión HTTP y validación de respuesta API
 
 **Documentación actualizada:**
-- `integrapp-next/README.md`: Sección "Gestión de Pedidos V3" actualizada con nueva funcionalidad
-- `integrappi/README.md`: Nueva documentación completa del endpoint y funciones auxiliares
+- `integrapp-next/README.md`: Sección "Gestión de Pedidos V3" actualizada (eliminadas referencias a Excel)
+- `integrappi/README.md`: Documentación completa del endpoint y funciones auxiliares
 
 ### Marzo 2025 — Rediseño visual y sistema de diseño unificado
 
