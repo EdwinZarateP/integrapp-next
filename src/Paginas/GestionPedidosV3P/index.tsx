@@ -517,15 +517,18 @@ const GestionPedidosV3P: React.FC = () => {
               <button className="GPV3-closeBtn" onClick={() => setMostrarModalCarga(false)}>×</button>
             </div>
             <div className="GPV3-modalBody">
-              {progreso ? (
+              {cargandoApi ? (
                 <div className="GPV3-progreso">
-                  <div className="GPV3-progresoStage">{progreso.message}</div>
-                  {progreso.stage === 'processing' && progreso.total && (
+                  <div className="GPV3-spinner" style={{margin: '20px auto'}}></div>
+                  <div className="GPV3-progresoStage">
+                    {progreso?.message || 'Iniciando conexión con API de Siscore...'}
+                  </div>
+                  {progreso?.stage === 'processing' && progreso.total && (
                     <div className="GPV3-progresoStats">
                       {progreso.processed || 0} / {progreso.total} registros
                     </div>
                   )}
-                  {progreso.stage === 'processing' && progreso.inserted !== undefined && (
+                  {progreso?.stage === 'processing' && progreso.inserted !== undefined && (
                     <div className="GPV3-progresoStats">
                       Insertados: {progreso.inserted} | Filtrados: {progreso.filtered || 0}
                     </div>
@@ -543,7 +546,7 @@ const GestionPedidosV3P: React.FC = () => {
                 </div>
               )}
             </div>
-            {!progreso && (
+            {!cargandoApi && (
               <div className="GPV3-modalFooter">
                 <button
                   className="GPV3-btn GPV3-btnSecondary"
@@ -556,7 +559,7 @@ const GestionPedidosV3P: React.FC = () => {
                   onClick={handleActualizarDesdeApi}
                   disabled={cargandoApi}
                 >
-                  {cargandoApi ? 'Actualizando...' : 'Actualizar'}
+                  Actualizar
                 </button>
               </div>
             )}
