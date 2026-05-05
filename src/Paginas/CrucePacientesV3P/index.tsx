@@ -75,6 +75,84 @@ const getEstiloEstado = (estado: string | undefined): React.CSSProperties => {
   }
 };
 
+// ── Funciones para calcular urgencia (6 días hábiles) ────────────────────────────
+const _parsearFecha = (fechaStr: string): Date | null => {
+  if (!fechaStr) return null;
+  const formatos = ['%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%Y/%m/%d'];
+  for (const fmt of formatos) {
+    try {
+      const parts = fechaStr.substring(0, 10).split(/[-/]/);
+      if (fmt === '%Y-%m-%d' || fmt === '%Y/%m/%d') {
+        const [year, month, day] = parts.map(Number);
+        if (parts[0].length === 4) {
+          const date = new Date(year, month - 1, day);
+          if (!isNaN(date.getTime())) return date;
+        }
+      } else {
+        const [day, month, year] = parts.map(Number);
+        const date = new Date(year + (year < 100 ? 2000 : 0), month - 1, day);
+        if (!isNaN(date.getTime())) return date;
+      }
+    } catch {}
+  }
+  return null;
+};
+
+// Festivos de Colombia 2026 (coincidentes con librería holidays de Python)
+const _festivosColombia = new Set([
+  '2026-01-01', '2026-01-12', '2026-03-23', '2026-04-02', '2026-04-03',
+  '2026-05-01', '2026-05-18', '2026-06-08', '2026-06-15', '2026-06-29',
+  '2026-07-20', '2026-08-07', '2026-08-17', '2026-10-12', '2026-11-02',
+  '2026-11-16', '2026-12-08', '2026-12-25',
+]);
+
+const _esFestivoODomingo = (fecha: Date): boolean => {
+  const fechaStr = fecha.toISOString().split('T')[0];
+  return fecha.getDay() === 0 || _festivosColombia.has(fechaStr);
+};
+
+const _calcularDiasHabiles = (fechaDesdeStr: string, fechaHastaStr: string): number => {
+  const desde = _parsearFecha(fechaDesdeStr);
+  const hasta = _parsearFecha(fechaHastaStr);
+  if (!desde || !hasta) return 0;
+
+  let dias = 0;
+  const actual = new Date(desde);
+  while (actual <= hasta) {
+    if (!_esFestivoODomingo(actual)) {
+      dias += 1;
+    }
+    actual.setDate(actual.getDate() + 1);
+  }
+  return dias;
+};
+
+const _esPacienteUrgente = (paciente: any): boolean => {
+  const fPrefTeorica = paciente.f_pref_teorica || '';
+  if (!fPrefTeorica) return false;
+
+  const fPrefDt = _parsearFecha(fPrefTeorica);
+  if (!fPrefDt) return false;
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const mesActual = hoy.getMonth();
+  const anioActual = hoy.getFullYear();
+
+  // Verificar si es del mes actual
+  if (fPrefDt.getMonth() !== mesActual || fPrefDt.getFullYear() !== anioActual) {
+    return false;
+  }
+
+  // Calcular días hábiles desde mañana hasta la fecha preferente
+  const manana = new Date(hoy);
+  manana.setDate(manana.getDate() + 1);
+  const mananaStr = manana.toISOString().split('T')[0];
+
+  const diasHabiles = _calcularDiasHabiles(mananaStr, fPrefTeorica);
+  return diasHabiles < 6;
+};
+
 const CrucePacientesV3P: React.FC = () => {
   const router = useRouter();
   const [usuario, setUsuario]   = useState('');
@@ -104,6 +182,7 @@ const CrucePacientesV3P: React.FC = () => {
   const [filtroRutaInput, setFiltroRutaInput] = useState('');
   const [filtroRuta, setFiltroRuta]           = useState('');
   const [filtroPedidosMultiples, setFiltroPedidosMultiples] = useState(false);
+  const [filtroRetrasoOperacion, setFiltroRetrasoOperacion] = useState(false);
   const [rutaExpandida, setRutaExpandida]   = useState<string | null>(null);
   const [rutaV3Expandida, setRutaV3Expandida] = useState<string | null>(null);
 
@@ -266,7 +345,11 @@ const CrucePacientesV3P: React.FC = () => {
   const rutasFiltradas = rutas
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
     .filter(r => !filtroRuta || r.ruta.toUpperCase().includes(filtroRuta.toUpperCase()))
-    .filter(r => !filtroPedidosMultiples || r.pacientes.some(p => (p.cant_pedidos_v3 ?? 0) > 1));
+    .filter(r => !filtroPedidosMultiples || r.pacientes.some(p => (p.cant_pedidos_v3 ?? 0) > 1))
+    .filter(r => !filtroRetrasoOperacion || r.pacientes.some(p => {
+      const estado = (p.estado_cruce || '').toLowerCase();
+      return estado === 'retraso operación' || estado === 'retraso operacion';
+    }));
 
   const rutasV3SinFiltradas = rutasV3Sin
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
@@ -450,6 +533,18 @@ const CrucePacientesV3P: React.FC = () => {
               />
               Multi-pedido
             </label>
+            <label
+              className="CRV3-filtroCheck"
+              style={{ color: filtroRetrasoOperacion ? '#e65100' : 'inherit' }}
+              title="Mostrar solo pacientes con estado 'retraso operación'"
+            >
+              <input
+                type="checkbox"
+                checked={filtroRetrasoOperacion}
+                onChange={e => setFiltroRetrasoOperacion(e.target.checked)}
+              />
+              Retraso operación
+            </label>
             <div className="CRV3-toolbarBtns">
               <button
                 className="CRV3-btn CRV3-btnExport"
@@ -607,7 +702,19 @@ const CrucePacientesV3P: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {(filtroPedidosMultiples ? r.pacientes.filter(p => (p.cant_pedidos_v3 ?? 0) > 1) : r.pacientes).map((p, i) => {
+                              {(() => {
+                                let pacientesFiltrados = r.pacientes;
+                                if (filtroPedidosMultiples) {
+                                  pacientesFiltrados = pacientesFiltrados.filter(p => (p.cant_pedidos_v3 ?? 0) > 1);
+                                }
+                                if (filtroRetrasoOperacion) {
+                                  // Filtrar solo por estado de retraso operación (sin filtro de urgencia)
+                                  pacientesFiltrados = pacientesFiltrados.filter(p => {
+                                    const estado = (p.estado_cruce || '').toLowerCase();
+                                    return estado === 'retraso operación' || estado === 'retraso operacion';
+                                  });
+                                }
+                                return pacientesFiltrados.map((p, i) => {
                                 return (
                                   <tr key={i}>
                                     <td style={getEstiloEstado(p.estado_cruce)}>{p.estado_cruce || '—'}</td>
@@ -662,7 +769,7 @@ const CrucePacientesV3P: React.FC = () => {
                                     <td style={{ textAlign: 'center', fontWeight: 600 }}>{p.cant_pedidos_v3 || 0}</td>
                                   </tr>
                                 );
-                              })}
+                              })})()}
                             </tbody>
                           </table>
                         </div>
@@ -876,13 +983,21 @@ const CrucePacientesV3P: React.FC = () => {
                           <div className="CRV3-loading" style={{ padding: '24px' }}>
                             <div className="CRV3-spinner" /><p>Cargando detalle...</p>
                           </div>
-                        ) : detalleHistorico && (
-                          <div style={{ padding: '16px', borderTop: '1px solid #f0f0f0' }}>
-                            <p className="CRV3-resumenV3" style={{ marginBottom: 12 }}>
-                              Cruce al <strong>{m.fecha_corte?.slice(0, 10)}</strong> · {detalleHistorico.rutas.length} rutas · {detalleHistorico.total_sin_paciente} sin paciente
-                            </p>
-                            <div className="CRV3-rutasGrid">
-                              {detalleHistorico.rutas.map(r => {
+                        ) : (
+                          (() => {
+                            const rutasFiltradasHist = detalleHistorico?.rutas.filter(
+                              r => !filtroRetrasoOperacion || r.pacientes.some(p => {
+                                const estado = (p.estado_cruce || '').toLowerCase();
+                                return (estado === 'retraso operación' || estado === 'retraso operacion') && _esPacienteUrgente(p);
+                              })
+                            ) || [];
+                            return (
+                              <div style={{ padding: '16px', borderTop: '1px solid #f0f0f0' }}>
+                                <p className="CRV3-resumenV3" style={{ marginBottom: 12 }}>
+                                  Cruce al <strong>{m.fecha_corte?.slice(0, 10)}</strong> · {rutasFiltradasHist.length} ruta{rutasFiltradasHist.length !== 1 ? 's' : ''} · {detalleHistorico?.total_sin_paciente || 0} sin paciente
+                                </p>
+                                <div className="CRV3-rutasGrid">
+                                  {rutasFiltradasHist.map(r => {
                                 const color   = r.ocupacion_pct >= 80 ? '#155724' : r.ocupacion_pct >= 50 ? '#856404' : '#721c24';
                                 const bgColor = r.ocupacion_pct >= 80 ? '#d4edda' : r.ocupacion_pct >= 50 ? '#fff3cd' : '#f8d7da';
                                 const exp = `hist-${clave}-${r.ruta}`;
@@ -923,7 +1038,15 @@ const CrucePacientesV3P: React.FC = () => {
                                             </tr>
                                           </thead>
                                           <tbody>
-                                            {r.pacientes.map((p, i) => {
+                                            {(() => {
+                                              let pacientesFiltrados = r.pacientes;
+                                              if (filtroRetrasoOperacion) {
+                                                // Filtrar por estado Y urgencia (<6 días hábiles, mes actual)
+                                                pacientesFiltrados = pacientesFiltrados.filter(p =>
+                                                  p.estado_cruce === 'retraso operación' && _esPacienteUrgente(p)
+                                                );
+                                              }
+                                              return pacientesFiltrados.map((p, i) => {
                                               return (
                                                 <tr key={i}>
                                                   <td style={getEstiloEstado(p.estado_cruce)}>{p.estado_cruce || '—'}</td>
@@ -963,7 +1086,7 @@ const CrucePacientesV3P: React.FC = () => {
                                                   <td style={{ textAlign: 'center', fontWeight: 600 }}>{p.cant_pedidos_v3 || 0}</td>
                                                 </tr>
                                               );
-                                            })}
+                                            })})()}
                                           </tbody>
                                         </table>
                                       </div>
@@ -971,12 +1094,14 @@ const CrucePacientesV3P: React.FC = () => {
                                   </div>
                                 );
                               })}
+                              </div>
                             </div>
-                          </div>
+                          );
+                        })()
                         )
                       )}
                     </div>
-                  );
+                    );
                 })}
               </div>
             );
