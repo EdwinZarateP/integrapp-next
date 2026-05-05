@@ -122,6 +122,7 @@ Sistema de gestión de pedidos con soporte para múltiples clientes (Fresenius K
 **Portal Medical Care (`/MedicalCare`):**
 - Header Fresenius Medical Care con accesos a Pacientes, Pedidos V3 y Cruce
 - **Botón "Ocupación por Rutas"**: navega a la página dedicada `/CrucePacientesV3`
+- **Botón "Configuración Sync"** (solo ADMIN y COORDINADOR): modal para gestionar horarios de sincronización V3 almacenados en MongoDB. Permite activar/desactivar sync, agregar/eliminar horarios en formato HH:MM. Los cambios se guardan inmediatamente en la colección `config_v3`.
 - Dropdown de usuario con accesos rápidos: Pacientes, Pedidos V3, Cruce Pacientes ↔ V3
 - Protegido: requiere sesión y cliente activo = MEDICAL_CARE
 
@@ -883,6 +884,50 @@ Aplicado a todos los portales para consistencia visual:
 - **Pestaña "Histórico"**: nuevos cortes mensuales automáticos que se generan el último día de cada mes. Lista de meses con total de pedidos, expandible para ver el cruce completo de ese momento histórico con las mismas columnas y badges que la pestaña de ocupación.
 - **Funcionalidad completa**: los cambios se aplican tanto en tabla principal como en tabla histórica
 - **Actualización de documentación**: README actualizado con descripción detallada del nuevo algoritmo de cruce (nombre → llave → celular) y significado de cada emoji
+
+---
+
+## Historial de cambios relevantes
+
+### Mayo 2026 — Sistema de configuración de sincronización V3 y mejoras UI
+
+**`MedicalCareP/index.tsx` — Botón de configuración:**
+- **Botón "Configuración Sync"** (solo ADMIN y COORDINADOR): abre modal para gestionar horarios de sincronización V3
+- **Control de acceso**: verifica cookie `perfilPedidosCookie` para mostrar/ocultar botón según perfil
+- **Funciones de gestión**:
+  - `cargarConfigSync()`: carga configuración desde `GET /sync-v3/config`
+  - `handleAgregarHorario()`: agrega horario vía `POST /sync-v3/horarios?horario=HH:MM`
+  - `handleEliminarHorario()`: elimina horario vía `DELETE /sync-v3/horarios/HH:MM`
+  - `handleToggleActivo()`: activa/desactiva sync vía `POST /sync-v3/config` con body `{"activo": true/false}`
+- **Elementos eliminados**: cajas decorativas "Carga Masiva Pacientes", "Carga Masiva Pedidos" y "Gestión Completa" (no aportaban valor)
+
+**`MedicalCareP/estilos.css` — Rediseño del modal de configuración:**
+- **Header con gradiente púrpura**: consistente con botón de configuración
+- **Secciones como tarjetas blancas**: sombras sutiles, bordes redondeados
+- **Toggle mejorado**: iconos (✓ activo, ○ inactivo), gradiente, efecto hover
+- **Input de hora**: borde grueso, efecto de foco con sombra azul
+- **Lista de horarios**: gradiente de fondo, icono de reloj (🕐), botones de eliminar elegantes
+- **Sección de información**: fondo azul con gradiente, mejor estructura
+
+**`GestionPedidosV3P/index.tsx` — Spinner continuo:**
+- **Animación mejorada**: spinner se muestra continuamente durante toda la carga de API Siscore
+- Antes: desaparecía al llegar primer evento SSE
+- Ahora: visible mientras `cargandoApi = true` (durante toda la operación)
+
+### Mayo 2026 — Referencia a Excel en notificaciones WhatsApp
+
+**Notificaciones de Medical Care**:
+- Todos los mensajes de WhatsApp incluyen ahora: "El Excel con el detalle fue enviado a tu correo"
+- Aplica a notificaciones de: retraso operación, sin cruce, recálculo manual
+- Archivos afectados: `sync_api_v3.py`, `pacientes_medical_care.py`
+
+### Mayo 2026 — Timeout aumentado para API Siscore
+
+**`rutas/pedidos_v3.py` — Configuración de timeout:**
+- **Timeout aumentado**: de 120s a 600s (10 minutos) para endpoint Siscore V3
+- **Timeout de conexión**: 120s (2 minutos para establecer conexión)
+- **Mejor manejo de errores**: distingue entre timeout de conexión y timeout de lectura
+- El endpoint de Siscore normalmente tarda 5-7 minutos en responder
 
 ---
 
