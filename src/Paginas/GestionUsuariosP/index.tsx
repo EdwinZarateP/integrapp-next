@@ -15,6 +15,14 @@ const CLIENTES_DISPONIBLES = [
   { key: 'MEDICAL_CARE', label: 'Fresenius Medical Care' },
 ];
 
+const REGIONALES = [
+  'FUNZA',
+  'CALI',
+  'MEDELLIN',
+  'BUCARAMANGA',
+  'BARRANQUILLA',
+];
+
 const NOTIFICACIONES_MC = [
   {
     key: 'retraso_operacion',
@@ -389,32 +397,50 @@ const GestionUsuariosP: React.FC = () => {
                           {guardandoCliente === u.id ? 'Guardando…' : msgsCliente[u.id || ''] || ''}
                         </td>
                         <td className="GU-td-acciones">
-                          {esSoloNotif ? null : (
-                          <>
-                          <button
-                            className="GU-btn-reset"
-                            title="Resetear contraseña"
-                            disabled={!activo}
-                            onClick={() => { setModalReset(u); setFormReset({ nuevaClave: '', confirmarClave: '' }); setErrorReset(''); }}
-                          >
-                            <FaKey />
-                          </button>
-                          <button
-                            className="GU-btn-editar"
-                            title="Editar datos del usuario"
-                            onClick={() => abrirEditar(u)}
-                          >
-                            <FaPencilAlt />
-                          </button>
-                          <button
-                            className={activo ? 'GU-btn-desactivar' : 'GU-btn-activar'}
-                            title={activo ? 'Desactivar usuario' : 'Activar usuario'}
-                            disabled={toggling === u.id}
-                            onClick={() => toggleActivo(u)}
-                          >
-                            {toggling === u.id ? '…' : activo ? <FaToggleOn /> : <FaToggleOff />}
-                          </button>
-                          </>
+                          {esSoloNotif ? (
+                            <>
+                            <button
+                              className="GU-btn-editar"
+                              title="Editar datos del usuario"
+                              onClick={() => abrirEditar(u)}
+                            >
+                              <FaPencilAlt />
+                            </button>
+                            <button
+                              className={activo ? 'GU-btn-desactivar' : 'GU-btn-activar'}
+                              title={activo ? 'Desactivar usuario' : 'Activar usuario'}
+                              disabled={toggling === u.id}
+                              onClick={() => toggleActivo(u)}
+                            >
+                              {toggling === u.id ? '…' : activo ? <FaToggleOn /> : <FaToggleOff />}
+                            </button>
+                            </>
+                          ) : (
+                            <>
+                            <button
+                              className="GU-btn-reset"
+                              title="Resetear contraseña"
+                              disabled={!activo}
+                              onClick={() => { setModalReset(u); setFormReset({ nuevaClave: '', confirmarClave: '' }); setErrorReset(''); }}
+                            >
+                              <FaKey />
+                            </button>
+                            <button
+                              className="GU-btn-editar"
+                              title="Editar datos del usuario"
+                              onClick={() => abrirEditar(u)}
+                            >
+                              <FaPencilAlt />
+                            </button>
+                            <button
+                              className={activo ? 'GU-btn-desactivar' : 'GU-btn-activar'}
+                              title={activo ? 'Desactivar usuario' : 'Activar usuario'}
+                              disabled={toggling === u.id}
+                              onClick={() => toggleActivo(u)}
+                            >
+                              {toggling === u.id ? '…' : activo ? <FaToggleOn /> : <FaToggleOff />}
+                            </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -480,8 +506,11 @@ const GestionUsuariosP: React.FC = () => {
                 )}
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Regional *</label>
-                  <input className="GU-formInput" type="text" placeholder="FUNZA" required
-                    value={form.regional} onChange={e => setForm(f => ({ ...f, regional: e.target.value }))} />
+                  <select className="GU-formInput" required
+                    value={form.regional} onChange={e => setForm(f => ({ ...f, regional: e.target.value }))}>
+                    <option value="">Seleccionar...</option>
+                    {REGIONALES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
                 </div>
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Correo {form.perfil === 'CLIENTE_FMC' && '*'}</label>
@@ -552,9 +581,12 @@ const GestionUsuariosP: React.FC = () => {
                 </div>
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Regional *</label>
-                  <input className="GU-formInput" type="text" required
+                  <select className="GU-formInput" required
                     value={formEditar.regional}
-                    onChange={e => setFormEditar(f => ({ ...f, regional: e.target.value }))} />
+                    onChange={e => setFormEditar(f => ({ ...f, regional: e.target.value }))}>
+                    <option value="">Seleccionar...</option>
+                    {REGIONALES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
                 </div>
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Correo</label>

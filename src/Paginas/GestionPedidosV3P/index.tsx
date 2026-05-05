@@ -387,8 +387,20 @@ const GestionPedidosV3P: React.FC = () => {
             <span className="GPV3-totalNote">(mes actual)</span>
           </div>
           <div className="GPV3-actions">
-            <button className="GPV3-btn GPV3-btnPrimary" onClick={() => setMostrarModalCarga(true)}>
-              <FaSync /> Actualizar V3
+            <button
+              className="GPV3-btn GPV3-btnPrimary"
+              onClick={() => setMostrarModalCarga(true)}
+              disabled={cargandoApi}
+            >
+              {cargandoApi ? (
+                <>
+                  <FaSync className="GPV3-spinIcon" /> Actualizando...
+                </>
+              ) : (
+                <>
+                  <FaSync /> Actualizar V3
+                </>
+              )}
             </button>
           </div>
         </div>

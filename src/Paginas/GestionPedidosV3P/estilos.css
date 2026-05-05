@@ -476,6 +476,10 @@
   100% { transform: rotate(360deg); }
 }
 
+.GPV3-spinIcon {
+  animation: GPV3-spin 1s linear infinite;
+}
+
 /* ── Empty State ── */
 .GPV3-empty {
   display: flex;
