@@ -32,6 +32,11 @@ const formatearFecha = (fechaStr: string | undefined): string => {
   if (!fechaStr) return '—';
   if (fechaStr === '—') return '—';
 
+  // Detectar fechas inválidas como "00/00/0", "00/00/00", "0/0/0", etc.
+  if (/^0[\/\-]0[\/\-]0\d*$/.test(fechaStr.trim())) {
+    return '—';
+  }
+
   const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
   let fecha: Date;
@@ -45,18 +50,31 @@ const formatearFecha = (fechaStr: string | undefined): string => {
       const mes = parseInt(partes[1], 10) - 1; // Meses en JS son 0-11
       let anio = parseInt(partes[2], 10);
       if (anio < 100) anio += 2000; // Para años de 2 dígitos
+
+      // Validar que los valores sean razonables antes de crear la fecha
+      if (isNaN(dia) || isNaN(mes) || isNaN(anio) ||
+          dia < 1 || dia > 31 || mes < 0 || mes > 11 || anio < 1900 || anio > 2100) {
+        return '—';
+      }
+
       fecha = new Date(anio, mes, dia);
     } else {
-      return fechaStr;
+      return '—';
     }
   } else if (fechaStr.includes('-')) {
     // Formato YYYY-MM-DD o ISO
     fecha = new Date(fechaStr.includes(' ') ? fechaStr.replace(' ', 'T') : fechaStr);
   } else {
-    return fechaStr;
+    return '—';
   }
 
-  if (isNaN(fecha.getTime())) return fechaStr;
+  if (isNaN(fecha.getTime())) return '—';
+
+  // Validación adicional: verificar que la fecha sea razonable
+  const anio = fecha.getFullYear();
+  if (anio < 1900 || anio > 2100) {
+    return '—';
+  }
 
   return `${String(fecha.getDate()).padStart(2, '0')} ${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
 };
@@ -66,13 +84,70 @@ const getEstiloEstado = (estado: string | undefined): React.CSSProperties => {
   switch (estado) {
     case 'sin cruce':
       return { background: '#f8bbd0', fontWeight: 700, color: '#880e4f' };
-    case 'retraso FMC':
-      return { background: '#ff5252', fontWeight: 700, color: '#ffffff' };
     case 'retraso operación':
       return { background: '#ffcc80', fontWeight: 700, color: '#e65100' };
+    case 'gestionar':
+      return { background: '#fff3cd', fontWeight: 700, color: '#856404' };
+    case 'gestionado':
+      return { background: '#e3f2fd', fontWeight: 700, color: '#1565c0' };
     default:
       return {};
   }
+};
+
+// ── Función para obtener el texto y estilo del estado (con lógica de "con tiempo") ─
+const getEstadoVisual = (paciente: any): { texto: string; estilo: React.CSSProperties } => {
+  const estado = (paciente.estado_cruce || '').toLowerCase();
+  const tieneCruce = paciente.en_v3 === true;
+  const esUrgente = _esPacienteUrgente(paciente);
+  const esGestionar = _esPacienteGestionar(paciente);
+  const estadoPedido = (paciente.estado_pedido || '').trim().toUpperCase();
+
+  // 1. Si hay cruce Y no es urgente (más de 6 días hábiles) → "con tiempo" en verde
+  if (tieneCruce && !esUrgente) {
+    return {
+      texto: 'con tiempo',
+      estilo: { background: '#d4edda', fontWeight: 700, color: '#155724' }
+    };
+  }
+
+  // 2. Retraso operación
+  if (estado === 'retraso operación' || estado === 'retraso operacion') {
+    return {
+      texto: 'retraso operación',
+      estilo: getEstiloEstado('retraso operación')
+    };
+  }
+
+  // 3. "gestionar" - Si tiene cruce, estado "POR PROGRAMAR", y está entre 3 y 6 días hábiles
+  if (tieneCruce && estadoPedido === 'POR PROGRAMAR' && esGestionar) {
+    return {
+      texto: 'gestionar',
+      estilo: getEstiloEstado('gestionar')
+    };
+  }
+
+  // 4. "gestionado" - Si tiene cruce, pero el estado del pedido es diferente a "POR PROGRAMAR"
+  if (tieneCruce && estadoPedido !== 'POR PROGRAMAR') {
+    return {
+      texto: 'gestionado',
+      estilo: getEstiloEstado('gestionado')
+    };
+  }
+
+  // 5. Sin cruce
+  if (!tieneCruce) {
+    return {
+      texto: 'sin cruce',
+      estilo: getEstiloEstado('sin cruce')
+    };
+  }
+
+  // Por defecto
+  return {
+    texto: '—',
+    estilo: {}
+  };
 };
 
 // ── Funciones para calcular urgencia (6 días hábiles) ────────────────────────────
@@ -151,6 +226,34 @@ const _esPacienteUrgente = (paciente: any): boolean => {
 
   const diasHabiles = _calcularDiasHabiles(mananaStr, fPrefTeorica);
   return diasHabiles < 6;
+};
+
+// ── Verifica si el paciente está en rango de "gestionar" (3 a 6 días hábiles) ──
+const _esPacienteGestionar = (paciente: any): boolean => {
+  const fPrefTeorica = paciente.f_pref_teorica || '';
+  if (!fPrefTeorica) return false;
+
+  const fPrefDt = _parsearFecha(fPrefTeorica);
+  if (!fPrefDt) return false;
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const mesActual = hoy.getMonth();
+  const anioActual = hoy.getFullYear();
+
+  // Verificar si es del mes actual
+  if (fPrefDt.getMonth() !== mesActual || fPrefDt.getFullYear() !== anioActual) {
+    return false;
+  }
+
+  // Calcular días hábiles desde mañana hasta la fecha preferente
+  const manana = new Date(hoy);
+  manana.setDate(manana.getDate() + 1);
+  const mananaStr = manana.toISOString().split('T')[0];
+
+  const diasHabiles = _calcularDiasHabiles(mananaStr, fPrefTeorica);
+  // Rango: >3 y ≤6 (es decir, 4, 5, o 6 días hábiles)
+  return diasHabiles > 3 && diasHabiles <= 6;
 };
 
 const CrucePacientesV3P: React.FC = () => {
@@ -605,6 +708,33 @@ const CrucePacientesV3P: React.FC = () => {
           </button>
         </div>
 
+        {/* Leyenda de estados */}
+        {tab === 'ocupacion' && (
+          <div className="CRV3-leyenda">
+            <strong className="CRV3-leyendaTitulo">Leyenda:</strong>
+            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaBadge" style={{ background: '#d4edda', color: '#155724' }}>con tiempo</span>
+              <span className="CRV3-leyendaDesc">más de 6 días hábiles</span>
+            </div>
+            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaBadge" style={{ background: '#ffcc80', color: '#e65100' }}>retraso operación</span>
+              <span className="CRV3-leyendaDesc">≤ 3 días hábiles</span>
+            </div>
+            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaBadge" style={{ background: '#fff3cd', color: '#856404' }}>gestionar</span>
+              <span className="CRV3-leyendaDesc">3 a 6 días hábiles (POR PROGRAMAR)</span>
+            </div>
+            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaBadge" style={{ background: '#e3f2fd', color: '#1565c0' }}>gestionado</span>
+              <span className="CRV3-leyendaDesc">estado ≠ POR PROGRAMAR</span>
+            </div>
+            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaBadge" style={{ background: '#f8bbd0', color: '#880e4f' }}>sin cruce</span>
+              <span className="CRV3-leyendaDesc">sin coincidencia en V3</span>
+            </div>
+          </div>
+        )}
+
         {/* Contenido */}
         <div className="CRV3-content">
 
@@ -715,10 +845,11 @@ const CrucePacientesV3P: React.FC = () => {
                                   });
                                 }
                                 return pacientesFiltrados.map((p, i) => {
-                                return (
-                                  <tr key={i}>
-                                    <td style={getEstiloEstado(p.estado_cruce)}>{p.estado_cruce || '—'}</td>
-                                    <td>{p.paciente}</td>
+                                  const estadoVisual = getEstadoVisual(p);
+                                  return (
+                                    <tr key={i}>
+                                      <td style={estadoVisual.estilo}>{estadoVisual.texto}</td>
+                                      <td>{p.paciente}</td>
                                     <td>{p.cedula}</td>
                                     <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
                                     <td>
@@ -1047,10 +1178,11 @@ const CrucePacientesV3P: React.FC = () => {
                                                 );
                                               }
                                               return pacientesFiltrados.map((p, i) => {
-                                              return (
-                                                <tr key={i}>
-                                                  <td style={getEstiloEstado(p.estado_cruce)}>{p.estado_cruce || '—'}</td>
-                                                  <td>{p.paciente}</td>
+                                                const estadoVisual = getEstadoVisual(p);
+                                                return (
+                                                  <tr key={i}>
+                                                    <td style={estadoVisual.estilo}>{estadoVisual.texto}</td>
+                                                    <td>{p.paciente}</td>
                                                   <td>{p.cedula}</td>
                                                   <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
                                                   <td><span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>{p.en_v3 ? 'SÍ' : 'NO'}</span></td>

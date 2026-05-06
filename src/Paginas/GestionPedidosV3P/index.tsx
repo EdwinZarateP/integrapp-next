@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaSync, FaEdit, FaTrash, FaArrowLeft, FaSearch } from 'react-icons/fa';
+import { FaSync, FaEdit, FaTrash, FaArrowLeft, FaSearch, FaFileExcel } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import {
@@ -11,6 +11,7 @@ import {
   actualizarPedidoV3,
   eliminarPedidoV3,
   obtenerPedidoV3PorId,
+  exportarPedidosV3Excel,
 } from '@/Funciones/ApiPedidos/apiPedidosV3';
 import type { ProgressEvent, CargarPedidosV3Response, EstadoV3 } from '@/Funciones/ApiPedidos/apiPedidosV3';
 import './estilos.css';
@@ -189,6 +190,40 @@ const GestionPedidosV3P: React.FC = () => {
     } finally {
       cargandoApiRef.current = false;
       setCargandoApi(false);
+    }
+  };
+
+  const handleExportarExcel = async () => {
+    try {
+      Swal.fire({
+        title: 'Exportando...',
+        text: 'Generando archivo Excel con los pedidos',
+        icon: 'info',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      // Exportar todos los pedidos (sin límite de paginación)
+      await exportarPedidosV3Excel(0, 10000, estadoSeleccionado || undefined);
+
+      Swal.close();
+      Swal.fire({
+        icon: 'success',
+        title: 'Excel Exportado',
+        text: 'El archivo se ha descargado exitosamente',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch (error: any) {
+      console.error('Error al exportar Excel:', error);
+      Swal.close();
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al Exportar',
+        text: error.response?.data?.detail || error.message || 'No se pudo generar el archivo Excel',
+      });
     }
   };
 
@@ -387,6 +422,14 @@ const GestionPedidosV3P: React.FC = () => {
             <span className="GPV3-totalNote">(mes actual)</span>
           </div>
           <div className="GPV3-actions">
+            <button
+              className="GPV3-btn GPV3-btnSecondary"
+              onClick={handleExportarExcel}
+              disabled={loading || pedidos.length === 0}
+              title="Exportar a Excel"
+            >
+              <FaFileExcel /> Exportar
+            </button>
             <button
               className="GPV3-btn GPV3-btnPrimary"
               onClick={() => setMostrarModalCarga(true)}

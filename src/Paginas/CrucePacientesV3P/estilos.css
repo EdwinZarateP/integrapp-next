@@ -188,6 +188,40 @@
 /* ── CONTENT ────────────────────────────────────────────── */
 .CRV3-content { flex: 1; }
 
+/* ── LEYENDA DE ESTADOS ─────────────────────────────────── */
+.CRV3-leyenda {
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+.CRV3-leyendaTitulo {
+  color: #546e7a;
+  font-weight: 600;
+  margin-right: 4px;
+}
+.CRV3-leyendaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.CRV3-leyendaBadge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.CRV3-leyendaDesc {
+  color: #78909c;
+  font-size: 0.78rem;
+}
+
 .CRV3-loading {
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 12px; padding: 60px 20px;
@@ -503,6 +537,28 @@
   /* Tabs */
   .CRV3-tabs { border-radius: 10px; }
   .CRV3-tab { padding: 10px 8px; font-size: .78rem; gap: 5px; }
+
+  /* Leyenda: más compacta en móvil */
+  .CRV3-leyenda {
+    padding: 10px 12px;
+    gap: 8px 10px;
+    font-size: 0.75rem;
+  }
+  .CRV3-leyendaTitulo {
+    font-size: 0.78rem;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .CRV3-leyendaItem {
+    gap: 4px;
+  }
+  .CRV3-leyendaBadge {
+    padding: 2px 6px;
+    font-size: 0.68rem;
+  }
+  .CRV3-leyendaDesc {
+    font-size: 0.72rem;
+  }
 
   /* Regional header */
   .CRV3-regionalHeader {

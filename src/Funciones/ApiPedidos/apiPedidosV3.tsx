@@ -294,3 +294,47 @@ export async function cargarPedidosV3DesdeApiStream(
 
   throw new Error('La carga no se completó correctamente');
 }
+
+/**
+ * Exporta pedidos V3 a un archivo Excel
+ */
+export async function exportarPedidosV3Excel(
+  skip: number = 0,
+  limit: number = 10000,
+  estado?: string
+): Promise<void> {
+  const params: any = { skip, limit };
+  if (estado) {
+    params.estado = estado;
+  }
+
+  const response = await axios.get(
+    `${API_BASE_URL}/pedidos-v3/exportar-excel`,
+    {
+      params,
+      responseType: 'blob',
+    }
+  );
+
+  // Crear URL y descargar el archivo
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+
+  // Obtener el nombre del archivo desde los headers
+  const contentDisposition = response.headers['content-disposition'];
+  let filename = 'pedidos_v3.xlsx';
+
+  if (contentDisposition) {
+    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1];
+    }
+  }
+
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
