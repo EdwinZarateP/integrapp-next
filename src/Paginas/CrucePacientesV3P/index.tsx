@@ -631,9 +631,9 @@ const CrucePacientesV3P: React.FC = () => {
             })()}
           </div>
           <div className="CRV3-toolbarRight">
-            <div className="CRV3-filtroRegional">
-              <FaFilter className="CRV3-filtroIcon" />
-              {perfil === 'ADMIN' || perfil === 'ANALISTA' || perfil === 'COORDINADOR' ? (
+            {perfil === 'ADMIN' || perfil === 'ANALISTA' || perfil === 'COORDINADOR' ? (
+              <div className="CRV3-filtroRegional">
+                <FaFilter className="CRV3-filtroIcon" />
                 <select
                   value={filtroRegional}
                   onChange={e => setFiltroRegional(e.target.value)}
@@ -643,10 +643,8 @@ const CrucePacientesV3P: React.FC = () => {
                     <option key={r} value={r}>{r === 'TODAS' ? 'Todas las regionales' : r}</option>
                   ))}
                 </select>
-              ) : (
-                <span className="CRV3-regionalFija">{regionalUsuario || 'Mi regional'}</span>
-              )}
-            </div>
+              </div>
+            ) : null}
             <div className="CRV3-filtroRuta">
               <input
                 className="CRV3-rutaInput"
