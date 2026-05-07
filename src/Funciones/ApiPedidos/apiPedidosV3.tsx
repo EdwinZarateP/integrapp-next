@@ -118,7 +118,8 @@ export async function obtenerPedidosV3(
   skip: number = 0,
   limit: number = 100,
   estado?: string,
-  mes_actual?: boolean
+  mes_actual?: boolean,
+  bodega?: string
 ): Promise<ObtenerPedidosV3Response> {
   const params: any = { skip, limit };
   if (estado) {
@@ -127,6 +128,9 @@ export async function obtenerPedidosV3(
   if (mes_actual !== undefined) {
     // Python usa 'mes_actual' con tilde
     params['mes_actual'] = mes_actual;
+  }
+  if (bodega) {
+    params.bodega = bodega;
   }
 
   const response = await axios.get<ObtenerPedidosV3Response>(
@@ -301,11 +305,15 @@ export async function cargarPedidosV3DesdeApiStream(
 export async function exportarPedidosV3Excel(
   skip: number = 0,
   limit: number = 10000,
-  estado?: string
+  estado?: string,
+  bodega?: string
 ): Promise<void> {
   const params: any = { skip, limit };
   if (estado) {
     params.estado = estado;
+  }
+  if (bodega) {
+    params.bodega = bodega;
   }
 
   const response = await axios.get(

@@ -60,7 +60,7 @@ const GestionUsuariosP: React.FC = () => {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [modalEditar, setModalEditar] = useState<BaseUsuario | null>(null);
-  const [formEditar, setFormEditar] = useState({ nombre: '', correo: '', regional: '', celular: '', clave: '' });
+  const [formEditar, setFormEditar] = useState({ nombre: '', correo: '', regional: '', celular: '', clave: '', usuario: '' });
   const [guardandoEditar, setGuardandoEditar] = useState(false);
   const [errorEditar, setErrorEditar] = useState('');
   const [modalReset, setModalReset] = useState<BaseUsuario | null>(null);
@@ -205,6 +205,7 @@ const GestionUsuariosP: React.FC = () => {
       regional: u.regional || '',
       celular:  u.celular || '',
       clave:    '',
+      usuario:  u.usuario || '',
     });
     setErrorEditar('');
     setModalEditar(u);
@@ -222,6 +223,7 @@ const GestionUsuariosP: React.FC = () => {
         regional: formEditar.regional,
         celular:  formEditar.celular || undefined,
         clave:    formEditar.clave || undefined,
+        usuario:  formEditar.usuario || undefined,
       });
       setUsuarios(prev => prev.map(u => u.id === modalEditar.id ? { ...u, ...res.usuario } : u));
       setModalEditar(null);
@@ -578,6 +580,12 @@ const GestionUsuariosP: React.FC = () => {
                   <input className="GU-formInput" type="text" required
                     value={formEditar.nombre}
                     onChange={e => setFormEditar(f => ({ ...f, nombre: e.target.value }))} />
+                </div>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Usuario *</label>
+                  <input className="GU-formInput GU-formInput--upper" type="text" required
+                    value={formEditar.usuario}
+                    onChange={e => setFormEditar(f => ({ ...f, usuario: e.target.value }))} />
                 </div>
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Regional *</label>

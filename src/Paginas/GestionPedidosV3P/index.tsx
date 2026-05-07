@@ -20,6 +20,7 @@ const GestionPedidosV3P: React.FC = () => {
   const router = useRouter();
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil]   = useState('');
+  const [regionalUsuario, setRegionalUsuario] = useState('');
 
 
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -71,7 +72,10 @@ const GestionPedidosV3P: React.FC = () => {
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
     if (cliente && cliente !== 'MEDICAL_CARE') { router.replace('/MedicalCare'); return; }
     setUsuario(match[2] || '');
-    setPerfil(document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '');
+    const perfilUsuario = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+    setPerfil(perfilUsuario);
+    const regionalCookie = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
+    setRegionalUsuario(regionalCookie);
 
     // Cargar datos iniciales solo una vez
     cargarEstados();
@@ -98,9 +102,23 @@ const GestionPedidosV3P: React.FC = () => {
       setLoading(true);
       let response;
 
+      // Obtener perfil y regional de las cookies en tiempo real (no dependencias)
+      const perfilUsuario = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+      const regionalCookie = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
+
+      // Mapear regional a código de bodega
+      const mapaRegionalABodega: { [key: string]: string } = {
+        'BARRANQUILLA': 'CO04',
+        'CALI': 'CO05',
+        'BUCARAMANGA': 'CO06',
+        'FUNZA': 'CO07',
+        'MEDELLIN': 'CO09',
+      };
+      const bodegaFiltro = perfilUsuario === 'OPERADOR' ? mapaRegionalABodega[regionalCookie] : undefined;
+
       if (codigo && codigo.trim()) {
         // Buscar por código de pedido específico
-        response = await obtenerPedidosV3(0, 1000, estadoSeleccionado || undefined, true);
+        response = await obtenerPedidosV3(0, 1000, estadoSeleccionado || undefined, true, bodegaFiltro);
         const filtrados = response.pedidos.filter((p: any) =>
           p.codigo_pedido && p.codigo_pedido.toString().includes(codigo.trim())
         );
@@ -111,7 +129,7 @@ const GestionPedidosV3P: React.FC = () => {
         setPaginaActual(1);
       } else {
         // Cargar normalmente (solo mes actual por defecto)
-        response = await obtenerPedidosV3(skip, limit, estadoSeleccionado || undefined, true);
+        response = await obtenerPedidosV3(skip, limit, estadoSeleccionado || undefined, true, bodegaFiltro);
         setPedidos(response.pedidos);
         setTotal(response.total);
         setPaginas(Math.ceil(response.total / limit));
@@ -126,7 +144,7 @@ const GestionPedidosV3P: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [skip, limit, estadoSeleccionado, buscandoCodigo]); // dependencias de useCallback
+  }, [skip, limit, estadoSeleccionado]); // dependencias mínimas necesarias
 
   // Este useEffect solo maneja cambios en el estado seleccionado (no la carga inicial)
   const estadoPrevioRef = useRef<string>('');
@@ -140,7 +158,6 @@ const GestionPedidosV3P: React.FC = () => {
     } else if (inicializadoRef.current) {
       estadoPrevioRef.current = estadoSeleccionado;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoSeleccionado, buscandoCodigo]);
 
   const handleActualizarDesdeApi = async () => {
@@ -205,8 +222,22 @@ const GestionPedidosV3P: React.FC = () => {
         },
       });
 
+      // Obtener perfil y regional del usuario para filtrar la exportación
+      const perfilUsuario = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+      const regionalCookie = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
+
+      // Mapear regional a código de bodega
+      const mapaRegionalABodega: { [key: string]: string } = {
+        'BARRANQUILLA': 'CO04',
+        'CALI': 'CO05',
+        'BUCARAMANGA': 'CO06',
+        'FUNZA': 'CO07',
+        'MEDELLIN': 'CO09',
+      };
+      const bodegaFiltro = perfilUsuario === 'OPERADOR' ? mapaRegionalABodega[regionalCookie] : undefined;
+
       // Exportar todos los pedidos (sin límite de paginación)
-      await exportarPedidosV3Excel(0, 10000, estadoSeleccionado || undefined);
+      await exportarPedidosV3Excel(0, 10000, estadoSeleccionado || undefined, bodegaFiltro);
 
       Swal.close();
       Swal.fire({
@@ -300,20 +331,32 @@ const GestionPedidosV3P: React.FC = () => {
 
   const formatearFecha = (fecha: string | null | undefined): string => {
     if (!fecha) return '-';
-    
+
     // Si la fecha ya está en formato DD/MM/YYYY, retornarla tal cual
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(fecha)) {
       return fecha;
     }
-    
+
     // Intentar parsear como fecha de Excel
     const fechaParseada = new Date(fecha);
     if (isNaN(fechaParseada.getTime())) {
       return fecha; // Retornar original si no se puede parsear
     }
-    
+
     // Retornar solo la fecha en formato DD/MM/YYYY
     return fechaParseada.toLocaleDateString('es-CO');
+  };
+
+  const formatearRegional = (bodega: string | null | undefined): string => {
+    if (!bodega) return '-';
+    const mapa: { [key: string]: string } = {
+      'CO04': 'BARRANQUILLA',
+      'CO05': 'CALI',
+      'CO06': 'BUCARAMANGA',
+      'CO07': 'FUNZA',
+      'CO09': 'MEDELLIN',
+    };
+    return mapa[bodega] || bodega;
   };
 
   const cargarPagina = async (nuevoSkip: number) => {
@@ -430,21 +473,23 @@ const GestionPedidosV3P: React.FC = () => {
             >
               <FaFileExcel /> Exportar
             </button>
-            <button
-              className="GPV3-btn GPV3-btnPrimary"
-              onClick={() => setMostrarModalCarga(true)}
-              disabled={cargandoApi}
-            >
-              {cargandoApi ? (
-                <>
-                  <FaSync className="GPV3-spinIcon" /> Actualizando...
-                </>
-              ) : (
-                <>
-                  <FaSync /> Actualizar V3
-                </>
-              )}
-            </button>
+            {perfil !== 'OPERADOR' && (
+              <button
+                className="GPV3-btn GPV3-btnPrimary"
+                onClick={() => setMostrarModalCarga(true)}
+                disabled={cargandoApi}
+              >
+                {cargandoApi ? (
+                  <>
+                    <FaSync className="GPV3-spinIcon" /> Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <FaSync /> Actualizar V3
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -472,6 +517,7 @@ const GestionPedidosV3P: React.FC = () => {
                     <th>Dirección Destino</th>
                     <th>DESTINO</th>
                     <th>Ruta</th>
+                    <th>Regional</th>
                     <th>Teléfono</th>
                     <th>Fecha Pedido</th>
                     <th>Fecha Preferente</th>
@@ -510,6 +556,7 @@ const GestionPedidosV3P: React.FC = () => {
                       <td>{pedido.direccion_destino_original || '-'}</td>
                       <td className="GPV3-cellValue">{pedido.municipio_destino || '-'}</td>
                       <td>{pedido.ruta || '-'}</td>
+                      <td className="GPV3-cellValue">{formatearRegional(pedido.bodega_origen)}</td>
                       <td>{pedido.telefono || '-'}</td>
                       <td>{formatearFecha(pedido.fecha_pedido)}</td>
                       <td>{formatearFecha(pedido.fecha_preferente)}</td>

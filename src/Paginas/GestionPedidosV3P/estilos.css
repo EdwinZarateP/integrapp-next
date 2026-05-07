@@ -312,7 +312,30 @@
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
   margin-left: 4px;
-  font-style: italic;
+}
+
+.GPV3-regionalBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+  padding: 8px 16px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.15);
+}
+
+.GPV3-regionalLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.GPV3-regionalValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
 }
 
 /* ── Buscador de Código de Pedido ── */
@@ -934,6 +957,18 @@
     display: block;
     margin-left: 0;
     margin-top: 2px;
+  }
+
+  .GPV3-regionalBadge {
+    padding: 6px 12px;
+  }
+
+  .GPV3-regionalLabel {
+    font-size: 0.7rem;
+  }
+
+  .GPV3-regionalValue {
+    font-size: 0.95rem;
   }
 }
 

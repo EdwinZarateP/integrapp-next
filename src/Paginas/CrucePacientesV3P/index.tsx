@@ -103,19 +103,19 @@ const getEstadoVisual = (paciente: any): { texto: string; estilo: React.CSSPrope
   const esGestionar = _esPacienteGestionar(paciente);
   const estadoPedido = (paciente.estado_pedido || '').trim().toUpperCase();
 
-  // 1. Si hay cruce Y no es urgente (más de 6 días hábiles) → "con tiempo" en verde
-  if (tieneCruce && !esUrgente) {
-    return {
-      texto: 'con tiempo',
-      estilo: { background: '#d4edda', fontWeight: 700, color: '#155724' }
-    };
-  }
-
-  // 2. Retraso operación
+  // 1. PRIORIDAD ABSOLUTA: "retraso operación" (directo del backend)
   if (estado === 'retraso operación' || estado === 'retraso operacion') {
     return {
       texto: 'retraso operación',
       estilo: getEstiloEstado('retraso operación')
+    };
+  }
+
+  // 2. Si hay cruce Y no es urgente (más de 6 días hábiles) → "con tiempo" en verde
+  if (tieneCruce && !esUrgente) {
+    return {
+      texto: 'con tiempo',
+      estilo: { background: '#d4edda', fontWeight: 700, color: '#155724' }
     };
   }
 
@@ -260,6 +260,7 @@ const CrucePacientesV3P: React.FC = () => {
   const router = useRouter();
   const [usuario, setUsuario]   = useState('');
   const [perfil, setPerfil]     = useState('');
+  const [regionalUsuario, setRegionalUsuario] = useState('');
 
   const [tab, setTab]                       = useState<'ocupacion' | 'v3sin' | 'historico'>('ocupacion');
 
@@ -285,7 +286,7 @@ const CrucePacientesV3P: React.FC = () => {
   const [filtroRutaInput, setFiltroRutaInput] = useState('');
   const [filtroRuta, setFiltroRuta]           = useState('');
   const [filtroPedidosMultiples, setFiltroPedidosMultiples] = useState(false);
-  const [filtroRetrasoOperacion, setFiltroRetrasoOperacion] = useState(false);
+  const [filtroEstado, setFiltroEstado]       = useState<string | null>(null); // null = todos, 'con-tiempo', 'retraso-operacion', 'gestionar', 'gestionado', 'sin-cruce'
   const [rutaExpandida, setRutaExpandida]   = useState<string | null>(null);
   const [rutaV3Expandida, setRutaV3Expandida] = useState<string | null>(null);
 
@@ -322,8 +323,16 @@ const CrucePacientesV3P: React.FC = () => {
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
     if (cliente && cliente !== 'MEDICAL_CARE') { router.replace('/MedicalCare'); return; }
     setUsuario(match[2] || '');
-    setPerfil(document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '');
+    const perfilUsuario = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+    setPerfil(perfilUsuario);
+    const regionalCookie = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
+    setRegionalUsuario(regionalCookie);
+    // Solo OPERADOR es filtrado automáticamente por su regional
+    if (perfilUsuario === 'OPERADOR') {
+      setFiltroRegional(regionalCookie);
+    }
     cargarOcupacion();
+    cargarV3Sin();
   }, [router]);
 
   // ── Carga inicial desde cache ────────────────────────────────────────────────
@@ -449,23 +458,57 @@ const CrucePacientesV3P: React.FC = () => {
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
     .filter(r => !filtroRuta || r.ruta.toUpperCase().includes(filtroRuta.toUpperCase()))
     .filter(r => !filtroPedidosMultiples || r.pacientes.some(p => (p.cant_pedidos_v3 ?? 0) > 1))
-    .filter(r => !filtroRetrasoOperacion || r.pacientes.some(p => {
-      const estado = (p.estado_cruce || '').toLowerCase();
-      return estado === 'retraso operación' || estado === 'retraso operacion';
+    .filter(r => !filtroEstado || r.pacientes.some(p => {
+      // Para el filtro de retraso operación, usar estado_cruce directamente
+      if (filtroEstado === 'retraso-operacion') {
+        const estado = (p.estado_cruce || '').toLowerCase();
+        return estado === 'retraso operación' || estado === 'retraso operacion';
+      }
+      // Para otros filtros, usar getEstadoVisual
+      const estadoVisual = getEstadoVisual(p);
+      const estadoKey = estadoVisual.texto.toLowerCase().replace(' ', '-');
+      return estadoKey === filtroEstado;
     }));
 
   const rutasV3SinFiltradas = rutasV3Sin
     .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional)
     .filter(r => !filtroRuta || r.ruta.toUpperCase().includes(filtroRuta.toUpperCase()));
 
-  // ── Agrupar por CEDI/regional ───────────────────────────────────────────────────
+  // ── Agrupar por CEDI/regional (con pacientes filtrados por estado) ─────────────
   const rutasAgrupadasPorCEDI = (() => {
     const grupos: { [key: string]: typeof rutas } = {};
+
     rutasFiltradas.forEach(r => {
+      // Filtrar pacientes por estado si hay un filtro activo
+      const pacientesFiltrados = filtroEstado
+        ? r.pacientes.filter(p => {
+            // Para el filtro de retraso operación, usar estado_cruce directamente
+            if (filtroEstado === 'retraso-operacion') {
+              const estado = (p.estado_cruce || '').toLowerCase();
+              return estado === 'retraso operación' || estado === 'retraso operacion';
+            }
+            // Para otros filtros, usar getEstadoVisual
+            const estadoVisual = getEstadoVisual(p);
+            const estadoKey = estadoVisual.texto.toLowerCase().replace(' ', '-');
+            return estadoKey === filtroEstado;
+          })
+        : r.pacientes;
+
+      // Solo incluir rutas que tengan pacientes después del filtrado
+      if (pacientesFiltrados.length === 0) return;
+
       const cedi = r.cedi || 'SIN CEDI';
       if (!grupos[cedi]) grupos[cedi] = [];
-      grupos[cedi].push(r);
+
+      // Crear una copia de la ruta con los pacientes filtrados
+      grupos[cedi].push({
+        ...r,
+        pacientes: pacientesFiltrados,
+        total_pacientes: pacientesFiltrados.length,
+        pacientes_en_v3: pacientesFiltrados.filter(p => p.en_v3).length,
+      });
     });
+
     // Ordenar CEDIs alfabéticamente y mantener rutas ordenadas dentro de cada CEDI
     return Object.entries(grupos)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -590,15 +633,19 @@ const CrucePacientesV3P: React.FC = () => {
           <div className="CRV3-toolbarRight">
             <div className="CRV3-filtroRegional">
               <FaFilter className="CRV3-filtroIcon" />
-              <select
-                value={filtroRegional}
-                onChange={e => setFiltroRegional(e.target.value)}
-                className="CRV3-filtroSelect"
-              >
-                {REGIONALES.map(r => (
-                  <option key={r} value={r}>{r === 'TODAS' ? 'Todas las regionales' : r}</option>
-                ))}
-              </select>
+              {perfil === 'ADMIN' || perfil === 'ANALISTA' || perfil === 'COORDINADOR' ? (
+                <select
+                  value={filtroRegional}
+                  onChange={e => setFiltroRegional(e.target.value)}
+                  className="CRV3-filtroSelect"
+                >
+                  {REGIONALES.map(r => (
+                    <option key={r} value={r}>{r === 'TODAS' ? 'Todas las regionales' : r}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="CRV3-regionalFija">{regionalUsuario || 'Mi regional'}</span>
+              )}
             </div>
             <div className="CRV3-filtroRuta">
               <input
@@ -636,18 +683,6 @@ const CrucePacientesV3P: React.FC = () => {
               />
               Multi-pedido
             </label>
-            <label
-              className="CRV3-filtroCheck"
-              style={{ color: filtroRetrasoOperacion ? '#e65100' : 'inherit' }}
-              title="Mostrar solo pacientes con estado 'retraso operación'"
-            >
-              <input
-                type="checkbox"
-                checked={filtroRetrasoOperacion}
-                onChange={e => setFiltroRetrasoOperacion(e.target.checked)}
-              />
-              Retraso operación
-            </label>
             <div className="CRV3-toolbarBtns">
               <button
                 className="CRV3-btn CRV3-btnExport"
@@ -675,15 +710,13 @@ const CrucePacientesV3P: React.FC = () => {
             onClick={() => setTab('ocupacion')}
           >
             Ocupación por Rutas
-            {rutas.length > 0 && (() => {
-              const enV3  = rutas.reduce((s, r) => s + r.pacientes_en_v3, 0);
-              const total = rutas.reduce((s, r) => s + r.total_pacientes, 0);
+            {rutasFiltradas.length > 0 && (() => {
+              const enV3  = rutasFiltradas.reduce((s, r) => s + r.pacientes_en_v3, 0);
+              const total = rutasFiltradas.reduce((s, r) => s + r.total_pacientes, 0);
               const pct   = total > 0 ? Math.round(enV3 / total * 100) : 0;
-              // Pedidos V3 reclamados por pacientes = total V3 - buckets sin match
-              const pedidosMatched = Math.max(0, totalV3 - totalV3Sin - totalV3ZonaGris - totalV3LlaveVacia);
               return (
                 <span style={{ marginLeft: 6, fontSize: '0.78rem', fontWeight: 600, opacity: 0.75 }}>
-                  {enV3.toLocaleString('es-CO')} pacientes cruzados ({pct}% de {total.toLocaleString('es-CO')}) · {pedidosMatched.toLocaleString('es-CO')} pedidos emparejados de {totalV3.toLocaleString('es-CO')}
+                  {enV3.toLocaleString('es-CO')} pacientes cruzados ({pct}% de {total.toLocaleString('es-CO')})
                 </span>
               );
             })()}
@@ -692,10 +725,15 @@ const CrucePacientesV3P: React.FC = () => {
             className={`CRV3-tab ${tab === 'v3sin' ? 'CRV3-tabActive' : ''}`}
             onClick={handleTabV3Sin}
           >
-            {(totalV3Sin + totalV3ZonaGris + totalV3LlaveVacia) > 0
-              ? <>{(totalV3Sin + totalV3ZonaGris + totalV3LlaveVacia).toLocaleString('es-CO')} pedidos de V3 sin paciente</>
-              : 'V3 sin Paciente'
-            }
+            {(() => {
+              const totalV3SinFiltrado = rutasV3SinFiltradas.reduce((s, r) => s + (r.total || 0), 0);
+              const totalZonaGrisFiltrado = rutasV3ZonaGrisFiltradas.reduce((s, r) => s + (r.total || 0), 0);
+              const totalLlaveVaciaFiltrado = v3LlaveVaciaFiltrada.length;
+              const totalFiltrado = totalV3SinFiltrado + totalZonaGrisFiltrado + totalLlaveVaciaFiltrado;
+              return totalFiltrado > 0
+                ? <>{totalFiltrado.toLocaleString('es-CO')} pedidos de V3 sin paciente</>
+                : 'V3 sin Paciente';
+            })()}
           </button>
           <button
             className={`CRV3-tab ${tab === 'historico' ? 'CRV3-tabActive' : ''}`}
@@ -708,30 +746,59 @@ const CrucePacientesV3P: React.FC = () => {
           </button>
         </div>
 
-        {/* Leyenda de estados */}
+        {/* Leyenda de estados - Filtros clicables */}
         {tab === 'ocupacion' && (
           <div className="CRV3-leyenda">
-            <strong className="CRV3-leyendaTitulo">Leyenda:</strong>
-            <div className="CRV3-leyendaItem">
+            <strong className="CRV3-leyendaTitulo">Filtros:</strong>
+            <button
+              className={`CRV3-leyendaBoton ${filtroEstado === 'con-tiempo' ? 'CRV3-leyendaActivo' : ''}`}
+              onClick={() => setFiltroEstado(filtroEstado === 'con-tiempo' ? null : 'con-tiempo')}
+              title="Filtrar pacientes con más de 6 días hábiles"
+            >
               <span className="CRV3-leyendaBadge" style={{ background: '#d4edda', color: '#155724' }}>con tiempo</span>
-              <span className="CRV3-leyendaDesc">más de 6 días hábiles</span>
-            </div>
-            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaDesc">>6 días</span>
+            </button>
+            <button
+              className={`CRV3-leyendaBoton ${filtroEstado === 'retraso-operacion' ? 'CRV3-leyendaActivo' : ''}`}
+              onClick={() => setFiltroEstado(filtroEstado === 'retraso-operacion' ? null : 'retraso-operacion')}
+              title="Filtrar pacientes con ≤ 3 días hábiles"
+            >
               <span className="CRV3-leyendaBadge" style={{ background: '#ffcc80', color: '#e65100' }}>retraso operación</span>
-              <span className="CRV3-leyendaDesc">≤ 3 días hábiles</span>
-            </div>
-            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaDesc">≤3 días</span>
+            </button>
+            <button
+              className={`CRV3-leyendaBoton ${filtroEstado === 'gestionar' ? 'CRV3-leyendaActivo' : ''}`}
+              onClick={() => setFiltroEstado(filtroEstado === 'gestionar' ? null : 'gestionar')}
+              title="Filtrar pacientes entre 3 y 6 días hábiles (POR PROGRAMAR)"
+            >
               <span className="CRV3-leyendaBadge" style={{ background: '#fff3cd', color: '#856404' }}>gestionar</span>
-              <span className="CRV3-leyendaDesc">3 a 6 días hábiles (POR PROGRAMAR)</span>
-            </div>
-            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaDesc">3-6 días</span>
+            </button>
+            <button
+              className={`CRV3-leyendaBoton ${filtroEstado === 'gestionado' ? 'CRV3-leyendaActivo' : ''}`}
+              onClick={() => setFiltroEstado(filtroEstado === 'gestionado' ? null : 'gestionado')}
+              title="Filtrar pacientes con estado diferente a POR PROGRAMAR"
+            >
               <span className="CRV3-leyendaBadge" style={{ background: '#e3f2fd', color: '#1565c0' }}>gestionado</span>
-              <span className="CRV3-leyendaDesc">estado ≠ POR PROGRAMAR</span>
-            </div>
-            <div className="CRV3-leyendaItem">
+              <span className="CRV3-leyendaDesc">≠ POR PROGRAMAR</span>
+            </button>
+            <button
+              className={`CRV3-leyendaBoton ${filtroEstado === 'sin-cruce' ? 'CRV3-leyendaActivo' : ''}`}
+              onClick={() => setFiltroEstado(filtroEstado === 'sin-cruce' ? null : 'sin-cruce')}
+              title="Filtrar pacientes sin coincidencia en V3"
+            >
               <span className="CRV3-leyendaBadge" style={{ background: '#f8bbd0', color: '#880e4f' }}>sin cruce</span>
-              <span className="CRV3-leyendaDesc">sin coincidencia en V3</span>
-            </div>
+              <span className="CRV3-leyendaDesc">sin V3</span>
+            </button>
+            {filtroEstado && (
+              <button
+                className="CRV3-leyendaLimpiar"
+                onClick={() => setFiltroEstado(null)}
+                title="Limpiar filtro de estado"
+              >
+                ✕
+              </button>
+            )}
           </div>
         )}
 
@@ -748,8 +815,20 @@ const CrucePacientesV3P: React.FC = () => {
             ) : rutasAgrupadasPorCEDI.length === 0 ? (
               <div className="CRV3-empty">
                 <FaRoute className="CRV3-emptyIcon" />
-                <h3>{rutas.length === 0 ? 'Sin datos calculados' : 'Sin rutas para esta regional'}</h3>
-                <p>{rutas.length === 0 ? 'Usa el botón Recalcular para generar el cruce.' : `No hay rutas en ${filtroRegional}.`}</p>
+                <h3>
+                  {rutas.length === 0
+                    ? 'Sin datos calculados'
+                    : (filtroEstado || filtroPedidosMultiples)
+                      ? 'Sin resultados con los filtros aplicados'
+                      : 'Sin rutas para esta regional'}
+                </h3>
+                <p>
+                  {rutas.length === 0
+                    ? 'Usa el botón Recalcular para generar el cruce.'
+                    : (filtroEstado || filtroPedidosMultiples)
+                      ? 'Prueba con otros filtros o limpia los filtros activos.'
+                      : `No hay rutas en ${filtroRegional}.`}
+                </p>
                 {rutas.length === 0 && (
                   <button className="CRV3-btn CRV3-btnRecalc" onClick={handleRecalcular}>
                     <FaSync /> Recalcular ahora
@@ -814,6 +893,7 @@ const CrucePacientesV3P: React.FC = () => {
                               <tr>
                                 <th>Estado</th>
                                 <th>Paciente</th>
+                                <th>Cód. Pedido</th>
                                 <th>Cédula</th>
                                 <th>Dirección</th>
                                 <th>En V3</th>
@@ -828,79 +908,115 @@ const CrucePacientesV3P: React.FC = () => {
                                 <th>Municipio</th>
                                 <th>Divipola</th>
                                 <th>Similitud</th>
-                                <th>cant. pedidos</th>
                               </tr>
                             </thead>
                             <tbody>
                               {(() => {
                                 let pacientesFiltrados = r.pacientes;
+
+                                // Aplicar filtro de estado de leyenda si está activo
+                                if (filtroEstado) {
+                                  pacientesFiltrados = pacientesFiltrados.filter(p => {
+                                    if (filtroEstado === 'retraso-operacion') {
+                                      const estado = (p.estado_cruce || '').toLowerCase();
+                                      return estado === 'retraso operación' || estado === 'retraso operacion';
+                                    }
+                                    const estadoVisual = getEstadoVisual(p);
+                                    const estadoKey = estadoVisual.texto.toLowerCase().replace(' ', '-');
+                                    return estadoKey === filtroEstado;
+                                  });
+                                }
+
                                 if (filtroPedidosMultiples) {
                                   pacientesFiltrados = pacientesFiltrados.filter(p => (p.cant_pedidos_v3 ?? 0) > 1);
                                 }
-                                if (filtroRetrasoOperacion) {
-                                  // Filtrar solo por estado de retraso operación (sin filtro de urgencia)
-                                  pacientesFiltrados = pacientesFiltrados.filter(p => {
-                                    const estado = (p.estado_cruce || '').toLowerCase();
-                                    return estado === 'retraso operación' || estado === 'retraso operacion';
-                                  });
-                                }
-                                return pacientesFiltrados.map((p, i) => {
+
+                                // Expandir pacientes con múltiples pedidos en múltiples filas
+                                const filasExpandidas: { paciente: any; pedido?: any; indice: number }[] = [];
+                                pacientesFiltrados.forEach((p, i) => {
+                                  if (p.pedidos_v3 && p.pedidos_v3.length > 1) {
+                                    // Paciente con múltiples pedidos: crear una fila por cada pedido
+                                    p.pedidos_v3.forEach((pedido, idx) => {
+                                      filasExpandidas.push({ paciente: p, pedido, indice: `${i}-${idx}` });
+                                    });
+                                  } else {
+                                    // Paciente con 0 o 1 pedido: una sola fila
+                                    filasExpandidas.push({ paciente: p, indice: i.toString() });
+                                  }
+                                });
+
+                                return filasExpandidas.map(({ paciente: p, pedido, indice }) => {
                                   const estadoVisual = getEstadoVisual(p);
+                                  const esFilaPedido = !!pedido;
+                                  const datosPedido = pedido || {
+                                    codigo_pedido: '—',
+                                    fecha_pedido: p.fecha_pedido,
+                                    fecha_preferente: p.fecha_preferente,
+                                    fecha_entrega: p.fecha_entrega,
+                                    estado_pedido: p.estado_pedido,
+                                    planilla: p.planilla,
+                                    ruta: p.ruta_v3,
+                                    cliente_destino: p.cliente_destino_v3,
+                                  };
+
                                   return (
-                                    <tr key={i}>
+                                    <tr key={indice} style={esFilaPedido ? { background: '#f0f7ff' } : {}}>
                                       <td style={estadoVisual.estilo}>{estadoVisual.texto}</td>
                                       <td>{p.paciente}</td>
-                                    <td>{p.cedula}</td>
-                                    <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
-                                    <td>
-                                      <span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>
-                                        {p.en_v3 ? 'SÍ' : 'NO'}
-                                      </span>
-                                    </td>
-                                    {(() => {
-                                      const esCambio = p.en_v3 && (!p.ruta_v3 || p.ruta_v3 !== r.ruta);
-                                      return esCambio ? (
-                                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', background: '#7f0000', color: '#fff', fontWeight: 700 }}>
-                                          {p.ruta_v3 || '—'}
-                                        </td>
-                                      ) : (
-                                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
-                                          {p.ruta_v3 || '—'}
-                                        </td>
-                                      );
-                                    })()}
-                                    <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
-                                    <td>{p.estado_pedido || '—'}</td>
-                                    <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_pedido)}</td>
-                                    <td style={{ whiteSpace: 'nowrap' }}>
-                                      {formatearFecha(p.fecha_preferente)}
-                                    </td>
-                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{formatearFecha(p.f_pref_teorica)}</td>
-                                    <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_entrega)}</td>
-                                    <td>{p.planilla || '—'}</td>
-                                    <td>{p.municipio_destino || '—'}</td>
-                                    <td>{p.divipola || '—'}</td>
-                                    <td>
-                                      {p.en_v3 && p.match_tipo === 'nombre' && (
-                                        <span className="CRV3-matchBadge CRV3-matchBadge--nombre">👤</span>
-                                      )}
-                                      {p.en_v3 && p.match_tipo === 'llave' && (
-                                        <span className="CRV3-matchBadge CRV3-matchBadge--llave">🔑</span>
-                                      )}
-                                      {p.en_v3 && p.match_tipo === 'celular' && (
-                                        <span className="CRV3-matchBadge CRV3-matchBadge--celular">📱</span>
-                                      )}
-                                      <span className="CRV3-sim" style={{
-                                        color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24',
-                                        display: 'block',
-                                      }}>
-                                        {p.similitud}%
-                                      </span>
-                                    </td>
-                                    <td style={{ textAlign: 'center', fontWeight: 600 }}>{p.cant_pedidos_v3 || 0}</td>
-                                  </tr>
-                                );
-                              })})()}
+                                      <td style={{ fontSize: '0.78rem', fontWeight: esFilaPedido ? 600 : 'normal' }}>
+                                        {datosPedido.codigo_pedido}
+                                      </td>
+                                      <td>{p.cedula}</td>
+                                      <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
+                                      <td>
+                                        <span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>
+                                          {p.en_v3 ? 'SÍ' : 'NO'}
+                                        </span>
+                                      </td>
+                                      {(() => {
+                                        const esCambio = p.en_v3 && datosPedido.ruta && datosPedido.ruta !== r.ruta;
+                                        return esCambio ? (
+                                          <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', background: '#7f0000', color: '#fff', fontWeight: 700 }}>
+                                            {datosPedido.ruta || '—'}
+                                          </td>
+                                        ) : (
+                                          <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                            {datosPedido.ruta || '—'}
+                                          </td>
+                                        );
+                                      })()}
+                                      <td style={{ fontSize: '0.78rem' }}>{datosPedido.cliente_destino || '—'}</td>
+                                      <td>{datosPedido.estado_pedido || '—'}</td>
+                                      <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(datosPedido.fecha_pedido)}</td>
+                                      <td style={{ whiteSpace: 'nowrap' }}>
+                                        {formatearFecha(datosPedido.fecha_preferente)}
+                                      </td>
+                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{formatearFecha(p.f_pref_teorica)}</td>
+                                      <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(datosPedido.fecha_entrega)}</td>
+                                      <td>{datosPedido.planilla || '—'}</td>
+                                      <td>{p.municipio_destino || '—'}</td>
+                                      <td>{p.divipola || '—'}</td>
+                                      <td>
+                                        {p.en_v3 && p.match_tipo === 'nombre' && (
+                                          <span className="CRV3-matchBadge CRV3-matchBadge--nombre">👤</span>
+                                        )}
+                                        {p.en_v3 && p.match_tipo === 'llave' && (
+                                          <span className="CRV3-matchBadge CRV3-matchBadge--llave">🔑</span>
+                                        )}
+                                        {p.en_v3 && p.match_tipo === 'celular' && (
+                                          <span className="CRV3-matchBadge CRV3-matchBadge--celular">📱</span>
+                                        )}
+                                        <span className="CRV3-sim" style={{
+                                          color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24',
+                                          display: 'block',
+                                        }}>
+                                          {p.similitud}%
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              })()}
                             </tbody>
                           </table>
                         </div>
@@ -918,6 +1034,8 @@ const CrucePacientesV3P: React.FC = () => {
           {tab === 'v3sin' && (() => {
             const hayDatos = rutasV3SinFiltradas.length > 0 || rutasV3ZonaGrisFiltradas.length > 0 || v3LlaveVaciaFiltrada.length > 0;
             const sinDatosCalc = rutasV3Sin.length === 0 && rutasV3ZonaGris.length === 0 && v3LlaveVacia.length === 0;
+            const totalV3SinFiltrado = rutasV3SinFiltradas.reduce((s, r) => s + (r.total || 0), 0);
+            const totalV3ZonaGrisFiltrado = rutasV3ZonaGrisFiltradas.reduce((s, r) => s + (r.total || 0), 0);
 
             // Renderiza tarjetas de rutas (reutilizable para sin_paciente y zona_gris)
             const renderRutasCards = (
@@ -1012,7 +1130,7 @@ const CrucePacientesV3P: React.FC = () => {
                     <div style={{ gridColumn: '1 / -1', padding: '8px 12px', background: '#f8d7da', borderRadius: 6, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: '1rem' }}>🔴</span>
                       <strong style={{ color: '#721c24' }}>Sin Paciente</strong>
-                      <span style={{ color: '#721c24', fontSize: '0.85rem' }}>similitud &lt; 75% — {totalV3Sin} registros</span>
+                      <span style={{ color: '#721c24', fontSize: '0.85rem' }}>similitud &lt; 75% — {totalV3SinFiltrado} registros</span>
                     </div>
                     {renderRutasCards(rutasV3SinAgrupadasPorCEDI, 'sp', '#f8d7da', '#721c24', 'sin paciente')}
                   </>
@@ -1024,7 +1142,7 @@ const CrucePacientesV3P: React.FC = () => {
                     <div style={{ gridColumn: '1 / -1', padding: '8px 12px', background: '#fff3cd', borderRadius: 6, marginBottom: 4, marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: '1rem' }}>🟠</span>
                       <strong style={{ color: '#856404' }}>Zona Gris</strong>
-                      <span style={{ color: '#856404', fontSize: '0.85rem' }}>similitud &ge; 75% pero ningún paciente lo eligió como mejor match — {totalV3ZonaGris} registros</span>
+                      <span style={{ color: '#856404', fontSize: '0.85rem' }}>similitud &ge; 75% pero ningún paciente lo eligió como mejor match — {totalV3ZonaGrisFiltrado} registros</span>
                     </div>
                     {renderRutasCards(rutasV3ZonaGrisAgrupadas, 'zg', '#fff3cd', '#856404', 'zona gris')}
                   </>
@@ -1116,16 +1234,15 @@ const CrucePacientesV3P: React.FC = () => {
                           </div>
                         ) : (
                           (() => {
-                            const rutasFiltradasHist = detalleHistorico?.rutas.filter(
-                              r => !filtroRetrasoOperacion || r.pacientes.some(p => {
-                                const estado = (p.estado_cruce || '').toLowerCase();
-                                return (estado === 'retraso operación' || estado === 'retraso operacion') && _esPacienteUrgente(p);
-                              })
-                            ) || [];
+                            const rutasFiltradasHist = (detalleHistorico?.rutas || [])
+                              .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional);
+                            const v3SinPacienteFiltrado = (detalleHistorico?.v3_sin_paciente || [])
+                              .filter(r => filtroRegional === 'TODAS' || (r.cedi || '').toUpperCase() === filtroRegional);
+                            const totalSinPacienteFiltrado = v3SinPacienteFiltrado.reduce((s, r) => s + (r.total || 0), 0);
                             return (
                               <div style={{ padding: '16px', borderTop: '1px solid #f0f0f0' }}>
                                 <p className="CRV3-resumenV3" style={{ marginBottom: 12 }}>
-                                  Cruce al <strong>{m.fecha_corte?.slice(0, 10)}</strong> · {rutasFiltradasHist.length} ruta{rutasFiltradasHist.length !== 1 ? 's' : ''} · {detalleHistorico?.total_sin_paciente || 0} sin paciente
+                                  Cruce al <strong>{m.fecha_corte?.slice(0, 10)}</strong> · {rutasFiltradasHist.length} ruta{rutasFiltradasHist.length !== 1 ? 's' : ''} · {totalSinPacienteFiltrado} sin paciente
                                 </p>
                                 <div className="CRV3-rutasGrid">
                                   {rutasFiltradasHist.map(r => {
@@ -1161,46 +1278,69 @@ const CrucePacientesV3P: React.FC = () => {
                                           <thead>
                                             <tr>
                                               <th>Estado</th>
-                                              <th>Paciente</th><th>Cédula</th><th>Dirección</th>
+                                              <th>Paciente</th>
+                                              <th>Cód. Pedido</th>
+                                              <th>Cédula</th><th>Dirección</th>
                                               <th>En V3</th><th>Ruta V3</th><th>Paciente V3</th><th>Estado Pedido</th>
                                               <th>F. Pedido</th><th>F. Pref SAP</th><th>F. Pref. Integra</th>
                                               <th>F. Entrega</th><th>Planilla</th><th>Municipio</th><th>Divipola</th><th>Similitud</th>
-                                              <th>cant. pedidos</th>
                                             </tr>
                                           </thead>
                                           <tbody>
                                             {(() => {
                                               let pacientesFiltrados = r.pacientes;
-                                              if (filtroRetrasoOperacion) {
-                                                // Filtrar por estado Y urgencia (<6 días hábiles, mes actual)
-                                                pacientesFiltrados = pacientesFiltrados.filter(p =>
-                                                  p.estado_cruce === 'retraso operación' && _esPacienteUrgente(p)
-                                                );
-                                              }
-                                              return pacientesFiltrados.map((p, i) => {
+
+                                              // Expandir pacientes con múltiples pedidos en múltiples filas
+                                              const filasExpandidas: { paciente: any; pedido?: any; indice: string }[] = [];
+                                              pacientesFiltrados.forEach((p, i) => {
+                                                if (p.pedidos_v3 && p.pedidos_v3.length > 1) {
+                                                  p.pedidos_v3.forEach((pedido: any, idx: number) => {
+                                                    filasExpandidas.push({ paciente: p, pedido, indice: `${i}-${idx}` });
+                                                  });
+                                                } else {
+                                                  filasExpandidas.push({ paciente: p, indice: i.toString() });
+                                                }
+                                              });
+
+                                              return filasExpandidas.map(({ paciente: p, pedido, indice }) => {
                                                 const estadoVisual = getEstadoVisual(p);
+                                                const esFilaPedido = !!pedido;
+                                                const datosPedido = pedido || {
+                                                  codigo_pedido: '—',
+                                                  fecha_pedido: p.fecha_pedido,
+                                                  fecha_preferente: p.fecha_preferente,
+                                                  fecha_entrega: p.fecha_entrega,
+                                                  estado_pedido: p.estado_pedido,
+                                                  planilla: p.planilla,
+                                                  ruta: p.ruta_v3,
+                                                  cliente_destino: p.cliente_destino_v3,
+                                                };
+
                                                 return (
-                                                  <tr key={i}>
+                                                  <tr key={indice} style={esFilaPedido ? { background: '#f0f7ff' } : {}}>
                                                     <td style={estadoVisual.estilo}>{estadoVisual.texto}</td>
                                                     <td>{p.paciente}</td>
+                                                    <td style={{ fontSize: '0.78rem', fontWeight: esFilaPedido ? 600 : 'normal' }}>
+                                                      {datosPedido.codigo_pedido}
+                                                    </td>
                                                   <td>{p.cedula}</td>
                                                   <td className="CRV3-llaveCell">{p.direccion_original || '—'}</td>
                                                   <td><span className={`CRV3-enV3 ${p.en_v3 ? 'CRV3-enV3Yes' : 'CRV3-enV3No'}`}>{p.en_v3 ? 'SÍ' : 'NO'}</span></td>
                                                   {(() => {
-                                                    const esCambio = p.en_v3 && (!p.ruta_v3 || p.ruta_v3 !== r.ruta);
+                                                    const esCambio = p.en_v3 && datosPedido.ruta && datosPedido.ruta !== r.ruta;
                                                     return esCambio ? (
-                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', background: '#7f0000', color: '#fff', fontWeight: 700 }}>{p.ruta_v3 || '—'}</td>
+                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem', background: '#7f0000', color: '#fff', fontWeight: 700 }}>{datosPedido.ruta || '—'}</td>
                                                     ) : (
-                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{p.ruta_v3 || '—'}</td>
+                                                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{datosPedido.ruta || '—'}</td>
                                                     );
                                                   })()}
-                                                  <td style={{ fontSize: '0.78rem' }}>{p.cliente_destino_v3 || '—'}</td>
-                                                  <td>{p.estado_pedido || '—'}</td>
-                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_pedido)}</td>
-                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_preferente)}</td>
+                                                  <td style={{ fontSize: '0.78rem' }}>{datosPedido.cliente_destino || '—'}</td>
+                                                  <td>{datosPedido.estado_pedido || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(datosPedido.fecha_pedido)}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(datosPedido.fecha_preferente)}</td>
                                                   <td style={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>{formatearFecha(p.f_pref_teorica)}</td>
-                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(p.fecha_entrega)}</td>
-                                                  <td>{p.planilla || '—'}</td>
+                                                  <td style={{ whiteSpace: 'nowrap' }}>{formatearFecha(datosPedido.fecha_entrega)}</td>
+                                                  <td>{datosPedido.planilla || '—'}</td>
                                                   <td>{p.municipio_destino || '—'}</td>
                                                   <td>{p.divipola || '—'}</td>
                                                   <td>
@@ -1215,10 +1355,10 @@ const CrucePacientesV3P: React.FC = () => {
                                                     )}
                                                     <span className="CRV3-sim" style={{ color: p.similitud >= 80 ? '#155724' : p.similitud >= 50 ? '#856404' : '#721c24', display: 'block' }}>{p.similitud}%</span>
                                                   </td>
-                                                  <td style={{ textAlign: 'center', fontWeight: 600 }}>{p.cant_pedidos_v3 || 0}</td>
                                                 </tr>
                                               );
-                                            })})()}
+                                            });
+                                            })()}
                                           </tbody>
                                         </table>
                                       </div>

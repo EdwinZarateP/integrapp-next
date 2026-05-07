@@ -114,6 +114,11 @@
   background: #f0faf9; color: #004d40; font-size: .82rem;
   cursor: pointer; outline: none; max-width: 160px;
 }
+.CRV3-regionalFija {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid #b2dfdb;
+  background: #e0f2f1; color: #004d40; font-size: .82rem;
+  font-weight: 600; cursor: default; user-select: none;
+}
 .CRV3-filtroSelect:focus { border-color: #006b5e; }
 
 .CRV3-filtroRuta { display: flex; align-items: center; gap: 4px; }
@@ -205,10 +210,28 @@
   font-weight: 600;
   margin-right: 4px;
 }
-.CRV3-leyendaItem {
+.CRV3-leyendaBoton {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 4px 8px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.CRV3-leyendaBoton:hover {
+  background: #e8e8e8;
+  transform: translateY(-1px);
+}
+.CRV3-leyendaBoton:focus {
+  outline: none;
+}
+.CRV3-leyendaActivo {
+  background: #e0f2f1 !important;
+  border-color: #006b5e;
+  box-shadow: 0 2px 6px rgba(0,107,94,.2);
 }
 .CRV3-leyendaBadge {
   padding: 3px 8px;
@@ -220,6 +243,24 @@
 .CRV3-leyendaDesc {
   color: #78909c;
   font-size: 0.78rem;
+}
+.CRV3-leyendaLimpiar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #ffcdd2;
+  color: #c62828;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.CRV3-leyendaLimpiar:hover {
+  background: #ef9a9a;
+  transform: scale(1.1);
 }
 
 .CRV3-loading {
@@ -366,14 +407,14 @@
 /* Anchos mínimos para columnas clave */
 .CRV3-table th:nth-child(1) { min-width: 120px; } /* Estado */
 .CRV3-table th:nth-child(2) { min-width: 140px; } /* Paciente */
-.CRV3-table th:nth-child(3) { min-width: 90px; }  /* Cédula */
-.CRV3-table th:nth-child(4) { min-width: 180px; } /* Dirección */
-.CRV3-table th:nth-child(5) { min-width: 60px; }  /* En V3 */
-.CRV3-table th:nth-child(6) { min-width: 70px; }  /* Ruta V3 */
-.CRV3-table th:nth-child(9) { min-width: 80px; }  /* F. Preferente */
-.CRV3-table th:nth-child(10) { min-width: 80px; } /* F. Entrega */
+.CRV3-table th:nth-child(3) { min-width: 100px; } /* Cód. Pedido */
+.CRV3-table th:nth-child(4) { min-width: 90px; }  /* Cédula */
+.CRV3-table th:nth-child(5) { min-width: 180px; } /* Dirección */
+.CRV3-table th:nth-child(6) { min-width: 60px; }  /* En V3 */
+.CRV3-table th:nth-child(7) { min-width: 70px; }  /* Ruta V3 */
+.CRV3-table th:nth-child(10) { min-width: 80px; }  /* F. Preferente */
+.CRV3-table th:nth-child(11) { min-width: 80px; } /* F. Entrega */
 .CRV3-table th:nth-child(17) { min-width: 60px; } /* Similitud */
-.CRV3-table th:nth-child(18) { min-width: 80px; } /* cant. pedidos */
 
 .CRV3-table td {
   padding: 7px 12px; border-bottom: 1px solid #f5f5f5; color: #333;
@@ -521,6 +562,9 @@
   .CRV3-filtroSelect {
     flex: 1; max-width: 100%; width: 100%;
   }
+  .CRV3-regionalFija {
+    flex: 1; max-width: 100%; width: 100%;
+  }
 
   .CRV3-filtroRuta { width: 100%; }
   .CRV3-rutaInput  { flex: 1; width: 100%; }
@@ -541,7 +585,7 @@
   /* Leyenda: más compacta en móvil */
   .CRV3-leyenda {
     padding: 10px 12px;
-    gap: 8px 10px;
+    gap: 8px;
     font-size: 0.75rem;
   }
   .CRV3-leyendaTitulo {
@@ -549,7 +593,8 @@
     width: 100%;
     margin-bottom: 4px;
   }
-  .CRV3-leyendaItem {
+  .CRV3-leyendaBoton {
+    padding: 4px 6px;
     gap: 4px;
   }
   .CRV3-leyendaBadge {
@@ -557,7 +602,12 @@
     font-size: 0.68rem;
   }
   .CRV3-leyendaDesc {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
+  }
+  .CRV3-leyendaLimpiar {
+    width: 26px;
+    height: 26px;
+    font-size: 0.85rem;
   }
 
   /* Regional header */

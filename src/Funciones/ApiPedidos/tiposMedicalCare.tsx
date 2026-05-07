@@ -53,6 +53,18 @@ export interface PacienteOcupacion {
   f_pref_teorica?: string;
   cant_pedidos_v3?: number;
   estado_cruce?: string;
+  pedidos_v3?: PedidoV3[];
+}
+
+export interface PedidoV3 {
+  codigo_pedido: string;
+  fecha_pedido: string;
+  fecha_preferente: string;
+  fecha_entrega: string;
+  estado_pedido: string;
+  planilla: string;
+  ruta: string;
+  cliente_destino: string;
 }
 
 export interface RutaOcupacion {
