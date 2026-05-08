@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle,
-  FaCheckCircle, FaCircle, FaFileExcel, FaFilter, FaRoute, FaCog, FaPlus, FaTrash,
+  FaCheckCircle, FaCircle, FaFileExcel, FaFilter, FaRoute, FaCog, FaPlus, FaTrash, FaDollarSign,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
@@ -243,13 +243,27 @@ const MedicalCareP: React.FC = () => {
               >
                 <FaRoute /> Cruce Pacientes ↔ V3
               </button>
+              <button
+                className="MC-welcomeBtn MC-btnPrimary"
+                onClick={() => router.push('/SolicitudVehiculos')}
+              >
+                <FaFilter /> Solicitud de Vehículos
+              </button>
               {puedeVerConfig && (
-                <button
-                  className="MC-welcomeBtn MC-btnConfig"
-                  onClick={() => setModalConfig(true)}
-                >
-                  <FaCog /> Configuración Sync
-                </button>
+                <>
+                  <button
+                    className="MC-welcomeBtn MC-btnConfig"
+                    onClick={() => setModalConfig(true)}
+                  >
+                    <FaCog /> Configuración Sync
+                  </button>
+                  <button
+                    className="MC-welcomeBtn MC-btnPrimary"
+                    onClick={() => router.push('/GestionTarifasRutas')}
+                  >
+                    <FaDollarSign /> Tarifas Rutas FMC
+                  </button>
+                </>
               )}
             </div>
           </div>

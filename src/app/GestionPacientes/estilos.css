@@ -305,6 +305,29 @@
   box-shadow: 0 0 0 3px rgba(0,105,92,0.15);
 }
 
+/* Selector de regional */
+.GP-regionalSelect {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #00695c;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #004d40;
+  background: #fff;
+  cursor: pointer;
+  height: 42px;
+  min-width: 180px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.GP-regionalSelect:focus {
+  outline: none;
+  border-color: #004d40;
+  box-shadow: 0 0 0 3px rgba(0,105,92,0.15);
+}
+.GP-regionalSelect:hover {
+  border-color: #004d40;
+}
+
 /* Buttons */
 .GP-btn {
   padding: 0.75rem 1.5rem;
@@ -424,8 +447,15 @@
 .GP-tableContainer {
   background: white;
   border-radius: 16px;
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: 0 2px 8px rgba(0, 77, 64, 0.1);
+  max-width: 100%;
+}
+
+.GP-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1200px;
 }
 
 .GP-table {

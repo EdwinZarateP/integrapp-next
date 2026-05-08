@@ -32,14 +32,53 @@ const REGIONAL_A_CEDI: Record<string, string> = {
   CO09: 'MEDELLIN',
 };
 
-const PERFILES_GLOBALES = ['ADMIN', 'COORDINADOR', 'ANALISTA'];
+const CEDI_A_REGIONAL: Record<string, string> = {
+  'BARRANQUILLA': 'CO04',
+  'CALI': 'CO05',
+  'BUCARAMANGA': 'CO06',
+  'FUNZA': 'CO07',
+  'MEDELLIN': 'CO09',
+};
+
+const CODIGO_A_NOMBRE: Record<string, string> = {
+  'CO04': 'BARRANQUILLA',
+  'CO05': 'CALI',
+  'CO06': 'BUCARAMANGA',
+  'CO07': 'FUNZA',
+  'CO09': 'MEDELLIN',
+};
+
+const NOMBRE_A_CODIGO: Record<string, string> = {
+  'BARRANQUILLA': 'CO04',
+  'CALI': 'CO05',
+  'BUCARAMANGA': 'CO06',
+  'FUNZA': 'CO07',
+  'MEDELLIN': 'CO09',
+};
+
+const PERFILES_GLOBALES = ['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'];
+
+const LISTA_REGIONALES = [
+  { value: '', label: 'Todas las regionales' },
+  { value: 'BARRANQUILLA', label: 'BARRANQUILLA' },
+  { value: 'CALI', label: 'CALI' },
+  { value: 'BUCARAMANGA', label: 'BUCARAMANGA' },
+  { value: 'FUNZA', label: 'FUNZA' },
+  { value: 'MEDELLIN', label: 'MEDELLIN' },
+];
 
 const GestionPacientes: React.FC = () => {
   const router = useRouter();
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil] = useState('');
   const [cediUsuario, setCediUsuario] = useState<string | undefined>(undefined);
+  const [regionalSeleccionada, setRegionalSeleccionada] = useState('');
   const [pacientes, setPacientes] = useState<PacienteMedicalCare[]>([]);
+
+  // Función auxiliar para obtener nombre del CEDI
+  const getNombreCedi = (cedi: string): string => {
+    return CODIGO_A_NOMBRE[cedi] || cedi;
+  };
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalCargaMasivoAbierto, setModalCargaMasivoAbierto] = useState(false);
@@ -93,10 +132,17 @@ const GestionPacientes: React.FC = () => {
     setUsuario(usuarioValue);
     setPerfil(perfilValue);
 
+    console.log('Cookie regionalValue:', regionalValue);
+    console.log('Mapeo CODIGO_A_NOMBRE:', CODIGO_A_NOMBRE);
+
+    // Para perfiles operativos, convertimos el código de la cookie al nombre (CO07 → FUNZA)
     const cedi = PERFILES_GLOBALES.includes(perfilValue)
       ? undefined
-      : REGIONAL_A_CEDI[regionalValue];
+      : (CODIGO_A_NOMBRE[regionalValue] || regionalValue);
     setCediUsuario(cedi);
+
+    console.log('CEDI establecido:', cedi);
+    console.log('Es perfil global:', PERFILES_GLOBALES.includes(perfilValue));
 
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
     if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/Pedidos');
@@ -120,10 +166,29 @@ const GestionPacientes: React.FC = () => {
     await cargarCronograma(nuevoMes);
   };
 
-  const cargarPacientes = async (cedi?: string) => {
+  const cargarPacientes = async (cediParam?: string) => {
     setLoading(true);
     try {
-      const response = await obtenerPacientes(0, 100, cedi ?? cediUsuario);
+      // Determinar el filtro de CEDI según el perfil y selección
+      // Usar cediParam si se proporciona, sino usar la lógica normal
+      let cediFiltro = cediParam !== undefined
+        ? cediParam
+        : PERFILES_GLOBALES.includes(perfil)
+          ? (regionalSeleccionada || undefined)
+          : cediUsuario;
+
+      // Convertir nombre a código para el backend (CALI → CO05)
+      if (cediFiltro && NOMBRE_A_CODIGO[cediFiltro]) {
+        cediFiltro = NOMBRE_A_CODIGO[cediFiltro];
+      }
+
+      console.log('Perfil:', perfil);
+      console.log('CEDI Usuario:', cediUsuario);
+      console.log('CEDI Param:', cediParam);
+      console.log('CEDI Filtro (final):', cediFiltro);
+      console.log('Es perfil global:', PERFILES_GLOBALES.includes(perfil));
+
+      const response = await obtenerPacientes(0, 100, cediFiltro);
       setPacientes(response.pacientes);
     } catch (error) {
       console.error('Error al cargar pacientes:', error);
@@ -141,10 +206,19 @@ const GestionPacientes: React.FC = () => {
 
     setLoading(true);
     try {
+      let cediFiltro = PERFILES_GLOBALES.includes(perfil)
+        ? (regionalSeleccionada || undefined)
+        : cediUsuario;
+
+      // Convertir nombre a código para el backend (CALI → CO05)
+      if (cediFiltro && NOMBRE_A_CODIGO[cediFiltro]) {
+        cediFiltro = NOMBRE_A_CODIGO[cediFiltro];
+      }
+
       const response = await buscarPacientes(
         searchCedula || undefined,
         undefined,
-        cediUsuario
+        cediFiltro
       );
       setPacientes(response.pacientes);
     } catch (error) {
@@ -204,7 +278,7 @@ const GestionPacientes: React.FC = () => {
     if (result.isConfirmed) {
       try {
         await eliminarPaciente(paciente._id, usuario);
-        await cargarPacientes(cediUsuario);
+        await cargarPacientes();
         Swal.fire('Eliminado', 'El paciente ha sido eliminado', 'success');
       } catch (error) {
         console.error('Error al eliminar paciente:', error);
@@ -228,7 +302,7 @@ const GestionPacientes: React.FC = () => {
         Swal.fire('Éxito', 'Paciente creado correctamente', 'success');
       }
       setModalAbierto(false);
-      await cargarPacientes(cediUsuario);
+      await cargarPacientes();
     } catch (error: any) {
       console.error('Error al guardar paciente:', error);
       const mensaje = error.response?.data?.detail || 'Error al guardar el paciente';
@@ -270,10 +344,10 @@ const GestionPacientes: React.FC = () => {
       } else {
         Swal.fire('Éxito', response.mensaje, 'success');
       }
-      
+
       setModalCargaMasivoAbierto(false);
       setArchivoExcel(null);
-      await cargarPacientes(cediUsuario);
+      await cargarPacientes();
     } catch (error: any) {
       console.error('Error al cargar Excel:', error);
       setProgresoCarga(null);
@@ -339,7 +413,7 @@ const GestionPacientes: React.FC = () => {
               {searchCedula && (
                 <button
                   className="GP-searchClear"
-                  onClick={() => { setSearchCedula(''); cargarPacientes(cediUsuario); }}
+                  onClick={() => { setSearchCedula(''); cargarPacientes(); }}
                   title="Limpiar búsqueda"
                 >×</button>
               )}
@@ -349,25 +423,42 @@ const GestionPacientes: React.FC = () => {
             </button>
           </div>
           <div className="GP-actions">
-            {cediUsuario && (
-              <span className="GP-cediFilter">CEDI: {cediUsuario}</span>
+            {PERFILES_GLOBALES.includes(perfil) && (
+              <select
+                value={regionalSeleccionada}
+                onChange={(e) => {
+                  const nuevaRegional = e.target.value;
+                  setRegionalSeleccionada(nuevaRegional);
+                  cargarPacientes(nuevaRegional || undefined);
+                }}
+                className="GP-regionalSelect"
+                title="Filtrar por regional"
+              >
+                {LISTA_REGIONALES.map(reg => (
+                  <option key={reg.value} value={reg.value}>{reg.label}</option>
+                ))}
+              </select>
             )}
             <button onClick={handleCrear} className="GP-btn GP-btnPrimary">
               <FaPlus /> Nuevo Paciente
             </button>
-            <button onClick={() => setModalCargaMasivoAbierto(true)} className="GP-btn GP-btnSuccess">
-              <FaFileExcel /> Carga Masiva
-            </button>
-            <input
-              type="month"
-              value={mesCronograma}
-              onChange={(e) => handleMesCronogramaChange(e.target.value)}
-              className="GP-monthInput"
-              title="Mes del cronograma de entregas"
-            />
-            <button onClick={() => setModalCronogramaAbierto(true)} className="GP-btn GP-btnSuccess" title="Subir cronograma de fechas de entrega del mes">
-              <FaFileExcel /> Cronograma
-            </button>
+            {PERFILES_GLOBALES.includes(perfil) && (
+              <>
+                <button onClick={() => setModalCargaMasivoAbierto(true)} className="GP-btn GP-btnSuccess">
+                  <FaFileExcel /> Carga Masiva
+                </button>
+                <input
+                  type="month"
+                  value={mesCronograma}
+                  onChange={(e) => handleMesCronogramaChange(e.target.value)}
+                  className="GP-monthInput"
+                  title="Mes del cronograma de entregas"
+                />
+                <button onClick={() => setModalCronogramaAbierto(true)} className="GP-btn GP-btnSuccess" title="Subir cronograma de fechas de entrega del mes">
+                  <FaFileExcel /> Cronograma
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -409,7 +500,7 @@ const GestionPacientes: React.FC = () => {
                     <td>{paciente.cedula_original}</td>
                     <td>{paciente.direccion_original}</td>
                     <td>{paciente.municipio}</td>
-                    <td>{paciente.cedi}</td>
+                    <td>{getNombreCedi(paciente.cedi)}</td>
                     <td>{paciente.ruta}</td>
                     <td>{paciente.telefono1 || '-'}</td>
                     <td>{paciente.telefono2 || '-'}</td>

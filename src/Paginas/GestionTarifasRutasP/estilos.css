@@ -1,0 +1,734 @@
+/* ── Layout raíz ── */
+.GTR-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.GTR-header {
+  background: linear-gradient(90deg, #004d40 0%, #006b5e 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.GTR-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+  gap: 16px;
+}
+
+.GTR-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.GTR-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.GTR-brandAccent { color: #80cbc4; }
+
+.GTR-backBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 0.9rem;
+}
+
+.GTR-backBtn:hover {
+  background: rgba(255,255,255,.25);
+}
+
+/* ── MAIN ── */
+.GTR-main {
+  flex: 1;
+  padding: 32px 24px;
+}
+
+.GTR-contenedor {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+
+.GTR-seccionHeader {
+  padding: 24px 28px;
+  border-bottom: 1px solid #e8e9ea;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.GTR-titulo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #004d40;
+  margin: 0 0 4px 0;
+}
+
+.GTR-subtitulo {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ── Acciones ── */
+.GTR-acciones {
+  padding: 20px 28px;
+  border-bottom: 1px solid #e8e9ea;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.GTR-accionesGrupo {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.GTR-btnNuevo,
+.GTR-btnCargar,
+.GTR-btnDescargar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+
+.GTR-btnNuevo {
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+}
+
+.GTR-btnNuevo:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+
+.GTR-btnCargar {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: #fff;
+}
+
+.GTR-btnCargar:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, .3);
+}
+
+.GTR-btnCargar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.GTR-btnDescargar {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: #fff;
+}
+
+.GTR-btnDescargar:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, .3);
+}
+
+.GTR-btnDescargar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.GTR-filtro {
+  flex: 1;
+  max-width: 250px;
+}
+
+.GTR-filtros {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  max-width: 520px;
+}
+
+.GTR-inputFiltro {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+}
+
+.GTR-inputFiltro:focus {
+  border-color: #006b5e;
+  cursor: text;
+}
+
+/* Para select, mantener el puntero */
+select.GTR-inputFiltro:focus {
+  cursor: pointer;
+}
+
+/* ── Resultado de carga ── */
+.GTR-resultadoCarga {
+  margin: 16px 28px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.GTR-resultadoExito {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.GTR-resultadoError {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.GTR-resultadoCarga svg {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.GTR-resultadoDetalles {
+  font-size: 0.85rem;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+
+.GTR-cerrarResultado {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: auto;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.GTR-cerrarResultado:hover {
+  opacity: 1;
+}
+
+/* ── Tabla ── */
+.GTR-tabla-wrap {
+  overflow-x: auto;
+}
+
+.GTR-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.GTR-tabla thead {
+  background: #f8f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.GTR-tabla th {
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.GTR-tabla td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.GTR-tabla tbody tr:hover {
+  background: #f9fafb;
+}
+
+.GTR-td-ruta {
+  font-weight: 600;
+  color: #004d40;
+}
+
+.GTR-td-numero {
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #4b5563;
+}
+
+.GTR-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.GTR-badge-si {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.GTR-badge-no {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.GTR-td-acciones {
+  display: flex;
+  gap: 8px;
+}
+
+.GTR-btn-editar,
+.GTR-btn-eliminar {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.GTR-btn-editar {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.GTR-btn-editar:hover {
+  background: #0369a1;
+  color: #fff;
+}
+
+.GTR-btn-eliminar {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.GTR-btn-eliminar:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.GTR-sinDatos {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.GTR-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.GTR-infoBox {
+  margin: 16px 28px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-left: 4px solid #3b82f6;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  color: #1e40af;
+}
+
+.GTR-infoBox p {
+  margin: 8px 0;
+}
+
+.GTR-infoBox ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.GTR-infoBox li {
+  margin: 4px 0;
+}
+
+.GTR-infoAdvertencia {
+  background: rgba(251, 191, 36, 0.15);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border-left: 3px solid #f59e0b;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+/* ── Modal ── */
+.GTR-modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.GTR-modalCard {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+.GTR-modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e8e9ea;
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.GTR-modalTitulo {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.GTR-modal-sub {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.8);
+  margin: 4px 0 0 0;
+}
+
+.GTR-modalCerrar {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.9);
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px;
+}
+
+.GTR-modalCerrar:hover {
+  color: #fff;
+  transform: rotate(90deg);
+}
+
+.GTR-modalForm {
+  padding: 24px;
+}
+
+.GTR-formInfo {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #1e40af;
+  margin-bottom: 16px;
+}
+
+.GTR-formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.GTR-formGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.GTR-formLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.GTR-formInput {
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.GTR-formInput:focus {
+  border-color: #006b5e;
+}
+
+.GTR-formError {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin: 12px 0 0 0;
+  border: 1px solid #fca5a5;
+  line-height: 1.5;
+}
+
+.GTR-modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e8e9ea;
+  background: #f9fafb;
+}
+
+.GTR-btnCancelar,
+.GTR-btnGuardar {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.GTR-btnCancelar {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.GTR-btnCancelar:hover {
+  background: #d1d5db;
+}
+
+.GTR-btnGuardar {
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 77, 64, 0.3);
+}
+
+.GTR-btnGuardar:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 77, 64, 0.4);
+}
+
+.GTR-btnGuardar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── FOOTER ── */
+.GTR-footer {
+  background: #004d40;
+  border-top: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+}
+
+.GTR-footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 28px;
+}
+
+.GTR-footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.75);
+}
+
+.GTR-footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.GTR-footerLink {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,.4);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.GTR-footerLink:hover {
+  color: #80cbc4;
+}
+
+.GTR-footerCopy {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,.25);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .GTR-acciones {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .GTR-accionesGrupo {
+    flex-direction: column;
+  }
+
+  .GTR-filtros {
+    flex-direction: column;
+    max-width: none;
+  }
+
+  .GTR-filtro {
+    max-width: none;
+  }
+
+  .GTR-formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .GTR-modalFooter {
+    flex-direction: column-reverse;
+  }
+
+  .GTR-btnCancelar,
+  .GTR-btnGuardar {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .GTR-spinnerCard {
+    padding: 32px 24px;
+    min-width: 280px;
+  }
+}
+
+/* ── Spinner de Carga ── */
+.GTR-spinnerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: GTR-fadeIn 0.3s ease;
+}
+
+@keyframes GTR-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.GTR-spinnerCard {
+  background: #fff;
+  border-radius: 20px;
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+  animation: GTR-scaleIn 0.3s ease;
+  min-width: 320px;
+}
+
+@keyframes GTR-scaleIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.GTR-spinnerAnimation {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.GTR-spinner {
+  width: 60px;
+  height: 60px;
+  border: 5px solid #e5e7eb;
+  border-top-color: #005f56;
+  border-radius: 50%;
+  animation: GTR-spin 0.8s linear infinite;
+}
+
+@keyframes GTR-spin {
+  to { transform: rotate(360deg); }
+}
+
+.GTR-spinnerTitle {
+  margin: 0 0 8px 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #004d40;
+}
+
+.GTR-spinnerText {
+  margin: 0;
+  font-size: 1rem;
+  color: #6b7280;
+}

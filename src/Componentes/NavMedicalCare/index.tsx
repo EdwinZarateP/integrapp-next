@@ -1,37 +1,42 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen,
+  FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud';
 
 interface Props {
   paginaActual: PaginaMC;
 }
 
 const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode }[] = [
-  { id: 'medicalcare', label: 'Medical Care',        ruta: '/MedicalCare',      icono: <FaHome /> },
-  { id: 'pacientes',   label: 'Pacientes',            ruta: '/GestionPacientes', icono: <FaUserCircle /> },
-  { id: 'pedidosv3',   label: 'Pedidos V3',           ruta: '/GestionPedidosV3', icono: <FaBoxOpen /> },
-  { id: 'cruce',       label: 'Cruce Pacientes ↔ V3', ruta: '/CrucePacientesV3', icono: <FaRoute /> },
+  { id: 'medicalcare', label: 'Medical Care',          ruta: '/MedicalCare',         icono: <FaHome /> },
+  { id: 'pacientes',   label: 'Pacientes',             ruta: '/GestionPacientes',    icono: <FaUserCircle /> },
+  { id: 'pedidosv3',   label: 'Pedidos V3',            ruta: '/GestionPedidosV3',    icono: <FaBoxOpen /> },
+  { id: 'cruce',       label: 'Cruce Pacientes ↔ V3',  ruta: '/CrucePacientesV3',   icono: <FaRoute /> },
+  { id: 'solicitud',   label: 'Solicitud de Vehículos', ruta: '/SolicitudVehiculos', icono: <FaTruck /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const [abierto, setAbierto] = useState(false);
+  const [usuario, setUsuario] = useState('');
+  const [perfil, setPerfil] = useState('');
+  const [montado, setMontado] = useState(false);
 
-  const usuario = typeof document !== 'undefined'
-    ? (document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '')
-    : '';
-  const perfil = typeof document !== 'undefined'
-    ? (document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '')
-    : '';
+  useEffect(() => {
+    setMontado(true);
+    const usuarioCookie = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
+    const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+    setUsuario(usuarioCookie);
+    setPerfil(perfilCookie);
+  }, []);
 
   const cerrarSesion = () => {
     ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie']
@@ -59,8 +64,8 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
           <button className="NMC-userBtn" onClick={() => setAbierto(o => !o)}>
             <FaUserCircle className="NMC-userIcon" />
             <div className="NMC-userInfo">
-              <span className="NMC-userName">{usuario || 'Usuario'}</span>
-              <span className="NMC-userPerfil">{perfil}</span>
+              <span className="NMC-userName">{montado ? (usuario || 'Usuario') : 'Usuario'}</span>
+              <span className="NMC-userPerfil">{montado ? perfil : ''}</span>
             </div>
             <FaChevronDown className={`NMC-chevron${abierto ? ' NMC-chevronOpen' : ''}`} />
           </button>
@@ -80,9 +85,14 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 );
               })}
               {perfil === 'ADMIN' && (
-                <button className="NMC-dropItem" onClick={() => navegar('/GestionUsuarios', false)}>
-                  <FaUsers /> Gestión de usuarios
-                </button>
+                <>
+                  <button className="NMC-dropItem" onClick={() => navegar('/GestionUsuarios', false)}>
+                    <FaUsers /> Gestión de usuarios
+                  </button>
+                  <button className="NMC-dropItem" onClick={() => navegar('/GestionTarifasRutas', false)}>
+                    <FaDollarSign /> Tarifas Rutas FMC
+                  </button>
+                </>
               )}
               <div className="NMC-dropDivider" />
               <button className="NMC-dropItem NMC-dropItemDanger" onClick={cerrarSesion}>

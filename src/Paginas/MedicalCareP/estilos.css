@@ -183,40 +183,55 @@
 
 .MC-welcomeActions {
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
   margin-top: 8px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .MC-welcomeBtn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  padding: 12px 24px;
+  width: 100%;
+  padding: 14px 24px;
   border: none;
   border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
   box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  text-align: center;
 }
 
 .MC-welcomeBtn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  background: #004d40;
 }
 
 .MC-btnPrimary {
-  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  background: #005f56;
   color: #fff;
 }
 
+.MC-btnPrimary:hover {
+  background: #004d40;
+}
+
 .MC-btnSecondary {
-  background: linear-gradient(135deg, #e8a000 0%, #ff9800 100%);
+  background: #005f56;
   color: #fff;
+}
+
+.MC-btnSecondary:hover {
+  background: #004d40;
 }
 
 .MC-welcomeFeatures {
@@ -473,10 +488,12 @@
 }
 /* Botón ocupación */
 .MC-btnOcupacion {
-  background: #6f42c1;
+  background: #005f56;
   color: #fff;
 }
-.MC-btnOcupacion:hover { background: #5a2d9c; }
+.MC-btnOcupacion:hover {
+  background: #004d40;
+}
 
 /* Modal ocupación */
 .MC-modalOverlay {
@@ -620,11 +637,11 @@
 
 /* Botón de configuración */
 .MC-btnConfig {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #005f56;
   color: #fff;
 }
 .MC-btnConfig:hover {
-  background: linear-gradient(135deg, #5568d3 0%, #653a8b 100%);
+  background: #004d40;
   transform: translateY(-1px);
 }
 
