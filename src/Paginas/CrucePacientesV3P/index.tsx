@@ -754,7 +754,7 @@ const CrucePacientesV3P: React.FC = () => {
               title="Filtrar pacientes con más de 6 días hábiles"
             >
               <span className="CRV3-leyendaBadge" style={{ background: '#d4edda', color: '#155724' }}>con tiempo</span>
-              <span className="CRV3-leyendaDesc">>6 días</span>
+              <span className="CRV3-leyendaDesc">&gt;6 días</span>
             </button>
             <button
               className={`CRV3-leyendaBoton ${filtroEstado === 'retraso-operacion' ? 'CRV3-leyendaActivo' : ''}`}

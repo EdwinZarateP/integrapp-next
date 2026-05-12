@@ -6,6 +6,7 @@ import Lottie from 'lottie-react';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle,
   FaCheckCircle, FaCircle, FaFileExcel, FaFilter, FaRoute, FaCog, FaPlus, FaTrash, FaDollarSign,
+  FaTimes, FaEye, FaEyeSlash, FaEdit,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
@@ -44,8 +45,16 @@ const MedicalCareP: React.FC = () => {
   const [nuevoHorario, setNuevoHorario] = useState('');
   const [loadingConfig, setLoadingConfig] = useState(false);
 
-  // Verificar si el usuario puede ver configuración (solo ADMIN y COORDINADOR)
-  const puedeVerConfig = perfil === 'ADMIN' || perfil === 'COORDINADOR';
+  // Gestión de causales
+  const [modalCausales, setModalCausales] = useState(false);
+  const [causales, setCausales] = useState<{ _id: string; nombre: string; activo: boolean }[]>([]);
+  const [nuevaCausal, setNuevaCausal] = useState('');
+  const [loadingCausales, setLoadingCausales] = useState(false);
+  const [causalEditando, setCausalEditando] = useState<string | null>(null);
+  const [nombreEditando, setNombreEditando] = useState('');
+
+  // Verificar si el usuario puede ver configuración (solo ADMIN)
+  const puedeVerConfig = perfil === 'ADMIN';
 
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
@@ -199,6 +208,156 @@ const MedicalCareP: React.FC = () => {
     }
   };
 
+  // Funciones para gestión de causales
+  const cargarCausales = async () => {
+    setLoadingCausales(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+      // Primero inicializar causales por defecto si no existen
+      await fetch(`${API}/siscore/causales/inicializar`, { method: 'POST' });
+
+      // Luego cargar todas las causales
+      const response = await fetch(`${API}/siscore/causales/todas`);
+      if (response.ok) {
+        const data = await response.json();
+        setCausales(data.causales || []);
+      }
+    } catch (error) {
+      alert('Error al cargar causales');
+    } finally {
+      setLoadingCausales(false);
+    }
+  };
+
+  const handleAbrirModalCausales = () => {
+    setModalCausales(true);
+    cargarCausales();
+  };
+
+  const handleCrearCausal = async () => {
+    if (!nuevaCausal.trim()) return;
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/siscore/causales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: nuevaCausal.trim(), activo: true })
+      });
+
+      if (response.ok) {
+        await cargarCausales();
+        setNuevaCausal('');
+        alert('Causal creada exitosamente');
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Error al crear causal');
+      }
+    } catch (error) {
+      alert('Error al crear causal');
+    }
+  };
+
+  const handleActualizarCausal = async (id: string, nuevoNombre: string) => {
+    if (!nuevoNombre.trim()) {
+      alert('El nombre no puede estar vacío');
+      return;
+    }
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const causal = causales.find(c => c._id === id);
+      if (!causal) return;
+
+      const response = await fetch(`${API}/siscore/causales/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: nuevoNombre.trim(), activo: causal.activo })
+      });
+
+      if (response.ok) {
+        await cargarCausales();
+        setCausalEditando(null);
+        setNombreEditando('');
+        alert('Causal actualizada exitosamente');
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Error al actualizar causal');
+      }
+    } catch (error) {
+      alert('Error al actualizar causal');
+    }
+  };
+
+  const iniciarEdicion = (id: string, nombre: string) => {
+    setCausalEditando(id);
+    setNombreEditando(nombre);
+  };
+
+  const cancelarEdicion = () => {
+    setCausalEditando(null);
+    setNombreEditando('');
+  };
+
+  const guardarEdicion = (id: string) => {
+    handleActualizarCausal(id, nombreEditando);
+  };
+
+  const handleEliminarCausal = async (id: string) => {
+    if (!confirm('¿Eliminar esta causal?')) return;
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/siscore/causales/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        await cargarCausales();
+        alert('Causal eliminada exitosamente');
+      } else {
+        const error = await response.json();
+        alert(error.detail || 'Error al eliminar causal');
+      }
+    } catch (error) {
+      alert('Error al eliminar causal');
+    }
+  };
+
+  const handleToggleCausalActiva = async (id: string, activo: boolean) => {
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const causal = causales.find(c => c._id === id);
+      if (!causal) return;
+
+      // Actualización optimista del estado local
+      const nuevasCausales = causales.map(c =>
+        c._id === id ? { ...c, activo: activo } : c
+      );
+      setCausales(nuevasCausales);
+
+      const response = await fetch(`${API}/siscore/causales/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: causal.nombre, activo: activo })
+      });
+
+      if (response.ok) {
+        await cargarCausales();
+        alert(`Causal ${activo ? 'activada' : 'desactivada'} exitosamente`);
+      } else {
+        // Si falla, recargar para revertir el cambio optimista
+        await cargarCausales();
+        const error = await response.json();
+        alert(error.detail || 'Error al actualizar estado');
+      }
+    } catch (error) {
+      await cargarCausales();
+      alert('Error al actualizar estado de causal');
+    }
+  };
+
   const REGIONALES = ['TODAS', 'BARRANQUILLA', 'CALI', 'BUCARAMANGA', 'FUNZA', 'MEDELLIN'];
 
   const rutasFiltradas = filtroRegional === 'TODAS'
@@ -256,6 +415,12 @@ const MedicalCareP: React.FC = () => {
                     onClick={() => setModalConfig(true)}
                   >
                     <FaCog /> Configuración Sync
+                  </button>
+                  <button
+                    className="MC-welcomeBtn MC-btnConfig"
+                    onClick={handleAbrirModalCausales}
+                  >
+                    <FaFilter /> Editar Causales
                   </button>
                   <button
                     className="MC-welcomeBtn MC-btnPrimary"
@@ -595,6 +760,147 @@ const MedicalCareP: React.FC = () => {
               <button
                 className="MC-btnCerrarConfig"
                 onClick={() => setModalConfig(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL CAUSALES ── */}
+      {modalCausales && (
+        <div className="MC-modalOverlay" onClick={() => setModalCausales(false)}>
+          <div className="MC-modalContent MC-modalCausales" onClick={(e) => e.stopPropagation()}>
+            <div className="MC-modalHeader">
+              <h2 className="MC-modalTitle">Gestión de Causales</h2>
+              <button
+                className="MC-modalCloseBtn"
+                onClick={() => setModalCausales(false)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <div className="MC-modalBody MC-modalCausalesBody">
+              {/* Crear nueva causal */}
+              <div className="MC-crearCausalSection">
+                <h3 className="MC-sectionTitle">
+                  <FaPlus className="MC-sectionIcon" />
+                  Nueva Causal
+                </h3>
+                <div className="MC-crearCausalForm">
+                  <input
+                    type="text"
+                    value={nuevaCausal}
+                    onChange={(e) => setNuevaCausal(e.target.value)}
+                    placeholder="Ej: lleva paqueteo"
+                    className="MC-inputCausal"
+                  />
+                  <button
+                    onClick={handleCrearCausal}
+                    disabled={!nuevaCausal.trim()}
+                    className={`MC-btnCrear ${nuevaCausal.trim() ? 'MC-btnCrearActive' : ''}`}
+                  >
+                    <FaPlus /> Crear
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista de causales */}
+              <div className="MC-listaCausalesSection">
+                <h3 className="MC-sectionTitle">
+                  <FaFilter className="MC-sectionIcon" />
+                  Causales Registradas
+                  <span className="MC-countBadge">{causales.filter(c => c.activo).length} / {causales.length}</span>
+                </h3>
+
+                {loadingCausales ? (
+                  <div className="MC-loadingState">
+                    <div className="MC-spinner"></div>
+                    <p>Cargando causales...</p>
+                  </div>
+                ) : causales.length === 0 ? (
+                  <div className="MC-emptyState">
+                    <FaFilter className="MC-emptyIcon" />
+                    <p>No hay causales registradas</p>
+                    <span>Crea una nueva causal para comenzar</span>
+                  </div>
+                ) : (
+                  <div className="MC-causalesGrid">
+                    {causales.map((causal) => (
+                      <div
+                        key={causal._id}
+                        className={`MC-causalCard ${causal.activo ? 'MC-causalActive' : 'MC-causalInactive'}`}
+                      >
+                        {causalEditando === causal._id ? (
+                          <div className="MC-causalMain">
+                            <input
+                              type="text"
+                              value={nombreEditando}
+                              onChange={(e) => setNombreEditando(e.target.value)}
+                              className="MC-causalInput MC-causalInputEditing"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') guardarEdicion(causal._id);
+                                if (e.key === 'Escape') cancelarEdicion();
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="MC-causalMain">
+                            <div className="MC-causalNombre">{causal.nombre}</div>
+                            <span className={`MC-statusBadge ${causal.activo ? 'MC-statusActive' : 'MC-statusInactive'}`}>
+                              {causal.activo ? 'Activa' : 'Inactiva'}
+                            </span>
+                          </div>
+                        )}
+                        <div className="MC-causalActions">
+                          {causalEditando === causal._id ? (
+                            <>
+                              <button
+                                onClick={() => guardarEdicion(causal._id)}
+                                className="MC-btnAction MC-btnSave"
+                                title="Guardar"
+                              >
+                                <FaCheckCircle />
+                              </button>
+                              <button
+                                onClick={cancelarEdicion}
+                                className="MC-btnAction MC-btnCancel"
+                                title="Cancelar"
+                              >
+                                <FaTimes />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => iniciarEdicion(causal._id, causal.nombre)}
+                                className="MC-btnAction MC-btnEdit"
+                                title="Editar"
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
+                                onClick={() => handleToggleCausalActiva(causal._id, !causal.activo)}
+                                className={`MC-btnAction MC-btnToggle ${causal.activo ? 'MC-btnToggleActive' : 'MC-btnToggleInactive'}`}
+                                title={causal.activo ? 'Desactivar' : 'Activar'}
+                              >
+                                {causal.activo ? <FaEyeSlash /> : <FaEye />}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="MC-modalFooter">
+              <button
+                className="MC-btnCerrarConfig"
+                onClick={() => setModalCausales(false)}
               >
                 Cerrar
               </button>

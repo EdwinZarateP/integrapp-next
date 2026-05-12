@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -35,6 +35,7 @@ interface SolicitudPendiente {
   cliente_origen?: string;
   municipio_destino: string;
   departamento_destino: string;
+  regional?: string;
   tarifa_calculada: number;
   tipo_vehiculo: string;
   total_solicitado: number;
@@ -42,6 +43,8 @@ interface SolicitudPendiente {
   requiere_descargue: string;
   punto_adicional: boolean;
   desvio: boolean;
+  aforo?: number;
+  placa?: string;
   tipo_veh_sicetac?: string;
   estado: string;
 }
@@ -64,12 +67,15 @@ interface PlanillaResultado {
   total_solicitado?: number;
   // Campos editables
   tarifa_base?: number;
-  requiere_descargue?: string;
-  punto_adicional?: boolean;
-  desvio?: boolean;
+  requiere_descargue?: number;  // Valor del descargue
+  punto_adicional?: number;     // Valor del punto adicional
+  desvio?: number;              // Valor del desvío
+  aforo?: number;               // Valor del aforo
+  placa?: string;
   tipo_veh_sicetac?: string;
   guardado?: boolean;
   solicitando_id?: string;
+  causal?: string;
 }
 
 const OPCIONES_VEHICULO = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
@@ -92,21 +98,16 @@ const SolicitudVehiculos: React.FC = () => {
 
   // Cargar resultados recientes automáticamente (global, sin filtro por usuario)
   const cargarResultadosRecientes = async () => {
-    console.log('[cargarResultadosRecientes] Iniciando carga global');
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
       const url = `${API}/siscore/obtener-resultados-recientes?limite=100`;
-      console.log('[cargarResultadosRecientes] URL:', url);
       const response = await fetch(url);
 
       if (response.ok) {
         const data = await response.json();
-        console.log('[cargarResultadosRecientes] Respuesta API:', data);
-        console.log('[cargarResultadosRecientes] Cantidad planillas:', data.planillas?.length);
 
         // Nuevo formato: cada documento es una planilla independiente
         if (data.planillas && data.planillas.length > 0) {
-          console.log('Restaurando planillas independientes:', data.planillas.length);
           const resultadosRestaurados: PlanillaResultado[] = data.planillas.map((p: any) => ({
             planilla: p.planilla,
             encontrada: p.encontrada || false,
@@ -124,12 +125,14 @@ const SolicitudVehiculos: React.FC = () => {
             tipo_vehiculo: p.tipo_vehiculo || 'N/A',
             total_solicitado: p.total_solicitado || 0,
             tarifa_base: p.tarifa_base,
-            requiere_descargue: p.requiere_descargue || 'NO',
-            punto_adicional: p.punto_adicional || false,
-            desvio: p.desvio || false,
+            requiere_descargue: p.requiere_descargue || 0,
+            punto_adicional: p.punto_adicional || 0,
+            desvio: p.desvio || 0,
+            aforo: p.aforo || 0,
+            placa: p.placa || '',
             tipo_veh_sicetac: p.tipo_veh_sicetac,
             guardado: true,
-            solicitando_id: 'restaurado'
+            solicitando_id: null
           }));
           setResultados(resultadosRestaurados);
           setMostrarPendientes(false);
@@ -143,7 +146,7 @@ const SolicitudVehiculos: React.FC = () => {
             const resultadosRestaurados: PlanillaResultado[] = busqueda.resultados_consolidados.map((r: any) => ({
               ...r,
               guardado: true,
-              solicitando_id: 'restaurado'
+              solicitando_id: null
             }));
             setResultados(resultadosRestaurados);
             setMostrarPendientes(false);
@@ -152,7 +155,6 @@ const SolicitudVehiculos: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('[cargarResultadosRecientes] Error:', error);
     }
   };
 
@@ -167,18 +169,33 @@ const SolicitudVehiculos: React.FC = () => {
     // Base: tarifa_base si existe, si no tarifa_calculada
     const base = resultado.tarifa_base || resultado.tarifa_calculada || 0;
 
-    // Sumar recargos
-    let total = base;
-    if (resultado.requiere_descargue === 'SI') {
-      total += RECARGOS.descargue;
-    }
-    if (resultado.punto_adicional) {
-      total += RECARGOS.punto_adicional;
-    }
-    if (resultado.desvio) {
-      total += RECARGOS.desvio;
-    }
+    // Función helper para convertir valores a número
+    const aNumero = (val: any): number => {
+      if (typeof val === 'number') return val;
+      if (val === 'SI' || val === true) return 50000; // Descargue
+      if (val === true) return 80000; // Punto adicional
+      if (val === true) return 100000; // Desvío
+      return 0;
+    };
 
+    // Sumar recargos
+    const total = base +
+      aNumero(resultado.requiere_descargue) +
+      (typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0)) +
+      (typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0)) +
+      (resultado.aforo || 0);
+
+    return total;
+  };
+
+  const calcularTotalTemporal = (): number => {
+    if (!tempEdicion || !modalDetalle.resultado) return 0;
+    const base = tempEdicion.tarifa_base || 0;
+    let total = base;
+    if (tempEdicion.requiere_descargue === 'SI') total += RECARGOS.descargue;
+    if (tempEdicion.punto_adicional) total += RECARGOS.punto_adicional;
+    if (tempEdicion.desvio) total += RECARGOS.desvio;
+    if (tempEdicion.aforo) total += tempEdicion.aforo;
     return total;
   };
   const router = useRouter();
@@ -191,7 +208,13 @@ const SolicitudVehiculos: React.FC = () => {
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<SolicitudPendiente[]>([]);
   const [tiempoConsulta, setTiempoConsulta] = useState<number>(0);
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
-  const [modalDetalle, setModalDetalle] = useState<{ abierto: boolean; resultado: PlanillaResultado | null }>({ abierto: false, resultado: null });
+  const [modalDetalle, setModalDetalle] = useState<{ abierto: boolean; resultado: PlanillaResultado | null; indice: number | null }>({ abierto: false, resultado: null, indice: null });
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string } | null>(null);
+  const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
+
+  // Efecto para rastrear cambios en tempEdicion
+  useEffect(() => {
+  }, [tempEdicion]);
 
   const PERFILES_GLOBALES = ['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'];
 
@@ -209,7 +232,6 @@ const SolicitudVehiculos: React.FC = () => {
 
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-      console.log('Cargando solicitudes pendientes:', { usuario: nombreUsuario, perfil: perfilValue, centro_distribucion: centroDist });
 
       const params = new URLSearchParams({
         usuario: nombreUsuario,
@@ -221,21 +243,16 @@ const SolicitudVehiculos: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Solicitudes pendientes recibidas:', data);
         setSolicitudesPendientes(data.solicitudes || []);
 
         if (data.solicitudes && data.solicitudes.length > 0) {
           setMostrarPendientes(true);
-          console.log(`Mostrando ${data.solicitudes.length} solicitudes pendientes`);
         } else {
-          console.log('No hay solicitudes pendientes');
           setMostrarPendientes(false);
         }
       } else {
-        console.error('Error al cargar solicitudes:', response.status, response.statusText);
       }
     } catch (error) {
-      console.error('Error cargando solicitudes pendientes:', error);
     }
   };
 
@@ -380,13 +397,6 @@ const SolicitudVehiculos: React.FC = () => {
 
       // DEBUG: Ver qué campos vienen de Siscore
       if (registros.length > 0) {
-        console.log('=== CAMPOS DE SISCORE ===');
-        console.log('Cantidad de registros:', registros.length);
-        console.log('Primer registro completo:', registros[0]);
-        console.log('Campos disponibles:', Object.keys(registros[0]));
-        console.log('Campo Ruta:', registros[0].Ruta);
-        console.log('Campo Divipola:', registros[0].Divipola);
-        console.log('Campo Municipio Destino:', registros[0]['Municipio Destino']);
       }
 
       // Agrupar por planilla (sin calcular tarifas todavía)
@@ -403,10 +413,6 @@ const SolicitudVehiculos: React.FC = () => {
           const bodegaOrigen = reg['Bodega Origen'] || reg['bodega_origen'] || '';
 
           // Debug: mostrar todos los campos del registro
-          console.log(`📋 [PLANILLA ${planilla}] Campos disponibles:`, Object.keys(reg));
-          console.log(`📋 [PLANILLA ${planilla}] Bodega Origen: "${bodegaOrigen}"`);
-          console.log(`📋 [PLANILLA ${planilla}] Centro Costo: "${reg['Centro Costo']}"`);
-          console.log(`📋 [PLANILLA ${planilla}] centro_costo final: "${centroCosto}"`);
 
           planillasMap.set(planilla, {
             planilla,
@@ -426,7 +432,6 @@ const SolicitudVehiculos: React.FC = () => {
             desvio: false
           });
 
-          console.log(`📦 Planilla ${planilla}: centro_costo="${centroCosto}", ruta="${reg.Ruta}"`);
         }
 
         const planillaData = planillasMap.get(planilla)!;
@@ -451,12 +456,10 @@ const SolicitudVehiculos: React.FC = () => {
       for (const [planilla, data] of planillasMap) {
         // Si no tiene centro_costo, usar FMC como fallback
         if (!data.centro_costo || data.centro_costo.trim() === '') {
-          console.warn(`⚠️ Planilla ${planilla}: Sin centro_costo, usando "FMC" como fallback`);
           data.centro_costo = 'FMC';
         }
 
         if (!data.encontrada || !data.ruta || data.ruta === '-') {
-          console.warn(`Planilla ${planilla}: No se puede calcular tarifa. encontrado=${data.encontrada}, ruta="${data.ruta}"`);
           data.tipo_vehiculo = 'N/A';
           data.tarifa_calculada = 0;
           data.total_solicitado = 0;
@@ -464,7 +467,6 @@ const SolicitudVehiculos: React.FC = () => {
         }
 
         try {
-          console.log(`Consultando tarifa para planilla ${planilla}: centro_costo="${data.centro_costo}", ruta="${data.ruta}", peso=${data.peso_real}kg`);
 
           const tarifaResponse = await fetch(`${API}/siscore/consultar-tarifa`, {
             method: 'POST',
@@ -480,16 +482,20 @@ const SolicitudVehiculos: React.FC = () => {
             const tarifaData = await tarifaResponse.json();
             data.tipo_vehiculo = tarifaData.tipo_vehiculo;
             data.tarifa_calculada = tarifaData.tarifa_calculada;
-            console.log(`✅ Planilla ${planilla}: tipo=${tarifaData.tipo_vehiculo}, tarifa=${tarifaData.tarifa_calculada}`);
+            // Tarifa base y vehículo SICETAC se inicializan con los mismos valores calculados
+            data.tarifa_base = tarifaData.tarifa_calculada;
+            data.tipo_veh_sicetac = tarifaData.tipo_vehiculo;
           } else {
-            console.error(`❌ Error en respuesta de tarifa para planilla ${planilla}: ${tarifaResponse.status}`);
             data.tipo_vehiculo = 'N/A';
             data.tarifa_calculada = 0;
+            data.tarifa_base = 0;
+            data.tipo_veh_sicetac = 'N/A';
           }
         } catch (error) {
-          console.error(`❌ Error consultando tarifa para planilla ${planilla}:`, error);
           data.tipo_vehiculo = 'N/A';
           data.tarifa_calculada = 0;
+          data.tarifa_base = 0;
+          data.tipo_veh_sicetac = 'N/A';
         }
 
         // Calcular total inicial
@@ -518,47 +524,16 @@ const SolicitudVehiculos: React.FC = () => {
       const nuevosResultados = [...resultados, ...resultadosProcesados];
       setResultados(nuevosResultados);
 
+      // Limpiar selecciones de fusión
+      setPlanillasSeleccionadas(new Set());
+
       // Limpiar el input después de obtener resultados
       setPlanillasInput('');
 
       const encontradas = resultadosProcesados.filter(r => r.encontrada).length;
 
-      // Guardar busqueda en pedidos_medical para restaurar en proxima sesion
-      // Guardamos todos los resultados combinados (existentes + nuevos)
-      console.log('💾 [GUARDAR BUSQUEDA] Iniciando guardado...');
-      console.log('💾 [GUARDAR BUSQUEDA] usuario:', usuario);
-      console.log('💾 [GUARDAR BUSQUEDA] perfil:', perfil);
-      console.log('💾 [GUARDAR BUSQUEDA] centro_distribucion:', centroDistribucion);
-      console.log('💾 [GUARDAR BUSQUEDA] planillas_buscadas:', planillasBuscadas);
-      console.log('💾 [GUARDAR BUSQUEDA] resultados_consolidados count:', nuevosResultados.length);
-
-      try {
-        const guardarResponse = await fetch(`${API}/siscore/guardar-busqueda`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            usuario: usuario || 'desconocido',
-            perfil: perfil || 'N/A',
-            centro_distribucion: centroDistribucion || 'TODOS',
-            planillas_buscadas: nuevosResultados.map(r => r.planilla),
-            resultados_consolidados: nuevosResultados,
-            fecha_inicio: fechaInicio || '',
-            fecha_fin: fechaFin || ''
-          })
-        });
-
-        console.log('💾 [GUARDAR BUSQUEDA] Response status:', guardarResponse.status);
-
-        if (guardarResponse.ok) {
-          const guardarData = await guardarResponse.json();
-          console.log('💾 [GUARDAR BUSQUEDA] Success:', guardarData);
-        } else {
-          const errorText = await guardarResponse.text();
-          console.error('💾 [GUARDAR BUSQUEDA] Error response:', errorText);
-        }
-      } catch (error) {
-        console.error('💾 [GUARDAR BUSQUEDA] Exception:', error);
-      }
+      // NO guardar automáticamente en pedidos_medical - solo informar resultados
+      // El usuario debe guardar manualmente mediante el botón de editar
 
       Swal.fire(
         'Consulta finalizada',
@@ -580,38 +555,29 @@ const SolicitudVehiculos: React.FC = () => {
 
       const total = calcularTotalSolicitado(resultado);
 
+
       const payload = {
-        usuario,
-        perfil,
-        centro_distribucion: centroDistribucion || 'TODOS',
         planilla: resultado.planilla,
-        piezas: resultado.piezas,
-        peso_real: resultado.peso_real,
-        ruta: resultado.ruta,
-        codigos_pedido: resultado.codigo_pedido,
-        cantidad_pedidos: resultado.cantidad_pedidos,
-        cliente_origen: resultado.cliente_origen,
-        municipio_destino: resultado.municipio_destino,
-        departamento_destino: resultado.departamento_destino,
-        regional: resultado.regional,
-        tarifa_calculada: resultado.tarifa_calculada || 0,
-        tipo_vehiculo: resultado.tipo_vehiculo || 'N/A',
-        total_solicitado: total,
-        tarifa_base: resultado.tarifa_base,
-        requiere_descargue: resultado.requiere_descargue || 'NO',
-        punto_adicional: resultado.punto_adicional || false,
-        desvio: resultado.desvio || false,
-        tipo_veh_sicetac: resultado.tipo_veh_sicetac
+        total_solicitado: typeof total === 'number' ? total : parseFloat(total as any) || 0,
+        tarifa_base: resultado.tarifa_base || 0,
+        requiere_descargue: typeof resultado.requiere_descargue === 'number' ? resultado.requiere_descargue : (resultado.requiere_descargue === 'SI' ? 50000 : 0),
+        punto_adicional: typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0),
+        desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),
+        aforo: resultado.aforo || 0,
+        placa: resultado.placa || '',
+        tipo_veh_sicetac: resultado.tipo_veh_sicetac || ''
       };
 
-      const response = await fetch(`${API}/siscore/guardar-solicitud`, {
-        method: 'POST',
+
+      // Actualizar en pedidos_medical
+      const response = await fetch(`${API}/siscore/actualizar-planilla-pedidos`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        throw new Error('Error al guardar solicitud');
+        throw new Error('Error al actualizar planilla en pedidos_medical');
       }
 
       const data = await response.json();
@@ -620,15 +586,14 @@ const SolicitudVehiculos: React.FC = () => {
       const nuevosResultados = [...resultados];
       nuevosResultados[index] = {
         ...resultado,
-        guardado: true,
-        solicitando_id: data.solicitud._id
+        guardado: true
       };
       setResultados(nuevosResultados);
 
-      Swal.fire('Guardado', 'Solicitud guardada exitosamente', 'success');
+      Swal.fire('Guardado', `Planilla ${resultado.planilla} actualizada con placa: ${resultado.placa || 'N/A'}`, 'success');
 
     } catch (error) {
-      Swal.fire('Error', 'Error al guardar la solicitud', 'error');
+      Swal.fire('Error', 'Error al guardar la planilla', 'error');
     }
   };
 
@@ -674,17 +639,208 @@ const SolicitudVehiculos: React.FC = () => {
       if (result.isConfirmed) {
         const nuevosResultados = resultados.filter((_, i) => i !== index);
         setResultados(nuevosResultados);
+        // Limpiar selección si la planilla eliminada estaba seleccionada
+        const nuevasSelecciones = new Set<number>();
+        planillasSeleccionadas.forEach(i => {
+          if (i < index) nuevasSelecciones.add(i);
+          else if (i > index) nuevasSelecciones.add(i - 1);
+        });
+        setPlanillasSeleccionadas(nuevasSelecciones);
         Swal.fire('Eliminado', 'Planilla eliminada correctamente', 'success');
       }
     });
   };
 
-  const handleAbrirModal = (resultado: PlanillaResultado) => {
-    setModalDetalle({ abierto: true, resultado });
+  const handleToggleSeleccion = (index: number) => {
+    const nuevasSelecciones = new Set(planillasSeleccionadas);
+    if (nuevasSelecciones.has(index)) {
+      nuevasSelecciones.delete(index);
+    } else {
+      nuevasSelecciones.add(index);
+    }
+    setPlanillasSeleccionadas(nuevasSelecciones);
+  };
+
+  const handleFusionarPlanillas = async () => {
+    if (planillasSeleccionadas.size < 2) {
+      Swal.fire('Advertencia', 'Selecciona al menos 2 planillas para fusionar', 'warning');
+      return;
+    }
+
+    const indices = Array.from(planillasSeleccionadas).sort((a, b) => a - b);
+    const planillasAFusionar = indices.map(i => resultados[i]);
+
+    // Sumar piezas y pesos
+    const totalPiezas = planillasAFusionar.reduce((sum, p) => sum + (p.piezas || 0), 0);
+    const totalPeso = planillasAFusionar.reduce((sum, p) => sum + (p.peso_real || 0), 0);
+    const codigosPedido = planillasAFusionar.map(p => p.codigo_pedido).filter(cp => cp && cp !== '-').join(', ');
+    const numPedidos = planillasAFusionar.reduce((sum, p) => sum + (p.cantidad_pedidos || 0), 0);
+
+    // Calcular ruta que más se repite
+    const rutasMap = new Map<string, number>();
+    planillasAFusionar.forEach(p => {
+      if (p.ruta && p.ruta !== '-') {
+        rutasMap.set(p.ruta, (rutasMap.get(p.ruta) || 0) + 1);
+      }
+    });
+
+    let rutaMasRepetida = '';
+    let maxRepeticiones = 0;
+    rutasMap.forEach((count, ruta) => {
+      if (count > maxRepeticiones) {
+        maxRepeticiones = count;
+        rutaMasRepetida = ruta;
+      }
+    });
+
+    if (!rutaMasRepetida) {
+      Swal.fire('Error', 'No se pudo determinar una ruta para la fusión', 'error');
+      return;
+    }
+
+    // Obtener valores de las planillas que tienen la ruta más repetida
+    const planillasConRutaMasRepetida = planillasAFusionar.filter(p => p.ruta === rutaMasRepetida);
+    const clienteOrigen = planillasConRutaMasRepetida[0]?.cliente_origen || planillasAFusionar[0]?.cliente_origen || '';
+    const municipioDestino = planillasConRutaMasRepetida[0]?.municipio_destino || planillasAFusionar[0]?.municipio_destino || '';
+    const deptoDestino = planillasConRutaMasRepetida[0]?.departamento_destino || planillasAFusionar[0]?.departamento_destino || '';
+    const regional = planillasConRutaMasRepetida[0]?.regional || planillasAFusionar[0]?.regional || '';
+    const centroCosto = planillasConRutaMasRepetida[0]?.centro_costo || planillasAFusionar[0]?.centro_costo || '';
+    const placa = planillasConRutaMasRepetida[0]?.placa || planillasAFusionar[0]?.placa || '';
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+      // Inicializar causales por defecto si no existen
+      await fetch(`${API}/siscore/causales/inicializar`, { method: 'POST' });
+
+      // Consultar causales disponibles
+      const causalesResponse = await fetch(`${API}/siscore/causales`);
+      if (!causalesResponse.ok) {
+        throw new Error('Error al consultar causales');
+      }
+      const causalesData = await causalesResponse.json();
+      const causales = causalesData.causales || [];
+
+      // Mostrar selector de causal
+      const { value: causal } = await Swal.fire({
+        title: 'Fusionar Planillas',
+        input: 'select',
+        inputLabel: 'Selecciona la causal de la fusión:',
+        inputPlaceholder: 'Selecciona una causal',
+        inputOptions: causales.reduce((opts: any, c: any) => {
+          opts[c.nombre] = c.nombre;
+          return opts;
+        }, {}),
+        showCancelButton: true,
+        confirmButtonText: 'Fusionar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#005f56',
+        cancelButtonColor: '#6b7280'
+      });
+
+      if (!causal) return;
+
+      // Consultar tarifa para el peso total
+      const tarifaResponse = await fetch(`${API}/siscore/consultar-tarifa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          centro_costo: centroCosto || 'FMC',
+          ruta: rutaMasRepetida,
+          peso_real: totalPeso
+        })
+      });
+
+      if (!tarifaResponse.ok) {
+        throw new Error('Error al consultar tarifa');
+      }
+
+      const tarifaData = await tarifaResponse.json();
+
+      // Crear planilla fusionada con planillas concatenadas
+      const planillasFusionadas = planillasAFusionar.map(p => p.planilla).join('-');
+      const planillaFusionada: PlanillaResultado = {
+        planilla: planillasFusionadas,
+        encontrada: true,
+        piezas: totalPiezas,
+        peso_real: totalPeso,
+        ruta: rutaMasRepetida,
+        codigo_pedido: codigosPedido,
+        cantidad_pedidos: numPedidos,
+        cliente_origen: clienteOrigen,
+        municipio_destino: municipioDestino,
+        departamento_destino: deptoDestino,
+        regional: regional,
+        centro_costo: centroCosto,
+        tarifa_calculada: tarifaData.tarifa_calculada,
+        tipo_vehiculo: tarifaData.tipo_vehiculo,
+        total_solicitado: 0,
+        tarifa_base: tarifaData.tarifa_calculada,
+        tipo_veh_sicetac: tarifaData.tipo_vehiculo,
+        requiere_descargue: 0,
+        punto_adicional: 0,
+        desvio: 0,
+        aforo: 0,
+        placa: placa,
+        causal: causal
+      };
+
+      // Calcular total
+      planillaFusionada.total_solicitado = calcularTotalSolicitado(planillaFusionada);
+
+      // Eliminar planillas originales (de atrás hacia adelante para no afectar índices)
+      const indicesAEliminar = [...indices].sort((a, b) => b - a);
+      let nuevosResultados = [...resultados];
+      indicesAEliminar.forEach(idx => {
+        nuevosResultados.splice(idx, 1);
+      });
+
+      // Agregar planilla fusionada al inicio
+      nuevosResultados.unshift(planillaFusionada);
+      setResultados(nuevosResultados);
+
+      // Limpiar selecciones
+      setPlanillasSeleccionadas(new Set());
+
+      Swal.fire('Fusión Exitosa', `Planilla fusionada creada: ${planillaFusionada.planilla}\nTotal piezas: ${totalPiezas}\nTotal peso: ${totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg\nVehículo: ${tarifaData.tipo_vehiculo}`, 'success');
+
+    } catch (error) {
+      Swal.fire('Error', 'Error al fusionar las planillas', 'error');
+    }
+  };
+
+  const handleAbrirModal = (resultado: PlanillaResultado, indice: number = -1) => {
+
+    // Convertir valores antiguos ("NO"/"SI") a numéricos
+    const convertirDescargue = (val: any): number => {
+      if (typeof val === 'number') return val;
+      if (val === 'SI' || val === true) return 50000;
+      return 0;
+    };
+
+    const convertirBooleano = (val: any): number => {
+      if (typeof val === 'number') return val;
+      if (val === true || val === 'SI') return 80000; // Para punto_adicional
+      if (val === true || val === 'SI') return 100000; // Para desvio
+      return 0;
+    };
+
+    const tempEdicionInit = {
+      tarifa_base: resultado.tarifa_base || resultado.tarifa_calculada || 0,
+      tipo_veh_sicetac: resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || 'CARRY',
+      requiere_descargue: convertirDescargue(resultado.requiere_descargue),
+      punto_adicional: typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0),
+      desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),
+      aforo: resultado.aforo || 0,
+      placa: resultado.placa || ''
+    };
+    setModalDetalle({ abierto: true, resultado, indice });
+    setTempEdicion(tempEdicionInit);
   };
 
   const handleCerrarModal = () => {
-    setModalDetalle({ abierto: false, resultado: null });
+    setModalDetalle({ abierto: false, resultado: null, indice: null });
+    setTempEdicion(null);
   };
 
   const handleActualizarResultado = (index: number, campo: string, valor: any) => {
@@ -714,7 +870,6 @@ const SolicitudVehiculos: React.FC = () => {
         <div className="SV-header">
           <div>
             <h1 className="SV-title">Solicitud de Vehículos</h1>
-            <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>Usuario: <strong>{usuario}</strong> | Perfil: {perfil}</p>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             {solicitudesPendientes.length > 0 && !mostrarPendientes && (
@@ -740,15 +895,16 @@ const SolicitudVehiculos: React.FC = () => {
                     <th>Acciones</th>
                     <th>Regional</th>
                     <th>Planilla</th>
+                    <th>Placa</th>
                     <th>Piezas</th>
                     <th>Peso Real</th>
-                    <th>Cliente Origen</th>
                     <th>Ruta</th>
                     <th>Tipo Vehículo</th>
-                    <th>Tarifa Teórica</th>
-                    <th>Tarifa Base</th>
+                    <th>Flete teórico</th>
+                    <th>Flete solicitado</th>
                     <th>Total Solicitado</th>
                     <th>Diferencia</th>
+                    <th>Cliente Origen</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -766,18 +922,8 @@ const SolicitudVehiculos: React.FC = () => {
                     const diferencia = total - sol.tarifa_calculada;
 
                     return (
-                    <tr key={sol._id} className="SV-rowFound">
+                    <tr key={sol._id}>
                       <td>
-                        <button
-                          onClick={() => handleEnviarTramite(sol._id, -1)}
-                          className="SV-btnAction SV-btnSend"
-                          title="Enviar a revisión"
-                        >
-                          <FaPaperPlane />
-                        </button>
-                      </td>
-                      <td style={{ fontWeight: 'bold' }}>{sol.regional || '-'}</td>
-                      <td className="SV-planillaCell">
                         <button
                           onClick={() => handleAbrirModal({
                             planilla: sol.planilla,
@@ -793,30 +939,36 @@ const SolicitudVehiculos: React.FC = () => {
                             regional: sol.regional,
                             tarifa_calculada: sol.tarifa_calculada,
                             tipo_vehiculo: sol.tipo_vehiculo,
-                            total_solicitado: sol.total_solicitado,
-                            requiere_descargue: 'NO',
-                            punto_adicional: false,
-                            desvio: false
-                          })}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#004d40',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            textDecoration: 'underline',
-                            padding: 0,
-                            fontSize: 'inherit'
-                          }}
+                            total_solicitado: sol.total_solicitado || (() => {
+                              const base = sol.tarifa_base || sol.tarifa_calculada || 0;
+                              let t = base;
+                              if (sol.requiere_descargue === 'SI') t += 50000;
+                              if (sol.punto_adicional) t += 80000;
+                              if (sol.desvio) t += 100000;
+                              return t;
+                            })(),
+                            tarifa_base: sol.tarifa_base,
+                            requiere_descargue: sol.requiere_descargue,
+                            punto_adicional: sol.punto_adicional,
+                            desvio: sol.desvio,
+                            tipo_veh_sicetac: sol.tipo_veh_sicetac,
+                            placa: sol.placa,
+                            aforo: sol.aforo,
+                            guardado: true,
+                            solicitando_id: sol._id
+                          }, -1)}
+                          className="SV-btnAction SV-btnEdit"
+                          title="Ver detalles (solo lectura)"
+                          style={{ background: '#2563eb' }}
                         >
-                          {sol.planilla}
+                          <FaPen />
                         </button>
                       </td>
+                      <td style={{ fontWeight: 'bold' }}>{sol.regional || '-'}</td>
+                      <td className="SV-planillaCell">{sol.planilla}</td>
+                      <td style={{ fontWeight: '600' }}>{sol.placa || 'NA'}</td>
                       <td>{sol.piezas}</td>
                       <td>{sol.peso_real.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>
-                      <td className="SV-truncate" title={sol.cliente_origen}>
-                        {sol.cliente_origen || '-'}
-                      </td>
                       <td>{sol.ruta}</td>
                       <td>{sol.tipo_vehiculo}</td>
                       <td>${sol.tarifa_calculada.toLocaleString('es-CO')}</td>
@@ -824,6 +976,9 @@ const SolicitudVehiculos: React.FC = () => {
                       <td style={{ fontWeight: 'bold', color: '#005f56' }}>${total.toLocaleString('es-CO')}</td>
                       <td style={{ color: diferencia > 0 ? '#16a34a' : diferencia < 0 ? '#dc2626' : '#666' }}>
                         {diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0'}
+                      </td>
+                      <td className="SV-truncate" title={sol.cliente_origen}>
+                        {sol.cliente_origen || '-'}
                       </td>
                     </tr>
                   )})}
@@ -833,52 +988,67 @@ const SolicitudVehiculos: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="SV-searchSection">
-              <div className="SV-inputGroup">
-                <label htmlFor="planillas">Planillas (separadas por coma):</label>
-                <input
-                  id="planillas"
-                  type="text"
-                  className="SV-input"
-                  placeholder="Ej: 864582, 864768"
-                  value={planillasInput}
-                  onChange={(e) => setPlanillasInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
-                  disabled={loading}
-                />
+            {['ADMIN', 'OPERATIVO'].includes(perfil) && (
+              <div className="SV-searchSection">
+                <div className="SV-inputGroup">
+                  <label htmlFor="planillas">Planillas (separadas por coma):</label>
+                  <input
+                    id="planillas"
+                    type="text"
+                    className="SV-input"
+                    placeholder="Ej: 864582, 864768"
+                    value={planillasInput}
+                    onChange={(e) => setPlanillasInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
+                    disabled={loading}
+                  />
+                </div>
+                <button onClick={handleBuscar} className="SV-btnSearch" disabled={loading}>
+                  <FaSearch /> {loading ? 'Consultando...' : 'Buscar'}
+                </button>
               </div>
-              <button onClick={handleBuscar} className="SV-btnSearch" disabled={loading}>
-                <FaSearch /> {loading ? 'Consultando...' : 'Buscar'}
-              </button>
-            </div>
+            )}
 
             {resultados.length > 0 && (
               <div className="SV-resultsSection">
-                <h2 className="SV-resultsTitle">Resultados</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h2 className="SV-resultsTitle" style={{ margin: 0 }}>Resultados</h2>
+                  {['ADMIN', 'ANALISTA', 'OPERATIVO'].includes(perfil) && planillasSeleccionadas.size > 0 && (
+                    <button
+                      onClick={handleFusionarPlanillas}
+                      className="SV-btnToggle"
+                      style={{ background: '#f59e0b', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                    >
+                      🔗 Fusionar ({planillasSeleccionadas.size})
+                    </button>
+                  )}
+                </div>
                 <div className="SV-tableContainer">
                   <table className="SV-table">
                     <thead>
                       <tr>
+                        <th>Fusionar</th>
                         <th>Acciones</th>
-                        <th>Estado</th>
                         <th>Regional</th>
                         <th>Planilla</th>
+                        <th>Placa</th>
                         <th>Piezas</th>
                         <th>Peso Real</th>
-                        <th>Cliente Origen</th>
-                        <th>Ruta</th>
-                        <th>Código Pedido</th>
                         <th>Cant. Pedidos</th>
+                        <th>Ruta</th>
                         <th>Tipo Vehículo</th>
-                        <th>Tarifa Teórica</th>
-                        <th>Tarifa Base</th>
+                        <th>Flete teórico</th>
+                        <th>Flete solicitado</th>
                         <th>Vehículo SICETAC</th>
                         <th>Descargue</th>
                         <th>Punto Adic.</th>
                         <th>Desvío</th>
+                        <th>Aforo</th>
                         <th>Total Solicitado</th>
                         <th>Diferencia</th>
                         <th>Municipio</th>
+                        <th>Cliente Origen</th>
+                        <th>Código Pedido</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -887,10 +1057,28 @@ const SolicitudVehiculos: React.FC = () => {
                         const diferencia = total - (resultado.tarifa_calculada || 0);
 
                         return (
-                        <tr key={index} className={resultado.encontrada ? 'SV-rowFound' : 'SV-rowNotFound'}>
+                        <tr key={index}>
+                          <td style={{ textAlign: 'center' }}>
+                            {resultado.encontrada && ['ADMIN', 'ANALISTA', 'OPERATIVO'].includes(perfil) && (
+                              <input
+                                type="checkbox"
+                                checked={planillasSeleccionadas.has(index)}
+                                onChange={() => handleToggleSeleccion(index)}
+                                className="SV-fusionCheckbox"
+                              />
+                            )}
+                          </td>
                           <td>
                             {resultado.encontrada && (
                               <div style={{ display: 'flex', gap: '5px' }}>
+                                <button
+                                  onClick={() => handleAbrirModal(resultado, index)}
+                                  className="SV-btnAction SV-btnEdit"
+                                  title="Ver/editar detalles"
+                                  style={{ background: '#2563eb' }}
+                                >
+                                  <FaPen />
+                                </button>
                                 <button
                                   onClick={() => handleEliminarResultado(index)}
                                   className="SV-btnAction SV-btnDelete"
@@ -898,112 +1086,39 @@ const SolicitudVehiculos: React.FC = () => {
                                 >
                                   <FaTrash />
                                 </button>
-                                {!resultado.guardado ? (
-                                  <button
-                                    onClick={() => handleGuardarSolicitud(resultado, index)}
-                                    className="SV-btnAction SV-btnSave"
-                                    title="Guardar solicitud"
-                                  >
-                                    <FaSave />
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => resultado.solicitando_id && handleEnviarTramite(resultado.solicitando_id, index)}
-                                    className="SV-btnAction SV-btnSend"
-                                    title="Enviar a revisión"
-                                  >
-                                    <FaPaperPlane />
-                                  </button>
-                                )}
                               </div>
                             )}
                           </td>
-                          <td className="SV-statusCell">
-                            {resultado.encontrada ? <FaCheckCircle className="SV-iconSuccess" /> : <FaTimesCircle className="SV-iconError" />}
-                          </td>
                           <td style={{ fontWeight: 'bold' }}>{resultado.regional || '-'}</td>
                           <td className="SV-planillaCell">
-                            <button
-                              onClick={() => handleAbrirModal(resultado)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#004d40',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                textDecoration: 'underline',
-                                padding: 0,
-                                fontSize: 'inherit'
-                              }}
-                            >
-                              {resultado.planilla}
-                            </button>
+                            {resultado.planilla}
                           </td>
+                          <td style={{ fontWeight: '600' }}>{resultado.placa || 'NA'}</td>
                           <td>{resultado.encontrada ? resultado.piezas : '-'}</td>
                           <td>{resultado.encontrada ? resultado.peso_real.toLocaleString('es-CO', { maximumFractionDigits: 0 }) : '-'}</td>
-                          <td className="SV-truncate" title={resultado.cliente_origen}>
-                            {resultado.cliente_origen}
-                          </td>
-                          <td>{resultado.ruta}</td>
-                          <td className="SV-truncate" title={resultado.codigo_pedido}>
-                            {resultado.codigo_pedido}
-                          </td>
                           <td>{resultado.encontrada ? resultado.cantidad_pedidos : '-'}</td>
+                          <td>{resultado.ruta}</td>
                           <td>{resultado.tipo_vehiculo || '-'}</td>
                           <td>${resultado.tarifa_calculada?.toLocaleString('es-CO') || '-'}</td>
                           <td>
                             {resultado.encontrada ? (
-                              <input
-                                type="number"
-                                className="SV-inputSmall"
-                                value={resultado.tarifa_base || ''}
-                                onChange={(e) => handleActualizarResultado(index, 'tarifa_base', parseFloat(e.target.value) || 0)}
-                                placeholder="Nueva tarifa"
-                              />
+                              <span style={{ fontWeight: '600', color: '#005f56' }}>
+                                ${resultado.tarifa_base?.toLocaleString('es-CO') || resultado.tarifa_calculada?.toLocaleString('es-CO') || '-'}
+                              </span>
                             ) : '-'}
                           </td>
+                          <td>{resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || '-'}</td>
                           <td>
-                            {resultado.encontrada ? (
-                              <select
-                                className="SV-selectSmall"
-                                value={resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || ''}
-                                onChange={(e) => handleActualizarResultado(index, 'tipo_veh_sicetac', e.target.value)}
-                              >
-                                {OPCIONES_VEHICULO.map(op => (
-                                  <option key={op} value={op}>{op}</option>
-                                ))}
-                              </select>
-                            ) : '-'}
+                            {resultado.encontrada && resultado.requiere_descargue === 'SI' ? '$50.000' : resultado.encontrada ? '$0' : '-'}
                           </td>
                           <td>
-                            {resultado.encontrada ? (
-                              <select
-                                className="SV-selectSmall"
-                                value={resultado.requiere_descargue || 'NO'}
-                                onChange={(e) => handleActualizarResultado(index, 'requiere_descargue', e.target.value)}
-                              >
-                                <option value="NO">NO</option>
-                                <option value="SI">SI</option>
-                              </select>
-                            ) : '-'}
+                            {resultado.encontrada && resultado.punto_adicional ? '$80.000' : resultado.encontrada ? '$0' : '-'}
                           </td>
                           <td>
-                            {resultado.encontrada ? (
-                              <input
-                                type="checkbox"
-                                checked={resultado.punto_adicional || false}
-                                onChange={(e) => handleActualizarResultado(index, 'punto_adicional', e.target.checked)}
-                              />
-                            ) : '-'}
+                            {resultado.encontrada && resultado.desvio ? '$100.000' : resultado.encontrada ? '$0' : '-'}
                           </td>
-                          <td>
-                            {resultado.encontrada ? (
-                              <input
-                                type="checkbox"
-                                checked={resultado.desvio || false}
-                                onChange={(e) => handleActualizarResultado(index, 'desvio', e.target.checked)}
-                              />
-                            ) : '-'}
+                          <td style={{ fontWeight: '600' }}>
+                            {resultado.encontrada && resultado.aforo ? `$${resultado.aforo.toLocaleString('es-CO')}` : resultado.encontrada ? '$0' : '-'}
                           </td>
                           <td style={{ fontWeight: 'bold', color: '#005f56' }}>
                             ${resultado.encontrada ? total.toLocaleString('es-CO') : '-'}
@@ -1012,6 +1127,12 @@ const SolicitudVehiculos: React.FC = () => {
                             {resultado.encontrada ? (diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0') : '-'}
                           </td>
                           <td>{resultado.municipio_destino}</td>
+                          <td className="SV-truncate" title={resultado.cliente_origen}>
+                            {resultado.cliente_origen}
+                          </td>
+                          <td className="SV-truncate" title={resultado.codigo_pedido}>
+                            {resultado.codigo_pedido}
+                          </td>
                         </tr>
                       )})}
                     </tbody>
@@ -1023,7 +1144,7 @@ const SolicitudVehiculos: React.FC = () => {
         )}
       </main>
 
-      {/* Modal de detalles de planilla */}
+      {/* Modal de edición de planilla */}
       {modalDetalle.abierto && modalDetalle.resultado && (
         <div style={{
           position: 'fixed',
@@ -1041,13 +1162,14 @@ const SolicitudVehiculos: React.FC = () => {
             background: 'white',
             borderRadius: '12px',
             padding: '2rem',
-            maxWidth: '600px',
+            maxWidth: '700px',
             width: '90%',
-            maxHeight: '80vh',
-            overflowY: 'auto'
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            position: 'relative'
           }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0, color: '#004d40' }}>Detalles de Planilla {modalDetalle.resultado.planilla}</h2>
+              <h2 style={{ margin: 0, color: '#004d40' }}>Editar Planilla {modalDetalle.resultado.planilla}</h2>
               <button onClick={handleCerrarModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
 
@@ -1058,24 +1180,206 @@ const SolicitudVehiculos: React.FC = () => {
               <div><strong>Peso Real:</strong> {modalDetalle.resultado.peso_real}</div>
               <div><strong>Cant. Pedidos:</strong> {modalDetalle.resultado.cantidad_pedidos}</div>
               <div><strong>Tipo Vehículo:</strong> {modalDetalle.resultado.tipo_vehiculo}</div>
-              <div><strong>Tarifa Teórica:</strong> ${modalDetalle.resultado.tarifa_calculada?.toLocaleString('es-CO') || '-'}</div>
               <div><strong>Municipio Destino:</strong> {modalDetalle.resultado.municipio_destino}</div>
               <div><strong>Departamento Destino:</strong> {modalDetalle.resultado.departamento_destino}</div>
-              <div><strong>Total Solicitado:</strong> ${modalDetalle.resultado.total_solicitado?.toLocaleString('es-CO') || '-'}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Cliente Origen:</strong> {modalDetalle.resultado.cliente_origen}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Códigos Pedido:</strong> {modalDetalle.resultado.codigo_pedido}</div>
             </div>
 
-            <div style={{ marginTop: '1rem' }}>
-              <div><strong>Cliente Origen:</strong></div>
-              <div style={{ background: '#f5f5f5', padding: '0.75rem', borderRadius: '6px', marginTop: '0.5rem', wordBreak: 'break-word' }}>
-                {modalDetalle.resultado.cliente_origen}
+            <div style={{ marginTop: '1.5rem' }}>
+              <h3 style={{ color: '#004d40', marginBottom: '1rem', fontSize: '1.1rem', borderBottom: '2px solid #e0e0e0', paddingBottom: '0.5rem' }}>Campos Editables</h3>
+
+              {/* Sección: Tarifas */}
+              <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#666', fontWeight: '600' }}>💰 FLETES</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Flete Teórico</label>
+                    <div style={{ padding: '0.5rem', background: 'white', border: '1px solid #e0e0e0', borderRadius: '6px', fontWeight: '600', color: '#005f56' }}>
+                      ${modalDetalle.resultado.tarifa_calculada?.toLocaleString('es-CO') || '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Flete solicitado</label>
+                    <input
+                      type="number"
+                      className="SV-inputSmall"
+                      value={tempEdicion?.tarifa_base || ''}
+                      onChange={(e) => {
+                        const nuevoValor = parseFloat(e.target.value) || 0;
+                        setTempEdicion(prev => prev ? { ...prev, tarifa_base: nuevoValor } : null);
+                      }}
+                      style={{ width: '100%', padding: '0.5rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Placa</label>
+                    <input
+                      type="text"
+                      className="SV-inputSmall"
+                      value={tempEdicion?.placa || ''}
+                      onChange={(e) => {
+                        setTempEdicion(prev => prev ? { ...prev, placa: e.target.value.toUpperCase() } : null);
+                      }}
+                      style={{ width: '100%', padding: '0.5rem', textTransform: 'uppercase' }}
+                      placeholder="XXX-000"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Vehículo SICETAC</label>
+                    <select
+                      className="SV-selectSmall"
+                      value={tempEdicion?.tipo_veh_sicetac || ''}
+                      onChange={(e) => {
+                        setTempEdicion(prev => prev ? { ...prev, tipo_veh_sicetac: e.target.value } : null);
+                      }}
+                      style={{ width: '100%', padding: '0.5rem' }}
+                    >
+                      {OPCIONES_VEHICULO.map(op => (
+                        <option key={op} value={op}>{op}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Total Solicitado</label>
+                    <div style={{ padding: '0.5rem', background: 'white', border: '2px solid #005f56', borderRadius: '6px', fontWeight: '700', color: '#005f56', fontSize: '1.1rem' }}>
+                      ${calcularTotalTemporal().toLocaleString('es-CO')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección: Recargos */}
+              <div style={{ background: '#fefce8', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#b45309', fontWeight: '600' }}>📦 RECARGOS ADICIONALES</h4>
+                <div className="recargos-grid">
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#b45309', marginBottom: '0.3rem', fontWeight: '600' }}>Descargue</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>$</span>
+                      <input
+                        type="number"
+                        className="SV-inputSmall"
+                        value={tempEdicion?.requiere_descargue || 0}
+                        onChange={(e) => {
+                          const valor = parseFloat(e.target.value) || 0;
+                          setTempEdicion(prev => prev ? { ...prev, requiere_descargue: valor } : null);
+                        }}
+                        style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#b45309', marginBottom: '0.3rem', fontWeight: '600' }}>Punto Adicional</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>$</span>
+                      <input
+                        type="number"
+                        className="SV-inputSmall"
+                        value={tempEdicion?.punto_adicional || 0}
+                        onChange={(e) => {
+                          const valor = parseFloat(e.target.value) || 0;
+                          setTempEdicion(prev => prev ? { ...prev, punto_adicional: valor } : null);
+                        }}
+                        style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#b45309', marginBottom: '0.3rem', fontWeight: '600' }}>Desvío</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>$</span>
+                      <input
+                        type="number"
+                        className="SV-inputSmall"
+                        value={tempEdicion?.desvio || 0}
+                        onChange={(e) => {
+                          const valor = parseFloat(e.target.value) || 0;
+                          setTempEdicion(prev => prev ? { ...prev, desvio: valor } : null);
+                        }}
+                        style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#b45309', marginBottom: '0.3rem', fontWeight: '600' }}>Aforo</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>$</span>
+                      <input
+                        type="number"
+                        className="SV-inputSmall"
+                        value={tempEdicion?.aforo || 0}
+                        onChange={(e) => {
+                          const valor = parseFloat(e.target.value) || 0;
+                          setTempEdicion(prev => prev ? { ...prev, aforo: valor } : null);
+                        }}
+                        style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div style={{ marginTop: '1rem' }}>
-              <div><strong>Códigos Pedido:</strong></div>
-              <div style={{ background: '#f5f5f5', padding: '0.75rem', borderRadius: '6px', marginTop: '0.5rem', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                {modalDetalle.resultado.codigo_pedido}
-              </div>
+            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              {/* Botón Guardar cambios */}
+              <button
+                onClick={async () => {
+                  if (modalDetalle.indice !== null && tempEdicion && modalDetalle.resultado) {
+
+                    // Crear resultado actualizado
+                    const resultadoActualizado = {
+                      ...modalDetalle.resultado,
+                      tarifa_base: tempEdicion.tarifa_base,
+                      tipo_veh_sicetac: tempEdicion.tipo_veh_sicetac,
+                      requiere_descargue: tempEdicion.requiere_descargue,
+                      punto_adicional: tempEdicion.punto_adicional,
+                      desvio: tempEdicion.desvio,
+                      aforo: tempEdicion.aforo,
+                      placa: tempEdicion.placa
+                    };
+
+                    // Aplicar cambios locales
+                    handleActualizarResultado(modalDetalle.indice, 'tarifa_base', tempEdicion.tarifa_base);
+                    handleActualizarResultado(modalDetalle.indice, 'tipo_veh_sicetac', tempEdicion.tipo_veh_sicetac);
+                    handleActualizarResultado(modalDetalle.indice, 'requiere_descargue', tempEdicion.requiere_descargue);
+                    handleActualizarResultado(modalDetalle.indice, 'punto_adicional', tempEdicion.punto_adicional);
+                    handleActualizarResultado(modalDetalle.indice, 'desvio', tempEdicion.desvio);
+                    handleActualizarResultado(modalDetalle.indice, 'aforo', tempEdicion.aforo);
+                    handleActualizarResultado(modalDetalle.indice, 'placa', tempEdicion.placa);
+
+                    // Actualizar modal
+                    setModalDetalle(prev => ({
+                      ...prev,
+                      resultado: resultadoActualizado
+                    }));
+
+                    // Guardar en BD
+                    await handleGuardarSolicitud(resultadoActualizado, modalDetalle.indice);
+
+                    // Cerrar modal
+                    handleCerrarModal();
+                  }
+                }}
+                style={{
+                  padding: '0.75rem 2rem',
+                  background: '#16a34a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                💾 Guardar
+              </button>
             </div>
           </div>
         </div>

@@ -11,9 +11,9 @@
 .SV-main {
   flex: 1;
   padding: 2rem;
-  max-width: 1400px;
+  max-width: 1800px;
   margin: 0 auto;
-  width: 100%;
+  width: 98%;
   box-sizing: border-box;
 }
 
@@ -351,6 +351,16 @@
   transform: scale(1.1);
 }
 
+.SV-btnEdit {
+  background: #2563eb;
+  color: white;
+}
+
+.SV-btnEdit:hover {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
 /* Sección de pendientes */
 .SV-pendientesSection {
   background: white;
@@ -391,10 +401,32 @@
   white-space: nowrap;
 }
 
-.SV-truncate:hover {
-  overflow: visible;
-  white-space: normal;
-  background: white;
-  position: relative;
-  z-index: 10;
+/* Grid de recargos responsive */
+.recargos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .recargos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Checkbox de fusión */
+.SV-fusionCheckbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #f59e0b;
+}
+
+.SV-fusionCheckbox:hover {
+  transform: scale(1.1);
+}
+
+/* SweetAlert por encima del modal */
+.swal2-container-sobre-modal {
+  z-index: 99999 !important;
 }
