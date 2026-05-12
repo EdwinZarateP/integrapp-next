@@ -20,6 +20,9 @@
 /* Header */
 .SV-header {
   margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .SV-title {
@@ -27,6 +30,21 @@
   font-weight: 700;
   color: #004d40;
   margin: 0;
+}
+
+.SV-btnToggle {
+  padding: 0.5rem 1rem;
+  background: #005f56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.SV-btnToggle:hover {
+  background: #004d40;
 }
 
 /* Info de fechas */
@@ -261,6 +279,86 @@
   font-size: 0.75rem;
 }
 
+/* Inputs pequeños */
+.SV-inputSmall {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  width: 100px;
+}
+
+.SV-inputSmall:focus {
+  outline: none;
+  border-color: #004d40;
+}
+
+/* Selects pequeños */
+.SV-selectSmall {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  min-width: 80px;
+}
+
+.SV-selectSmall:focus {
+  outline: none;
+  border-color: #004d40;
+}
+
+/* Botones de acción */
+.SV-btnAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.SV-btnSave {
+  background: #16a34a;
+  color: white;
+}
+
+.SV-btnSave:hover {
+  background: #15803d;
+  transform: scale(1.1);
+}
+
+.SV-btnSend {
+  background: #005f56;
+  color: white;
+}
+
+.SV-btnSend:hover {
+  background: #004d40;
+  transform: scale(1.1);
+}
+
+.SV-btnDelete {
+  background: #dc2626;
+  color: white;
+}
+
+.SV-btnDelete:hover {
+  background: #b91c1c;
+  transform: scale(1.1);
+}
+
+/* Sección de pendientes */
+.SV-pendientesSection {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 77, 64, 0.1);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .SV-main {
@@ -283,4 +381,20 @@
   .SV-table {
     min-width: 800px;
   }
+}
+
+/* Celdas con truncamiento */
+.SV-truncate {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.SV-truncate:hover {
+  overflow: visible;
+  white-space: normal;
+  background: white;
+  position: relative;
+  z-index: 10;
 }

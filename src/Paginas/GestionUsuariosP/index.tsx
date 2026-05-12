@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey,
 } from 'react-icons/fa';
 import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
+import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -297,21 +298,8 @@ const GestionUsuariosP: React.FC = () => {
 
   return (
     <div className="GU-layout">
+      <NavMedicalCare paginaActual="usuarios" />
 
-      {/* ── HEADER ── */}
-      <header className="GU-header">
-        <div className="GU-headerInner">
-          <button className="GU-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="GU-brandName">Integr<span className="GU-brandAccent">App</span></span>
-          </button>
-          <button className="GU-backBtn" onClick={() => router.back()}>
-            <FaArrowLeft /> Volver
-          </button>
-        </div>
-      </header>
-
-      {/* ── MAIN ── */}
       <main className="GU-main">
         <div className="GU-contenedor">
           <div className="GU-seccionHeader">

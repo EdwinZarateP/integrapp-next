@@ -1,0 +1,462 @@
+/* ── Layout raíz ── */
+.GTR-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.GTR-header {
+  background: linear-gradient(90deg, #004d40 0%, #006b5e 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.GTR-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+  gap: 16px;
+}
+
+.GTR-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.GTR-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.GTR-brandAccent { color: #80cbc4; }
+
+.GTR-backBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 0.9rem;
+}
+
+.GTR-backBtn:hover {
+  background: rgba(255,255,255,.25);
+}
+
+.GTR-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+/* ── MAIN ── */
+.GTR-main {
+  flex: 1;
+  padding: 32px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Actions Bar ── */
+.GTR-actionsBar {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.GTR-actionsLeft,
+.GTR-actionsRight {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.GTR-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+
+.GTR-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.GTR-btnPrimary {
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+}
+
+.GTR-btnPrimary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+
+.GTR-btnSecondary {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: #fff;
+}
+
+.GTR-btnSecondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, .3);
+}
+
+/* ── Search Section ── */
+.GTR-searchSection {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.GTR-searchBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  transition: border-color 0.2s;
+}
+
+.GTR-searchBox:focus-within {
+  border-color: #006b5e;
+}
+
+.GTR-searchIcon {
+  color: #9ca3af;
+  font-size: 1rem;
+}
+
+.GTR-searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  outline: none;
+  font-family: inherit;
+}
+
+/* ── Alert ── */
+.GTR-alert {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+  padding: 14px 18px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.GTR-alertError {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+/* ── Table ── */
+.GTR-tableContainer {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+
+.GTR-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.GTR-table thead {
+  background: #f8f9fa;
+}
+
+.GTR-table th {
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.GTR-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.9rem;
+}
+
+.GTR-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.GTR-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.GTR-cellMonospace {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-weight: 600;
+  color: #004d40;
+}
+
+.GTR-cellActions {
+  display: flex;
+  gap: 8px;
+}
+
+.GTR-btnIcon {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.GTR-btnEdit {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.GTR-btnEdit:hover {
+  background: #0369a1;
+  color: #fff;
+}
+
+.GTR-btnDelete {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.GTR-btnDelete:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.GTR-empty {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.GTR-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+/* ── Modal ── */
+.GTR-modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.GTR-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+.GTR-modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.GTR-modalHeader h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.GTR-modalClose {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.9);
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px;
+}
+
+.GTR-modalClose:hover {
+  color: #fff;
+  transform: rotate(90deg);
+}
+
+.GTR-modalBody {
+  padding: 24px;
+}
+
+.GTR-formGroup {
+  margin-bottom: 16px;
+}
+
+.GTR-formGroup label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.GTR-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  outline: none;
+  font-family: inherit;
+}
+
+.GTR-input:focus {
+  border-color: #006b5e;
+}
+
+.GTR-modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e8e9ea;
+  background: #f9fafb;
+}
+
+/* ── Footer ── */
+.GTR-footer {
+  background: #004d40;
+  border-top: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+}
+
+.GTR-footerInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 28px;
+}
+
+.GTR-footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.75);
+}
+
+.GTR-footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.GTR-footerLink {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,.4);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.GTR-footerLink:hover {
+  color: #80cbc4;
+}
+
+.GTR-footerCopy {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,.25);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .GTR-main {
+    padding: 16px;
+  }
+
+  .GTR-actionsBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .GTR-actionsLeft,
+  .GTR-actionsRight {
+    flex-direction: column;
+  }
+
+  .GTR-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

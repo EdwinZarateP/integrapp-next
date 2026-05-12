@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft, FaPlus, FaTimes, FaSave, FaUpload, FaDownload, FaEdit, FaTrash,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaUpload, FaDownload, FaEdit, FaTrash,
   FaFileExcel, FaCheckCircle, FaExclamationTriangle,
 } from 'react-icons/fa';
 import {
@@ -15,6 +15,7 @@ import {
   descargarPlantillaTarifas,
 } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import type { TarifaRutaFmc } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
+import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -190,20 +191,8 @@ const GestionTarifasRutasP: React.FC = () => {
 
   return (
     <div className="GTR-layout">
-      {/* HEADER */}
-      <header className="GTR-header">
-        <div className="GTR-headerInner">
-          <button className="GTR-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="GTR-brandName">Integr<span className="GTR-brandAccent">App</span></span>
-          </button>
-          <button className="GTR-backBtn" onClick={() => router.back()}>
-            <FaArrowLeft /> Volver
-          </button>
-        </div>
-      </header>
+      <NavMedicalCare paginaActual="tarifas" />
 
-      {/* MAIN */}
       <main className="GTR-main">
         <div className="GTR-contenedor">
           <div className="GTR-seccionHeader">

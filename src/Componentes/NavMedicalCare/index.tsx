@@ -8,7 +8,7 @@ import {
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas';
 
 interface Props {
   paginaActual: PaginaMC;
@@ -20,6 +20,9 @@ const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode
   { id: 'pedidosv3',   label: 'Pedidos V3',            ruta: '/GestionPedidosV3',    icono: <FaBoxOpen /> },
   { id: 'cruce',       label: 'Cruce Pacientes ↔ V3',  ruta: '/CrucePacientesV3',   icono: <FaRoute /> },
   { id: 'solicitud',   label: 'Solicitud de Vehículos', ruta: '/SolicitudVehiculos', icono: <FaTruck /> },
+  { id: 'usuarios',    label: 'Gestión de Usuarios',    ruta: '/GestionUsuarios',     icono: <FaUsers /> },
+  { id: 'tarifas',     label: 'Tarifas Rutas FMC',     ruta: '/GestionTarifasRutas', icono: <FaDollarSign /> },
+  { id: 'divipolas',   label: 'Divipolas',             ruta: '/GestionDivipolas',    icono: <FaRoute /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
@@ -74,6 +77,10 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
             <div className="NMC-dropdown">
               {ITEMS.map(item => {
                 const esActual = item.id === paginaActual;
+                // Ocultar elementos de ADMIN si el perfil no es ADMIN
+                if (['usuarios', 'tarifas', 'divipolas'].includes(item.id) && perfil !== 'ADMIN') {
+                  return null;
+                }
                 return (
                   <button
                     key={item.id}
@@ -84,16 +91,6 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                   </button>
                 );
               })}
-              {perfil === 'ADMIN' && (
-                <>
-                  <button className="NMC-dropItem" onClick={() => navegar('/GestionUsuarios', false)}>
-                    <FaUsers /> Gestión de usuarios
-                  </button>
-                  <button className="NMC-dropItem" onClick={() => navegar('/GestionTarifasRutas', false)}>
-                    <FaDollarSign /> Tarifas Rutas FMC
-                  </button>
-                </>
-              )}
               <div className="NMC-dropDivider" />
               <button className="NMC-dropItem NMC-dropItemDanger" onClick={cerrarSesion}>
                 <FaSignOutAlt /> Cerrar sesión
