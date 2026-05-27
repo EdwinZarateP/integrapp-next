@@ -223,6 +223,48 @@
   color: #004d40;
 }
 
+/* Filas que necesitan aprobación (subrayadas en rosado) */
+.SV-rowNeedsApproval {
+  background: #fdf2f8;
+  border-bottom: 3px solid #ec4899 !important;
+}
+
+.SV-rowNeedsApproval:hover {
+  background: #fce7f3;
+}
+
+/* Filas aprobadas */
+.SV-rowApproved {
+  background: #f0fdf4;
+}
+
+.SV-rowApproved:hover {
+  background: #dcfce7;
+}
+
+/* Badge de estado */
+.SV-estadoBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.SV-estadoPreaprobado {
+  background: #fef3c7;
+  color: #92400e;
+  border: 2px solid #f59e0b;
+}
+
+.SV-estadoAprobado {
+  background: #d1fae5;
+  color: #065f46;
+  border: 2px solid #10b981;
+}
+
 /* Footer */
 .SV-footer {
   background: #004d40;
@@ -449,5 +491,9 @@ input[type="number"] {
 
 /* SweetAlert por encima del modal */
 .swal2-container-sobre-modal {
+  z-index: 99999 !important;
+}
+
+.swal2-popup-sobre-modal {
   z-index: 99999 !important;
 }

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCheck } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -87,6 +87,10 @@ interface PlanillaResultado {
   guardado?: boolean;
   solicitando_id?: string;
   causal?: string;
+  // Estado de aprobación
+  estado?: 'PREAPROBADO' | 'REQUIERE_APROBACION' | 'APROBADO';
+  aprobado_por?: string;  // Usuario que aprobó
+  fecha_aprobacion?: string;  // Fecha de aprobación
 }
 
 const OPCIONES_VEHICULO = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
@@ -119,36 +123,49 @@ const SolicitudVehiculos: React.FC = () => {
 
         // Nuevo formato: cada documento es una planilla independiente
         if (data.planillas && data.planillas.length > 0) {
-          const resultadosRestaurados: PlanillaResultado[] = data.planillas.map((p: any) => ({
-            planilla: p.planilla,
-            encontrada: p.encontrada || false,
-            piezas: p.piezas || 0,
-            peso_real: p.peso_real || 0,
-            ruta: p.ruta || '-',
-            codigo_pedido: p.codigo_pedido || '-',
-            cantidad_pedidos: p.cantidad_pedidos || 0,
-            cliente_origen: p.cliente_origen || '-',
-            municipio_destino: p.municipio_destino || '-',
-            departamento_destino: p.departamento_destino || '-',
-            regional: p.regional,
-            centro_costo: p.centro_costo,
-            tarifa_calculada: p.tarifa_calculada || 0,
-            tipo_vehiculo: p.tipo_vehiculo || 'N/A',
-            total_solicitado: p.total_solicitado || 0,
-            cantidad_destinos: p.cantidad_destinos || 0,
-            municipios_destino_lista: p.municipios_destino_lista || '-',
-            municipios_con_pedidos: p.municipios_con_pedidos || {},
-            fusion_info: p.fusion_info,  // Historial de fusión
-            tarifa_base: p.tarifa_base,
-            requiere_descargue: p.requiere_descargue || 0,
-            punto_adicional: p.punto_adicional || 0,
-            desvio: p.desvio || 0,
-            aforo: p.aforo || 0,
-            placa: p.placa || '',
-            tipo_veh_sicetac: p.tipo_veh_sicetac,
-            guardado: true,
-            solicitando_id: null
-          }));
+          const resultadosRestaurados: PlanillaResultado[] = data.planillas.map((p: any) => {
+            const resultado: PlanillaResultado = {
+              planilla: p.planilla,
+              encontrada: p.encontrada || false,
+              piezas: p.piezas || 0,
+              peso_real: p.peso_real || 0,
+              ruta: p.ruta || '-',
+              codigo_pedido: p.codigo_pedido || '-',
+              cantidad_pedidos: p.cantidad_pedidos || 0,
+              cliente_origen: p.cliente_origen || '-',
+              municipio_destino: p.municipio_destino || '-',
+              departamento_destino: p.departamento_destino || '-',
+              regional: p.regional,
+              centro_costo: p.centro_costo,
+              tarifa_calculada: p.tarifa_calculada || 0,
+              tipo_vehiculo: p.tipo_vehiculo || 'N/A',
+              total_solicitado: p.total_solicitado || 0,
+              cantidad_destinos: p.cantidad_destinos || 0,
+              municipios_destino_lista: p.municipios_destino_lista || '-',
+              municipios_con_pedidos: p.municipios_con_pedidos || {},
+              fusion_info: p.fusion_info,
+              tarifa_base: p.tarifa_base,
+              requiere_descargue: p.requiere_descargue || 0,
+              punto_adicional: p.punto_adicional || 0,
+              desvio: p.desvio || 0,
+              aforo: p.aforo || 0,
+              placa: p.placa || '',
+              tipo_veh_sicetac: p.tipo_veh_sicetac,
+              causal: p.causal || '',  // Causal de la modificación
+              guardado: true,
+              solicitando_id: null,
+              estado: p.estado || 'PREAPROBADO',
+              aprobado_por: p.aprobado_por,
+              fecha_aprobacion: p.fecha_aprobacion
+            };
+
+            // Si no tiene estado o tiene PREAPROBADO, recalcular estado correcto
+            if (!p.estado || p.estado === 'PREAPROBADO') {
+              resultado.estado = determinarEstado(resultado);
+            }
+
+            return resultado;
+          });
           setResultados(resultadosRestaurados);
           setMostrarPendientes(false);
           return;
@@ -203,6 +220,69 @@ const SolicitudVehiculos: React.FC = () => {
     return total;
   };
 
+  // Calcular diferencia porcentual entre total solicitado y tarifa teórica
+  const calcularDiferenciaPorcentual = (resultado: PlanillaResultado): { porcentaje: number; esMayor: boolean } => {
+    const teorico = resultado.tarifa_calculada || 0;
+    const solicitado = resultado.total_solicitado || 0;
+
+    if (teorico === 0) return { porcentaje: 0, esMayor: false };
+
+    const diferencia = solicitado - teorico;
+    const porcentaje = (diferencia / teorico) * 100;
+
+    return {
+      porcentaje: Math.abs(porcentaje),
+      esMayor: diferencia > 0
+    };
+  };
+
+  // Verificar si el perfil puede aprobar una planilla según la diferencia
+  const puedeAprobarPlanilla = (resultado: PlanillaResultado, perfilUsuario: string): { puede: boolean; motivo?: string } => {
+    // ADMIN y CONTROL siempre pueden aprobar
+    if (perfilUsuario === 'ADMIN' || perfilUsuario === 'CONTROL') {
+      return { puede: true };
+    }
+
+    // COORDINADOR solo puede aprobar si diferencia < 7% o si es menor/igual al teórico
+    if (perfilUsuario === 'COORDINADOR') {
+      const { porcentaje, esMayor } = calcularDiferenciaPorcentual(resultado);
+
+      if (!esMayor || porcentaje < 7) {
+        return { puede: true };
+      } else {
+        return {
+          puede: false,
+          motivo: `La diferencia del ${porcentaje.toFixed(1)}% excede el 7% máximo permitido. Solo CONTROL puede aprobar.`
+        };
+      }
+    }
+
+    // ANALISTA y OPERATIVO no pueden aprobar
+    return {
+      puede: false,
+      motivo: 'Tu perfil no tiene permisos para aprobar planillas.'
+    };
+  };
+
+  // Determinar el estado correcto basado en la diferencia
+  const determinarEstado = (resultado: PlanillaResultado): 'PREAPROBADO' | 'REQUIERE_APROBACION' | 'APROBADO' => {
+    // Si ya está aprobada, mantenerlo
+    if (resultado.estado === 'APROBADO') {
+      return 'APROBADO';
+    }
+
+    // Calcular diferencia
+    const { porcentaje, esMayor } = calcularDiferenciaPorcentual(resultado);
+
+    // Si hay diferencia mayor a 0, requiere aprobación
+    if (esMayor && porcentaje > 0) {
+      return 'REQUIERE_APROBACION';
+    }
+
+    // Si no hay diferencia, preaprobado
+    return 'PREAPROBADO';
+  };
+
   const calcularTotalTemporal = (): number => {
     if (!tempEdicion || !modalDetalle.resultado) return 0;
     const base = tempEdicion.tarifa_base || 0;
@@ -224,7 +304,8 @@ const SolicitudVehiculos: React.FC = () => {
   const [tiempoConsulta, setTiempoConsulta] = useState<number>(0);
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
   const [modalDetalle, setModalDetalle] = useState<{ abierto: boolean; resultado: PlanillaResultado | null; indice: number | null }>({ abierto: false, resultado: null, indice: null });
-  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string } | null>(null);
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; causal?: string } | null>(null);
+  const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
 
   // Efecto para rastrear cambios en tempEdicion
@@ -650,7 +731,11 @@ const SolicitudVehiculos: React.FC = () => {
         desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),
         aforo: resultado.aforo || 0,
         placa: resultado.placa || '',
-        tipo_veh_sicetac: resultado.tipo_veh_sicetac || ''
+        tipo_veh_sicetac: resultado.tipo_veh_sicetac || '',
+        estado: resultado.estado || 'PREAPROBADO',  // Enviar estado
+        causal: resultado.causal || '',  // Agregar causal
+        aprobado_por: resultado.aprobado_por,
+        fecha_aprobacion: resultado.fecha_aprobacion
       };
 
 
@@ -671,7 +756,8 @@ const SolicitudVehiculos: React.FC = () => {
       const nuevosResultados = [...resultados];
       nuevosResultados[index] = {
         ...resultado,
-        guardado: true
+        guardado: true,
+        estado: resultado.estado || 'PREAPROBADO'
       };
       setResultados(nuevosResultados);
 
@@ -859,6 +945,151 @@ const SolicitudVehiculos: React.FC = () => {
 
     } catch (error) {
       Swal.fire('Error', 'Error al dividir la planilla', 'error');
+    }
+  };
+
+  const handleAprobarPlanilla = async (resultado: PlanillaResultado, index: number) => {
+    // Verificar si ya está aprobada
+    if (resultado.estado === 'APROBADO') {
+      Swal.fire('Info', 'Esta planilla ya está aprobada', 'info');
+      return;
+    }
+
+    // Verificar permisos según perfil
+    const { puede, motivo } = puedeAprobarPlanilla(resultado, perfil);
+
+    if (!puede) {
+      Swal.fire('No Autorizado', motivo, 'warning');
+      return;
+    }
+
+    // Mostrar confirmación con detalles
+    const total = calcularTotalSolicitado(resultado);
+    const teorico = resultado.tarifa_calculada || 0;
+    const { porcentaje, esMayor } = calcularDiferenciaPorcentual(resultado);
+
+    const diferenciaTexto = esMayor
+      ? `+${porcentaje.toFixed(1)}% ($${(total - teorico).toLocaleString('es-CO')})`
+      : `${porcentaje.toFixed(1)}% ($${(total - teorico).toLocaleString('es-CO')})`;
+
+    const result = await Swal.fire({
+      title: '¿Aprobar Planilla?',
+      html: `
+        <div style="text-align: left;">
+          <p><strong>Planilla:</strong> ${resultado.planilla}</p>
+          <p><strong>Flete teórico:</strong> $${teorico.toLocaleString('es-CO')}</p>
+          <p><strong>Total solicitado:</strong> $${total.toLocaleString('es-CO')}</p>
+          <p><strong>Diferencia:</strong> ${diferenciaTexto}</p>
+          ${esMayor && porcentaje >= 7 ? '<p style="color: #dc2626;"><strong>⚠️ La diferencia excede el 7% - requiere autorización de CONTROL</strong></p>' : ''}
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, aprobar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      // Actualizar estado local
+      const nuevosResultados = [...resultados];
+      nuevosResultados[index] = {
+        ...resultado,
+        estado: 'APROBADO',
+        aprobado_por: usuario,
+        fecha_aprobacion: new Date().toISOString()
+      };
+      setResultados(nuevosResultados);
+
+      // Guardar en MongoDB
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const cookies = document.cookie.split(';').reduce((acc: any, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = decodeURIComponent(value);
+        return acc;
+      }, {});
+
+      const actualizarResponse = await fetch(`${API}/siscore/actualizar-estado-planilla`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planilla: resultado.planilla,
+          estado: 'APROBADO',
+          aprobado_por: usuario
+        })
+      });
+
+      if (actualizarResponse.ok) {
+        Swal.fire('✅ Aprobada', `Planilla ${resultado.planilla} aprobada exitosamente`, 'success');
+      } else {
+        Swal.fire('⚠️ Parcial', 'Planilla aprobada en local pero falló actualización en BD. Recarga la página.', 'warning');
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error al aprobar la planilla', 'error');
+    }
+  };
+
+  const handleDescargarExcel = async () => {
+    try {
+      // Filtrar resultados según perfil
+      let resultadosFiltrados = [...resultados];
+
+      // Si es OPERATIVO, filtrar por su regional
+      if (perfil === 'OPERATIVO' && centroDistribucion) {
+        resultadosFiltrados = resultadosFiltrados.filter(r => {
+          const regional = mapearRegional(r.centro_costo || r.regional || '');
+          return regional === centroDistribucion;
+        });
+      }
+
+      if (resultadosFiltrados.length === 0) {
+        Swal.fire('Info', 'No hay planillas para descargar con tus filtros actuales', 'info');
+        return;
+      }
+
+      Swal.fire({
+        title: 'Generando Excel...',
+        text: 'Por favor espera',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+      const response = await fetch(`${API}/siscore/exportar-planillas-excel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planillas: resultadosFiltrados.map(r => r.planilla),
+          perfil: perfil,
+          centro_distribucion: centroDistribucion
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al generar el Excel');
+      }
+
+      // Descargar el archivo
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `planillas_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      Swal.fire('✅ Éxito', 'Excel generado exitosamente', 'success');
+    } catch (error) {
+      console.error('Error al descargar Excel:', error);
+      Swal.fire('Error', 'Error al generar el Excel', 'error');
     }
   };
 
@@ -1111,6 +1342,10 @@ const SolicitudVehiculos: React.FC = () => {
       // Calcular total
       planillasFusionada.total_solicitado = calcularTotalSolicitado(planillasFusionada);
 
+      // Determinar el estado correcto basado en la diferencia
+      const estadoFusionada = determinarEstado(planillasFusionada);
+      (planillasFusionada as any).estado = estadoFusionada;
+
       console.log('💰 Total calculado:', planillasFusionada.total_solicitado);
 
       // Eliminar planillas originales (de atrás hacia adelante para no afectar índices)
@@ -1196,7 +1431,18 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
-  const handleAbrirModal = (resultado: PlanillaResultado, indice: number = -1) => {
+  const handleAbrirModal = async (resultado: PlanillaResultado, indice: number = -1) => {
+    // Cargar causales disponibles
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const causalesResponse = await fetch(`${API}/siscore/causales`);
+      if (causalesResponse.ok) {
+        const causalesData = await causalesResponse.json();
+        setCausalesDisponibles(causalesData.causales || []);
+      }
+    } catch (error) {
+      console.error('Error al cargar causales:', error);
+    }
 
     // Convertir valores antiguos ("NO"/"SI") a numéricos
     const convertirDescargue = (val: any): number => {
@@ -1219,7 +1465,8 @@ const SolicitudVehiculos: React.FC = () => {
       punto_adicional: typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0),
       desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),
       aforo: resultado.aforo || 0,
-      placa: resultado.placa || ''
+      placa: resultado.placa || '',
+      causal: resultado.causal || ''  // Causal existente si la tiene
     };
     setModalDetalle({ abierto: true, resultado, indice });
     setTempEdicion(tempEdicionInit);
@@ -1228,6 +1475,8 @@ const SolicitudVehiculos: React.FC = () => {
   const handleCerrarModal = () => {
     setModalDetalle({ abierto: false, resultado: null, indice: null });
     setTempEdicion(null);
+    // Cerrar cualquier SweetAlert abierto
+    Swal.close();
   };
 
   const handleActualizarResultado = (index: number, campo: string, valor: any) => {
@@ -1235,7 +1484,7 @@ const SolicitudVehiculos: React.FC = () => {
     (nuevosResultados[index] as any)[campo] = valor;
 
     // Recalcular total solicitado si cambian campos que afectan el total
-    if (['tarifa_base', 'requiere_descargue', 'punto_adicional', 'desvio'].includes(campo)) {
+    if (['tarifa_base', 'requiere_descargue', 'punto_adicional', 'desvio', 'aforo'].includes(campo)) {
       nuevosResultados[index].total_solicitado = calcularTotalSolicitado(nuevosResultados[index]);
     }
 
@@ -1403,15 +1652,28 @@ const SolicitudVehiculos: React.FC = () => {
               <div className="SV-resultsSection">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                   <h2 className="SV-resultsTitle" style={{ margin: 0 }}>Resultados</h2>
-                  {['ADMIN', 'ANALISTA', 'OPERATIVO'].includes(perfil) && planillasSeleccionadas.size > 0 && (
-                    <button
-                      onClick={handleFusionarPlanillas}
-                      className="SV-btnToggle"
-                      style={{ background: '#f59e0b', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
-                    >
-                      🔗 Fusionar ({planillasSeleccionadas.size})
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    {/* Botón Fusionar */}
+                    {['ADMIN', 'ANALISTA', 'OPERATIVO'].includes(perfil) && planillasSeleccionadas.size > 0 && (
+                      <button
+                        onClick={handleFusionarPlanillas}
+                        className="SV-btnToggle"
+                        style={{ background: '#f59e0b', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                      >
+                        🔗 Fusionar ({planillasSeleccionadas.size})
+                      </button>
+                    )}
+                    {/* Botón Descargar Excel */}
+                    {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA', 'OPERATIVO'].includes(perfil) && resultados.length > 0 && (
+                      <button
+                        onClick={handleDescargarExcel}
+                        className="SV-btnToggle"
+                        style={{ background: '#16a34a', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                      >
+                        📥 Descargar Excel
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="SV-tableContainer">
                   <table className="SV-table">
@@ -1419,6 +1681,7 @@ const SolicitudVehiculos: React.FC = () => {
                       <tr>
                         <th>Fusionar</th>
                         <th>Acciones</th>
+                        <th>Estado</th>
                         <th>Regional</th>
                         <th>Planilla</th>
                         <th>Placa</th>
@@ -1440,15 +1703,25 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Cliente Origen</th>
                         <th>Cant. Destinos</th>
                         <th>Código Pedido</th>
+                        <th>Observaciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {resultados.map((resultado, index) => {
                         const total = calcularTotalSolicitado(resultado);
                         const diferencia = total - (resultado.tarifa_calculada || 0);
+                        const { porcentaje, esMayor } = calcularDiferenciaPorcentual(resultado);
 
+                        // Usar el estado directamente para determinar el estilo
                         return (
-                        <tr key={index}>
+                        <tr
+                          key={index}
+                          className={
+                            resultado.estado === 'APROBADO' ? 'SV-rowApproved' :
+                            resultado.estado === 'REQUIERE_APROBACION' ? 'SV-rowNeedsApproval' :
+                            !resultado.encontrada ? 'SV-rowNotFound' : ''
+                          }
+                        >
                           <td style={{ textAlign: 'center' }}>
                             {resultado.encontrada && ['ADMIN', 'ANALISTA', 'OPERATIVO'].includes(perfil) && (
                               <input
@@ -1489,6 +1762,34 @@ const SolicitudVehiculos: React.FC = () => {
                                   <FaTrash />
                                 </button>
                               </div>
+                            )}
+                          </td>
+                          <td>
+                            {resultado.encontrada && (
+                              <>
+                                {/* Badge de estado */}
+                                <span className={`SV-estadoBadge ${
+                                  resultado.estado === 'APROBADO' ? 'SV-estadoAprobado' :
+                                  resultado.estado === 'REQUIERE_APROBACION' ? 'SV-estadoPreaprobado' :
+                                  'SV-estadoPreaprobado'
+                                }`}>
+                                  {resultado.estado === 'REQUIERE_APROBACION' ? 'REQUIERE APROBACIÓN' :
+                                   resultado.estado === 'APROBADO' ? 'APROBADO' :
+                                   'PREAPROBADO'}
+                                </span>
+
+                                {/* Botón de aprobar - Solo para perfiles autorizados */}
+                                {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && (
+                                  <button
+                                    onClick={() => handleAprobarPlanilla(resultado, index)}
+                                    className="SV-btnAction SV-btnSave"
+                                    title="Aprobar planilla"
+                                    style={{ marginTop: '5px', width: '100%', fontSize: '0.75rem', padding: '0.25rem' }}
+                                  >
+                                    <FaCheck /> Aprobar
+                                  </button>
+                                )}
+                              </>
                             )}
                           </td>
                           <td style={{ fontWeight: 'bold' }}>{resultado.regional || '-'}</td>
@@ -1537,6 +1838,9 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td className="SV-truncate" title={resultado.codigo_pedido}>
                             {resultado.codigo_pedido}
+                          </td>
+                          <td className="SV-truncate" title={resultado.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>
+                            {resultado.causal || '-'}
                           </td>
                         </tr>
                       )})}
@@ -1740,6 +2044,74 @@ const SolicitudVehiculos: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Sección: Observaciones / Causal */}
+              <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#0369a1', fontWeight: '600' }}>📝 OBSERVACIONES / CAUSAL</h4>
+                <div>
+                  {/* Calcular si es obligatorio o no basado en SOBRECOSTO */}
+                  {(() => {
+                    const totalActual = (
+                      (tempEdicion?.tarifa_base || modalDetalle.resultado.tarifa_calculada || 0) +
+                      (tempEdicion?.requiere_descargue || 0) +
+                      (tempEdicion?.punto_adicional || 0) +
+                      (tempEdicion?.desvio || 0) +
+                      (tempEdicion?.aforo || 0)
+                    );
+                    const teorico = modalDetalle.resultado.tarifa_calculada || 0;
+                    const haySobrecosto = totalActual > teorico;
+                    const esObligatorio = haySobrecosto;
+
+                    return (
+                      <>
+                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.3rem', fontWeight: '600' }}>
+                          Causal del cambio
+                          {esObligatorio ? (
+                            <span style={{ color: '#dc2626', marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                              * OBLIGATORIO (hay sobrecosto)
+                            </span>
+                          ) : (
+                            <span style={{ color: '#059669', marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                              (Opcional - sin sobrecosto)
+                            </span>
+                          )}
+                        </label>
+                        <select
+                          className="SV-selectSmall"
+                          value={tempEdicion?.causal || ''}
+                          onChange={(e) => {
+                            setTempEdicion(prev => prev ? { ...prev, causal: e.target.value } : null);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            fontSize: '0.95rem',
+                            maxWidth: '400px',
+                            border: esObligatorio && !tempEdicion?.causal ? '2px solid #dc2626' : '1px solid #ccc',
+                            backgroundColor: esObligatorio && !tempEdicion?.causal ? '#fef2f2' : 'white'
+                          }}
+                        >
+                          <option value="">
+                            {esObligatorio
+                              ? '⚠️ Selecciona una causal (requerido)'
+                              : 'Seleccione una causal (opcional)'}
+                          </option>
+                          {causalesDisponibles.map((causal, idx) => (
+                            <option key={idx} value={causal.nombre}>
+                              {causal.nombre}
+                            </option>
+                          ))}
+                        </select>
+                        <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem', margin: '0.3rem 0 0 0' }}>
+                          {esObligatorio
+                            ? 'El valor solicitado ($' + totalActual.toLocaleString('es-CO') + ') es mayor al teórico ($' + teorico.toLocaleString('es-CO') + '). Debes seleccionar una causal que justifique el sobrecosto.'
+                            : 'El valor solicitado está por debajo o igual al teórico. La causal es opcional.'}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
 
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -1748,8 +2120,8 @@ const SolicitudVehiculos: React.FC = () => {
                 onClick={async () => {
                   if (modalDetalle.indice !== null && tempEdicion && modalDetalle.resultado) {
 
-                    // Crear resultado actualizado
-                    const resultadoActualizado = {
+                    // Crear resultado actualizado - Calcular estado correcto
+                    const resultadoTemp = {
                       ...modalDetalle.resultado,
                       tarifa_base: tempEdicion.tarifa_base,
                       tipo_veh_sicetac: tempEdicion.tipo_veh_sicetac,
@@ -1757,17 +2129,72 @@ const SolicitudVehiculos: React.FC = () => {
                       punto_adicional: tempEdicion.punto_adicional,
                       desvio: tempEdicion.desvio,
                       aforo: tempEdicion.aforo,
-                      placa: tempEdicion.placa
+                      placa: tempEdicion.placa,
+                      causal: tempEdicion.causal || ''  // Agregar causal
                     };
 
-                    // Aplicar cambios locales
-                    handleActualizarResultado(modalDetalle.indice, 'tarifa_base', tempEdicion.tarifa_base);
-                    handleActualizarResultado(modalDetalle.indice, 'tipo_veh_sicetac', tempEdicion.tipo_veh_sicetac);
-                    handleActualizarResultado(modalDetalle.indice, 'requiere_descargue', tempEdicion.requiere_descargue);
-                    handleActualizarResultado(modalDetalle.indice, 'punto_adicional', tempEdicion.punto_adicional);
-                    handleActualizarResultado(modalDetalle.indice, 'desvio', tempEdicion.desvio);
-                    handleActualizarResultado(modalDetalle.indice, 'aforo', tempEdicion.aforo);
-                    handleActualizarResultado(modalDetalle.indice, 'placa', tempEdicion.placa);
+                    // Calcular el total EXPLÍCITAMENTE con los nuevos valores
+                    const totalCalculado = (
+                      (tempEdicion.tarifa_base || modalDetalle.resultado.tarifa_calculada || 0) +
+                      (tempEdicion.requiere_descargue || 0) +
+                      (tempEdicion.punto_adicional || 0) +
+                      (tempEdicion.desvio || 0) +
+                      (tempEdicion.aforo || 0)
+                    );
+
+                    // Calcular diferencia manualmente
+                    const teorico = modalDetalle.resultado.tarifa_calculada || 0;
+                    const diferencia = totalCalculado - teorico;
+                    const porcentaje = teorico > 0 ? (Math.abs(diferencia) / teorico) * 100 : 0;
+                    const esMayor = diferencia > 0;
+
+                    // VALIDACIÓN CORREGIDA: Si hay SOBRECOSTO (total > teórico), es OBLIGATORIO tener causal
+                    const haySobrecosto = totalCalculado > teorico;
+
+                    if (haySobrecosto && !tempEdicion.causal) {
+                      Swal.fire({
+                        title: 'Causal Requerida',
+                        text: 'Si hay sobrecosto (valor mayor al teórico), debes seleccionar una causal que justifique el cambio.',
+                        icon: 'warning',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#dc2626',
+                        customClass: {
+                          container: 'swal2-container-sobre-modal',
+                          popup: 'swal2-popup-sobre-modal'
+                        }
+                      });
+                      return;
+                    }
+
+                    // Si NO hay sobrecosto (total <= teórico), se puede limpiar la causal
+                    let causalFinal = tempEdicion.causal || '';
+                    if (!haySobrecosto) {
+                      causalFinal = '';  // Limpiar causal si no hay sobrecosto
+                    }
+
+                    // Determinar el estado correcto basado en la diferencia
+                    let nuevoEstado: 'PREAPROBADO' | 'REQUIERE_APROBACION' | 'APROBADO';
+                    if (modalDetalle.resultado.estado === 'APROBADO') {
+                      nuevoEstado = 'APROBADO';
+                    } else if (esMayor && porcentaje > 0) {
+                      nuevoEstado = 'REQUIERE_APROBACION';
+                    } else {
+                      nuevoEstado = 'PREAPROBADO';
+                    }
+
+                    const resultadoActualizado = {
+                      ...resultadoTemp,
+                      causal: causalFinal,  // Usar causal con lógica corregida
+                      total_solicitado: totalCalculado,  // Actualizar total calculado
+                      estado: nuevoEstado,
+                      aprobado_por: undefined,  // Limpiar aprobador al editar
+                      fecha_aprobacion: undefined  // Limpiar fecha de aprobación
+                    };
+
+                    // Aplicar cambios locales - actualizar todo de una vez
+                    const nuevosResultados = [...resultados];
+                    nuevosResultados[modalDetalle.indice!] = resultadoActualizado;
+                    setResultados(nuevosResultados);
 
                     // Actualizar modal
                     setModalDetalle(prev => ({
