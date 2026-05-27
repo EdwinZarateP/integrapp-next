@@ -342,6 +342,33 @@ const SolicitudVehiculos: React.FC = () => {
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
   const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO'>('TODOS');
 
+  // Función para reproducir sonido de notificación profesional
+  const playNotificationSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Sonido tipo "ding" agradable
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
+      oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.3);
+
+      // Envelope suave
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.4);
+    } catch (error) {
+      console.warn('No se pudo reproducir el sonido:', error);
+    }
+  };
+
   // Efecto para rastrear cambios en tempEdicion
   useEffect(() => {
   }, [tempEdicion]);
@@ -808,6 +835,9 @@ const SolicitudVehiculos: React.FC = () => {
         console.error('❌ Error al guardar planillas:', error);
       }
 
+      // Reproducir sonido de notificación
+      playNotificationSound();
+
       Swal.fire(
         'Consulta finalizada',
         `Se encontraron ${encontradas} de ${planillasBuscadas.length} planillas (${registros.length} registros) en ${tiempoTotal} segundos`,
@@ -831,6 +861,31 @@ const SolicitudVehiculos: React.FC = () => {
 
       const total = calcularTotalSolicitado(resultado);
 
+      // CALCULAR EL NUEVO ESTADO según los valores actuales
+      let nuevoEstado: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
+      const teorico = resultado.tarifa_calculada || 0;
+
+      if (teorico === 0) {
+        // Caso especial: sin tarifa
+        nuevoEstado = 'PREAPROBADO';
+      } else if (total <= teorico) {
+        // Total menor o igual al teórico
+        nuevoEstado = 'PREAPROBADO';
+      } else {
+        // Total mayor al teórico - calcular diferencia
+        const { porcentaje } = calcularDiferenciaPorcentual(resultado);
+
+        if (porcentaje <= 7) {
+          nuevoEstado = 'REQUIERE_APROBACION_COORDINADOR';
+        } else {
+          nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
+        }
+      }
+
+      // Si la planilla estaba APROBADA y se está editando, recalcular estado completamente
+      // Limpiar aprobado_por y fecha_aprobacion si el nuevo estado no es APROBADO
+      const estabaAprobada = resultado.estado === 'APROBADO';
+      const estadoFinal = nuevoEstado;
 
       const payload = {
         planilla: resultado.planilla,
@@ -842,13 +897,40 @@ const SolicitudVehiculos: React.FC = () => {
         aforo: resultado.aforo || 0,
         placa: resultado.placa || '',
         tipo_veh_sicetac: resultado.tipo_veh_sicetac || '',
-        estado: resultado.estado || 'PREAPROBADO',  // Enviar estado
+        estado: estadoFinal,  // Usar el estado recalculado
         causal: resultado.causal || '',  // Agregar causal
-        aprobado_por: resultado.aprobado_por,
-        fecha_aprobacion: resultado.fecha_aprobacion,
+        aprobado_por: estadoFinal === 'APROBADO' ? resultado.aprobado_por : null,  // Limpiar si ya no está aprobada
+        fecha_aprobacion: estadoFinal === 'APROBADO' ? resultado.fecha_aprobacion : null,  // Limpiar si ya no está aprobada
         usuario_modificacion: usuarioCookie  // Trazabilidad: quién está editando
       };
 
+      // Mostrar advertencia si se está recalculando el estado de una planilla aprobada
+      if (estabaAprobada && estadoFinal !== 'APROBADO') {
+        const result = await Swal.fire({
+          title: '⚠️ Planilla Aprobada',
+          html: `
+            <div style="text-align: left;">
+              <p>Esta planilla está <strong>APROBADA</strong> y al editarla volverá al estado:</p>
+              <p style="font-size: 1.2rem; font-weight: bold; color: ${estadoFinal === 'REQUIERE_APROBACION_COORDINADOR' ? '#f59e0b' : estadoFinal === 'REQUIERE_APROBACION_CONTROL' ? '#ef4444' : '#6b7280'}">
+                ${estadoFinal.replace(/_/g, ' ')}
+              </p>
+              <p style="margin-top: 1rem;">¿Deseas continuar?</p>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#005f56',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Sí, guardar',
+          cancelButtonText: 'Cancelar',
+          customClass: {
+            container: 'swal2-container-sobre-modal',
+            popup: 'swal2-popup-sobre-modal'
+          }
+        });
+
+        if (!result.isConfirmed) return;
+      }
 
       // Actualizar en pedidos_medical
       const response = await fetch(`${API}/siscore/actualizar-planilla-pedidos`, {
@@ -863,16 +945,26 @@ const SolicitudVehiculos: React.FC = () => {
 
       const data = await response.json();
 
-      // Actualizar el resultado como guardado
+      // Actualizar el resultado como guardado con el nuevo estado
       const nuevosResultados = [...resultados];
       nuevosResultados[index] = {
         ...resultado,
         guardado: true,
-        estado: resultado.estado || 'PREAPROBADO'
+        estado: estadoFinal,
+        aprobado_por: estadoFinal === 'APROBADO' ? resultado.aprobado_por : null,
+        fecha_aprobacion: estadoFinal === 'APROBADO' ? resultado.fecha_aprobacion : null
       };
       setResultados(nuevosResultados);
 
-      Swal.fire('Guardado', `Planilla ${resultado.planilla} actualizada con placa: ${resultado.placa || 'N/A'}`, 'success');
+      const mensajeEstado = estadoFinal !== resultado.estado && resultado.estado === 'APROBADO'
+        ? ` (recuperó estado: ${estadoFinal.replace(/_/g, ' ')})`
+        : '';
+
+      Swal.fire(
+        'Guardado',
+        `Planilla ${resultado.planilla} actualizada con placa: ${resultado.placa || 'N/A'}${mensajeEstado}`,
+        'success'
+      );
 
     } catch (error) {
       Swal.fire('Error', 'Error al guardar la planilla', 'error');
@@ -1212,6 +1304,37 @@ const SolicitudVehiculos: React.FC = () => {
 
       const indices = Array.from(planillasSeleccionadas).sort((a, b) => a - b);
       const planillasAFusionar = indices.map(i => resultados[i]);
+
+      // VERIFICAR si alguna de las planillas ya está fusionada
+      const planillasYaFusionadas = planillasAFusionar.filter(p => {
+        // Verificar si tiene fusion_info o si el número de planilla contiene guiones (ej: "842058-824986")
+        const tieneFusionInfo = p.fusion_info && p.fusion_info.es_fusionada === true;
+        const tieneGuiones = p.planilla && p.planilla.includes('-');
+        return tieneFusionInfo || tieneGuiones;
+      });
+
+      if (planillasYaFusionadas.length > 0) {
+        Swal.fire({
+          title: '⚠️ Planillas Fusionadas Detectadas',
+          html: `
+            <div style="text-align: left;">
+              <p>No puedes fusionar planillas que ya están fusionadas.</p>
+              <p style="margin-top: 1rem;"><strong>Planillas detectadas:</strong></p>
+              <ul style="text-align: left; display: inline-block; margin-top: 0.5rem;">
+                ${planillasYaFusionadas.map(p => `<li><strong>${p.planilla}</strong> (${p.consecutivo || 'Sin consecutivo'})</li>`).join('')}
+              </ul>
+              <p style="margin-top: 1rem; color: #666;">
+                <strong>Paso 1:</strong> Usa el botón de dividir (↱️) para separar las planillas fusionadas<br>
+                <strong>Paso 2:</strong> Luego intenta fusionar nuevamente
+              </p>
+            </div>
+          `,
+          icon: 'warning',
+          confirmButtonColor: '#f59e0b',
+          confirmButtonText: 'Entendido'
+        });
+        return;
+      }
 
       console.log('📋 Planillas a fusionar:', planillasAFusionar.map(p => p.planilla));
 
@@ -1559,6 +1682,144 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  const handleAprobarSeleccionadas = async () => {
+    try {
+      console.log('✅ Iniciando aprobación masiva de planillas...');
+
+      if (planillasSeleccionadas.size === 0) {
+        Swal.fire('Advertencia', 'Selecciona al menos 1 planilla para aprobar', 'warning');
+        return;
+      }
+
+      // Verificar permisos del perfil
+      if (!['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+        Swal.fire('No Autorizado', 'Tu perfil no tiene permisos para aprobar planillas', 'warning');
+        return;
+      }
+
+      const indices = Array.from(planillasSeleccionadas).sort((a, b) => a - b);
+      const planillasSeleccionadasArray = indices.map(i => resultados[i]);
+
+      // FILTRAR SOLO las que están en PREAPROBADO
+      // Las que requieren autorización deben aprobarse individualmente desde el botón de estado
+      const planillasParaAprobar = planillasSeleccionadasArray.filter(p =>
+        p.estado === 'PREAPROBADO' || !p.estado
+      );
+
+      // Verificar si hay planillas que requieren autorización individual
+      const planillasRequierenAutorizacion = planillasSeleccionadasArray.filter(p =>
+        p.estado === 'REQUIERE_APROBACION_COORDINADOR' ||
+        p.estado === 'REQUIERE_APROBACION_CONTROL' ||
+        p.estado === 'APROBADO'
+      );
+
+      if (planillasParaAprobar.length === 0) {
+        let mensaje = 'No hay planillas PREAPROBADO para aprobar masivamente.\n\n';
+        if (planillasRequierenAutorizacion.length > 0) {
+          mensaje += 'Las planillas seleccionadas requieren aprobación individual.\n\n';
+          mensaje += 'Usa el botón de estado en la tabla para aprobarlas una por una.';
+        }
+        Swal.fire('No se pueden aprobar', mensaje, 'info');
+        return;
+      }
+
+      // Construir mensaje de confirmación
+      let mensajeConfirmacion = `¿Aprobar ${planillasParaAprobar.length} planilla(s) PREAPROBADO?\n\n`;
+      mensajeConfirmacion += planillasParaAprobar.map(p => `• ${p.planilla} (${p.consecutivo || 'Sin consecutivo'})`).join('\n');
+
+      // Advertencia si hay planillas que requieren autorización individual
+      if (planillasRequierenAutorizacion.length > 0) {
+        mensajeConfirmacion += `\n\n⚠️ ${planillasRequierenAutorizacion.length} planilla(s) requieren aprobación individual y NO se aprobarán:\n`;
+        mensajeConfirmacion += planillasRequierenAutorizacion.map(p => `• ${p.planilla} (${p.estado})`).join('\n');
+        mensajeConfirmacion += '\n\nUsa el botón de estado en la tabla para aprobarlas.';
+      }
+
+      const result = await Swal.fire({
+        title: '¿Aprobar Planillas Masivamente?',
+        html: `<div style="text-align: left; white-space: pre-wrap;">${mensajeConfirmacion}</div>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, aprobar',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!result.isConfirmed) return;
+
+      // Mostrar progreso
+      Swal.fire({
+        title: 'Aprobando planillas...',
+        html: '<div class="swal2-loader"></div><p>Por favor espera...</p>',
+        allowOutsideClick: false,
+        showConfirmButton: false
+      });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const cookies = document.cookie.split(';').reduce((acc: any, cookie: string) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = decodeURIComponent(value);
+        return acc;
+      }, {});
+
+      let aprobadas = 0;
+      let errores = 0;
+      const resultadosActualizados = [...resultados];
+
+      // Aprobar cada planilla
+      for (const resultado of planillasParaAprobar) {
+        try {
+          const response = await fetch(`${API}/siscore/actualizar-estado-planilla`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              planilla: resultado.planilla,
+              estado: 'APROBADO',
+              aprobado_por: cookies.usuario || 'desconocido'
+            })
+          });
+
+          if (response.ok) {
+            // Actualizar estado localmente
+            const index = resultados.findIndex(r => r.planilla === resultado.planilla);
+            if (index !== -1) {
+              resultadosActualizados[index] = {
+                ...resultadosActualizados[index],
+                estado: 'APROBADO',
+                aprobado_por: cookies.usuario || 'desconocido',
+                fecha_aprobacion: new Date().toISOString()
+              };
+            }
+            aprobadas++;
+          } else {
+            errores++;
+          }
+        } catch (error) {
+          console.error(`Error aprobando ${resultado.planilla}:`, error);
+          errores++;
+        }
+      }
+
+      setResultados(resultadosActualizados);
+
+      // Limpiar selecciones
+      setPlanillasSeleccionadas(new Set());
+
+      // Reproducir sonido de notificación
+      playNotificationSound();
+
+      Swal.fire(
+        'Aprobación Masiva Finalizada',
+        `✅ Aprobadas: ${aprobadas}\n${errores > 0 ? `❌ Con errores: ${errores}` : ''}`,
+        errores > 0 ? 'warning' : 'success'
+      );
+
+    } catch (error: any) {
+      console.error('❌ Error al aprobar masivamente:', error);
+      Swal.fire('Error', `Error al aprobar masivamente: ${error?.message || 'Error desconocido'}`, 'error');
+    }
+  };
+
   const handleAbrirModal = async (resultado: PlanillaResultado, indice: number = -1) => {
     // Cargar causales disponibles
     try {
@@ -1812,6 +2073,16 @@ const SolicitudVehiculos: React.FC = () => {
                         🔗 Fusionar ({planillasSeleccionadas.size})
                       </button>
                     )}
+                    {/* Botón Aprobar Masivo */}
+                    {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && planillasSeleccionadas.size > 0 && (
+                      <button
+                        onClick={handleAprobarSeleccionadas}
+                        className="SV-btnToggle"
+                        style={{ background: '#16a34a', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                      >
+                        ✅ Aprobar ({planillasSeleccionadas.size})
+                      </button>
+                    )}
                     {/* Botón Descargar Excel */}
                     {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA', 'OPERATIVO'].includes(perfil) && resultados.length > 0 && (
                       <button
@@ -2041,28 +2312,48 @@ const SolicitudVehiculos: React.FC = () => {
 
       {/* Modal de edición de planilla */}
       {modalDetalle.abierto && modalDetalle.resultado && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 9999
-        }} onClick={handleCerrarModal}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '2rem',
-            maxWidth: '700px',
-            width: '90%',
-            maxHeight: '85vh',
-            overflowY: 'auto',
-            position: 'relative'
-          }} onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999
+          }}
+          onDoubleClick={(e) => {
+            // Solo cerrar con doble click en el overlay
+            if (e.target === e.currentTarget) {
+              handleCerrarModal();
+            }
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '2rem',
+              maxWidth: '700px',
+              width: '90%',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              position: 'relative',
+              userSelect: 'text'  // Permitir selección de texto
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onPointerUpCapture={(e) => e.stopPropagation()}
+            onSelect={(e) => e.stopPropagation()}
+            onInput={(e) => e.stopPropagation()}
+            onChange={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.stopPropagation()}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ margin: 0, color: '#004d40' }}>Editar Planilla {modalDetalle.resultado.planilla}</h2>
               <button onClick={handleCerrarModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>

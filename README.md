@@ -303,6 +303,106 @@ Indicadores de prioridad en CrucePacientesV3:
 - **Pydantic**: Nuevo modelo `VerificarFusionadasRequest` sin requerir `fecha_inicio`/`fecha_fin`
 - **Consistencia**: Nombres de campos `numero_consecutivo` y `letra_consecutivo` usados correctamente
 
+### Sonido de Notificación al Finalizar Consulta
+
+- **Sonido profesional tipo "ding"**: Se reproduce automáticamente cuando termina la consulta de planillas
+- **Web Audio API**: Sonido generado dinámicamente sin archivos externos
+- **Características**:
+  - Frecuencia dinámica: 800Hz → 1200Hz → 800Hz
+  - Envelope suave: ataque rápido, decaimiento suave
+  - Duración: 400ms (corto y no molesto)
+- **Mejora de UX**: El usuario puede saber cuándo terminó la consulta sin mirar la pantalla
+
+### Fallback de Regional del Usuario
+
+- **Problema**: Planillas sin "Bodega Origen" generaban consecutivos como "--20260527-1"
+- **Solución**: Usa la regional del usuario cuando la planilla no tiene bodega
+- **Lógica de prioridad**:
+  1. Regional de la planilla (si es válida: no '-', no 'TODOS', no vacía)
+  2. Centro de distribución de la planilla
+  3. Centro de costo de la planilla
+  4. **Regional del usuario** (fallback principal)
+  5. "TODOS" (último recurso)
+- **Ejemplo**: Usuario de FUNZA sube planilla sin bodega → `FUNZA-20260527-1` ✓
+
+### Eliminación en Cascada de Planillas Fusionadas
+
+- **Problema**: Al eliminar una planilla fusionada, las originales quedaban "vivas" en MongoDB con `fusionada: true`
+- **Solución**: Eliminación automática de planillas originales al eliminar la fusionada
+- **Endpoint `/eliminar-planilla` mejorado**:
+  - Detecta si la planilla es una fusión (`fusion_info.es_fusionada == true`)
+  - Busca planillas con `fusionada: true` que apuntan a esta planilla
+  - Elimina las planillas originales primero
+  - Elimina la planilla fusionada
+- **Respuesta detallada**:
+  ```json
+  {
+    "mensaje": "Planilla 842058-824986 eliminada exitosamente",
+    "es_fusionada": true,
+    "planillas_eliminadas": ["842058-824986", "842058", "824986"],
+    "total_eliminadas": 3
+  }
+  ```
+- **Beneficio**: MongoDB queda limpio, sin "libros vivos" sin propósito
+
+### Aprobación Masiva de Planillas PREAPROBADO
+
+- **Botón "Aprobar"**: Ubicado al lado del botón "Fusionar"
+- **Solo para perfiles autorizados**: ADMIN, CONTROL, COORDINADOR
+- **Funcionalidad**: Aprobar múltiples planillas PREAPROBADO en una sola acción
+- **Usa selectores existentes**: Aprovecha los checkboxes de fusión
+- **Filtro automático**: Solo aprueba planillas en estado PREAPROBADO
+- **Planillas que requieren autorización**: Deben aprobarse individualmente desde el botón de estado
+- **Mensaje de confirmación**: Muestra cantidad de planillas a aprobar y advierte si hay algunas que no se pueden aprobar
+- **Progreso visual**: Loader mientras se aprueban, sonido de notificación al terminar
+
+### Recálculo de Estado al Editar Planilla Aprobada
+
+- **Detección automática**: Si se edita una planilla APROBADA, recalcula el estado según nuevos valores
+- **Estados posibles al recalcular**:
+  - Total ≤ teórico → `PREAPROBADO`
+  - Total > teórico, diferencia ≤ 7% → `REQUIERE_APROBACION_COORDINADOR`
+  - Total > teórico, diferencia > 7% → `REQUIERE_APROBACION_CONTROL`
+- **Advertencia visual**: SweetAlert encima del modal (z-index 99999) con el nuevo estado en color
+- **Limpieza de campos**: Si el nuevo estado no es APROBADO, se limpian `aprobado_por` y `fecha_aprobacion`
+- **Confirmación requerida**: Usuario debe aceptar advertencia antes de guardar
+- **Mensaje de feedback**: Indica si la planilla recuperó un estado diferente
+
+### Manejo de Eventos del Modal de Edición
+
+- **Problema**: Al hacer click en inputs o seleccionar texto, el modal se cerraba inesperadamente
+- **Solución implementada**:
+  - Overlay (fondo oscuro) ahora cierra con **DOBLE CLICK** en lugar de click simple
+  - Contenido bloquea TODOS los eventos que podrían propagarse:
+    - Mouse: `onClick`, `onMouseDown`, `onMouseUp`
+    - Puntero: `onPointerDownCapture`, `onPointerUpCapture`
+    - Formulario: `onSelect`, `onInput`, `onChange`
+    - Contexto: `onContextMenu`
+  - Permite selección de texto: `userSelect: 'text'`
+- **Beneficio**: Los inputs funcionan normalmente sin cerrar el modal
+
+### Validación de Fusión de Planillas Fusionadas
+
+- **Problema**: Intentar fusionar una planilla ya fusionada crearía fusiones anidadas (desastre)
+- **Validación implementada**:
+  - Detecta planillas fusionadas de dos formas:
+    - Tiene `fusion_info.es_fusionada === true`
+    - Número de planilla contiene guiones (ej: "842058-824986")
+  - Bloquea la fusión y muestra instrucciones claras
+- **Mensaje al usuario**:
+  ```
+  ⚠️ Planillas Fusionadas Detectadas
+  
+  No puedes fusionar planillas que ya están fusionadas.
+  
+  Planillas detectadas:
+  • 842058-824986 (FUNZA-20260527-1A)
+  
+  Paso 1: Usa el botón de dividir (↱️) para separar las planillas fusionadas
+  Paso 2: Luego intenta fusionar nuevamente
+  ```
+- **Beneficio**: Previene fusión de planillas ya fusionadas, mantiene integridad de datos
+
 ## Actualizaciones Recientes (2026-05-06)
 
 - Implementado filtro por regional para OPERADORES en CrucePacientesV3 y GestionPedidosV3
