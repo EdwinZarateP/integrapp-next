@@ -40,12 +40,15 @@ interface SolicitudPendiente {
   tipo_vehiculo: string;
   total_solicitado: number;
   tarifa_base?: number;
-  requiere_descargue: string;
+  requiere_descargue: number;  // Cambiado de string a number
   punto_adicional: boolean;
   desvio: boolean;
   aforo?: number;
   placa?: string;
   tipo_veh_sicetac?: string;
+  cantidad_destinos?: number;
+  municipios_destino_lista?: string;
+  municipios_con_pedidos?: { [municipio: string]: number };
   estado: string;
 }
 
@@ -88,9 +91,12 @@ interface PlanillaResultado {
   solicitando_id?: string;
   causal?: string;
   // Estado de aprobación
-  estado?: 'PREAPROBADO' | 'REQUIERE_APROBACION' | 'APROBADO';
+  estado?: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
   aprobado_por?: string;  // Usuario que aprobó
   fecha_aprobacion?: string;  // Fecha de aprobación
+  // Campo de consecutivo único
+  consecutivo?: string;
+  consecutivo_base?: string;
 }
 
 const OPCIONES_VEHICULO = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
@@ -153,10 +159,12 @@ const SolicitudVehiculos: React.FC = () => {
               tipo_veh_sicetac: p.tipo_veh_sicetac,
               causal: p.causal || '',  // Causal de la modificación
               guardado: true,
-              solicitando_id: null,
+              solicitando_id: undefined,
               estado: p.estado || 'PREAPROBADO',
               aprobado_por: p.aprobado_por,
-              fecha_aprobacion: p.fecha_aprobacion
+              fecha_aprobacion: p.fecha_aprobacion,
+              consecutivo: p.consecutivo,
+              consecutivo_base: p.consecutivo_base
             };
 
             // Si no tiene estado o tiene PREAPROBADO, recalcular estado correcto
@@ -236,23 +244,42 @@ const SolicitudVehiculos: React.FC = () => {
     };
   };
 
-  // Verificar si el perfil puede aprobar una planilla según la diferencia
+  // Verificar si el perfil puede aprobar una planilla según el estado
   const puedeAprobarPlanilla = (resultado: PlanillaResultado, perfilUsuario: string): { puede: boolean; motivo?: string } => {
-    // ADMIN y CONTROL siempre pueden aprobar
-    if (perfilUsuario === 'ADMIN' || perfilUsuario === 'CONTROL') {
+    // Si el flete teórico es 0, cualquiera con permisos puede aprobar (caso especial)
+    if ((resultado.tarifa_calculada || 0) === 0) {
+      if (['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfilUsuario)) {
+        return { puede: true };
+      }
+      return {
+        puede: false,
+        motivo: 'Tu perfil no tiene permisos para aprobar planillas.'
+      };
+    }
+
+    // Si ya está aprobada o preaprobada, no necesita aprobación
+    if (resultado.estado === 'APROBADO' || resultado.estado === 'PREAPROBADO') {
       return { puede: true };
     }
 
-    // COORDINADOR solo puede aprobar si diferencia < 7% o si es menor/igual al teórico
-    if (perfilUsuario === 'COORDINADOR') {
-      const { porcentaje, esMayor } = calcularDiferenciaPorcentual(resultado);
+    // ADMIN siempre puede aprobar
+    if (perfilUsuario === 'ADMIN') {
+      return { puede: true };
+    }
 
-      if (!esMayor || porcentaje < 7) {
+    // CONTROL puede aprobar cualquiera (COORDINADOR o CONTROL)
+    if (perfilUsuario === 'CONTROL') {
+      return { puede: true };
+    }
+
+    // COORDINADOR solo puede aprobar REQUIERE_APROBACION_COORDINADOR (≤ 7%)
+    if (perfilUsuario === 'COORDINADOR') {
+      if (resultado.estado === 'REQUIERE_APROBACION_COORDINADOR') {
         return { puede: true };
-      } else {
+      } else if (resultado.estado === 'REQUIERE_APROBACION_CONTROL') {
         return {
           puede: false,
-          motivo: `La diferencia del ${porcentaje.toFixed(1)}% excede el 7% máximo permitido. Solo CONTROL puede aprobar.`
+          motivo: 'Esta planilla requiere aprobación de CONTROL.'
         };
       }
     }
@@ -265,7 +292,7 @@ const SolicitudVehiculos: React.FC = () => {
   };
 
   // Determinar el estado correcto basado en la diferencia
-  const determinarEstado = (resultado: PlanillaResultado): 'PREAPROBADO' | 'REQUIERE_APROBACION' | 'APROBADO' => {
+  const determinarEstado = (resultado: PlanillaResultado): 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO' => {
     // Si ya está aprobada, mantenerlo
     if (resultado.estado === 'APROBADO') {
       return 'APROBADO';
@@ -276,7 +303,13 @@ const SolicitudVehiculos: React.FC = () => {
 
     // Si hay diferencia mayor a 0, requiere aprobación
     if (esMayor && porcentaje > 0) {
-      return 'REQUIERE_APROBACION';
+      // Si el porcentaje es ≤ 7%, requiere aprobación de coordinador
+      // Si el porcentaje es > 7%, requiere aprobación de control
+      if (porcentaje <= 7) {
+        return 'REQUIERE_APROBACION_COORDINADOR';
+      } else {
+        return 'REQUIERE_APROBACION_CONTROL';
+      }
     }
 
     // Si no hay diferencia, preaprobado
@@ -307,6 +340,7 @@ const SolicitudVehiculos: React.FC = () => {
   const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; causal?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
+  const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO'>('TODOS');
 
   // Efecto para rastrear cambios en tempEdicion
   useEffect(() => {
@@ -440,6 +474,61 @@ const SolicitudVehiculos: React.FC = () => {
       return;
     }
 
+    // VERIFICAR si hay planillas fusionadas ANTES de ir a Siscore
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const verificarPayload = {
+        planillas: Array.from(planillasBuscadas),  // Convertir Set a Array explícitamente
+        perfil: perfil || ''
+      };
+      // Solo agregar centro_distribucion si tiene un valor válido
+      if (centroDistribucion && centroDistribucion !== 'TODOS') {
+        verificarPayload.centro_distribucion = centroDistribucion;
+      }
+
+      console.log('🔍 Verificando planillas fusionadas:', verificarPayload);
+      const verificarResponse = await fetch(`${API}/siscore/verificar-planillas-fusionadas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(verificarPayload)
+      });
+
+      console.log('📡 Respuesta verificar fusionadas:', verificarResponse.status);
+
+      if (verificarResponse.ok) {
+        const verificarData = await verificarResponse.json();
+        console.log('✅ Datos de fusionadas:', verificarData);
+        if (verificarData.planillas_fusionadas && verificarData.planillas_fusionadas.length > 0) {
+          const fusionadas = verificarData.planillas_fusionadas;
+
+          await Swal.fire({
+            title: '⚠️ Planillas fusionadas detectadas',
+            html: `
+              <div style="text-align: left;">
+                <p>Las siguientes planillas que buscaste ya están fusionadas:</p>
+                <ul style="text-align: left; display: inline-block;">
+                  ${fusionadas.map((f: { planilla: string; consecutivo_fusionada: string }) =>
+                    `<li>Planilla <strong>${f.planilla}</strong> → Consecutivo <strong>${f.consecutivo_fusionada}</strong></li>`
+                  ).join('')}
+                </ul>
+                <p style="margin-top: 1rem; color: #666;">No se pueden buscar planillas que ya están fusionadas.</p>
+                <p style="color: #666;">Si necesitas ver la planilla fusionada, busca: <strong>${fusionadas[0].fusionada_en}</strong></p>
+              </div>
+            `,
+            icon: 'warning',
+            confirmButtonColor: '#f59e0b',
+            confirmButtonText: 'Entendido'
+          });
+          return;  // NO continuar con la búsqueda
+        }
+      } else {
+        const errorText = await verificarResponse.text();
+        console.warn('⚠️ Error en verificación de fusionadas:', verificarResponse.status, errorText);
+      }
+    } catch (error) {
+      console.warn('❌ Error al verificar planillas fusionadas, continuando con la búsqueda:', error);
+    }
+
     setLoading(true);
     // NO limpiar resultados existentes, vamos a añadir
     setTiempoConsulta(0);
@@ -536,7 +625,8 @@ const SolicitudVehiculos: React.FC = () => {
             centro_costo: centroCosto,
             requiere_descargue: 0,
             punto_adicional: 0,
-            desvio: 0
+            desvio: 0,
+            estado: 'PREAPROBADO'
           });
 
         }
@@ -693,6 +783,23 @@ const SolicitudVehiculos: React.FC = () => {
         if (guardarResponse.ok) {
           const responseData = await guardarResponse.json();
           console.log('✅ Planillas guardadas:', responseData);
+
+          // Actualizar resultados con los consecutivos devueltos por el backend
+          if (responseData.consecutivos) {
+            const resultadosActualizados = nuevosResultados.map(r => {
+              const consInfo = responseData.consecutivos[r.planilla];
+              if (consInfo) {
+                return {
+                  ...r,
+                  consecutivo: consInfo.consecutivo,
+                  consecutivo_base: consInfo.consecutivo_base
+                };
+              }
+              return r;
+            });
+            setResultados(resultadosActualizados);
+            console.log('🔄 Resultados actualizados con consecutivos');
+          }
         } else {
           const errorText = await guardarResponse.text();
           console.warn('⚠️ Error al guardar:', guardarResponse.status, errorText);
@@ -719,6 +826,9 @@ const SolicitudVehiculos: React.FC = () => {
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
+      // Obtener usuario actual para trazabilidad
+      const usuarioCookie = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
+
       const total = calcularTotalSolicitado(resultado);
 
 
@@ -726,7 +836,7 @@ const SolicitudVehiculos: React.FC = () => {
         planilla: resultado.planilla,
         total_solicitado: typeof total === 'number' ? total : parseFloat(total as any) || 0,
         tarifa_base: resultado.tarifa_base || 0,
-        requiere_descargue: typeof resultado.requiere_descargue === 'number' ? resultado.requiere_descargue : (resultado.requiere_descargue === 'SI' ? 50000 : 0),
+        requiere_descargue: typeof resultado.requiere_descargue === 'number' ? resultado.requiere_descargue : (typeof resultado.requiere_descargue === 'string' && (resultado.requiere_descargue as string) === 'SI' ? 50000 : 0),
         punto_adicional: typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0),
         desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),
         aforo: resultado.aforo || 0,
@@ -735,7 +845,8 @@ const SolicitudVehiculos: React.FC = () => {
         estado: resultado.estado || 'PREAPROBADO',  // Enviar estado
         causal: resultado.causal || '',  // Agregar causal
         aprobado_por: resultado.aprobado_por,
-        fecha_aprobacion: resultado.fecha_aprobacion
+        fecha_aprobacion: resultado.fecha_aprobacion,
+        usuario_modificacion: usuarioCookie  // Trazabilidad: quién está editando
       };
 
 
@@ -796,7 +907,7 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
-  const handleEliminarResultado = (index: number) => {
+  const handleEliminarResultado = async (index: number) => {
     Swal.fire({
       title: '¿Eliminar planilla?',
       text: `¿Estás seguro de eliminar la planilla ${resultados[index].planilla}?`,
@@ -806,18 +917,45 @@ const SolicitudVehiculos: React.FC = () => {
       cancelButtonColor: '#6b7280',
       confirmButtonText: 'Sí, eliminar',
       cancelButtonText: 'Cancelar'
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        const nuevosResultados = resultados.filter((_, i) => i !== index);
-        setResultados(nuevosResultados);
-        // Limpiar selección si la planilla eliminada estaba seleccionada
-        const nuevasSelecciones = new Set<number>();
-        planillasSeleccionadas.forEach(i => {
-          if (i < index) nuevasSelecciones.add(i);
-          else if (i > index) nuevasSelecciones.add(i - 1);
-        });
-        setPlanillasSeleccionadas(nuevasSelecciones);
-        Swal.fire('Eliminado', 'Planilla eliminada correctamente', 'success');
+        try {
+          // Obtener usuario actual para trazabilidad
+          const usuarioCookie = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
+
+          const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+          // Eliminar de MongoDB
+          const response = await fetch(`${API}/siscore/eliminar-planilla`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              planilla: resultados[index].planilla,
+              usuario: usuarioCookie
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Error al eliminar planilla en MongoDB');
+          }
+
+          // Eliminar del estado local
+          const nuevosResultados = resultados.filter((_, i) => i !== index);
+          setResultados(nuevosResultados);
+
+          // Limpiar selección si la planilla eliminada estaba seleccionada
+          const nuevasSelecciones = new Set<number>();
+          planillasSeleccionadas.forEach(i => {
+            if (i < index) nuevasSelecciones.add(i);
+            else if (i > index) nuevasSelecciones.add(i - 1);
+          });
+          setPlanillasSeleccionadas(nuevasSelecciones);
+
+          Swal.fire('Eliminado', 'Planilla eliminada correctamente', 'success');
+        } catch (error) {
+          console.error('Error al eliminar:', error);
+          Swal.fire('Error', 'No se pudo eliminar la planilla de la base de datos', 'error');
+        }
       }
     });
   };
@@ -865,22 +1003,7 @@ const SolicitudVehiculos: React.FC = () => {
     if (!result.isConfirmed) return;
 
     try {
-      // Crear nuevos resultados con las planillas originales
-      const planillasRestauradas = datos_originales.map((datos: any) => ({
-        ...datos,
-        guardado: true,
-        fusion_info: undefined  // Eliminar el info de fusión
-      }));
-
-      // Reemplazar la planilla fusionada con las originales
-      const nuevosResultados = [...resultados];
-      nuevosResultados.splice(indice, 1, ...planillasRestauradas);
-      setResultados(nuevosResultados);
-
-      // GUARDAR EN MONGODB para persistir la división
-      console.log('💾 Guardando división en MongoDB...');
-
-      const cookies = document.cookie.split(';').reduce((acc: any, cookie) => {
+      const cookies = document.cookie.split(';').reduce((acc: any, cookie: string) => {
         const [key, value] = cookie.trim().split('=');
         acc[key] = decodeURIComponent(value);
         return acc;
@@ -888,54 +1011,38 @@ const SolicitudVehiculos: React.FC = () => {
 
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
-      const guardarDivisionResponse = await fetch(`${API}/siscore/guardar-busqueda`, {
+      // Llamar al nuevo endpoint para dividir la fusión
+      const dividirResponse = await fetch(`${API}/siscore/dividir-fusion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          usuario: cookies.usuario || 'desconocido',
-          perfil: cookies.perfil || 'desconocido',
-          centro_distribucion: cookies.centroDistribucion || 'TODOS',
-          planillas_buscadas: planillas_originales,
-          resultados_consolidados: nuevosResultados.map(r => ({
-            planilla: r.planilla,
-            encontrada: r.encontrada,
-            piezas: r.piezas,
-            peso_real: r.peso_real,
-            ruta: r.ruta,
-            codigo_pedido: r.codigo_pedido,
-            cantidad_pedidos: r.cantidad_pedidos,
-            cliente_origen: r.cliente_origen,
-            municipio_destino: r.municipio_destino,
-            departamento_destino: r.departamento_destino,
-            regional: r.regional,
-            centro_costo: r.centro_costo,
-            tarifa_calculada: r.tarifa_calculada,
-            tipo_vehiculo: r.tipo_vehiculo,
-            total_solicitado: r.total_solicitado,
-            tarifa_base: r.tarifa_base,
-            tipo_veh_sicetac: r.tipo_veh_sicetac,
-            requiere_descargue: r.requiere_descargue,
-            punto_adicional: r.punto_adicional,
-            desvio: r.desvio,
-            aforo: r.aforo,
-            placa: r.placa,
-            causal: r.causal,
-            cantidad_destinos: r.cantidad_destinos,
-            municipios_destino_lista: r.municipios_destino_lista,
-            municipios_con_pedidos: r.municipios_con_pedidos,
-            fusion_info: r.fusion_info
-          })),
-          fecha_inicio: new Date().toISOString().split('T')[0],
-          fecha_fin: new Date().toISOString().split('T')[0],
-          planillas_a_eliminar: [resultadoFusionada.planilla]  // Eliminar planilla fusionada de BD
+          planilla_fusionada: resultadoFusionada.planilla,
+          usuario: cookies.usuario || 'desconocido'
         })
       });
 
-      if (!guardarDivisionResponse.ok) {
-        console.warn('⚠️ No se pudo guardar la división en MongoDB, pero la división se creó en el frontend');
-      } else {
-        console.log('✅ División guardada en MongoDB');
+      if (!dividirResponse.ok) {
+        throw new Error('Error al dividir la fusión en el servidor');
       }
+
+      const responseData = await dividirResponse.json();
+      console.log('✅ División completada:', responseData);
+
+      // Actualizar resultados: eliminar la fusionada y agregar las originales
+      const nuevosResultados = resultados.filter((_, i) => i !== indice);
+
+      // Agregar las planillas reactivadas con sus consecutivos originales
+      if (responseData.planillas && Array.isArray(responseData.planillas)) {
+        const planillasRestauradas = responseData.planillas.map((p: any) => ({
+          ...p,
+          guardado: true,
+          fusion_info: undefined
+        }));
+
+        nuevosResultados.splice(indice, 0, ...planillasRestauradas);
+      }
+
+      setResultados(nuevosResultados);
 
       Swal.fire(
         'División Exitosa',
@@ -966,11 +1073,12 @@ const SolicitudVehiculos: React.FC = () => {
     // Mostrar confirmación con detalles
     const total = calcularTotalSolicitado(resultado);
     const teorico = resultado.tarifa_calculada || 0;
-    const { porcentaje, esMayor } = calcularDiferenciaPorcentual(resultado);
+    const { esMayor } = calcularDiferenciaPorcentual(resultado);
 
+    const diferenciaDinero = total - teorico;
     const diferenciaTexto = esMayor
-      ? `+${porcentaje.toFixed(1)}% ($${(total - teorico).toLocaleString('es-CO')})`
-      : `${porcentaje.toFixed(1)}% ($${(total - teorico).toLocaleString('es-CO')})`;
+      ? `+$${diferenciaDinero.toLocaleString('es-CO')}`
+      : `$${diferenciaDinero.toLocaleString('es-CO')}`;
 
     const result = await Swal.fire({
       title: '¿Aprobar Planilla?',
@@ -980,7 +1088,7 @@ const SolicitudVehiculos: React.FC = () => {
           <p><strong>Flete teórico:</strong> $${teorico.toLocaleString('es-CO')}</p>
           <p><strong>Total solicitado:</strong> $${total.toLocaleString('es-CO')}</p>
           <p><strong>Diferencia:</strong> ${diferenciaTexto}</p>
-          ${esMayor && porcentaje >= 7 ? '<p style="color: #dc2626;"><strong>⚠️ La diferencia excede el 7% - requiere autorización de CONTROL</strong></p>' : ''}
+          ${resultado.causal ? `<p><strong>Causal:</strong> ${resultado.causal}</p>` : ''}
         </div>
       `,
       icon: 'question',
@@ -1040,7 +1148,7 @@ const SolicitudVehiculos: React.FC = () => {
       // Si es OPERATIVO, filtrar por su regional
       if (perfil === 'OPERATIVO' && centroDistribucion) {
         resultadosFiltrados = resultadosFiltrados.filter(r => {
-          const regional = mapearRegional(r.centro_costo || r.regional || '');
+          const regional = obtenerRegional(r.centro_costo || r.regional || '');
           return regional === centroDistribucion;
         });
       }
@@ -1272,7 +1380,9 @@ const SolicitudVehiculos: React.FC = () => {
             desvio: p.desvio,
             aforo: p.aforo,
             placa: p.placa,
-            tipo_veh_sicetac: p.tipo_veh_sicetac
+            tipo_veh_sicetac: p.tipo_veh_sicetac,
+            consecutivo: p.consecutivo,  // Guardar el consecutivo original
+            consecutivo_base: p.consecutivo_base  // Guardar el consecutivo base original
           };
         });
 
@@ -1417,10 +1527,28 @@ const SolicitudVehiculos: React.FC = () => {
         })
       });
 
-      if (!guardarFusionResponse.ok) {
-        console.warn('⚠️ No se pudo guardar la fusión en MongoDB, pero la fusión se creó en el frontend');
+      if (guardarFusionResponse.ok) {
+        const responseData = await guardarFusionResponse.json();
+        console.log('✅ Fusión guardada en MongoDB:', responseData);
+
+        // Actualizar resultados con los consecutivos devueltos por el backend
+        if (responseData.consecutivos) {
+          const resultadosActualizados = nuevosResultados.map(r => {
+            const consInfo = responseData.consecutivos[r.planilla];
+            if (consInfo) {
+              return {
+                ...r,
+                consecutivo: consInfo.consecutivo,
+                consecutivo_base: consInfo.consecutivo_base
+              };
+            }
+            return r;
+          });
+          setResultados(resultadosActualizados);
+          console.log('🔄 Resultados actualizados con consecutivos después de fusión');
+        }
       } else {
-        console.log('✅ Fusión guardada en MongoDB');
+        console.warn('⚠️ No se pudo guardar la fusión en MongoDB, pero la fusión se creó en el frontend');
       }
 
       Swal.fire('Fusión Exitosa', `Planilla fusionada creada: ${planillasFusionada.planilla}\n\nTotal piezas: ${totalPiezas}\nTotal peso: ${totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg\nVehículo: ${tarifaData.tipo_vehiculo}\n\nClientes: ${clientesOrigenLista || '-'}\nMunicipio principal: ${municipioPrincipal}\nTotal destinos: ${cantidadDestinos} municipio(s)\n${municipiosDestinoLista ? '(' + municipiosDestinoLista + ')' : ''}`, 'success');
@@ -1549,7 +1677,7 @@ const SolicitudVehiculos: React.FC = () => {
                     const total = sol.total_solicitado || (() => {
                       const base = sol.tarifa_base || sol.tarifa_calculada || 0;
                       let t = base;
-                      if (sol.requiere_descargue === 'SI') t += RECARGOS.descargue;
+                      if ((sol.requiere_descargue || 0) > 0) t += RECARGOS.descargue;
                       if (sol.punto_adicional) t += RECARGOS.punto_adicional;
                       if (sol.desvio) t += RECARGOS.desvio;
                       return t;
@@ -1578,13 +1706,13 @@ const SolicitudVehiculos: React.FC = () => {
                             total_solicitado: sol.total_solicitado || (() => {
                               const base = sol.tarifa_base || sol.tarifa_calculada || 0;
                               let t = base;
-                              if (sol.requiere_descargue === 'SI') t += 50000;
+                              if ((sol.requiere_descargue || 0) > 0) t += 50000;
                               if (sol.punto_adicional) t += 80000;
                               if (sol.desvio) t += 100000;
                               return t;
                             })(),
                             tarifa_base: sol.tarifa_base,
-                            requiere_descargue: typeof sol.requiere_descargue === 'number' ? sol.requiere_descargue : (sol.requiere_descargue === 'SI' ? 50000 : 0),
+                            requiere_descargue: typeof sol.requiere_descargue === 'number' ? sol.requiere_descargue : (typeof sol.requiere_descargue === 'string' && (sol.requiere_descargue as string) === 'SI' ? 50000 : 0),
                             punto_adicional: typeof sol.punto_adicional === 'number' ? sol.punto_adicional : (sol.punto_adicional === true ? 80000 : 0),
                             desvio: typeof sol.desvio === 'number' ? sol.desvio : (sol.desvio === true ? 100000 : 0),
                             tipo_veh_sicetac: sol.tipo_veh_sicetac,
@@ -1651,7 +1779,28 @@ const SolicitudVehiculos: React.FC = () => {
             {resultados.length > 0 && (
               <div className="SV-resultsSection">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h2 className="SV-resultsTitle" style={{ margin: 0 }}>Resultados</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <h2 className="SV-resultsTitle" style={{ margin: 0 }}>Resultados</h2>
+                    <select
+                      value={filtroEstado}
+                      onChange={(e) => setFiltroEstado(e.target.value as any)}
+                      className="SV-selectSmall"
+                      style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', minWidth: '150px' }}
+                    >
+                      <option value="TODOS">Todos</option>
+                      <option value="PREAPROBADO">Preaprobado</option>
+                      <option value="REQUIERE_APROBACION_COORDINADOR">Coordinador</option>
+                      <option value="REQUIERE_APROBACION_CONTROL">Control</option>
+                      <option value="APROBADO">Aprobado</option>
+                    </select>
+                    <span style={{ fontSize: '0.85rem', color: '#666' }}>
+                      {resultados.filter(r =>
+                        filtroEstado === 'TODOS' ? true :
+                        filtroEstado === 'PREAPROBADO' ? r.estado === 'PREAPROBADO' || !r.estado :
+                        r.estado === filtroEstado
+                      ).length} de {resultados.length}
+                    </span>
+                  </div>
                   <div style={{ display: 'flex', gap: '1rem' }}>
                     {/* Botón Fusionar */}
                     {['ADMIN', 'ANALISTA', 'OPERATIVO'].includes(perfil) && planillasSeleccionadas.size > 0 && (
@@ -1681,6 +1830,7 @@ const SolicitudVehiculos: React.FC = () => {
                       <tr>
                         <th>Fusionar</th>
                         <th>Acciones</th>
+                        <th>Consecutivo</th>
                         <th>Estado</th>
                         <th>Regional</th>
                         <th>Planilla</th>
@@ -1707,18 +1857,48 @@ const SolicitudVehiculos: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {resultados.map((resultado, index) => {
+                      {resultados
+                        .filter((resultado) => {
+                          if (filtroEstado === 'TODOS') return true;
+                          if (filtroEstado === 'PREAPROBADO') {
+                            return resultado.estado === 'PREAPROBADO' || !resultado.estado;
+                          }
+                          return resultado.estado === filtroEstado;
+                        })
+                        .sort((a, b) => {
+                          // Ordenar por consecutivo (orden ascendente)
+                          const consA = a.consecutivo || '';
+                          const consB = b.consecutivo || '';
+
+                          // Si ambos tienen consecutivo, ordenar alfabéticamente
+                          if (consA && consB) {
+                            return consA.localeCompare(consB);
+                          }
+
+                          // Si solo uno tiene consecutivo, va primero
+                          if (consA && !consB) return -1;
+                          if (!consA && consB) return 1;
+
+                          // Si ninguno tiene consecutivo, ordenar por planilla
+                          return a.planilla.localeCompare(b.planilla);
+                        })
+                        .map((resultado, indexOriginal) => {
+                          // Encontrar el índice original en el array completo
+                          const index = resultados.findIndex(r => r.planilla === resultado.planilla);
                         const total = calcularTotalSolicitado(resultado);
                         const diferencia = total - (resultado.tarifa_calculada || 0);
                         const { porcentaje, esMayor } = calcularDiferenciaPorcentual(resultado);
 
                         // Usar el estado directamente para determinar el estilo
+                        const esTeoricoCero = (resultado.tarifa_calculada || 0) === 0;
                         return (
                         <tr
                           key={index}
                           className={
                             resultado.estado === 'APROBADO' ? 'SV-rowApproved' :
-                            resultado.estado === 'REQUIERE_APROBACION' ? 'SV-rowNeedsApproval' :
+                            resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'SV-rowNeedsApprovalCoord' :
+                            resultado.estado === 'REQUIERE_APROBACION_CONTROL' ? 'SV-rowNeedsApprovalCtrl' :
+                            esTeoricoCero ? 'SV-rowTeoricoCero' :
                             !resultado.encontrada ? 'SV-rowNotFound' : ''
                           }
                         >
@@ -1764,16 +1944,21 @@ const SolicitudVehiculos: React.FC = () => {
                               </div>
                             )}
                           </td>
+                          <td style={{ fontWeight: '700', color: '#004d40', fontFamily: 'monospace', fontSize: '0.95rem' }}>
+                            {resultado.consecutivo || '-'}
+                          </td>
                           <td>
                             {resultado.encontrada && (
                               <>
                                 {/* Badge de estado */}
                                 <span className={`SV-estadoBadge ${
                                   resultado.estado === 'APROBADO' ? 'SV-estadoAprobado' :
-                                  resultado.estado === 'REQUIERE_APROBACION' ? 'SV-estadoPreaprobado' :
+                                  resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'SV-estadoCoordinador' :
+                                  resultado.estado === 'REQUIERE_APROBACION_CONTROL' ? 'SV-estadoControl' :
                                   'SV-estadoPreaprobado'
                                 }`}>
-                                  {resultado.estado === 'REQUIERE_APROBACION' ? 'REQUIERE APROBACIÓN' :
+                                  {resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'COORDINADOR' :
+                                   resultado.estado === 'REQUIERE_APROBACION_CONTROL' ? 'CONTROL' :
                                    resultado.estado === 'APROBADO' ? 'APROBADO' :
                                    'PREAPROBADO'}
                                 </span>
@@ -1812,7 +1997,7 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td>{resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || '-'}</td>
                           <td>
-                            {resultado.encontrada && resultado.requiere_descargue === 'SI' ? '$50.000' : resultado.encontrada ? '$0' : '-'}
+                            {resultado.encontrada && (resultado.requiere_descargue || 0) > 0 ? '$50.000' : resultado.encontrada ? '$0' : '-'}
                           </td>
                           <td>
                             {resultado.encontrada && resultado.punto_adicional ? '$80.000' : resultado.encontrada ? '$0' : '-'}
@@ -1843,7 +2028,8 @@ const SolicitudVehiculos: React.FC = () => {
                             {resultado.causal || '-'}
                           </td>
                         </tr>
-                      )})}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -2173,11 +2359,16 @@ const SolicitudVehiculos: React.FC = () => {
                     }
 
                     // Determinar el estado correcto basado en la diferencia
-                    let nuevoEstado: 'PREAPROBADO' | 'REQUIERE_APROBACION' | 'APROBADO';
+                    let nuevoEstado: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
                     if (modalDetalle.resultado.estado === 'APROBADO') {
                       nuevoEstado = 'APROBADO';
                     } else if (esMayor && porcentaje > 0) {
-                      nuevoEstado = 'REQUIERE_APROBACION';
+                      // Distinguir entre coordinador (≤ 7%) y control (> 7%)
+                      if (porcentaje <= 7) {
+                        nuevoEstado = 'REQUIERE_APROBACION_COORDINADOR';
+                      } else {
+                        nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
+                      }
                     } else {
                       nuevoEstado = 'PREAPROBADO';
                     }

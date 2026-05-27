@@ -26,7 +26,7 @@
 }
 
 .SV-title {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: #004d40;
   margin: 0;
@@ -90,10 +90,10 @@
 }
 
 .SV-input {
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 0.9rem;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: all 0.3s ease;
 }
 
@@ -143,7 +143,7 @@
 }
 
 .SV-resultsTitle {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 700;
   color: #004d40;
   margin: 0 0 1.5rem 0;
@@ -165,10 +165,10 @@
 }
 
 .SV-table th {
-  padding: 1rem;
+  padding: 0.6rem 0.8rem;
   text-align: left;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -183,8 +183,8 @@
 }
 
 .SV-table td {
-  padding: 1rem;
-  font-size: 0.95rem;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.8rem;
 }
 
 .SV-rowFound {
@@ -223,14 +223,24 @@
   color: #004d40;
 }
 
-/* Filas que necesitan aprobación (subrayadas en rosado) */
-.SV-rowNeedsApproval {
-  background: #fdf2f8;
-  border-bottom: 3px solid #ec4899 !important;
+/* Filas que necesitan aprobación de coordinador (0-7%) */
+.SV-rowNeedsApprovalCoord {
+  background: #fce7f3;
+  border-bottom: 3px solid #f59e0b !important;
 }
 
-.SV-rowNeedsApproval:hover {
-  background: #fce7f3;
+.SV-rowNeedsApprovalCoord:hover {
+  background: #fbcfe8;
+}
+
+/* Filas que necesitan aprobación de control (>7%) */
+.SV-rowNeedsApprovalCtrl {
+  background: #fee2e2;
+  border-bottom: 3px solid #ef4444 !important;
+}
+
+.SV-rowNeedsApprovalCtrl:hover {
+  background: #fecaca;
 }
 
 /* Filas aprobadas */
@@ -242,21 +252,49 @@
   background: #dcfce7;
 }
 
+/* Filas con flete teórico en cero (casos especiales) */
+.SV-rowTeoricoCero {
+  background: #e5e7eb;
+}
+
+.SV-rowTeoricoCero:hover {
+  background: #d1d5db;
+}
+
+/* Badge para casos sin tarifa */
+.SV-estadoSinTarifa {
+  background: #9ca3af;
+  color: #1f2937;
+  border: 2px solid #6b7280;
+}
+
 /* Badge de estado */
 .SV-estadoBadge {
   display: inline-block;
-  padding: 0.25rem 0.75rem;
+  padding: 0.15rem 0.6rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .SV-estadoPreaprobado {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 2px solid #9ca3af;
+}
+
+.SV-estadoCoordinador {
   background: #fef3c7;
   color: #92400e;
   border: 2px solid #f59e0b;
+}
+
+.SV-estadoControl {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 2px solid #ef4444;
 }
 
 .SV-estadoAprobado {
@@ -323,10 +361,10 @@
 
 /* Inputs pequeños */
 .SV-inputSmall {
-  padding: 0.4rem 0.6rem;
+  padding: 0.3rem 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   width: 100px;
 }
 
@@ -348,10 +386,10 @@ input[type="number"] {
 
 /* Selects pequeños */
 .SV-selectSmall {
-  padding: 0.4rem 0.6rem;
+  padding: 0.3rem 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   min-width: 80px;
 }
 
