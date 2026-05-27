@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -65,6 +65,17 @@ interface PlanillaResultado {
   tarifa_calculada?: number;
   tipo_vehiculo?: string;
   total_solicitado?: number;
+  cantidad_destinos?: number;
+  municipios_destino_lista?: string;
+  municipios_con_pedidos?: { [municipio: string]: number };  // Para tracking de pedidos por municipio
+  // Campos para fusión
+  fusion_info?: {
+    es_fusionada: boolean;
+    planillas_originales: string[];  // Lista de planillas originales
+    datos_originales: any[];  // Datos completos de cada planilla original
+    causal: string;  // Razón de la fusión
+    fecha_fusion: string;
+  };
   // Campos editables
   tarifa_base?: number;
   requiere_descargue?: number;  // Valor del descargue
@@ -124,6 +135,10 @@ const SolicitudVehiculos: React.FC = () => {
             tarifa_calculada: p.tarifa_calculada || 0,
             tipo_vehiculo: p.tipo_vehiculo || 'N/A',
             total_solicitado: p.total_solicitado || 0,
+            cantidad_destinos: p.cantidad_destinos || 0,
+            municipios_destino_lista: p.municipios_destino_lista || '-',
+            municipios_con_pedidos: p.municipios_con_pedidos || {},
+            fusion_info: p.fusion_info,  // Historial de fusión
             tarifa_base: p.tarifa_base,
             requiere_descargue: p.requiere_descargue || 0,
             punto_adicional: p.punto_adicional || 0,
@@ -192,9 +207,9 @@ const SolicitudVehiculos: React.FC = () => {
     if (!tempEdicion || !modalDetalle.resultado) return 0;
     const base = tempEdicion.tarifa_base || 0;
     let total = base;
-    if (tempEdicion.requiere_descargue === 'SI') total += RECARGOS.descargue;
-    if (tempEdicion.punto_adicional) total += RECARGOS.punto_adicional;
-    if (tempEdicion.desvio) total += RECARGOS.desvio;
+    if (tempEdicion.requiere_descargue && tempEdicion.requiere_descargue > 0) total += tempEdicion.requiere_descargue;
+    if (tempEdicion.punto_adicional && tempEdicion.punto_adicional > 0) total += tempEdicion.punto_adicional;
+    if (tempEdicion.desvio && tempEdicion.desvio > 0) total += tempEdicion.desvio;
     if (tempEdicion.aforo) total += tempEdicion.aforo;
     return total;
   };
@@ -401,18 +416,29 @@ const SolicitudVehiculos: React.FC = () => {
 
       // Agrupar por planilla (sin calcular tarifas todavía)
       const planillasMap = new Map<string, PlanillaResultado>();
+      const municipiosPorPlanilla = new Map<string, Map<string, number>>();  // Map de municipio -> conteo de registros
 
       for (const reg of registros) {
         const planilla = reg.Planilla?.toString().trim();
         if (!planilla) continue;
         if (!planillasBuscadas.includes(planilla)) continue;
 
+        // Inicializar Map de conteo de municipios para esta planilla si no existe
+        if (!municipiosPorPlanilla.has(planilla)) {
+          municipiosPorPlanilla.set(planilla, new Map());
+        }
+
+        // Contar municipio destino (cada registro cuenta como 1)
+        const municipioDestino = reg['Municipio Destino']?.trim();
+        if (municipioDestino && municipioDestino !== '-') {
+          const conteo = municipiosPorPlanilla.get(planilla)!;
+          conteo.set(municipioDestino, (conteo.get(municipioDestino) || 0) + 1);
+        }
+
         if (!planillasMap.has(planilla)) {
           // Intentar obtener centro_costo con varios nombres posibles
           const centroCosto = reg['Centro Costo'] || reg['centro_costo'] || reg['Bodega Origen'] || reg['bodega_origen'] || reg['Centro'] || '';
           const bodegaOrigen = reg['Bodega Origen'] || reg['bodega_origen'] || '';
-
-          // Debug: mostrar todos los campos del registro
 
           planillasMap.set(planilla, {
             planilla,
@@ -427,9 +453,9 @@ const SolicitudVehiculos: React.FC = () => {
             departamento_destino: reg['Departamento Destino'] || '-',
             regional: obtenerRegional(bodegaOrigen),
             centro_costo: centroCosto,
-            requiere_descargue: 'NO',
-            punto_adicional: false,
-            desvio: false
+            requiere_descargue: 0,
+            punto_adicional: 0,
+            desvio: 0
           });
 
         }
@@ -448,8 +474,35 @@ const SolicitudVehiculos: React.FC = () => {
         }
       }
 
-      planillasMap.forEach((data) => {
+      // Calcular cantidades y listar municipios únicos
+      planillasMap.forEach((data, planilla) => {
         data.cantidad_pedidos = data.codigo_pedido ? data.codigo_pedido.split(', ').length : 0;
+
+        const conteoMunicipios = municipiosPorPlanilla.get(planilla);
+        if (conteoMunicipios && conteoMunicipios.size > 0) {
+          // Obtener lista de municipios únicos ordenados
+          const municipiosUnicos = Array.from(conteoMunicipios.keys()).sort();
+          data.cantidad_destinos = municipiosUnicos.length;
+          data.municipios_destino_lista = municipiosUnicos.join(', ');
+
+          // Guardar el conteo para referencia futura
+          data.municipios_con_pedidos = Object.fromEntries(conteoMunicipios);
+
+          // Determinar el municipio principal (el que más registros tiene)
+          let municipioPrincipal = municipiosUnicos[0];
+          let maxRegistros = 0;
+          conteoMunicipios.forEach((conteo, municipio) => {
+            if (conteo > maxRegistros) {
+              maxRegistros = conteo;
+              municipioPrincipal = municipio;
+            }
+          });
+          data.municipio_destino = municipioPrincipal;
+        } else {
+          data.cantidad_destinos = 0;
+          data.municipios_destino_lista = '-';
+          data.municipios_con_pedidos = {};
+        }
       });
 
       // Calcular tarifas solo UNA VEZ por planilla consolidada
@@ -532,8 +585,40 @@ const SolicitudVehiculos: React.FC = () => {
 
       const encontradas = resultadosProcesados.filter(r => r.encontrada).length;
 
-      // NO guardar automáticamente en pedidos_medical - solo informar resultados
-      // El usuario debe guardar manualmente mediante el botón de editar
+      // GUARDAR AUTOMÁTICAMENTE en MongoDB (pedidos_medical)
+      try {
+        console.log('🔄 Guardando planillas en MongoDB...', { usuario, perfil, cantidad: resultadosProcesados.length });
+
+        const payload = {
+          usuario: usuario,
+          perfil: perfil,
+          centro_distribucion: centroDistribucion || 'TODOS',
+          planillas_buscadas: planillasBuscadas,
+          resultados_consolidados: resultadosProcesados,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin
+        };
+
+        console.log('📦 Payload a enviar:', JSON.stringify(payload, null, 2));
+
+        const guardarResponse = await fetch(`${API}/siscore/guardar-busqueda`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        console.log('📡 Respuesta del servidor:', guardarResponse.status, guardarResponse.statusText);
+
+        if (guardarResponse.ok) {
+          const responseData = await guardarResponse.json();
+          console.log('✅ Planillas guardadas:', responseData);
+        } else {
+          const errorText = await guardarResponse.text();
+          console.warn('⚠️ Error al guardar:', guardarResponse.status, errorText);
+        }
+      } catch (error) {
+        console.error('❌ Error al guardar planillas:', error);
+      }
 
       Swal.fire(
         'Consulta finalizada',
@@ -661,105 +746,331 @@ const SolicitudVehiculos: React.FC = () => {
     setPlanillasSeleccionadas(nuevasSelecciones);
   };
 
-  const handleFusionarPlanillas = async () => {
-    if (planillasSeleccionadas.size < 2) {
-      Swal.fire('Advertencia', 'Selecciona al menos 2 planillas para fusionar', 'warning');
+  const handleDividirPlanilla = async (resultadoFusionada: PlanillaResultado, indice: number) => {
+    // Verificar que sea una planilla fusionada
+    if (!resultadoFusionada.fusion_info?.es_fusionada) {
+      Swal.fire('Error', 'Esta planilla no es una fusión y no se puede dividir', 'error');
       return;
     }
 
-    const indices = Array.from(planillasSeleccionadas).sort((a, b) => a - b);
-    const planillasAFusionar = indices.map(i => resultados[i]);
+    const { planillas_originales, datos_originales, causal } = resultadoFusionada.fusion_info;
 
-    // Sumar piezas y pesos
-    const totalPiezas = planillasAFusionar.reduce((sum, p) => sum + (p.piezas || 0), 0);
-    const totalPeso = planillasAFusionar.reduce((sum, p) => sum + (p.peso_real || 0), 0);
-    const codigosPedido = planillasAFusionar.map(p => p.codigo_pedido).filter(cp => cp && cp !== '-').join(', ');
-    const numPedidos = planillasAFusionar.reduce((sum, p) => sum + (p.cantidad_pedidos || 0), 0);
-
-    // Calcular ruta que más se repite
-    const rutasMap = new Map<string, number>();
-    planillasAFusionar.forEach(p => {
-      if (p.ruta && p.ruta !== '-') {
-        rutasMap.set(p.ruta, (rutasMap.get(p.ruta) || 0) + 1);
-      }
+    // Mostrar confirmación con detalles
+    const result = await Swal.fire({
+      title: '¿Dividir planilla fusionada?',
+      html: `
+        <div style="text-align: left;">
+          <p>Esta planilla se creó al fusionar:</p>
+          <ul style="text-align: left; display: inline-block;">
+            ${planillas_originales.map((p: string) => `<li><strong>${p}</strong></li>`).join('')}
+          </ul>
+          <p style="margin-top: 1rem;"><strong>Causal de fusión:</strong> ${causal}</p>
+          <p style="color: #666;">Se restaurarán las ${planillas_originales.length} planillas originales</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#8b5cf6',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, dividir',
+      cancelButtonText: 'Cancelar'
     });
 
-    let rutaMasRepetida = '';
-    let maxRepeticiones = 0;
-    rutasMap.forEach((count, ruta) => {
-      if (count > maxRepeticiones) {
-        maxRepeticiones = count;
-        rutaMasRepetida = ruta;
-      }
-    });
-
-    if (!rutaMasRepetida) {
-      Swal.fire('Error', 'No se pudo determinar una ruta para la fusión', 'error');
-      return;
-    }
-
-    // Obtener valores de las planillas que tienen la ruta más repetida
-    const planillasConRutaMasRepetida = planillasAFusionar.filter(p => p.ruta === rutaMasRepetida);
-    const clienteOrigen = planillasConRutaMasRepetida[0]?.cliente_origen || planillasAFusionar[0]?.cliente_origen || '';
-    const municipioDestino = planillasConRutaMasRepetida[0]?.municipio_destino || planillasAFusionar[0]?.municipio_destino || '';
-    const deptoDestino = planillasConRutaMasRepetida[0]?.departamento_destino || planillasAFusionar[0]?.departamento_destino || '';
-    const regional = planillasConRutaMasRepetida[0]?.regional || planillasAFusionar[0]?.regional || '';
-    const centroCosto = planillasConRutaMasRepetida[0]?.centro_costo || planillasAFusionar[0]?.centro_costo || '';
-    const placa = planillasConRutaMasRepetida[0]?.placa || planillasAFusionar[0]?.placa || '';
+    if (!result.isConfirmed) return;
 
     try {
+      // Crear nuevos resultados con las planillas originales
+      const planillasRestauradas = datos_originales.map((datos: any) => ({
+        ...datos,
+        guardado: true,
+        fusion_info: undefined  // Eliminar el info de fusión
+      }));
+
+      // Reemplazar la planilla fusionada con las originales
+      const nuevosResultados = [...resultados];
+      nuevosResultados.splice(indice, 1, ...planillasRestauradas);
+      setResultados(nuevosResultados);
+
+      // GUARDAR EN MONGODB para persistir la división
+      console.log('💾 Guardando división en MongoDB...');
+
+      const cookies = document.cookie.split(';').reduce((acc: any, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = decodeURIComponent(value);
+        return acc;
+      }, {});
+
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
-      // Inicializar causales por defecto si no existen
-      await fetch(`${API}/siscore/causales/inicializar`, { method: 'POST' });
-
-      // Consultar causales disponibles
-      const causalesResponse = await fetch(`${API}/siscore/causales`);
-      if (!causalesResponse.ok) {
-        throw new Error('Error al consultar causales');
-      }
-      const causalesData = await causalesResponse.json();
-      const causales = causalesData.causales || [];
-
-      // Mostrar selector de causal
-      const { value: causal } = await Swal.fire({
-        title: 'Fusionar Planillas',
-        input: 'select',
-        inputLabel: 'Selecciona la causal de la fusión:',
-        inputPlaceholder: 'Selecciona una causal',
-        inputOptions: causales.reduce((opts: any, c: any) => {
-          opts[c.nombre] = c.nombre;
-          return opts;
-        }, {}),
-        showCancelButton: true,
-        confirmButtonText: 'Fusionar',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#005f56',
-        cancelButtonColor: '#6b7280'
-      });
-
-      if (!causal) return;
-
-      // Consultar tarifa para el peso total
-      const tarifaResponse = await fetch(`${API}/siscore/consultar-tarifa`, {
+      const guardarDivisionResponse = await fetch(`${API}/siscore/guardar-busqueda`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          centro_costo: centroCosto || 'FMC',
-          ruta: rutaMasRepetida,
-          peso_real: totalPeso
+          usuario: cookies.usuario || 'desconocido',
+          perfil: cookies.perfil || 'desconocido',
+          centro_distribucion: cookies.centroDistribucion || 'TODOS',
+          planillas_buscadas: planillas_originales,
+          resultados_consolidados: nuevosResultados.map(r => ({
+            planilla: r.planilla,
+            encontrada: r.encontrada,
+            piezas: r.piezas,
+            peso_real: r.peso_real,
+            ruta: r.ruta,
+            codigo_pedido: r.codigo_pedido,
+            cantidad_pedidos: r.cantidad_pedidos,
+            cliente_origen: r.cliente_origen,
+            municipio_destino: r.municipio_destino,
+            departamento_destino: r.departamento_destino,
+            regional: r.regional,
+            centro_costo: r.centro_costo,
+            tarifa_calculada: r.tarifa_calculada,
+            tipo_vehiculo: r.tipo_vehiculo,
+            total_solicitado: r.total_solicitado,
+            tarifa_base: r.tarifa_base,
+            tipo_veh_sicetac: r.tipo_veh_sicetac,
+            requiere_descargue: r.requiere_descargue,
+            punto_adicional: r.punto_adicional,
+            desvio: r.desvio,
+            aforo: r.aforo,
+            placa: r.placa,
+            causal: r.causal,
+            cantidad_destinos: r.cantidad_destinos,
+            municipios_destino_lista: r.municipios_destino_lista,
+            municipios_con_pedidos: r.municipios_con_pedidos,
+            fusion_info: r.fusion_info
+          })),
+          fecha_inicio: new Date().toISOString().split('T')[0],
+          fecha_fin: new Date().toISOString().split('T')[0],
+          planillas_a_eliminar: [resultadoFusionada.planilla]  // Eliminar planilla fusionada de BD
         })
       });
 
-      if (!tarifaResponse.ok) {
-        throw new Error('Error al consultar tarifa');
+      if (!guardarDivisionResponse.ok) {
+        console.warn('⚠️ No se pudo guardar la división en MongoDB, pero la división se creó en el frontend');
+      } else {
+        console.log('✅ División guardada en MongoDB');
       }
 
-      const tarifaData = await tarifaResponse.json();
+      Swal.fire(
+        'División Exitosa',
+        `Se han restaurado ${planillas_originales.length} planillas originales:\n${planillas_originales.join('\n')}`,
+        'success'
+      );
+
+    } catch (error) {
+      Swal.fire('Error', 'Error al dividir la planilla', 'error');
+    }
+  };
+
+  const handleFusionarPlanillas = async () => {
+    try {
+      console.log('🔗 Iniciando fusión de planillas...');
+
+      if (planillasSeleccionadas.size < 2) {
+        Swal.fire('Advertencia', 'Selecciona al menos 2 planillas para fusionar', 'warning');
+        return;
+      }
+
+      const indices = Array.from(planillasSeleccionadas).sort((a, b) => a - b);
+      const planillasAFusionar = indices.map(i => resultados[i]);
+
+      console.log('📋 Planillas a fusionar:', planillasAFusionar.map(p => p.planilla));
+
+      // Sumar piezas y pesos
+      const totalPiezas = planillasAFusionar.reduce((sum, p) => sum + (p.piezas || 0), 0);
+      const totalPeso = planillasAFusionar.reduce((sum, p) => sum + (p.peso_real || 0), 0);
+      const codigosPedido = planillasAFusionar.map(p => p.codigo_pedido).filter(cp => cp && cp !== '-').join(', ');
+      const numPedidos = planillasAFusionar.reduce((sum, p) => sum + (p.cantidad_pedidos || 0), 0);
+
+      console.log('📊 Totales calculados:', { totalPiezas, totalPeso, numPedidos });
+
+      // Calcular ruta que más se repite
+      const rutasMap = new Map<string, number>();
+      planillasAFusionar.forEach(p => {
+        if (p.ruta && p.ruta !== '-') {
+          rutasMap.set(p.ruta, (rutasMap.get(p.ruta) || 0) + 1);
+        }
+      });
+
+      let rutaMasRepetida = '';
+      let maxRepeticiones = 0;
+      rutasMap.forEach((count, ruta) => {
+        if (count > maxRepeticiones) {
+          maxRepeticiones = count;
+          rutaMasRepetida = ruta;
+        }
+      });
+
+      console.log('🛣️ Ruta más repetida:', rutaMasRepetida);
+
+      if (!rutaMasRepetida) {
+        Swal.fire('Error', 'No se pudo determinar una ruta para la fusión', 'error');
+        return;
+      }
+
+      // Obtener valores de las planillas que tienen la ruta más repetida
+      const planillasConRutaMasRepetida = planillasAFusionar.filter(p => p.ruta === rutaMasRepetida);
+
+      // COMBINAR todos los clientes origen únicos (separados por coma)
+      const clientesOrigenSet = new Set<string>();
+      planillasAFusionar.forEach(p => {
+        if (p.cliente_origen && p.cliente_origen !== '-') {
+          clientesOrigenSet.add(p.cliente_origen);
+        }
+      });
+      const clientesOrigenLista = Array.from(clientesOrigenSet).sort().join(', ');
+
+      console.log('👥 Clientes combinados:', clientesOrigenLista);
+
+      // COMBINAR todos los municipios destino únicos y contar pedidos por municipio
+      const municipiosDestinoMap = new Map<string, number>();  // municipio -> total de pedidos
+      const departamentosDestinoSet = new Set<string>();
+
+      planillasAFusionar.forEach(p => {
+        // Si tiene municipios_con_pedidos, usar ese conteo
+        if (p.municipios_con_pedidos) {
+          Object.entries(p.municipios_con_pedidos).forEach(([municipio, conteo]) => {
+            municipiosDestinoMap.set(municipio, (municipiosDestinoMap.get(municipio) || 0) + conteo);
+          });
+        }
+        // Si tiene municipios_destino_lista, split y asignar conteo de pedidos proporcional
+        else if (p.municipios_destino_lista && p.municipios_destino_lista !== '-') {
+          p.municipios_destino_lista.split(', ').forEach(m => {
+            // Dividir los pedidos entre los municipios (aproximación)
+            const conteoAprox = Math.ceil((p.cantidad_pedidos || 0) / (p.cantidad_destinos || 1));
+            municipiosDestinoMap.set(m, (municipiosDestinoMap.get(m) || 0) + conteoAprox);
+          });
+        }
+        // Si no, usar municipio_destino individual con todos los pedidos
+        else if (p.municipio_destino && p.municipio_destino !== '-') {
+          municipiosDestinoMap.set(p.municipio_destino, (municipiosDestinoMap.get(p.municipio_destino) || 0) + (p.cantidad_pedidos || 0));
+        }
+
+        // Combinar departamentos también
+        if (p.departamento_destino && p.departamento_destino !== '-') {
+          departamentosDestinoSet.add(p.departamento_destino);
+        }
+      });
+
+      // Convertir Map a array ordenado para la lista
+      const municipiosDestinoArray = Array.from(municipiosDestinoMap.keys()).sort();
+      const municipiosDestinoLista = municipiosDestinoArray.join(', ');
+      const departamentosDestinoLista = Array.from(departamentosDestinoSet).sort().join(', ');
+      const cantidadDestinos = municipiosDestinoArray.length;
+
+      console.log('🏘️ Municipios combinados:', { cantidadDestinos, municipiosDestinoLista });
+
+      // Determinar el municipio principal (el que más pedidos tiene)
+      let municipioPrincipal = municipiosDestinoArray[0] || '-';
+      let maxPedidos = 0;
+      municipiosDestinoMap.forEach((conteo, municipio) => {
+        if (conteo > maxPedidos) {
+          maxPedidos = conteo;
+          municipioPrincipal = municipio;
+        }
+      });
+
+      console.log('🎯 Municipio principal:', municipioPrincipal);
+
+      // Para otros campos, usar la primera planilla con la ruta más repetida
+      const regional = planillasConRutaMasRepetida[0]?.regional || planillasAFusionar[0]?.regional || '';
+      const centroCosto = planillasConRutaMasRepetida[0]?.centro_costo || planillasAFusionar[0]?.centro_costo || '';
+      const placa = planillasConRutaMasRepetida[0]?.placa || planillasAFusionar[0]?.placa || '';
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+        console.log('⚙️ Consultando causales...');
+
+        // Inicializar causales por defecto si no existen
+        await fetch(`${API}/siscore/causales/inicializar`, { method: 'POST' });
+
+        // Consultar causales disponibles
+        const causalesResponse = await fetch(`${API}/siscore/causales`);
+        if (!causalesResponse.ok) {
+          throw new Error('Error al consultar causales');
+        }
+        const causalesData = await causalesResponse.json();
+        const causales = causalesData.causales || [];
+
+        // Mostrar selector de causal
+        const { value: causal } = await Swal.fire({
+          title: 'Fusionar Planillas',
+          input: 'select',
+          inputLabel: 'Selecciona la causal de la fusión:',
+          inputPlaceholder: 'Selecciona una causal',
+          inputOptions: causales.reduce((opts: any, c: any) => {
+            opts[c.nombre] = c.nombre;
+            return opts;
+          }, {}),
+          showCancelButton: true,
+          confirmButtonText: 'Fusionar',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#005f56',
+          cancelButtonColor: '#6b7280'
+        });
+
+        if (!causal) return;
+
+        console.log('✅ Causal seleccionada:', causal);
+
+        // GUARDAR DATOS ORIGINALES ANTES DE FUSIONAR (para poder dividir después)
+        const datosOriginales = planillasAFusionar.map(p => {
+          // Copiar solo los campos necesarios, sin referencias circulares
+          return {
+            planilla: p.planilla,
+            encontrada: p.encontrada,
+            piezas: p.piezas,
+            peso_real: p.peso_real,
+            ruta: p.ruta,
+            codigo_pedido: p.codigo_pedido,
+            cantidad_pedidos: p.cantidad_pedidos,
+            cliente_origen: p.cliente_origen,
+            municipio_destino: p.municipio_destino,
+            departamento_destino: p.departamento_destino,
+            regional: p.regional,
+            centro_costo: p.centro_costo,
+            tarifa_calculada: p.tarifa_calculada,
+            tipo_vehiculo: p.tipo_vehiculo,
+            total_solicitado: p.total_solicitado,
+            cantidad_destinos: p.cantidad_destinos,
+            municipios_destino_lista: p.municipios_destino_lista,
+            municipios_con_pedidos: p.municipios_con_pedidos ? {...p.municipios_con_pedidos} : {},
+            tarifa_base: p.tarifa_base,
+            requiere_descargue: p.requiere_descargue,
+            punto_adicional: p.punto_adicional,
+            desvio: p.desvio,
+            aforo: p.aforo,
+            placa: p.placa,
+            tipo_veh_sicetac: p.tipo_veh_sicetac
+          };
+        });
+
+        console.log('💾 Datos originales guardados:', datosOriginales.length);
+
+        // Consultar tarifa para el peso total
+        console.log('💰 Consultando tarifa para peso:', totalPeso);
+
+        const tarifaResponse = await fetch(`${API}/siscore/consultar-tarifa`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            centro_costo: centroCosto || 'FMC',
+            ruta: rutaMasRepetida,
+            peso_real: totalPeso
+          })
+        });
+
+        if (!tarifaResponse.ok) {
+          throw new Error('Error al consultar tarifa');
+        }
+
+        const tarifaData = await tarifaResponse.json();
+
+        console.log('💵 Tarifa obtenida:', tarifaData);
 
       // Crear planilla fusionada con planillas concatenadas
       const planillasFusionadas = planillasAFusionar.map(p => p.planilla).join('-');
-      const planillaFusionada: PlanillaResultado = {
+      const planillasFusionada: PlanillaResultado = {
         planilla: planillasFusionadas,
         encontrada: true,
         piezas: totalPiezas,
@@ -767,9 +1078,9 @@ const SolicitudVehiculos: React.FC = () => {
         ruta: rutaMasRepetida,
         codigo_pedido: codigosPedido,
         cantidad_pedidos: numPedidos,
-        cliente_origen: clienteOrigen,
-        municipio_destino: municipioDestino,
-        departamento_destino: deptoDestino,
+        cliente_origen: clientesOrigenLista || '-',
+        municipio_destino: municipioPrincipal,  // Municipio principal (el que más pedidos tiene)
+        departamento_destino: departamentosDestinoLista || '-',
         regional: regional,
         centro_costo: centroCosto,
         tarifa_calculada: tarifaData.tarifa_calculada,
@@ -782,11 +1093,25 @@ const SolicitudVehiculos: React.FC = () => {
         desvio: 0,
         aforo: 0,
         placa: placa,
-        causal: causal
+        causal: causal,
+        cantidad_destinos: cantidadDestinos,
+        municipios_destino_lista: municipiosDestinoLista || '-',  // Todos los municipios
+        municipios_con_pedidos: Object.fromEntries(municipiosDestinoMap),  // Mapa de municipio -> pedidos
+        fusion_info: {
+          es_fusionada: true,
+          planillas_originales: planillasAFusionar.map(p => p.planilla),
+          datos_originales: datosOriginales,
+          causal: causal,
+          fecha_fusion: new Date().toISOString()
+        }
       };
 
+      console.log('✅ Planilla fusionada creada, calculando total...');
+
       // Calcular total
-      planillaFusionada.total_solicitado = calcularTotalSolicitado(planillaFusionada);
+      planillasFusionada.total_solicitado = calcularTotalSolicitado(planillasFusionada);
+
+      console.log('💰 Total calculado:', planillasFusionada.total_solicitado);
 
       // Eliminar planillas originales (de atrás hacia adelante para no afectar índices)
       const indicesAEliminar = [...indices].sort((a, b) => b - a);
@@ -796,16 +1121,78 @@ const SolicitudVehiculos: React.FC = () => {
       });
 
       // Agregar planilla fusionada al inicio
-      nuevosResultados.unshift(planillaFusionada);
+      nuevosResultados.unshift(planillasFusionada);
       setResultados(nuevosResultados);
 
       // Limpiar selecciones
       setPlanillasSeleccionadas(new Set());
 
-      Swal.fire('Fusión Exitosa', `Planilla fusionada creada: ${planillaFusionada.planilla}\nTotal piezas: ${totalPiezas}\nTotal peso: ${totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg\nVehículo: ${tarifaData.tipo_vehiculo}`, 'success');
+      // GUARDAR EN MONGODB para persistir la fusión
+      console.log('💾 Guardando fusión en MongoDB...');
 
-    } catch (error) {
-      Swal.fire('Error', 'Error al fusionar las planillas', 'error');
+      const cookies = document.cookie.split(';').reduce((acc: any, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = decodeURIComponent(value);
+        return acc;
+      }, {});
+
+      // Planillas originales que se deben eliminar de MongoDB
+      const planillasOriginales = planillasAFusionar.map(p => p.planilla);
+
+      const guardarFusionResponse = await fetch(`${API}/siscore/guardar-busqueda`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usuario: cookies.usuario || 'desconocido',
+          perfil: cookies.perfil || 'desconocido',
+          centro_distribucion: cookies.centroDistribucion || 'TODOS',
+          planillas_buscadas: [planillasFusionada.planilla],
+          resultados_consolidados: nuevosResultados.map(r => ({
+            planilla: r.planilla,
+            encontrada: r.encontrada,
+            piezas: r.piezas,
+            peso_real: r.peso_real,
+            ruta: r.ruta,
+            codigo_pedido: r.codigo_pedido,
+            cantidad_pedidos: r.cantidad_pedidos,
+            cliente_origen: r.cliente_origen,
+            municipio_destino: r.municipio_destino,
+            departamento_destino: r.departamento_destino,
+            regional: r.regional,
+            centro_costo: r.centro_costo,
+            tarifa_calculada: r.tarifa_calculada,
+            tipo_vehiculo: r.tipo_vehiculo,
+            total_solicitado: r.total_solicitado,
+            tarifa_base: r.tarifa_base,
+            tipo_veh_sicetac: r.tipo_veh_sicetac,
+            requiere_descargue: r.requiere_descargue,
+            punto_adicional: r.punto_adicional,
+            desvio: r.desvio,
+            aforo: r.aforo,
+            placa: r.placa,
+            causal: r.causal,
+            cantidad_destinos: r.cantidad_destinos,
+            municipios_destino_lista: r.municipios_destino_lista,
+            municipios_con_pedidos: r.municipios_con_pedidos,
+            fusion_info: r.fusion_info
+          })),
+          fecha_inicio: new Date().toISOString().split('T')[0],
+          fecha_fin: new Date().toISOString().split('T')[0],
+          planillas_a_eliminar: planillasOriginales  // Eliminar planillas originales de BD
+        })
+      });
+
+      if (!guardarFusionResponse.ok) {
+        console.warn('⚠️ No se pudo guardar la fusión en MongoDB, pero la fusión se creó en el frontend');
+      } else {
+        console.log('✅ Fusión guardada en MongoDB');
+      }
+
+      Swal.fire('Fusión Exitosa', `Planilla fusionada creada: ${planillasFusionada.planilla}\n\nTotal piezas: ${totalPiezas}\nTotal peso: ${totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg\nVehículo: ${tarifaData.tipo_vehiculo}\n\nClientes: ${clientesOrigenLista || '-'}\nMunicipio principal: ${municipioPrincipal}\nTotal destinos: ${cantidadDestinos} municipio(s)\n${municipiosDestinoLista ? '(' + municipiosDestinoLista + ')' : ''}`, 'success');
+
+    } catch (error: any) {
+      console.error('❌ Error al fusionar:', error);
+      Swal.fire('Error', `Error al fusionar: ${error?.message || 'Error desconocido'}`, 'error');
     }
   };
 
@@ -948,12 +1335,15 @@ const SolicitudVehiculos: React.FC = () => {
                               return t;
                             })(),
                             tarifa_base: sol.tarifa_base,
-                            requiere_descargue: sol.requiere_descargue,
-                            punto_adicional: sol.punto_adicional,
-                            desvio: sol.desvio,
+                            requiere_descargue: typeof sol.requiere_descargue === 'number' ? sol.requiere_descargue : (sol.requiere_descargue === 'SI' ? 50000 : 0),
+                            punto_adicional: typeof sol.punto_adicional === 'number' ? sol.punto_adicional : (sol.punto_adicional === true ? 80000 : 0),
+                            desvio: typeof sol.desvio === 'number' ? sol.desvio : (sol.desvio === true ? 100000 : 0),
                             tipo_veh_sicetac: sol.tipo_veh_sicetac,
                             placa: sol.placa,
                             aforo: sol.aforo,
+                            cantidad_destinos: sol.cantidad_destinos,
+                            municipios_destino_lista: sol.municipios_destino_lista,
+                            municipios_con_pedidos: sol.municipios_con_pedidos,
                             guardado: true,
                             solicitando_id: sol._id
                           }, -1)}
@@ -1046,8 +1436,9 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Aforo</th>
                         <th>Total Solicitado</th>
                         <th>Diferencia</th>
-                        <th>Municipio</th>
+                        <th>Municipio Principal</th>
                         <th>Cliente Origen</th>
+                        <th>Cant. Destinos</th>
                         <th>Código Pedido</th>
                       </tr>
                     </thead>
@@ -1071,6 +1462,17 @@ const SolicitudVehiculos: React.FC = () => {
                           <td>
                             {resultado.encontrada && (
                               <div style={{ display: 'flex', gap: '5px' }}>
+                                {/* Botón Dividir - Solo para planillas fusionadas */}
+                                {resultado.fusion_info?.es_fusionada && (
+                                  <button
+                                    onClick={() => handleDividirPlanilla(resultado, index)}
+                                    className="SV-btnAction"
+                                    title="Dividir planilla fusionada"
+                                    style={{ background: '#8b5cf6' }}
+                                  >
+                                    <FaUnlink />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleAbrirModal(resultado, index)}
                                   className="SV-btnAction SV-btnEdit"
@@ -1130,6 +1532,9 @@ const SolicitudVehiculos: React.FC = () => {
                           <td className="SV-truncate" title={resultado.cliente_origen}>
                             {resultado.cliente_origen}
                           </td>
+                          <td style={{ fontWeight: '600', color: '#005f56', textAlign: 'center' }}>
+                            {resultado.encontrada && resultado.cantidad_destinos !== undefined ? resultado.cantidad_destinos : '-'}
+                          </td>
                           <td className="SV-truncate" title={resultado.codigo_pedido}>
                             {resultado.codigo_pedido}
                           </td>
@@ -1180,10 +1585,14 @@ const SolicitudVehiculos: React.FC = () => {
               <div><strong>Peso Real:</strong> {modalDetalle.resultado.peso_real}</div>
               <div><strong>Cant. Pedidos:</strong> {modalDetalle.resultado.cantidad_pedidos}</div>
               <div><strong>Tipo Vehículo:</strong> {modalDetalle.resultado.tipo_vehiculo}</div>
-              <div><strong>Municipio Destino:</strong> {modalDetalle.resultado.municipio_destino}</div>
+              <div><strong>Municipio Principal:</strong> {modalDetalle.resultado.municipio_destino}</div>
               <div><strong>Departamento Destino:</strong> {modalDetalle.resultado.departamento_destino}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Cliente Origen:</strong> {modalDetalle.resultado.cliente_origen}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Códigos Pedido:</strong> {modalDetalle.resultado.codigo_pedido}</div>
+              <div style={{ gridColumn: '1 / -1', background: '#f0fdf4', padding: '0.5rem', borderRadius: '6px' }}>
+                <strong style={{ color: '#005f56' }}>Todos los Municipios ({modalDetalle.resultado.cantidad_destinos || 0}):</strong>
+                <div style={{ marginTop: '0.3rem', color: '#333' }}>{modalDetalle.resultado.municipios_destino_lista || '-'}</div>
+              </div>
             </div>
 
             <div style={{ marginTop: '1.5rem' }}>
@@ -1209,6 +1618,7 @@ const SolicitudVehiculos: React.FC = () => {
                         const nuevoValor = parseFloat(e.target.value) || 0;
                         setTempEdicion(prev => prev ? { ...prev, tarifa_base: nuevoValor } : null);
                       }}
+                      onWheel={(e) => e.currentTarget.blur()}
                       style={{ width: '100%', padding: '0.5rem' }}
                     />
                   </div>
@@ -1265,6 +1675,7 @@ const SolicitudVehiculos: React.FC = () => {
                           const valor = parseFloat(e.target.value) || 0;
                           setTempEdicion(prev => prev ? { ...prev, requiere_descargue: valor } : null);
                         }}
+                        onWheel={(e) => e.currentTarget.blur()}
                         style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
                         placeholder="0"
                       />
@@ -1283,6 +1694,7 @@ const SolicitudVehiculos: React.FC = () => {
                           const valor = parseFloat(e.target.value) || 0;
                           setTempEdicion(prev => prev ? { ...prev, punto_adicional: valor } : null);
                         }}
+                        onWheel={(e) => e.currentTarget.blur()}
                         style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
                         placeholder="0"
                       />
@@ -1301,6 +1713,7 @@ const SolicitudVehiculos: React.FC = () => {
                           const valor = parseFloat(e.target.value) || 0;
                           setTempEdicion(prev => prev ? { ...prev, desvio: valor } : null);
                         }}
+                        onWheel={(e) => e.currentTarget.blur()}
                         style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
                         placeholder="0"
                       />
@@ -1319,6 +1732,7 @@ const SolicitudVehiculos: React.FC = () => {
                           const valor = parseFloat(e.target.value) || 0;
                           setTempEdicion(prev => prev ? { ...prev, aforo: valor } : null);
                         }}
+                        onWheel={(e) => e.currentTarget.blur()}
                         style={{ width: '100%', padding: '0.5rem', fontWeight: '600' }}
                         placeholder="0"
                       />

@@ -45,6 +45,20 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 - Animación de carga con camión durante consulta
 - Tiempo de consulta visible al finalizar
 - Tabla de resultados con indicadores visuales de encontrado/no encontrado
+- **Fusión de planillas**: Seleccionar múltiples planillas y fusionarlas
+  - Números concatenados: "846476-846256"
+  - Selección de causal mediante dropdown
+  - Cálculo automático de tarifa según peso total
+  - Causal guardada en planilla fusionada
+
+### Medical Care Dashboard (`/integrapp/MedicalCare`)
+- Panel principal con acceso a todos los módulos
+- **Gestión de Causales** (solo ADMIN):
+  - Lista de todas las causales (activas e inactivas)
+  - Crear nueva causal con input
+  - Editar causal (botón lápiz)
+  - Activar/Desactivar causales
+  - Inicialización automática de causales por defecto
 
 ## Permisos por Perfil
 
@@ -113,6 +127,21 @@ Indicadores de prioridad en CrucePacientesV3:
   - Incluye pedidos manuales en la consulta
   - Animación de carga con camión
   - Tiempo de consulta visible
+
+## Actualizaciones Recientes (2026-05-12)
+
+- **Sistema de Causales para Fusión de Planillas**:
+  - Fusión de múltiples planillas con números concatenados
+  - Dropdown SweetAlert2 para selección de causal
+  - Causal guardada en planilla fusionada para auditoría
+  - **Gestión de Causales** (MedicalCare, solo ADMIN):
+    - Ver todas las causales (activas e inactivas)
+    - Crear nuevas causales
+    - Editar nombre de causales existentes
+    - Activar/Desactivar causales
+    - Inicialización automática de causales por defecto
+  - Causales por defecto: "lleva paqueteo", "no se consiguio vehiculo"
+  - Modal con diseño moderno y UX optimizada
 
 ## Actualizaciones Recientes (2026-05-06)
 
