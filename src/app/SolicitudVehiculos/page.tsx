@@ -504,11 +504,10 @@ const SolicitudVehiculos: React.FC = () => {
     // VERIFICAR si hay planillas fusionadas ANTES de ir a Siscore
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-      const verificarPayload = {
-        planillas: Array.from(planillasBuscadas),  // Convertir Set a Array explícitamente
+      const verificarPayload: Record<string, any> = {
+        planillas: Array.from(planillasBuscadas),
         perfil: perfil || ''
       };
-      // Solo agregar centro_distribucion si tiene un valor válido
       if (centroDistribucion && centroDistribucion !== 'TODOS') {
         verificarPayload.centro_distribucion = centroDistribucion;
       }
@@ -885,7 +884,7 @@ const SolicitudVehiculos: React.FC = () => {
       // Si la planilla estaba APROBADA y se está editando, recalcular estado completamente
       // Limpiar aprobado_por y fecha_aprobacion si el nuevo estado no es APROBADO
       const estabaAprobada = resultado.estado === 'APROBADO';
-      const estadoFinal = nuevoEstado;
+      const estadoFinal: string = nuevoEstado;
 
       const payload = {
         planilla: resultado.planilla,
@@ -899,8 +898,8 @@ const SolicitudVehiculos: React.FC = () => {
         tipo_veh_sicetac: resultado.tipo_veh_sicetac || '',
         estado: estadoFinal,  // Usar el estado recalculado
         causal: resultado.causal || '',  // Agregar causal
-        aprobado_por: estadoFinal === 'APROBADO' ? resultado.aprobado_por : null,  // Limpiar si ya no está aprobada
-        fecha_aprobacion: estadoFinal === 'APROBADO' ? resultado.fecha_aprobacion : null,  // Limpiar si ya no está aprobada
+        aprobado_por: (estadoFinal as string) === 'APROBADO' ? resultado.aprobado_por : null,
+        fecha_aprobacion: (estadoFinal as string) === 'APROBADO' ? resultado.fecha_aprobacion : null,
         usuario_modificacion: usuarioCookie  // Trazabilidad: quién está editando
       };
 
@@ -950,9 +949,9 @@ const SolicitudVehiculos: React.FC = () => {
       nuevosResultados[index] = {
         ...resultado,
         guardado: true,
-        estado: estadoFinal,
-        aprobado_por: estadoFinal === 'APROBADO' ? resultado.aprobado_por : null,
-        fecha_aprobacion: estadoFinal === 'APROBADO' ? resultado.fecha_aprobacion : null
+        estado: estadoFinal as any,
+        aprobado_por: (estadoFinal === 'APROBADO' ? resultado.aprobado_por : undefined) as any,
+        fecha_aprobacion: (estadoFinal === 'APROBADO' ? resultado.fecha_aprobacion : undefined) as any
       };
       setResultados(nuevosResultados);
 

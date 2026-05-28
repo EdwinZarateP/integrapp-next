@@ -930,7 +930,7 @@ const CrucePacientesV3P: React.FC = () => {
                                 }
 
                                 // Expandir pacientes con múltiples pedidos en múltiples filas
-                                const filasExpandidas: { paciente: any; pedido?: any; indice: number }[] = [];
+                                const filasExpandidas: { paciente: any; pedido?: any; indice: string }[] = [];
                                 pacientesFiltrados.forEach((p, i) => {
                                   if (p.pedidos_v3 && p.pedidos_v3.length > 1) {
                                     // Paciente con múltiples pedidos: crear una fila por cada pedido

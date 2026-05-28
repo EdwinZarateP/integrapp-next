@@ -30,7 +30,7 @@ const GestionPedidosV3P: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [mostrarModalCarga, setMostrarModalCarga] = useState(false);
   const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
-  const [progreso, setProgreso] = useState<ProgressEvent | null>(null);
+  const [progreso, setProgreso] = useState<any>(null);
   const [pedidoEditando, setPedidoEditando] = useState<any>(null);
   const [formulario, setFormulario] = useState<any>({});
   const [paginas, setPaginas] = useState(0);
