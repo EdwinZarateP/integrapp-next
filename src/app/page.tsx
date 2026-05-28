@@ -108,7 +108,7 @@ export default function Home() {
           </div>
         </div>
         <div className={styles.footerCopy}>
-          <a href="/banco" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>© {new Date().getFullYear()} Integra Cadena de Servicios S.A.S.</a> — Todos los derechos reservados
+          <a href="/integrapp/banco" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>© {new Date().getFullYear()} Integra Cadena de Servicios S.A.S.</a> — Todos los derechos reservados
         </div>
       </footer>
     </div>
