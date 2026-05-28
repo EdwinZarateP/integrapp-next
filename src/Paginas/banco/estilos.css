@@ -1,0 +1,162 @@
+/* Layout principal */
+.Banco-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f0f2f5;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+}
+
+.Banco-main {
+  flex: 1;
+  padding: 2rem;
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.Banco-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 20px rgba(0, 51, 102, 0.1);
+  text-align: center;
+}
+
+.Banco-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #003366;
+  margin: 0 0 0.5rem 0;
+}
+
+.Banco-subtitle {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0 0 2rem 0;
+}
+
+/* Zona de drop */
+.Banco-dropZone {
+  border: 2px dashed #b0c4de;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  margin-bottom: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #f8fafc;
+}
+
+.Banco-dropZone:hover,
+.Banco-dropZoneActive {
+  border-color: #003366;
+  background: #e8f0fe;
+}
+
+.Banco-dropIcon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.Banco-dropText {
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.Banco-dropHint {
+  color: #999;
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
+}
+
+/* Archivo seleccionado */
+.Banco-fileInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.Banco-fileIcon {
+  font-size: 1.5rem;
+}
+
+.Banco-fileName {
+  flex: 1;
+  font-weight: 600;
+  color: #2e7d32;
+  font-size: 0.9rem;
+}
+
+.Banco-fileRemove {
+  background: none;
+  border: none;
+  color: #c62828;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.2rem;
+}
+
+.Banco-fileRemove:hover {
+  transform: scale(1.2);
+}
+
+/* Botón procesar */
+.Banco-btnProcess {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 2.5rem;
+  background: linear-gradient(90deg, #003366 0%, #0055aa 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.Banco-btnProcess:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 51, 102, 0.3);
+}
+
+.Banco-btnProcess:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Footer */
+.Banco-footer {
+  background: #003366;
+  color: white;
+  padding: 1.5rem 0;
+  margin-top: auto;
+  text-align: center;
+}
+
+.Banco-footerText {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .Banco-main {
+    padding: 1rem;
+  }
+  .Banco-card {
+    padding: 1.5rem;
+  }
+  .Banco-title {
+    font-size: 1.3rem;
+  }
+}
