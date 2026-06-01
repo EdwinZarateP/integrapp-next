@@ -535,3 +535,91 @@ input[type="number"] {
 .swal2-popup-sobre-modal {
   z-index: 99999 !important;
 }
+
+/* ── Floating Action Button (FAB) ── */
+.SV-fab {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.SV-fabMenu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  animation: SV-fabSlideUp 0.2s ease-out;
+}
+
+@keyframes SV-fabSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.SV-fabItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 28px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0,0,0,.18);
+  font-family: inherit;
+}
+
+.SV-fabItem:hover {
+  transform: translateX(-4px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.22);
+}
+
+.SV-fabItemExcel {
+  background: #16a34a;
+  color: #fff;
+}
+
+.SV-fabItemVulcano {
+  background: #2563eb;
+  color: #fff;
+}
+
+.SV-fabItemVulcano:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.SV-fabBtn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,77,64,.35);
+  transition: all 0.2s;
+}
+
+.SV-fabBtn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 22px rgba(0,77,64,.45);
+}
+
+.SV-fabBtnOpen {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  box-shadow: 0 4px 16px rgba(220,38,38,.35);
+}

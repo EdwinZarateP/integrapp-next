@@ -6,6 +6,12 @@ export interface Divipola {
   id: string;
   divipola: string;
   ruta: string;
+  latitud: number;
+  longitud: number;
+  poblacion: string;
+  departamento: string;
+  ubicacion_descargue: string;
+  direccion_descargue: string;
 }
 
 export async function obtenerDivipolas(): Promise<Divipola[]> {
@@ -14,7 +20,7 @@ export async function obtenerDivipolas(): Promise<Divipola[]> {
   return response.json();
 }
 
-export async function crearDivipola(data: { divipola: string; ruta: string }): Promise<any> {
+export async function crearDivipola(data: { divipola: string; ruta: string; latitud: number; longitud: number; poblacion: string; departamento: string; ubicacion_descargue: string; direccion_descargue: string }): Promise<any> {
   const response = await fetch(`${API}/divipolas/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -27,7 +33,7 @@ export async function crearDivipola(data: { divipola: string; ruta: string }): P
   return response.json();
 }
 
-export async function actualizarDivipola(id: string, data: { divipola: string; ruta: string }): Promise<any> {
+export async function actualizarDivipola(id: string, data: { divipola: string; ruta: string; latitud: number; longitud: number; poblacion: string; departamento: string; ubicacion_descargue: string; direccion_descargue: string }): Promise<any> {
   const response = await fetch(`${API}/divipolas/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

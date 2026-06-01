@@ -117,11 +117,14 @@ const obtenerRegional = (bodega: string | undefined): string => {
 
 const SolicitudVehiculos: React.FC = () => {
 
-  // Cargar resultados recientes automáticamente (global, sin filtro por usuario)
-  const cargarResultadosRecientes = async () => {
+  // Cargar resultados recientes automáticamente (filtrado por regional para operativos)
+  const cargarResultadosRecientes = async (perfilFiltro?: string, centroFiltro?: string) => {
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-      const url = `${API}/siscore/obtener-resultados-recientes?limite=100`;
+      const params = new URLSearchParams({ limite: '100' });
+      if (perfilFiltro) params.set('perfil', perfilFiltro);
+      if (centroFiltro) params.set('centro_distribucion', centroFiltro);
+      const url = `${API}/siscore/obtener-resultados-recientes?${params}`;
       const response = await fetch(url);
 
       if (response.ok) {
@@ -193,6 +196,8 @@ const SolicitudVehiculos: React.FC = () => {
             return;
           }
         }
+        // Si no hay resultados, limpiar la lista
+        setResultados([]);
       }
     } catch (error) {
     }
@@ -340,6 +345,8 @@ const SolicitudVehiculos: React.FC = () => {
   const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; causal?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
+  const [menuFlotante, setMenuFlotante] = useState(false);
+  const [importandoVulcano, setImportandoVulcano] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO'>('TODOS');
 
   // Función para reproducir sonido de notificación profesional
@@ -437,8 +444,8 @@ const SolicitudVehiculos: React.FC = () => {
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
     if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/Pedidos');
 
-    // Cargar resultados recientes globales (sin filtro por usuario)
-    cargarResultadosRecientes();
+    // Cargar resultados recientes (filtrado por regional para operativos)
+    cargarResultadosRecientes(perfilValue, centroDist);
 
     // También cargar solicitudes pendientes del usuario actual
     if (usuarioCookie) {
@@ -1886,6 +1893,63 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  const handleImportarVulcano = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+
+    setImportandoVulcano(true);
+    setMenuFlotante(false);
+
+    Swal.fire({
+      title: 'Importando pedidos Vulcano',
+      html: '<div style="text-align:center;padding:20px"><div style="font-size:50px">📦</div><p style="color:#666;margin-top:12px">Procesando archivo...</p></div>',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+    });
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const formData = new FormData();
+      formData.append('archivo', archivo);
+
+      const response = await fetch(`${API}/siscore/importar-vulcano`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Error al importar');
+      }
+
+      const data = await response.json();
+
+      await Swal.fire({
+        title: 'Importación completada',
+        html: `
+          <div style="text-align:left">
+            <p>✅ <strong>${data.exitosos}</strong> planillas movidas a histórico</p>
+            ${data.no_encontrados > 0 ? `<p>⚠️ <strong>${data.no_encontrados}</strong> consecutivos no encontrados</p>` : ''}
+            ${data.errores > 0 ? `<p>❌ <strong>${data.errores}</strong> errores</p>` : ''}
+            ${data.consecutivos_no_encontrados ? `<details style="margin-top:8px;font-size:0.85rem;color:#666"><summary>Ver no encontrados</summary>${data.consecutivos_no_encontrados.join(', ')}</details>` : ''}
+          </div>
+        `,
+        icon: data.exitosos > 0 ? 'success' : 'warning',
+        confirmButtonColor: '#005f56',
+      });
+
+      // Refrescar lista
+      setResultados([]);
+      await cargarResultadosRecientes(perfil, centroDistribucion);
+
+    } catch (error: any) {
+      Swal.fire('Error', error.message || 'Error al importar pedidos Vulcano', 'error');
+    } finally {
+      setImportandoVulcano(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   return (
     <div className="SV-layout">
       <NavMedicalCare paginaActual="solicitud" />
@@ -1937,9 +2001,9 @@ const SolicitudVehiculos: React.FC = () => {
                     const total = sol.total_solicitado || (() => {
                       const base = sol.tarifa_base || sol.tarifa_calculada || 0;
                       let t = base;
-                      if ((sol.requiere_descargue || 0) > 0) t += RECARGOS.descargue;
-                      if (sol.punto_adicional) t += RECARGOS.punto_adicional;
-                      if (sol.desvio) t += RECARGOS.desvio;
+                      if ((sol.requiere_descargue || 0) > 0) t += typeof sol.requiere_descargue === 'number' ? sol.requiere_descargue : RECARGOS.descargue;
+                      if (sol.punto_adicional) t += typeof sol.punto_adicional === 'number' ? sol.punto_adicional : RECARGOS.punto_adicional;
+                      if (sol.desvio) t += typeof sol.desvio === 'number' ? sol.desvio : RECARGOS.desvio;
                       return t;
                     })();
 
@@ -1966,9 +2030,9 @@ const SolicitudVehiculos: React.FC = () => {
                             total_solicitado: sol.total_solicitado || (() => {
                               const base = sol.tarifa_base || sol.tarifa_calculada || 0;
                               let t = base;
-                              if ((sol.requiere_descargue || 0) > 0) t += 50000;
-                              if (sol.punto_adicional) t += 80000;
-                              if (sol.desvio) t += 100000;
+                              if ((sol.requiere_descargue || 0) > 0) t += typeof sol.requiere_descargue === 'number' ? sol.requiere_descargue : 50000;
+                              if (sol.punto_adicional) t += typeof sol.punto_adicional === 'number' ? sol.punto_adicional : 80000;
+                              if (sol.desvio) t += typeof sol.desvio === 'number' ? sol.desvio : 100000;
                               return t;
                             })(),
                             tarifa_base: sol.tarifa_base,
@@ -2082,23 +2146,35 @@ const SolicitudVehiculos: React.FC = () => {
                         ✅ Aprobar ({planillasSeleccionadas.size})
                       </button>
                     )}
-                    {/* Botón Descargar Excel */}
-                    {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA', 'OPERATIVO'].includes(perfil) && resultados.length > 0 && (
-                      <button
-                        onClick={handleDescargarExcel}
-                        className="SV-btnToggle"
-                        style={{ background: '#16a34a', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
-                      >
-                        📥 Descargar Excel
-                      </button>
-                    )}
                   </div>
                 </div>
                 <div className="SV-tableContainer">
                   <table className="SV-table">
                     <thead>
                       <tr>
-                        <th>Fusionar</th>
+                        <th>
+                          {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA', 'OPERATIVO'].includes(perfil) ? (
+                            <input
+                              type="checkbox"
+                              checked={resultados.length > 0 && resultados.every((r, i) =>
+                                !r.encontrada || planillasSeleccionadas.has(i)
+                              )}
+                              onChange={() => {
+                                if (resultados.every((r, i) => !r.encontrada || planillasSeleccionadas.has(i))) {
+                                  setPlanillasSeleccionadas(new Set());
+                                } else {
+                                  const todas = new Set<number>();
+                                  resultados.forEach((r, i) => {
+                                    if (r.encontrada) todas.add(i);
+                                  });
+                                  setPlanillasSeleccionadas(todas);
+                                }
+                              }}
+                              className="SV-fusionCheckbox"
+                              title="Seleccionar/deseleccionar todas"
+                            />
+                          ) : 'Fusionar'}
+                        </th>
                         <th>Acciones</th>
                         <th>Consecutivo</th>
                         <th>Estado</th>
@@ -2173,7 +2249,7 @@ const SolicitudVehiculos: React.FC = () => {
                           }
                         >
                           <td style={{ textAlign: 'center' }}>
-                            {resultado.encontrada && ['ADMIN', 'ANALISTA', 'OPERATIVO'].includes(perfil) && (
+                            {resultado.encontrada && ['ADMIN', 'ANALISTA', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil) && (
                               <input
                                 type="checkbox"
                                 checked={planillasSeleccionadas.has(index)}
@@ -2267,13 +2343,13 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td>{resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || '-'}</td>
                           <td>
-                            {resultado.encontrada && (resultado.requiere_descargue || 0) > 0 ? '$50.000' : resultado.encontrada ? '$0' : '-'}
+                            {resultado.encontrada ? `$${(typeof resultado.requiere_descargue === 'number' ? resultado.requiere_descargue : ((resultado.requiere_descargue === 'SI' || resultado.requiere_descargue === true) ? 50000 : 0)).toLocaleString('es-CO')}` : '-'}
                           </td>
                           <td>
-                            {resultado.encontrada && resultado.punto_adicional ? '$80.000' : resultado.encontrada ? '$0' : '-'}
+                            {resultado.encontrada ? `$${(typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0)).toLocaleString('es-CO')}` : '-'}
                           </td>
                           <td>
-                            {resultado.encontrada && resultado.desvio ? '$100.000' : resultado.encontrada ? '$0' : '-'}
+                            {resultado.encontrada ? `$${(typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0)).toLocaleString('es-CO')}` : '-'}
                           </td>
                           <td style={{ fontWeight: '600' }}>
                             {resultado.encontrada && resultado.aforo ? `$${resultado.aforo.toLocaleString('es-CO')}` : resultado.encontrada ? '$0' : '-'}
@@ -2642,11 +2718,8 @@ const SolicitudVehiculos: React.FC = () => {
                       return;
                     }
 
-                    // Si NO hay sobrecosto (total <= teórico), se puede limpiar la causal
+                    // Mantener la causal seleccionada (opcional, se guarda si el usuario la eligió)
                     let causalFinal = tempEdicion.causal || '';
-                    if (!haySobrecosto) {
-                      causalFinal = '';  // Limpiar causal si no hay sobrecosto
-                    }
 
                     // Determinar el estado correcto basado en la diferencia
                     let nuevoEstado: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
@@ -2721,6 +2794,36 @@ const SolicitudVehiculos: React.FC = () => {
           <span className="SV-footerCopy">© {new Date().getFullYear()} Integra — Solicitud de Vehículos</span>
         </div>
       </footer>
+
+      {/* ── FAB: Botón flotante (solo ADMIN y ANALISTA) ── */}
+      {['ADMIN', 'ANALISTA'].includes(perfil) && (
+        <div className="SV-fab">
+          {menuFlotante && (
+            <div className="SV-fabMenu">
+              <button className="SV-fabItem SV-fabItemExcel" onClick={() => { setMenuFlotante(false); handleDescargarExcel(); }}>
+                📥 Descargar Excel
+              </button>
+              <label className="SV-fabItem SV-fabItemVulcano" style={importandoVulcano ? { opacity: 0.6, cursor: 'not-allowed' } : { cursor: 'pointer' }}>
+                🔗 Importar Vulcano
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleImportarVulcano}
+                  disabled={importandoVulcano}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+          )}
+          <button
+            className={`SV-fabBtn${menuFlotante ? ' SV-fabBtnOpen' : ''}`}
+            onClick={() => setMenuFlotante(!menuFlotante)}
+            title="Opciones"
+          >
+            {menuFlotante ? '✕' : '☰'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

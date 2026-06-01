@@ -1,0 +1,337 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import {
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt,
+} from 'react-icons/fa';
+import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import logo from '@/Imagenes/albatros.png';
+import Swal from 'sweetalert2';
+import './estilos.css';
+
+interface HistoricoDoc {
+  _id: string;
+  planilla: string;
+  consecutivo: string;
+  pedido_vulcano: string;
+  regional: string;
+  piezas: number;
+  peso_real: number;
+  ruta: string;
+  tipo_vehiculo: string;
+  municipio_destino: string;
+  cliente_origen: string;
+  codigo_pedido: string;
+  total_solicitado: number;
+  tarifa_calculada: number;
+  tarifa_base: number;
+  diferencia: number;
+  estado: string;
+  fecha_movimiento_historico: string;
+  placa: string;
+  tipo_veh_sicetac: string;
+  requiere_descargue: number;
+  punto_adicional: number;
+  desvio: number;
+  aforo: number;
+  cantidad_pedidos: number;
+  cantidad_destinos: number;
+  causal: string;
+  [key: string]: any;
+}
+
+const COLS = 26;
+
+const HistoricoPedidosP: React.FC = () => {
+  const router = useRouter();
+  const [perfil, setPerfil] = useState('');
+  const [centroDistribucion, setCentroDistribucion] = useState('');
+  const [planillas, setPlanillas] = useState<HistoricoDoc[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [busqueda, setBusqueda] = useState('');
+
+  const hoy = new Date().toISOString().split('T')[0];
+  const [fechaInicio, setFechaInicio] = useState(hoy);
+  const [fechaFin, setFechaFin] = useState(hoy);
+  const [descargando, setDescargando] = useState(false);
+
+  useEffect(() => {
+    const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+    const regionalCookie = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
+
+    if (!perfilCookie) { router.replace('/LoginUsuario'); return; }
+    if (!['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR'].includes(perfilCookie)) {
+      router.replace('/MedicalCare');
+      return;
+    }
+
+    setPerfil(perfilCookie);
+
+    const CEDI_MAP: Record<string, string> = { 'CO04': 'BARRANQUILLA', 'CO05': 'CALI', 'CO06': 'BUCARAMANGA', 'CO07': 'FUNZA', 'CO09': 'MEDELLIN' };
+    if (regionalCookie.startsWith('CO')) {
+      setCentroDistribucion(CEDI_MAP[regionalCookie] || regionalCookie);
+    } else {
+      setCentroDistribucion(regionalCookie);
+    }
+
+    cargarHistorico(hoy, hoy, perfilCookie, regionalCookie.startsWith('CO') ? CEDI_MAP[regionalCookie] || regionalCookie : regionalCookie);
+  }, [router]);
+
+  const cargarHistorico = async (fInicio: string, fFin: string, perfilVal?: string, centroVal?: string) => {
+    setCargando(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const params = new URLSearchParams({ fecha_inicio: fInicio, fecha_fin: fFin });
+      if (perfilVal) params.set('perfil', perfilVal);
+      if (centroVal) params.set('centro_distribucion', centroVal);
+
+      const response = await fetch(`${API}/siscore/historico?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPlanillas(data.planillas || []);
+      }
+    } catch (error) {
+      console.error('Error al cargar historico:', error);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const handleBuscar = () => {
+    cargarHistorico(fechaInicio, fechaFin, perfil, centroDistribucion);
+  };
+
+  const handleDescargarExcel = async () => {
+    if (planillas.length === 0) {
+      Swal.fire('Info', 'No hay datos para descargar', 'info');
+      return;
+    }
+
+    setDescargando(true);
+    try {
+      Swal.fire({ title: 'Generando Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/siscore/historico/exportar-excel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin,
+          perfil,
+          centro_distribucion: centroDistribucion,
+          busqueda: busqueda || null
+        })
+      });
+
+      if (!response.ok) throw new Error('Error al generar Excel');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `historico_${fechaInicio}_${fechaFin}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      Swal.fire('✅ Éxito', 'Excel generado exitosamente', 'success');
+    } catch (error) {
+      Swal.fire('Error', 'Error al generar el Excel', 'error');
+    } finally {
+      setDescargando(false);
+    }
+  };
+
+  const planillasFiltradas = planillas.filter(p =>
+    (p.consecutivo || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+    (p.planilla || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+    (p.pedido_vulcano || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+    (p.ruta || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+    (p.municipio_destino || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+    (p.regional || '').toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+  const formatDate = (val: any) => {
+    if (!val) return '-';
+    if (typeof val === 'string') return val.replace('T', ' ').substring(0, 16);
+    if (val instanceof Date) return val.toISOString().replace('T', ' ').substring(0, 16);
+    try { return new Date(val).toISOString().replace('T', ' ').substring(0, 16); } catch { return String(val); }
+  };
+
+  const fmtVal = (val: any): number => {
+    if (typeof val === 'number') return val;
+    return 0;
+  };
+
+  const fmtRecargo = (val: any, fallbackIfTrue: number): string => {
+    if (typeof val === 'number') return `$${val.toLocaleString('es-CO')}`;
+    if (val === true || val === 'SI') return `$${fallbackIfTrue.toLocaleString('es-CO')}`;
+    return '$0';
+  };
+
+  return (
+    <div className="HP-layout">
+      <NavMedicalCare paginaActual="historico" />
+
+      <main className="HP-main">
+        <div className="HP-header">
+          <h1 className="HP-title">Historial de Pedidos</h1>
+          <span className="HP-subtitle">{planillas.length} registro{planillas.length !== 1 ? 's' : ''} encontrado{planillas.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {/* Filtros */}
+        <div className="HP-filtros">
+          <div className="HP-filtroGroup">
+            <FaCalendarAlt className="HP-filtroIcon" />
+            <label>Desde</label>
+            <input type="date" className="HP-dateInput" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} />
+            <label>Hasta</label>
+            <input type="date" className="HP-dateInput" value={fechaFin} onChange={e => setFechaFin(e.target.value)} />
+            <button className="HP-btn HP-btnPrimary" onClick={handleBuscar}>
+              <FaSearch /> Buscar
+            </button>
+          </div>
+          <div className="HP-filtroGroup">
+            <div className="HP-searchBox">
+              <FaSearch className="HP-searchIcon" />
+              <input
+                type="text"
+                className="HP-searchInput"
+                placeholder="Buscar consecutivo, planilla, pedido, ruta..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+              />
+            </div>
+            <button className="HP-btn HP-btnExcel" onClick={handleDescargarExcel} disabled={descargando || planillas.length === 0}>
+              <FaFileExcel /> {descargando ? 'Descargando...' : 'Descargar Excel'}
+            </button>
+          </div>
+        </div>
+
+        {/* Tabla */}
+        {cargando ? (
+          <div className="HP-loading">
+            <div className="HP-spinner" />
+            <span>Cargando historial...</span>
+          </div>
+        ) : (
+          <div className="HP-tableContainer">
+            <table className="HP-table">
+              <thead>
+                <tr>
+                  <th>Pedido Vulcano</th>
+                  <th>Consecutivo</th>
+                  <th>Estado</th>
+                  <th>Regional</th>
+                  <th>Planilla</th>
+                  <th>Placa</th>
+                  <th>Piezas</th>
+                  <th>Peso Real</th>
+                  <th>Cant. Pedidos</th>
+                  <th>Ruta</th>
+                  <th>Tipo Vehículo</th>
+                  <th>Flete Teórico</th>
+                  <th>Flete Solicitado</th>
+                  <th>Vehículo SICETAC</th>
+                  <th>Descargue</th>
+                  <th>Punto Adic.</th>
+                  <th>Desvío</th>
+                  <th>Aforo</th>
+                  <th>Total Solicitado</th>
+                  <th>Diferencia</th>
+                  <th>Municipio Destino</th>
+                  <th>Cliente Origen</th>
+                  <th>Cant. Destinos</th>
+                  <th>Código Pedido</th>
+                  <th>Observaciones</th>
+                  <th>Fecha Movimiento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {planillasFiltradas.length === 0 ? (
+                  <tr>
+                    <td colSpan={COLS} className="HP-empty">No se encontraron registros</td>
+                  </tr>
+                ) : (
+                  planillasFiltradas.map(p => {
+                    const diferencia = p.diferencia || 0;
+                    const diferenciaColor = diferencia > 0 ? '#b91c1c' : diferencia < 0 ? '#15803d' : '#666';
+                    return (
+                      <tr key={p._id}>
+                        <td style={{ fontWeight: 600, color: '#2563eb' }}>{p.pedido_vulcano || '-'}</td>
+                        <td className="HP-cellMono" style={{ fontWeight: 700, color: '#004d40' }}>{p.consecutivo || '-'}</td>
+                        <td>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            background: p.estado === 'APROBADO' ? '#dcfce7' : p.estado === 'REQUIERE_APROBACION_COORDINADOR' ? '#fef3c7' : p.estado === 'REQUIERE_APROBACION_CONTROL' ? '#fee2e2' : '#e0f2fe',
+                            color: p.estado === 'APROBADO' ? '#15803d' : p.estado === 'REQUIERE_APROBACION_COORDINADOR' ? '#b45309' : p.estado === 'REQUIERE_APROBACION_CONTROL' ? '#dc2626' : '#0369a1',
+                          }}>
+                            {p.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'COORDINADOR' :
+                             p.estado === 'REQUIERE_APROBACION_CONTROL' ? 'CONTROL' :
+                             p.estado || 'PREAPROBADO'}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 'bold' }}>{p.regional || '-'}</td>
+                        <td>{p.planilla}</td>
+                        <td style={{ fontWeight: 600 }}>{p.placa || 'NA'}</td>
+                        <td>{p.piezas || 0}</td>
+                        <td>{fmtVal(p.peso_real).toLocaleString('es-CO')}</td>
+                        <td>{p.cantidad_pedidos || '-'}</td>
+                        <td>{p.ruta || '-'}</td>
+                        <td>{p.tipo_vehiculo || '-'}</td>
+                        <td>${fmtVal(p.tarifa_calculada).toLocaleString('es-CO')}</td>
+                        <td>
+                          <span style={{ fontWeight: 600, color: '#005f56' }}>
+                            ${fmtVal(p.tarifa_base || p.tarifa_calculada).toLocaleString('es-CO')}
+                          </span>
+                        </td>
+                        <td>{p.tipo_veh_sicetac || p.tipo_vehiculo || '-'}</td>
+                        <td>{fmtRecargo(p.requiere_descargue, 50000)}</td>
+                        <td>{fmtRecargo(p.punto_adicional, 80000)}</td>
+                        <td>{fmtRecargo(p.desvio, 100000)}</td>
+                        <td style={{ fontWeight: 600 }}>{p.aforo ? `$${fmtVal(p.aforo).toLocaleString('es-CO')}` : '$0'}</td>
+                        <td style={{ fontWeight: 'bold', color: '#005f56' }}>${fmtVal(p.total_solicitado).toLocaleString('es-CO')}</td>
+                        <td style={{ fontWeight: 'bold', color: diferenciaColor }}>
+                          {diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0'}
+                        </td>
+                        <td>{p.municipio_destino || '-'}</td>
+                        <td className="HP-truncate" title={p.cliente_origen}>{p.cliente_origen || '-'}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600, color: '#005f56' }}>{p.cantidad_destinos || '-'}</td>
+                        <td className="HP-truncate" title={p.codigo_pedido}>{p.codigo_pedido || '-'}</td>
+                        <td className="HP-truncate" title={p.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>{p.causal || '-'}</td>
+                        <td style={{ fontSize: '0.8rem', color: '#666', whiteSpace: 'nowrap' }}>{formatDate(p.fecha_movimiento_historico)}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
+
+      <footer className="HP-footer">
+        <div className="HP-footerInner">
+          <div className="HP-footerBrand">
+            <Image src={logo} alt="Integra" height={28} />
+            <span>Integra Cadena de Servicios S.A.S.</span>
+          </div>
+          <div className="HP-footerLinks">
+            <a href="tel:+573125443396" className="HP-footerLink"><FaPhone /> +57 312 544 3396</a>
+            <a href="mailto:edwin.zarate@integralogistica.com" className="HP-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="HP-footerLink"><FaMapMarkerAlt /> Colombia</span>
+          </div>
+          <span className="HP-footerCopy">© {new Date().getFullYear()} Integra</span>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default HistoricoPedidosP;

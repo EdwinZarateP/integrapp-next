@@ -3,12 +3,12 @@ import { useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck,
+  FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico';
 
 interface Props {
   paginaActual: PaginaMC;
@@ -23,6 +23,7 @@ const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode
   { id: 'usuarios',    label: 'Gestión de Usuarios',    ruta: '/GestionUsuarios',     icono: <FaUsers /> },
   { id: 'tarifas',     label: 'Tarifas Rutas FMC',     ruta: '/GestionTarifasRutas', icono: <FaDollarSign /> },
   { id: 'divipolas',   label: 'Divipolas',             ruta: '/GestionDivipolas',    icono: <FaRoute /> },
+  { id: 'historico',   label: 'Historial Pedidos',      ruta: '/HistoricoPedidos',    icono: <FaHistory /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
@@ -77,8 +78,12 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
             <div className="NMC-dropdown">
               {ITEMS.map(item => {
                 const esActual = item.id === paginaActual;
-                // Ocultar elementos de ADMIN si el perfil no es ADMIN
-                if (['usuarios', 'tarifas', 'divipolas'].includes(item.id) && perfil !== 'ADMIN') {
+                // Ocultar elementos de ADMIN si el perfil no es ADMIN ni CONTROL
+                if (['usuarios', 'tarifas', 'divipolas'].includes(item.id) && perfil !== 'ADMIN' && perfil !== 'CONTROL') {
+                  return null;
+                }
+                // Historial: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR
+                if (item.id === 'historico' && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
                   return null;
                 }
                 return (

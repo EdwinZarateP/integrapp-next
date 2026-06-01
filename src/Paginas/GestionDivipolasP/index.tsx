@@ -23,6 +23,12 @@ import './estilos.css';
 const DIVIPOLA_VACIA: Omit<Divipola, 'id'> = {
   divipola: '',
   ruta: '',
+  latitud: 0,
+  longitud: 0,
+  poblacion: '',
+  departamento: '',
+  ubicacion_descargue: '',
+  direccion_descargue: '',
 };
 
 const GestionDivipolasP: React.FC = () => {
@@ -41,10 +47,12 @@ const GestionDivipolasP: React.FC = () => {
   const [descargandoPlantilla, setDescargandoPlantilla] = useState(false);
   const [descargandoExcel, setDescargandoExcel] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 50;
 
   useEffect(() => {
     const perfil = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
-    if (perfil !== 'ADMIN') {
+    if (perfil !== 'ADMIN' && perfil !== 'CONTROL') {
       router.replace('/LoginUsuario');
       return;
     }
@@ -72,6 +80,10 @@ const GestionDivipolasP: React.FC = () => {
   const guardarDivipola = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (Number(form.longitud) >= 0) {
+      setError('La longitud debe ser un valor negativo (ej: -74.06)');
+      return;
+    }
     setGuardando(true);
     try {
       await crearDivipola(form);
@@ -96,6 +108,10 @@ const GestionDivipolasP: React.FC = () => {
     e.preventDefault();
     if (!modalEditar?.id) return;
     setErrorEditar('');
+    if (Number(formEditar.longitud) >= 0) {
+      setErrorEditar('La longitud debe ser un valor negativo (ej: -74.06)');
+      return;
+    }
     setGuardando(true);
     try {
       await actualizarDivipola(modalEditar.id, formEditar);
@@ -164,7 +180,9 @@ const GestionDivipolasP: React.FC = () => {
 
   const divipolasFiltradas = divipolas.filter(d =>
     d.divipola.toLowerCase().includes(busqueda.toLowerCase()) ||
-    d.ruta.toLowerCase().includes(busqueda.toLowerCase())
+    d.ruta.toLowerCase().includes(busqueda.toLowerCase()) ||
+    d.poblacion.toLowerCase().includes(busqueda.toLowerCase()) ||
+    d.departamento.toLowerCase().includes(busqueda.toLowerCase())
   );
 
   return (
@@ -206,7 +224,7 @@ const GestionDivipolasP: React.FC = () => {
               className="GTR-searchInput"
               placeholder="Buscar por divipola o ruta..."
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
             />
           </div>
         </div>
@@ -218,7 +236,10 @@ const GestionDivipolasP: React.FC = () => {
         )}
 
         {cargando ? (
-          <div className="GTR-loading">Cargando divipolas...</div>
+          <div className="GTR-loading">
+            <div className="GTR-spinner" />
+            <span className="GTR-loadingText">Cargando divipolas...</span>
+          </div>
         ) : (
           <div className="GTR-tableContainer">
             <table className="GTR-table">
@@ -226,21 +247,35 @@ const GestionDivipolasP: React.FC = () => {
                 <tr>
                   <th>Divipola</th>
                   <th>Ruta</th>
+                  <th>Latitud</th>
+                  <th>Longitud</th>
+                  <th>Población</th>
+                  <th>Departamento</th>
+                  <th>Ubicación Descargue</th>
+                  <th>Dirección Descargue</th>
                   <th style={{ width: '150px' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {divipolasFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="GTR-empty">
+                    <td colSpan={9} className="GTR-empty">
                       {busqueda ? 'No se encontraron resultados' : 'No hay divipolas registradas'}
                     </td>
                   </tr>
                 ) : (
-                  divipolasFiltradas.map((div) => (
+                  divipolasFiltradas
+                    .slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA)
+                    .map((div) => (
                     <tr key={div.id}>
                       <td className="GTR-cellMonospace">{div.divipola}</td>
                       <td>{div.ruta}</td>
+                      <td>{div.latitud}</td>
+                      <td>{div.longitud}</td>
+                      <td>{div.poblacion}</td>
+                      <td>{div.departamento}</td>
+                      <td>{div.ubicacion_descargue}</td>
+                      <td>{div.direccion_descargue}</td>
                       <td>
                         <div className="GTR-cellActions">
                           <button className="GTR-btnIcon GTR-btnEdit" onClick={() => abrirEditar(div)} title="Editar">
@@ -256,6 +291,58 @@ const GestionDivipolasP: React.FC = () => {
                 )}
               </tbody>
             </table>
+            {divipolasFiltradas.length > POR_PAGINA && (
+              <div className="GTR-pagination">
+                <button
+                  className="GTR-pageBtn"
+                  disabled={pagina === 1}
+                  onClick={() => setPagina(1)}
+                  title="Primera"
+                >⟪</button>
+                <button
+                  className="GTR-pageBtn"
+                  disabled={pagina === 1}
+                  onClick={() => setPagina(pagina - 1)}
+                  title="Anterior"
+                >◀</button>
+                {Array.from({ length: Math.ceil(divipolasFiltradas.length / POR_PAGINA) }, (_, i) => i + 1)
+                  .filter(p => {
+                    const total = Math.ceil(divipolasFiltradas.length / POR_PAGINA);
+                    return p === 1 || p === total || Math.abs(p - pagina) <= 1;
+                  })
+                  .reduce<(number | string)[]>((acc, p, i, arr) => {
+                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('...');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    typeof p === 'string' ? (
+                      <span key={`dots-${i}`} className="GTR-pageInfo">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        className={`GTR-pageBtn ${p === pagina ? 'GTR-pageActive' : ''}`}
+                        onClick={() => setPagina(p)}
+                      >{p}</button>
+                    )
+                  )}
+                <button
+                  className="GTR-pageBtn"
+                  disabled={pagina >= Math.ceil(divipolasFiltradas.length / POR_PAGINA)}
+                  onClick={() => setPagina(pagina + 1)}
+                  title="Siguiente"
+                >▶</button>
+                <button
+                  className="GTR-pageBtn"
+                  disabled={pagina >= Math.ceil(divipolasFiltradas.length / POR_PAGINA)}
+                  onClick={() => setPagina(Math.ceil(divipolasFiltradas.length / POR_PAGINA))}
+                  title="Última"
+                >⟫</button>
+                <span className="GTR-pageInfo">
+                  {divipolasFiltradas.length} registro{divipolasFiltradas.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -309,6 +396,78 @@ const GestionDivipolasP: React.FC = () => {
                   placeholder="Ej: BOG-MED"
                 />
               </div>
+              <div className="GTR-formGroup">
+                <label>Latitud *</label>
+                <input
+                  type="number"
+                  step="any"
+                  className="GTR-input"
+                  value={form.latitud || ''}
+                  onChange={(e) => setForm({ ...form, latitud: parseFloat(e.target.value) || 0 })}
+                  required
+                  placeholder="Ej: 4.71"
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Longitud * (debe ser negativa)</label>
+                <input
+                  type="number"
+                  step="any"
+                  className="GTR-input"
+                  value={form.longitud || ''}
+                  onChange={(e) => setForm({ ...form, longitud: parseFloat(e.target.value) || 0 })}
+                  required
+                  placeholder="Ej: -74.07"
+                  style={Number(form.longitud) >= 0 && form.longitud !== 0 ? { borderColor: '#e74c3c' } : {}}
+                />
+                {Number(form.longitud) >= 0 && form.longitud !== 0 && (
+                  <small style={{ color: '#e74c3c', marginTop: 4 }}>La longitud debe ser negativa</small>
+                )}
+              </div>
+              <div className="GTR-formGroup">
+                <label>Población *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={form.poblacion}
+                  onChange={(e) => setForm({ ...form, poblacion: e.target.value })}
+                  required
+                  placeholder="Ej: Bogotá"
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Departamento *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={form.departamento}
+                  onChange={(e) => setForm({ ...form, departamento: e.target.value })}
+                  required
+                  placeholder="Ej: Cundinamarca"
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Ubicación Descargue *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={form.ubicacion_descargue}
+                  onChange={(e) => setForm({ ...form, ubicacion_descargue: e.target.value })}
+                  required
+                  placeholder="Ej: Bodega Principal Bogotá"
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Dirección Descargue *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={form.direccion_descargue}
+                  onChange={(e) => setForm({ ...form, direccion_descargue: e.target.value })}
+                  required
+                  placeholder="Ej: Cra 7 # 72-41"
+                />
+              </div>
               <div className="GTR-modalFooter">
                 <button type="button" className="GTR-btn GTR-btnSecondary" onClick={() => setModal(false)} disabled={guardando}>
                   Cancelar
@@ -351,6 +510,72 @@ const GestionDivipolasP: React.FC = () => {
                   className="GTR-input"
                   value={formEditar.ruta}
                   onChange={(e) => setFormEditar({ ...formEditar, ruta: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Latitud *</label>
+                <input
+                  type="number"
+                  step="any"
+                  className="GTR-input"
+                  value={formEditar.latitud || ''}
+                  onChange={(e) => setFormEditar({ ...formEditar, latitud: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Longitud * (debe ser negativa)</label>
+                <input
+                  type="number"
+                  step="any"
+                  className="GTR-input"
+                  value={formEditar.longitud || ''}
+                  onChange={(e) => setFormEditar({ ...formEditar, longitud: parseFloat(e.target.value) || 0 })}
+                  required
+                  style={Number(formEditar.longitud) >= 0 && formEditar.longitud !== 0 ? { borderColor: '#e74c3c' } : {}}
+                />
+                {Number(formEditar.longitud) >= 0 && formEditar.longitud !== 0 && (
+                  <small style={{ color: '#e74c3c', marginTop: 4 }}>La longitud debe ser negativa</small>
+                )}
+              </div>
+              <div className="GTR-formGroup">
+                <label>Población *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={formEditar.poblacion}
+                  onChange={(e) => setFormEditar({ ...formEditar, poblacion: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Departamento *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={formEditar.departamento}
+                  onChange={(e) => setFormEditar({ ...formEditar, departamento: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Ubicación Descargue *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={formEditar.ubicacion_descargue}
+                  onChange={(e) => setFormEditar({ ...formEditar, ubicacion_descargue: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="GTR-formGroup">
+                <label>Dirección Descargue *</label>
+                <input
+                  type="text"
+                  className="GTR-input"
+                  value={formEditar.direccion_descargue}
+                  onChange={(e) => setFormEditar({ ...formEditar, direccion_descargue: e.target.value })}
                   required
                 />
               </div>

@@ -53,8 +53,8 @@ const MedicalCareP: React.FC = () => {
   const [causalEditando, setCausalEditando] = useState<string | null>(null);
   const [nombreEditando, setNombreEditando] = useState('');
 
-  // Verificar si el usuario puede ver configuración (solo ADMIN)
-  const puedeVerConfig = perfil === 'ADMIN';
+  // Verificar si el usuario puede ver configuración (ADMIN o CONTROL)
+  const puedeVerConfig = perfil === 'ADMIN' || perfil === 'CONTROL';
 
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
@@ -427,6 +427,12 @@ const MedicalCareP: React.FC = () => {
                     onClick={() => router.push('/GestionTarifasRutas')}
                   >
                     <FaDollarSign /> Tarifas Rutas FMC
+                  </button>
+                  <button
+                    className="MC-welcomeBtn MC-btnOcupacion"
+                    onClick={() => router.push('/GestionDivipolas')}
+                  >
+                    <FaRoute /> Divipolas
                   </button>
                 </>
               )}

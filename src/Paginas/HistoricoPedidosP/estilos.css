@@ -1,0 +1,284 @@
+/* ── Layout ── */
+.HP-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+.HP-main {
+  flex: 1;
+  padding: 24px;
+  max-width: 1500px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Header ── */
+.HP-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 20px;
+}
+
+.HP-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #004d40;
+  margin: 0;
+}
+
+.HP-subtitle {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+/* ── Filtros ── */
+.HP-filtros {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.HP-filtroGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.HP-filtroIcon {
+  color: #006b5e;
+  font-size: 1rem;
+}
+
+.HP-filtroGroup label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.HP-dateInput {
+  padding: 8px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+}
+
+.HP-dateInput:focus {
+  border-color: #006b5e;
+}
+
+.HP-searchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 12px;
+  flex: 1;
+  min-width: 250px;
+}
+
+.HP-searchBox:focus-within {
+  border-color: #006b5e;
+}
+
+.HP-searchIcon {
+  color: #9ca3af;
+}
+
+.HP-searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+}
+
+/* ── Botones ── */
+.HP-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.HP-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.HP-btnPrimary {
+  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  color: #fff;
+}
+
+.HP-btnPrimary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,77,64,.25);
+}
+
+.HP-btnExcel {
+  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+  color: #fff;
+}
+
+.HP-btnExcel:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22,163,74,.3);
+}
+
+/* ── Loading ── */
+.HP-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 16px;
+  color: #6b7280;
+}
+
+.HP-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #006b5e;
+  border-radius: 50%;
+  animation: HP-spin 0.8s linear infinite;
+}
+
+@keyframes HP-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Tabla ── */
+.HP-tableContainer {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  overflow-x: auto;
+}
+
+.HP-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+.HP-table thead {
+  background: #f8f9fa;
+}
+
+.HP-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.HP-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.88rem;
+}
+
+.HP-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.HP-cellMono {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-weight: 600;
+  color: #004d40;
+}
+
+.HP-truncate {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.HP-empty {
+  text-align: center;
+  padding: 40px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ── Footer ── */
+.HP-footer {
+  background: #004d40;
+  flex-shrink: 0;
+}
+
+.HP-footerInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+}
+
+.HP-footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.75);
+}
+
+.HP-footerLinks {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.HP-footerLink {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,.4);
+  text-decoration: none;
+}
+
+.HP-footerLink:hover { color: #80cbc4; }
+
+.HP-footerCopy {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,.25);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .HP-main { padding: 16px; }
+  .HP-filtroGroup { flex-direction: column; align-items: stretch; }
+  .HP-searchBox { min-width: 100%; }
+}

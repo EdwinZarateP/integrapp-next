@@ -290,10 +290,82 @@
 }
 
 .GTR-loading {
-  text-align: center;
-  padding: 60px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 20px;
+}
+
+.GTR-spinner {
+  width: 48px;
+  height: 48px;
+  border: 5px solid #e5e7eb;
+  border-top: 5px solid #006b5e;
+  border-radius: 50%;
+  animation: GTR-spin 0.8s linear infinite;
+}
+
+@keyframes GTR-spin {
+  to { transform: rotate(360deg); }
+}
+
+.GTR-loadingText {
   color: #6b7280;
   font-size: 0.95rem;
+  font-weight: 500;
+}
+
+/* ── Pagination ── */
+.GTR-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: #fff;
+  border-top: 1px solid #f3f4f6;
+}
+
+.GTR-pageBtn {
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.GTR-pageBtn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #006b5e;
+  color: #006b5e;
+}
+
+.GTR-pageBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.GTR-pageBtn.GTR-pageActive {
+  background: #006b5e;
+  color: #fff;
+  border-color: #006b5e;
+}
+
+.GTR-pageInfo {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  padding: 0 8px;
 }
 
 /* ── Modal ── */
