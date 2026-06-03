@@ -42,6 +42,19 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
     setPerfil(perfilCookie);
   }, []);
 
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setAbierto(false);
+      }
+    };
+    if (abierto) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [abierto]);
+
   const cerrarSesion = () => {
     ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie']
       .forEach(n => { document.cookie = `${n}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`; });
