@@ -82,8 +82,8 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 if (['usuarios', 'tarifas', 'divipolas'].includes(item.id) && perfil !== 'ADMIN' && perfil !== 'CONTROL') {
                   return null;
                 }
-                // Historial: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR
-                if (item.id === 'historico' && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+                // Historial: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO
+                if (item.id === 'historico' && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfil)) {
                   return null;
                 }
                 return (

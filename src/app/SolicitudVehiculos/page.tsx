@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCheck } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCheck, FaFileExport, FaTimes } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -348,6 +348,20 @@ const SolicitudVehiculos: React.FC = () => {
   const [menuFlotante, setMenuFlotante] = useState(false);
   const [importandoVulcano, setImportandoVulcano] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO'>('TODOS');
+  const fabRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar menú flotante al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setMenuFlotante(false);
+      }
+    };
+    if (menuFlotante) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuFlotante]);
 
   // Función para reproducir sonido de notificación profesional
   const playNotificationSound = () => {
@@ -2780,24 +2794,9 @@ const SolicitudVehiculos: React.FC = () => {
         </div>
       )}
 
-      <footer className="SV-footer">
-        <div className="SV-footerInner">
-          <div className="SV-footerBrand">
-            <Image src={logo} alt="Integra" height={28} />
-            <span>Integra Cadena de Servicios S.A.S.</span>
-          </div>
-          <div className="SV-footerLinks">
-            <a href="tel:+573125443396" className="SV-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="SV-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
-            <span className="SV-footerLink"><FaMapMarkerAlt /> Colombia</span>
-          </div>
-          <span className="SV-footerCopy">© {new Date().getFullYear()} Integra — Solicitud de Vehículos</span>
-        </div>
-      </footer>
-
       {/* ── FAB: Botón flotante (solo ADMIN y ANALISTA) ── */}
       {['ADMIN', 'ANALISTA'].includes(perfil) && (
-        <div className="SV-fab">
+        <div className="SV-fab" ref={fabRef}>
           {menuFlotante && (
             <div className="SV-fabMenu">
               <button className="SV-fabItem SV-fabItemExcel" onClick={() => { setMenuFlotante(false); handleDescargarExcel(); }}>
@@ -2820,10 +2819,25 @@ const SolicitudVehiculos: React.FC = () => {
             onClick={() => setMenuFlotante(!menuFlotante)}
             title="Opciones"
           >
-            {menuFlotante ? '✕' : '☰'}
+            {menuFlotante ? <FaTimes /> : <FaFileExport />}
           </button>
         </div>
       )}
+
+      <footer className="SV-footer">
+        <div className="SV-footerInner">
+          <div className="SV-footerBrand">
+            <Image src={logo} alt="Integra" height={28} />
+            <span>Integra Cadena de Servicios S.A.S.</span>
+          </div>
+          <div className="SV-footerLinks">
+            <a href="tel:+573125443396" className="SV-footerLink"><FaPhone /> +57 312 544 3396</a>
+            <a href="mailto:edwin.zarate@integralogistica.com" className="SV-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="SV-footerLink"><FaMapMarkerAlt /> Colombia</span>
+          </div>
+          <span className="SV-footerCopy">© {new Date().getFullYear()} Integra — Solicitud de Vehículos</span>
+        </div>
+      </footer>
     </div>
   );
 };

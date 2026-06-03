@@ -538,14 +538,17 @@ input[type="number"] {
 
 /* ── Floating Action Button (FAB) ── */
 .SV-fab {
-  position: fixed;
+  position: sticky;
   bottom: 32px;
-  right: 32px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
   z-index: 1000;
+  align-self: flex-end;
+  margin-right: 32px;
+  margin-top: -80px;
+  pointer-events: auto;
 }
 
 .SV-fabMenu {
@@ -603,23 +606,23 @@ input[type="number"] {
   height: 56px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #004d40 0%, #006b5e 100%);
+  background: linear-gradient(135deg, #e65100 0%, #ff8f00 100%);
   color: #fff;
   font-size: 1.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0,77,64,.35);
+  box-shadow: 0 4px 16px rgba(230,81,0,.35);
   transition: all 0.2s;
 }
 
 .SV-fabBtn:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 22px rgba(0,77,64,.45);
+  box-shadow: 0 6px 22px rgba(230,81,0,.45);
 }
 
 .SV-fabBtnOpen {
-  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-  box-shadow: 0 4px 16px rgba(220,38,38,.35);
+  background: linear-gradient(135deg, #bf360c 0%, #e65100 100%);
+  box-shadow: 0 4px 16px rgba(191,54,12,.35);
 }

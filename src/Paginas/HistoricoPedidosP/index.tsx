@@ -61,7 +61,7 @@ const HistoricoPedidosP: React.FC = () => {
     const regionalCookie = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
 
     if (!perfilCookie) { router.replace('/LoginUsuario'); return; }
-    if (!['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR'].includes(perfilCookie)) {
+    if (!['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfilCookie)) {
       router.replace('/MedicalCare');
       return;
     }
