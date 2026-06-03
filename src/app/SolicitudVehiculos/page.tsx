@@ -97,6 +97,8 @@ interface PlanillaResultado {
   // Campo de consecutivo único
   consecutivo?: string;
   consecutivo_base?: string;
+  // Flete cobrado FMC (piezas × $20,000)
+  flete_cobrado_fmc?: number;
 }
 
 const OPCIONES_VEHICULO = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
@@ -167,7 +169,8 @@ const SolicitudVehiculos: React.FC = () => {
               aprobado_por: p.aprobado_por,
               fecha_aprobacion: p.fecha_aprobacion,
               consecutivo: p.consecutivo,
-              consecutivo_base: p.consecutivo_base
+              consecutivo_base: p.consecutivo_base,
+              flete_cobrado_fmc: p.flete_cobrado_fmc || 0
             };
 
             // Si no tiene estado o tiene PREAPROBADO, recalcular estado correcto
@@ -771,6 +774,9 @@ const SolicitudVehiculos: React.FC = () => {
 
         // Calcular total inicial
         data.total_solicitado = calcularTotalSolicitado(data);
+
+        // Calcular flete cobrado FMC (piezas × $20,000)
+        data.flete_cobrado_fmc = (data.piezas || 0) * 20000;
       }
 
       const resultadosProcesados: PlanillaResultado[] = planillasBuscadas.map(planilla => {
@@ -787,7 +793,8 @@ const SolicitudVehiculos: React.FC = () => {
           departamento_destino: '-',
           regional: '-',
           tarifa_calculada: 0,
-          tipo_vehiculo: 'N/A'
+          tipo_vehiculo: 'N/A',
+          flete_cobrado_fmc: 0
         };
       });
 
@@ -1594,6 +1601,9 @@ const SolicitudVehiculos: React.FC = () => {
 
       // Calcular total
       planillasFusionada.total_solicitado = calcularTotalSolicitado(planillasFusionada);
+
+      // Calcular flete cobrado FMC (piezas × $20,000)
+      planillasFusionada.flete_cobrado_fmc = totalPiezas * 20000;
 
       // Determinar el estado correcto basado en la diferencia
       const estadoFusionada = determinarEstado(planillasFusionada);
