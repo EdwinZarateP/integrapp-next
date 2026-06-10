@@ -1307,7 +1307,10 @@ const SolicitudVehiculos: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `planillas_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const fechaHora = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      a.download = `planillas_${fechaHora}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

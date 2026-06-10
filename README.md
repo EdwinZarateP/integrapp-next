@@ -89,6 +89,23 @@ Sistema de gestión de pedidos y pacientes Medical Care.
   - Advertencia incluye: consecutivo donde está fusionada y número de planilla fusionada
   - No permite continuar con la búsqueda
 - **Carga al recargar página**: Solo muestra planillas activas (excluye `fusionada: true`)
+- **Botón flotante (FAB)**: Accesos rápidos para ADMIN y ANALISTA
+  - Importar Vulcano: Subir archivo Excel con consecutivos
+  - Descargar Excel: Exportar planillas actuales
+  - Posición sticky (no sobrepasa el footer)
+  - Color naranja con ícono FaFileExport
+  - Se cierra al hacer clic fuera
+- **Campo `flete_cobrado_fmc`**: Calculado automáticamente como `piezas × $20,000`
+  - Se calcula al buscar planillas nuevas y al fusionar
+  - Se restaura correctamente desde MongoDB
+  - Se almacena junto con los demás campos de la planilla
+
+### Histórico de Pedidos (`/integrapp/HistoricoPedidos`)
+- Visualización de planillas que ya pasaron por importación Vulcano
+- Filtrado por rango de fechas
+- Filtrado por regional para perfiles operativos
+- Exportación a Excel con filtros
+- **Perfiles con acceso**: ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO
 
 ### Medical Care Dashboard (`/integrapp/MedicalCare`)
 - Panel principal con acceso a todos los módulos
@@ -412,3 +429,32 @@ Indicadores de prioridad en CrucePacientesV3:
 - Corregidos contadores y resúmenes para actualizarse según filtro aplicado
 - Datos de "V3 sin paciente" ahora cargan al inicio (no solo al cambiar de pestaña)
 - Habilitada edición de nombre de usuario en GestionUsuarios
+
+## Actualizaciones Recientes (2026-06-03)
+
+### Acceso OPERATIVO a Historial de Pedidos
+- **Perfil OPERATIVO** ahora puede acceder a `/integrapp/HistoricoPedidos`
+- Aparece en el menú lateral de navegación
+- Archivos: `HistoricoPedidosP/index.tsx`, `NavMedicalCare/index.tsx`
+
+### Fix: Fusión/División de planillas con Vulcano
+- **Problema**: Al fusionar planillas después de importar Vulcano, las originales quedaban "vivas" en el histórico
+- **Solución**: Las originales se eliminan de MongoDB (no se marcan). La división las reconstruye desde `fusion_info.datos_originales`
+
+### Botón Flotante (FAB) Mejorado
+- **Posición**: `position: sticky` en vez de `fixed` → no sobrepasa el footer
+- **Color**: Naranja (`#e65100 → #ff8f00` gradiente) en vez de verde oscuro
+- **Ícono**: `<FaFileExport />` (documento con flecha) en vez de `☰`
+- **Clic fuera**: Se cierra automáticamente al hacer clic fuera
+- **Archivos**: `SolicitudVehiculos/page.tsx`, `SolicitudVehiculos/estilos.css`
+
+### Menú de Navegación — Clic fuera para cerrar
+- El dropdown del menú `NavMedicalCare` se cierra al hacer clic fuera
+- Funciona en **todas las rutas** del sistema (componente compartido)
+- **Archivo**: `NavMedicalCare/index.tsx`
+
+### Nuevo campo: `flete_cobrado_fmc`
+- **Cálculo automático**: `piezas × $20,000`
+- Se calcula al buscar planillas y al fusionar
+- Se almacena en MongoDB y se restaura al recargar
+- **Archivo**: `SolicitudVehiculos/page.tsx`
