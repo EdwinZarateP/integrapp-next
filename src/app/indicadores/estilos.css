@@ -1,0 +1,343 @@
+/* ==========================================
+   MENÚ INDICADORES - ESTILOS
+   Colores coincidiendo con /integrapp
+   ========================================== */
+
+.IM-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ==========================================
+   HEADER
+   ========================================== */
+
+.IM-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 70px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+}
+
+.IM-headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.IM-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+
+.IM-brand:hover {
+  opacity: 0.8;
+}
+
+.IM-brandName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.IM-brandAccent {
+  color: #e8a000;
+}
+
+/* ==========================================
+   MENÚ USUARIO
+   ========================================== */
+
+.IM-userZone {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.IM-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.IM-userBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.IM-userIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.IM-userInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.IM-userName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.IM-userPerfil {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+}
+
+.IM-chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.IM-chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.IM-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
+  z-index: 999;
+  overflow: hidden;
+  animation: IM-fadeDown 0.15s ease;
+}
+
+@keyframes IM-fadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.IM-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 0.88rem;
+  color: #0f1928;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  font-family: inherit;
+}
+
+.IM-dropItem:hover {
+  background: #f8fafc;
+}
+
+.IM-dropItemDanger {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.IM-dropItemDanger:hover {
+  background: #fef2f2;
+}
+
+.IM-dropDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+/* ==========================================
+   CONTENIDO PRINCIPAL
+   ========================================== */
+
+.IM-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+}
+
+.IM-indicadoresGrid {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  max-width: 960px;
+  width: 100%;
+}
+
+.IM-indicadorCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  background: #fff;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 36px 28px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  width: 260px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.IM-indicadorCard:hover {
+  transform: translateY(-6px);
+  border-color: #e8a000;
+  box-shadow: 0 16px 40px rgba(232,160,0,0.15);
+}
+
+.IM-indicadorIconWrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(232,160,0,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.IM-indicadorIcon {
+  font-size: 1.8rem;
+  color: #e8a000;
+}
+
+.IM-indicadorTitulo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f1928;
+}
+
+.IM-indicadorDescripcion {
+  font-size: 0.82rem;
+  color: #6b7a8d;
+  line-height: 1.5;
+}
+
+.IM-indicadorBtn {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e8a000;
+  margin-top: 4px;
+  transition: letter-spacing 0.2s;
+}
+
+.IM-indicadorCard:hover .IM-indicadorBtn {
+  letter-spacing: 0.5px;
+}
+
+/* ==========================================
+   FOOTER
+   ========================================== */
+
+.IM-footer {
+  background: #080f1a;
+  color: rgba(255,255,255,0.65);
+  padding: 20px 24px;
+  text-align: center;
+  font-size: 0.78rem;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 768px) {
+  .IM-header {
+    height: 60px;
+  }
+
+  .IM-headerInner {
+    padding: 0 20px;
+  }
+
+  .IM-brandName {
+    font-size: 1.25rem;
+  }
+
+  .IM-userBtn {
+    padding: 6px 10px 6px 6px;
+  }
+
+  .IM-userInfo {
+    min-width: 100px;
+  }
+
+  .IM-userName {
+    font-size: 0.8rem;
+  }
+
+  .IM-userPerfil {
+    font-size: 0.7rem;
+  }
+
+  .IM-main {
+    padding: 40px 20px;
+  }
+
+  .IM-indicadorCard {
+    width: 100%;
+    max-width: 340px;
+  }
+}
+
+@media (max-width: 480px) {
+  .IM-headerInner {
+    gap: 0.5rem;
+  }
+
+  .IM-userInfo {
+    display: none;
+  }
+
+  .IM-userBtn {
+    padding: 8px;
+    gap: 0;
+  }
+
+  .IM-userIcon {
+    font-size: 1.75rem;
+  }
+
+  .IM-indicadorCard {
+    padding: 28px 20px;
+  }
+}

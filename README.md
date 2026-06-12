@@ -458,3 +458,35 @@ Indicadores de prioridad en CrucePacientesV3:
 - Se calcula al buscar planillas y al fusionar
 - Se almacena en MongoDB y se restaura al recargar
 - **Archivo**: `SolicitudVehiculos/page.tsx`
+
+## Actualizaciones Recientes (2026-06-11)
+
+### Módulo: Indicadores de Transporte (`/integrapp/indicadores/transporte`)
+
+#### Gráfico "Pedidos diarios"
+- **Título renombrado**: De "Guías por Día" a **"Pedidos diarios"**
+- **Etiquetas de total en barras**: Cada barra apilada muestra el total general (suma de todos los estados) encima usando `LabelList` con `dataKey="totalStack"`
+- **Eje X inteligente**: Si el rango de fechas cruza años, muestra el año (ej: "10 dic 25", "5 ene 26"). Si es el mismo año, solo día y mes (ej: "10 jun")
+- **Leyenda desplegable en móvil**: En pantallas ≤768px, las leyendas de estados se colapsan en un botón **"Estados ▼"** que se expande al tocarlo. En desktop se muestran como siempre en fila
+
+#### KPI Cards
+- **Renombradas**: "Total Guías" → **"Total Pedidos"**, "Total Toneladas" → **"Toneladas"**
+- **Tamaño reducido**: Padding, iconos y fuentes más pequeñas para mejor uso del espacio
+
+#### Sistema de filtros mejorado
+- **Filtros manuales**: Los filtros ya NO se aplican automáticamente al cambiar valores. Solo se ejecutan al hacer clic en el botón **"Filtrar"**
+- **Botón renombrado**: De "Actualizar" a **"Filtrar"**
+- **Multi-select de Cliente con búsqueda**:
+  - Campo de texto para buscar clientes en tiempo real
+  - Checkboxes para seleccionar múltiples clientes
+  - Chips de clientes seleccionados dentro del campo (con ✕ para quitar individualmente)
+  - Opción "Todos" para limpiar selección
+  - API soporta múltiples clientes con `OR` (`nombre_cliente ILIKE '%c1%' OR nombre_cliente ILIKE '%c2%'`)
+- **Chips de filtros activos**: Barra debajo de filtros que muestra los filtros aplicados con opción de eliminar individualmente o **"Limpiar todo"**
+- **Overflow corregido en móvil**: Inputs, selects y botones se ajustan correctamente en pantallas pequeñas
+
+#### Rango por defecto
+- Al entrar a la página se carga automáticamente **1 mes atrás** (30 días) para evitar colapso por exceso de datos
+
+#### Botón "Exportar CSV" eliminado
+- Se removió por solicitud del usuario

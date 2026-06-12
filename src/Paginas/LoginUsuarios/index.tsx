@@ -22,6 +22,12 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
     color: "#006b5e",
     ruta: "/MedicalCare",
   },
+  INDICADORES: {
+    label: "Indicadores Integra",
+    desc: "Menú principal de dashboards e indicadores",
+    color: "#2563eb",
+    ruta: "/indicadores",
+  },
 };
 
 const LoginUsuario: React.FC = () => {
@@ -57,10 +63,12 @@ const LoginUsuario: React.FC = () => {
       document.cookie = `perfilPedidosCookie=${res.usuario.perfil}; path=/; ${expires}`;
 
       const clientes = res.usuario.clientes || ["KABI"];
-      setDatosUsuario({ ...res.usuario, clientes });
+      // Siempre agregar INDICADORES como opción disponible
+      const clientesConIndicadores = Array.from(new Set([...clientes, "INDICADORES"]));
+      setDatosUsuario({ ...res.usuario, clientes: clientesConIndicadores });
 
-      if (clientes.length === 1) {
-        seleccionarCliente(clientes[0], expires);
+      if (clientesConIndicadores.length === 1) {
+        seleccionarCliente(clientesConIndicadores[0], expires);
       } else {
         setPaso(2);
       }

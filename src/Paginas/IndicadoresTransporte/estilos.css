@@ -1,0 +1,1688 @@
+/* ==========================================
+   DASHBOARD INDICADORES DE GUÍAS - ESTILOS
+   Diseño coincidiendo con /integrapp
+   ========================================== */
+
+.IG-container {
+  min-height: 100vh;
+  background: #f0f2f5;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+}
+
+/* ==========================================
+   HEADER
+   ========================================== */
+
+.IG-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 70px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+}
+
+.IG-headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.IG-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+
+.IG-brand:hover {
+  opacity: 0.8;
+}
+
+.IG-brandName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.IG-brandAccent {
+  color: #e8a000;
+}
+
+.IG-titulo {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.IG-tituloDesktop {
+  display: inline;
+}
+
+.IG-tituloMobile {
+  display: none;
+}
+
+/* ==========================================
+   MENÚ USUARIO
+   ========================================== */
+
+.IG-userZone {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.IG-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.IG-userBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.IG-userIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.IG-userInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.IG-userName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.IG-userPerfil {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+}
+
+.IG-chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.IG-chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.IG-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
+  z-index: 999;
+  overflow: hidden;
+  animation: IG-fadeDown 0.15s ease;
+}
+
+@keyframes IG-fadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.IG-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 0.88rem;
+  color: #0f1928;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  font-family: inherit;
+}
+
+.IG-dropItem:hover {
+  background: #f8fafc;
+}
+
+.IG-dropItemDanger {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.IG-dropItemDanger:hover {
+  background: #fef2f2;
+}
+
+.IG-dropDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+/* ==========================================
+   FILTROS
+   ========================================== */
+
+.IG-filtrosSection {
+  background: #ffffff;
+  margin: 2rem auto 1.5rem;
+  max-width: 1200px;
+  width: 100%;
+  padding: 1.5rem 28px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 2px solid #e2e8f0;
+}
+
+.IG-filtrosToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #0f1928;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto;
+}
+
+.IG-filtrosToggle:hover {
+  background: #1e3a5f;
+  box-shadow: 0 4px 12px rgba(15,25,40,0.3);
+}
+
+.IG-filtrosPanel {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.IG-filtroGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.IG-rangoFechas {
+  grid-column: span 2;
+  position: relative;
+}
+
+.IG-rangoDisplay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f1928;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.IG-rangoDisplay:hover {
+  border-color: #e8a000;
+}
+
+.IG-rangoSeparador {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.IG-rangoAtajos {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.IG-atajoBtn {
+  padding: 0.3rem 0.65rem;
+  background: #f0f4f8;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0f1928;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.IG-atajoBtn:hover {
+  background: #0f1928;
+  border-color: #0f1928;
+  color: white;
+}
+
+.IG-calendarioPopover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 200;
+  margin-top: 4px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.15);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.IG-filtroGrupo label {
+  font-weight: 600;
+  color: #0f1928;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.IG-input,
+.IG-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  background: white;
+  color: #0f1928;
+}
+
+.IG-input:hover,
+.IG-select:hover {
+  border-color: #e8a000;
+}
+
+.IG-input:focus,
+.IG-select:focus {
+  outline: none;
+  border-color: #e8a000;
+  box-shadow: 0 0 0 3px rgba(232,160,0,0.1);
+}
+
+.IG-botonActualizar,
+.IG-botonExportar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: auto;
+}
+
+.IG-botonActualizar {
+  background: #0f1928;
+  color: white;
+}
+
+.IG-botonActualizar:hover {
+  background: #1e3a5f;
+  box-shadow: 0 4px 12px rgba(15,25,40,0.3);
+}
+
+.IG-botonExportar {
+  background: #e8a000;
+  color: white;
+}
+
+.IG-botonExportar:hover:not(:disabled) {
+  background: #c88800;
+  box-shadow: 0 4px 12px rgba(232,160,0,0.3);
+}
+
+.IG-botonExportar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   CONTENIDO PRINCIPAL
+   ========================================== */
+
+.IG-main {
+  flex: 1;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 28px 2rem;
+}
+
+.IG-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 2px solid #e2e8f0;
+  color: #6b7a8d;
+}
+
+.IG-camionContainer {
+  width: 280px;
+  height: 60px;
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.IG-camionPista {
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, #cbd5e1 0px, #cbd5e1 12px, transparent 12px, transparent 20px);
+  border-radius: 2px;
+}
+
+.IG-camion {
+  position: absolute;
+  bottom: 8px;
+  animation: IG-camionMover 2.5s ease-in-out infinite;
+}
+
+.IG-camionSvg {
+  width: 120px;
+  height: 50px;
+}
+
+@keyframes IG-camionMover {
+  0% { left: -10px; transform: scaleX(1); }
+  45% { left: 170px; transform: scaleX(1); }
+  50% { left: 170px; transform: scaleX(-1); }
+  95% { left: -10px; transform: scaleX(-1); }
+  100% { left: -10px; transform: scaleX(1); }
+}
+
+.IG-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #e8a000;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.IG-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 2px solid #e2e8f0;
+  color: #dc2626;
+}
+
+.IG-reintentar {
+  margin-top: 1.5rem;
+  padding: 0.75rem 2rem;
+  background: #0f1928;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.IG-reintentar:hover {
+  background: #1e3a5f;
+  box-shadow: 0 4px 12px rgba(15,25,40,0.3);
+}
+
+/* ==========================================
+   KPIs
+   ========================================== */
+
+.IG-kpisContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.IG-kpiCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 2px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.IG-kpiCard:hover {
+  border-color: #e8a000;
+  box-shadow: 0 8px 25px rgba(232,160,0,0.15);
+}
+
+.IG-kpiIcon {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.IG-kpiTotal .IG-kpiIcon {
+  background: rgba(15,25,40,0.1);
+  color: #0f1928;
+}
+
+.IG-kpiEntregado .IG-kpiIcon {
+  background: rgba(34,197,94,0.15);
+  color: #16a34a;
+}
+
+.IG-kpiPendiente .IG-kpiIcon {
+  background: rgba(234,179,8,0.15);
+  color: #ca8a04;
+}
+
+.IG-kpiNovedad .IG-kpiIcon {
+  background: rgba(239,68,68,0.15);
+  color: #dc2626;
+}
+
+.IG-kpiPiezas .IG-kpiIcon {
+  background: rgba(59,130,246,0.15);
+  color: #2563eb;
+}
+
+.IG-kpiToneladas .IG-kpiIcon {
+  background: rgba(245,158,11,0.15);
+  color: #d97706;
+}
+
+.IG-kpiDistribucion .IG-kpiIcon {
+  background: rgba(59,130,246,0.15);
+  color: #2563eb;
+}
+
+.IG-kpiTransito .IG-kpiIcon {
+  background: rgba(139,92,246,0.15);
+  color: #7c3aed;
+}
+
+.IG-kpiOtro .IG-kpiIcon {
+  background: rgba(107,114,128,0.15);
+  color: #6b7280;
+}
+
+.IG-kpiContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.IG-kpiLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7a8d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.IG-kpiValor {
+  margin: 0.15rem 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f1928;
+  line-height: 1.2;
+}
+
+.IG-kpiValorPeq {
+  font-size: 1rem;
+}
+
+.IG-kpiSub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7a8d;
+}
+
+/* ==========================================
+   MULTI-SELECT CLIENTE
+   ========================================== */
+
+.IG-clienteMulti {
+  position: relative;
+}
+
+.IG-clienteInputWrap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-height: 38px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.IG-clienteInputWrap:hover {
+  border-color: #e8a000;
+}
+
+.IG-clienteInputWrap:focus-within {
+  border-color: #e8a000;
+  box-shadow: 0 0 0 3px rgba(232,160,0,0.1);
+}
+
+.IG-clienteChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
+.IG-clienteChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.4rem;
+  background: #0f1928;
+  color: white;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.IG-clienteChipX {
+  cursor: pointer;
+  font-size: 0.65rem;
+  opacity: 0.7;
+  margin-left: 0.1rem;
+}
+
+.IG-clienteChipX:hover {
+  opacity: 1;
+}
+
+.IG-clienteBuscar {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  outline: none;
+  font-size: 0.8rem;
+  background: transparent;
+  color: #0f1928;
+  padding: 0.2rem 0;
+}
+
+.IG-clienteBuscar::placeholder {
+  color: #94a3b8;
+}
+
+.IG-clienteDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.IG-clienteOpcion {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: #0f1928;
+}
+
+.IG-clienteOpcion:hover {
+  background: #f0f4f8;
+}
+
+.IG-clienteOpcionSeleccionada {
+  background: #f0f4f8;
+  font-weight: 600;
+}
+
+.IG-clienteCheck {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* ==========================================
+   CHIPS FILTROS ACTIVOS
+   ========================================== */
+
+.IG-filtrosActivos {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  max-width: 1200px;
+  margin: 0 auto 1rem;
+  padding: 0.35rem 0.6rem;
+  background: #f0f4f8;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.IG-filtrosActivosLabel {
+  font-weight: 600;
+  color: #6b7a8d;
+  margin-right: 0.25rem;
+}
+
+.IG-filtroChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.5rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #0f1928;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.IG-filtroChip:hover {
+  background: #0f1928;
+  border-color: #0f1928;
+  color: white;
+}
+
+.IG-filtroLimpiar {
+  padding: 0.2rem 0.5rem;
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.IG-filtroLimpiar:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: white;
+}
+
+/* ==========================================
+   GRÁFICO
+   ========================================== */
+
+.IG-graficoContainer {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 2px solid #e2e8f0;
+}
+
+.IG-scrollGrafico {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.IG-scrollGrafico::-webkit-scrollbar {
+  height: 6px;
+}
+
+.IG-scrollGrafico::-webkit-scrollbar-track {
+  background: #f0f4f8;
+  border-radius: 3px;
+}
+
+.IG-scrollGrafico::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.IG-scrollGrafico::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.IG-graficoTitulo {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f1928;
+}
+
+.IG-graficoHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  gap: 1rem;
+}
+
+.IG-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.IG-switchLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7a8d;
+  white-space: nowrap;
+}
+
+.IG-switch input {
+  display: none;
+}
+
+.IG-switchSlider {
+  width: 36px;
+  height: 20px;
+  background: #cbd5e1;
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.IG-switchSlider::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+
+.IG-switch input:checked + .IG-switchSlider {
+  background: #e8a000;
+}
+
+.IG-switch input:checked + .IG-switchSlider::after {
+  left: 18px;
+}
+
+.IG-graficoLeyenda {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.IG-leyendaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.IG-leyendaEtiqueta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7a8d;
+}
+
+.IG-leyendaTotal {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f1928;
+}
+
+.IG-leyendaTotalGeneral {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f1928;
+}
+
+/* Leyenda personalizada con botones clickeables */
+.IG-leyendaPersonalizada {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  gap: 0.75rem;
+}
+
+/* Botón toggle: oculto en desktop */
+.IG-leyendaToggle {
+  display: none;
+}
+
+/* Opciones: siempre visibles en desktop */
+.IG-leyendaOpciones {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.IG-leyendaBoton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 2px solid var(--color-estado, #6b7280);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #0f1928;
+}
+
+.IG-leyendaBoton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.IG-leyendaBoton:active {
+  transform: translateY(0);
+}
+
+.IG-leyendaBotonSeleccionado {
+  background: var(--color-estado, #6b7280);
+  color: white;
+  font-weight: 600;
+  border-width: 2px;
+}
+
+.IG-leyendaBotonSeleccionado .IG-leyendaColor {
+  background: white;
+}
+
+.IG-leyendaBotonSeleccionado:hover {
+  opacity: 0.9;
+}
+
+.IG-leyendaColor {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--color-estado, #6b7280);
+  flex-shrink: 0;
+}
+
+.IG-leyendaTexto {
+  white-space: nowrap;
+}
+
+/* ==========================================
+   BARRAS HORIZONTALES
+   ========================================== */
+
+.IG-barrasHorizontales {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.IG-barraHItem {
+  display: grid;
+  grid-template-columns: 140px 1fr 60px;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.IG-barraHLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.IG-barraHPunto {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.IG-barraHNombre {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f1928;
+  white-space: nowrap;
+}
+
+.IG-barraHTrack {
+  height: 28px;
+  background: #f0f4f8;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+}
+
+.IG-barraHFill {
+  height: 100%;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.6rem;
+  min-width: 40px;
+  transition: width 0.6s ease;
+}
+
+.IG-barraHValor {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: white;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.IG-barraHPorcentaje {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f1928;
+  text-align: right;
+}
+
+.IG-sinDatos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  color: #6b7a8d;
+  font-size: 1rem;
+  text-align: center;
+}
+
+/* ==========================================
+   TABLA
+   ========================================== */
+
+.IG-tablaContainer {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 2px solid #e2e8f0;
+}
+
+.IG-tablaTitulo {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f1928;
+}
+
+.IG-tablaWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.IG-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.IG-tabla thead {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  border-bottom: 2px solid #e8a000;
+}
+
+.IG-tabla th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+}
+
+.IG-tabla td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f1928;
+}
+
+.IG-tabla tbody tr:hover {
+  background: rgba(232,160,0,0.05);
+}
+
+.IG-tabla tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ==========================================
+   MODAL DETALLE
+   ========================================== */
+
+.IG-modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  backdrop-filter: blur(4px);
+}
+
+.IG-modalContenido {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 1100px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.2);
+  animation: IG-modalIn 0.2s ease-out;
+}
+
+@keyframes IG-modalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.IG-modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.IG-modalTitulo {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f1928;
+  flex: 1;
+}
+
+.IG-modalTotal {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b7a8d;
+  background: #f0f4f8;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+}
+
+.IG-modalCerrar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #f0f4f8;
+  color: #6b7a8d;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.IG-modalCerrar:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.IG-modalCargando {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #6b7a8d;
+  gap: 0.75rem;
+}
+
+.IG-modalVacio {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7a8d;
+}
+
+.IG-modalTablaWrap {
+  overflow: auto;
+  flex: 1;
+  padding: 0 1.5rem 1rem;
+}
+
+.IG-modalTabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.IG-modalTabla thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.IG-modalTabla th {
+  background: #0f1928;
+  color: white;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.IG-modalTabla td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #f0f4f8;
+  color: #0f1928;
+  white-space: nowrap;
+}
+
+.IG-modalTabla tbody tr:hover {
+  background: #f8fafc;
+}
+
+.IG-estadoBadge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* ==========================================
+   FOOTER
+   ========================================== */
+
+.IG-footer {
+  background: #080f1a;
+  border-top: 1px solid rgba(232,160,0,0.2);
+  padding: 1.5rem 28px;
+  text-align: center;
+  color: rgba(255,255,255,0.65);
+  font-size: 0.78rem;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 1024px) {
+  .IG-headerInner {
+    flex-wrap: wrap;
+    padding: 0 20px;
+    gap: 0.5rem;
+  }
+
+  .IG-titulo {
+    order: 3;
+    width: 100%;
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 1rem;
+  }
+
+  .IG-tituloDesktop {
+    display: inline;
+  }
+
+  .IG-tituloMobile {
+    display: none;
+  }
+
+  .IG-brand {
+    order: 1;
+  }
+
+  .IG-userZone {
+    order: 2;
+  }
+
+  .IG-kpisContainer {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .IG-filtrosSection,
+  .IG-main {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .IG-header {
+    height: auto;
+    min-height: 60px;
+    padding: 0.75rem 0;
+  }
+
+  .IG-headerInner {
+    padding: 0 1rem;
+    justify-content: center;
+  }
+
+  .IG-brand {
+    flex-shrink: 0;
+    gap: 0.5rem;
+  }
+
+  .IG-brandName {
+    font-size: 1.1rem;
+  }
+
+  .IG-titulo {
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 1rem;
+  }
+
+  .IG-tituloDesktop {
+    display: none;
+  }
+
+  .IG-tituloMobile {
+    display: inline;
+  }
+
+  .IG-userBtn {
+    padding: 6px 10px 6px 6px;
+  }
+
+  .IG-userInfo {
+    display: none;
+  }
+
+  .IG-userIcon {
+    font-size: 1.5rem;
+  }
+
+  .IG-chevron {
+    display: none;
+  }
+
+  .IG-filtrosSection {
+    margin: 1rem auto;
+    padding: 0.75rem;
+    overflow: hidden;
+  }
+
+  .IG-filtrosPanel {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    overflow: hidden;
+  }
+
+  .IG-rangoFechas {
+    grid-column: span 1;
+  }
+
+  .IG-filtroGrupo {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .IG-botonActualizar,
+  .IG-botonExportar {
+    font-size: 0.78rem;
+    padding: 0.45rem 0.75rem;
+  }
+
+  .IG-filtrosActivos {
+    margin: 0.5rem 0.25rem 0.75rem;
+    padding: 0.25rem 0.4rem;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+  }
+
+  .IG-filtroChip,
+  .IG-filtroLimpiar {
+    font-size: 0.68rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .IG-kpisContainer {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .IG-main {
+    padding: 0 1rem 1rem;
+  }
+
+  .IG-graficoContainer,
+  .IG-tablaContainer {
+    padding: 1rem;
+  }
+
+  .IG-graficoTitulo,
+  .IG-tablaTitulo {
+    font-size: 1rem;
+  }
+
+  .IG-graficoHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .IG-graficoLeyenda {
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .IG-leyendaItem {
+    flex: 1;
+    min-width: 100px;
+    font-size: 0.7rem;
+  }
+
+  .IG-leyendaTotal {
+    font-size: 0.75rem;
+  }
+
+  .IG-leyendaPersonalizada {
+    flex-wrap: nowrap;
+    flex-direction: column;
+    padding: 0.5rem;
+    gap: 0;
+  }
+
+  .IG-leyendaToggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0f1928;
+    cursor: pointer;
+  }
+
+  .IG-leyendaOpciones {
+    display: none;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    width: 100%;
+  }
+
+  .IG-leyendaAbierta .IG-leyendaOpciones {
+    display: flex;
+  }
+
+  .IG-leyendaBoton {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.8rem;
+  }
+
+  .IG-kpiCard {
+    padding: 1rem;
+  }
+
+  .IG-kpiIcon {
+    width: 45px;
+    height: 45px;
+    font-size: 1.25rem;
+  }
+
+  .IG-kpiValor {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .IG-header {
+    padding: 0.5rem 0;
+    min-height: 55px;
+  }
+
+  .IG-headerInner {
+    padding: 0 0.75rem;
+    gap: 0.25rem;
+  }
+
+  .IG-brand {
+    gap: 0.4rem;
+  }
+
+  .IG-brandName {
+    font-size: 1rem;
+  }
+
+  .IG-titulo {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    padding: 0 0.5rem;
+  }
+
+  .IG-userBtn {
+    padding: 6px 8px;
+  }
+
+  .IG-userIcon {
+    font-size: 1.25rem;
+  }
+
+  .IG-filtrosSection {
+    margin: 0.75rem auto;
+    padding: 0.75rem;
+  }
+
+  .IG-filtrosToggle {
+    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .IG-filtroGrupo label {
+    font-size: 0.7rem;
+  }
+
+  .IG-input,
+  .IG-select {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
+
+  .IG-botonActualizar,
+  .IG-botonExportar {
+    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .IG-kpiCard {
+    gap: 0.75rem;
+    padding: 0.875rem;
+  }
+
+  .IG-main {
+    padding: 0 0.75rem 0.75rem;
+  }
+
+  .IG-graficoContainer,
+  .IG-tablaContainer {
+    padding: 0.75rem;
+  }
+
+  .IG-graficoHeader {
+    gap: 0.5rem;
+  }
+
+  .IG-graficoLeyenda {
+    gap: 0.25rem;
+  }
+
+  .IG-leyendaItem {
+    min-width: 80px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.65rem;
+  }
+
+  .IG-leyendaEtiqueta {
+    font-size: 0.6rem;
+  }
+
+  .IG-leyendaTotal {
+    font-size: 0.65rem;
+  }
+
+  .IG-leyendaTotalGeneral {
+    font-size: 0.7rem;
+  }
+
+  .IG-kpisContainer {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .IG-kpiCard {
+    padding: 0.875rem;
+  }
+
+  .IG-kpiIcon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.25rem;
+  }
+
+  .IG-kpiValor {
+    font-size: 1.25rem;
+  }
+
+  .IG-tabla th,
+  .IG-tabla td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
