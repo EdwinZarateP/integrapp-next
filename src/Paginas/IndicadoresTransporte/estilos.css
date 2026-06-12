@@ -1429,22 +1429,29 @@
   .IG-filtrosSection {
     margin: 1rem auto;
     padding: 0.75rem;
-    overflow: hidden;
   }
 
+  /* overflow: visible para que los popovers (calendario y desplegable de
+     cliente) no queden recortados/tapados por el botón Filtrar en móvil */
   .IG-filtrosPanel {
     grid-template-columns: 1fr;
     gap: 0.75rem;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .IG-rangoFechas {
     grid-column: span 1;
   }
 
+  /* Evitar que el calendario genere scroll horizontal al quedar expuesto */
+  .IG-calendarioPopover {
+    max-width: calc(100vw - 2.5rem);
+    overflow-x: auto;
+  }
+
   .IG-filtroGrupo {
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .IG-botonActualizar,

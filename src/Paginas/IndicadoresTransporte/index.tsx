@@ -55,6 +55,7 @@ const IndicadoresGuias: React.FC = () => {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const scrollGraficoRef = useRef<HTMLDivElement>(null);
+  const clienteFiltroRef = useRef<HTMLDivElement>(null);
 
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [datosUsuario, setDatosUsuario] = useState<{ usuario: string; perfil?: string; regional?: string } | null>(null);
@@ -162,6 +163,17 @@ const IndicadoresGuias: React.FC = () => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuAbierto(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Cerrar el desplegable de cliente al hacer clic fuera
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (clienteFiltroRef.current && !clienteFiltroRef.current.contains(e.target as Node)) {
+        setDropdownClienteAbierto(false);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -472,12 +484,12 @@ const IndicadoresGuias: React.FC = () => {
               >
                 <option value="">Todos</option>
                 {estados.map(estado => (
-                  <option key={estado} value={estado}>{estado}</option>
+                  <option key={estado} value={estado}>{estado.toUpperCase()}</option>
                 ))}
               </select>
             </div>
 
-            <div className="IG-filtroGrupo" style={{ position: 'relative' }}>
+            <div className="IG-filtroGrupo" ref={clienteFiltroRef} style={{ position: 'relative' }}>
               <label>Cliente:</label>
               <div className="IG-clienteMulti">
                 <div className="IG-clienteInputWrap" onClick={() => setDropdownClienteAbierto(!dropdownClienteAbierto)}>
@@ -557,7 +569,7 @@ const IndicadoresGuias: React.FC = () => {
           )}
           {filtrosAplicados.estado && (
             <button className="IG-filtroChip" onClick={() => { setEstadoSeleccionado(''); setFiltrosAplicados(f => ({ ...f, estado: '' })); }}>
-              Estado: {filtrosAplicados.estado} ✕
+              Estado: {filtrosAplicados.estado.toUpperCase()} ✕
             </button>
           )}
           {filtrosAplicados.clientes.length > 0 && filtrosAplicados.clientes.map(c => (
