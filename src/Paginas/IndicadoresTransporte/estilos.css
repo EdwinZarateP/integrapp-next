@@ -294,6 +294,93 @@
   font-weight: 700;
 }
 
+/* ==========================================
+   DROPDOWN FILTRO (estilo Power BI)
+   ========================================== */
+
+.IG-dropdownFiltro {
+  position: relative;
+}
+
+.IG-dropdownFiltroBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 38px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.IG-dropdownFiltroBtn:hover {
+  border-color: #e8a000;
+}
+
+.IG-dropdownFiltroTexto {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f1928;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.IG-dropdownFiltroFlecha {
+  color: #6b7a8d;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.IG-dropdownFiltroLista {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 100;
+  margin-top: 4px;
+  padding: 0.25rem 0;
+}
+
+.IG-dropdownFiltroItem {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #0f1928;
+  transition: background 0.1s;
+}
+
+.IG-dropdownFiltroItem:hover {
+  background: #f0f4f8;
+}
+
+.IG-dropdownFiltroItem.seleccionado {
+  background: #f0f4f8;
+  font-weight: 600;
+}
+
+.IG-dropdownFiltroItem input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #0f1928;
+}
+
 .IG-rangoAtajos {
   display: flex;
   gap: 0.4rem;
@@ -597,6 +684,7 @@
 .IG-kpiContent {
   flex: 1;
   min-width: 0;
+  text-align: center;
 }
 
 .IG-kpiLabel {

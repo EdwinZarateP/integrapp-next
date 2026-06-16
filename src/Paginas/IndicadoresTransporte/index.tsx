@@ -1,14 +1,11 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, LineChart, Line } from 'recharts';
-import { format, subDays, startOfDay, parseISO, addMonths, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { DateRange } from 'react-date-range';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
-import { FaBox, FaCheckCircle, FaClock, FaExclamationTriangle, FaFilter, FaArrowLeft, FaSync, FaDownload, FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaBoxes, FaWeight } from 'react-icons/fa';
+import { FaBox, FaCheckCircle, FaClock, FaExclamationTriangle, FaFilter, FaArrowLeft, FaSync, FaDownload, FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaBoxes, FaWeight, FaClipboardList } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -45,6 +42,7 @@ type ApiResponse = {
     datosGrafico: DatosGrafico[];
     datosPorCliente: any[];
     datosCajas: any[];
+    anios: number[];
     estados: string[];
     clientes: string[];
   };
@@ -55,6 +53,7 @@ const IndicadoresGuias: React.FC = () => {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const scrollGraficoRef = useRef<HTMLDivElement>(null);
+  const scrollCajasRef = useRef<HTMLDivElement>(null);
   const clienteFiltroRef = useRef<HTMLDivElement>(null);
 
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -69,23 +68,36 @@ const IndicadoresGuias: React.FC = () => {
   const [datosCajas, setDatosCajas] = useState<any[]>([]);
 
   // Filtros (valores en pantalla, no disparan fetch automáticamente)
-  const [fechaInicio, setFechaInicio] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
-  const [fechaFin, setFechaFin] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [estadoSeleccionado, setEstadoSeleccionado] = useState('');
   const [clientesSeleccionados, setClientesSeleccionados] = useState<string[]>([]);
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
 
+  // Años disponibles y seleccionados (por defecto año actual)
+  const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
+  const [aniosSeleccionados, setAniosSeleccionados] = useState<number[]>([new Date().getFullYear()]);
+  const [dropdownAnioAbierto, setDropdownAnioAbierto] = useState(false);
+
+  // Meses seleccionados (vacío = todos). 1-12
+  const MESES = [
+    { valor: 1, nombre: 'Enero' }, { valor: 2, nombre: 'Febrero' },
+    { valor: 3, nombre: 'Marzo' }, { valor: 4, nombre: 'Abril' },
+    { valor: 5, nombre: 'Mayo' }, { valor: 6, nombre: 'Junio' },
+    { valor: 7, nombre: 'Julio' }, { valor: 8, nombre: 'Agosto' },
+    { valor: 9, nombre: 'Septiembre' }, { valor: 10, nombre: 'Octubre' },
+    { valor: 11, nombre: 'Noviembre' }, { valor: 12, nombre: 'Diciembre' },
+  ];
+  const [mesesSeleccionados, setMesesSeleccionados] = useState<number[]>([]);
+  const [dropdownMesAbierto, setDropdownMesAbierto] = useState(false);
+
   // Filtros aplicados (estos son los que realmente se usan para consultar)
   const [filtrosAplicados, setFiltrosAplicados] = useState({
-    fechaInicio: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    fechaFin: format(new Date(), 'yyyy-MM-dd'),
-    estado: '',
+    anios: [new Date().getFullYear()] as number[],
+    meses: [] as number[],
     clientes: [] as string[],
   });
 
-  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
-  const [calendarioAbierto, setCalendarioAbierto] = useState(false);
+  // Vista del gráfico de Cajas: false = por día (diario), true = comparativo por año
+  const [cajasComparativo, setCajasComparativo] = useState(false);
 
   // Estado para controlar la leyenda desplegable en móvil
   const [leyendaAbierta, setLeyendaAbierta] = useState(false);
@@ -119,18 +131,51 @@ const IndicadoresGuias: React.FC = () => {
 
   // Abrir modal de detalle por día
   const abrirDetalleDia = async (fecha: string) => {
+    console.log('🔍 Click en fecha:', fecha);
     setModalFecha(fecha);
     setModalAbierto(true);
     setModalCargando(true);
     setModalRegistros([]);
 
     try {
-      const params = new URLSearchParams({ fecha });
-      filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
-      // Si hay estados filtrados en la leyenda, enviar solo esos
-      if (estadosSeleccionados.length > 0) {
-        estadosSeleccionados.forEach(e => params.append('estado', e));
+      const params = new URLSearchParams();
+
+      // Determinar si es una fecha agrupada por mes (YYYY-MM) o día individual (YYYY-MM-DD)
+      if (fecha.length === 7) {
+        // Es un mes agrupado (ej: "2025-12") -> enviar rango completo del mes
+        const [anio, mesNum] = fecha.split('-');
+        const primerDia = `${fecha}-01`;
+        const ultimoDia = new Date(parseInt(anio), parseInt(mesNum) + 1, 0).getDate();
+        const ultimoDiaStr = `${fecha}-${ultimoDia.toString().padStart(2, '0')}`;
+
+        params.append('fecha_inicio', primerDia);
+        params.append('fecha_fin', ultimoDiaStr);
+
+        // Filtros de clientes
+        filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
+
+        // Si hay estados seleccionados, enviar solo esos
+        if (estadosSeleccionados.length > 0) {
+          estadosSeleccionados.forEach(e => params.append('estado', e));
+        } else {
+          // Si no hay estados seleccionados, excluir ENTREGADO
+          // Agregar todos los estados excepto ENTREGADO
+          const estadosNoEntregado = estados.filter(e => e !== 'ENTREGADO');
+          estadosNoEntregado.forEach(e => params.append('estado', e));
+        }
+      } else {
+        // Es un día individual (ej: "2025-12-16") -> enviar fecha exacta
+        params.append('fecha', fecha);
+
+        // Filtros de clientes
+        filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
+
+        // Si hay estados seleccionados, enviar solo esos
+        if (estadosSeleccionados.length > 0) {
+          estadosSeleccionados.forEach(e => params.append('estado', e));
+        }
       }
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-transporte/guias/detalle?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
@@ -190,56 +235,91 @@ const IndicadoresGuias: React.FC = () => {
       // Si no está seleccionado, lo agregamos
       return [...prev, estado];
     });
+
+    // Mover scroll al final - versión simplificada
+    setTimeout(() => {
+      [scrollGraficoRef, scrollCajasRef].forEach(ref => {
+        if (ref.current) {
+          ref.current.scrollLeft = ref.current.scrollWidth;
+        }
+      });
+    }, 50);
+
+    setTimeout(() => {
+      [scrollGraficoRef, scrollCajasRef].forEach(ref => {
+        if (ref.current && ref.current.scrollLeft < ref.current.scrollWidth - ref.current.clientWidth) {
+          ref.current.scrollLeft = ref.current.scrollWidth;
+        }
+      });
+    }, 150);
   };
 
   // Determinar qué estados mostrar: si hay seleccionados, solo esos; si no, todos
-  const estadosAMostrar = estadosSeleccionados.length > 0 ? estadosSeleccionados : estados;
+  const estadosAMostrar = useMemo(
+    () => estadosSeleccionados.length > 0 ? estadosSeleccionados : estados,
+    [estadosSeleccionados, estados]
+  );
 
-  // Filtrar datos del gráfico basado en estados seleccionados
-  const datosFiltrados = datosGrafico.map(dia => {
-    const diaFiltrado: any = { fecha: dia.fecha };
+  // Filtrar datos del gráfico basado en estados seleccionados (memoizado)
+  const datosFiltrados = useMemo(() => {
+    return datosGrafico
+      .map(dia => {
+        const diaFiltrado: any = { fecha: dia.fecha };
 
-    // Agregar cada estado visible
-    estadosAMostrar.forEach(estado => {
-      diaFiltrado[estado] = dia[estado];
-    });
+        // Agregar cada estado visible
+        estadosAMostrar.forEach(estado => {
+          diaFiltrado[estado] = dia[estado];
+        });
 
-    // Calcular el total del stack para este día
-    const totalStack = estadosAMostrar.reduce((sum, estado) => {
-      const valor = dia[estado];
-      return sum + (typeof valor === 'number' ? valor : 0);
-    }, 0);
+        // Calcular el total del stack para este día
+        const totalStack = estadosAMostrar.reduce((sum, estado) => {
+          const valor = dia[estado];
+          return sum + (typeof valor === 'number' ? valor : 0);
+        }, 0);
 
-    diaFiltrado.totalStack = totalStack;
+        diaFiltrado.totalStack = totalStack;
 
-    return diaFiltrado;
-  });
+        return diaFiltrado;
+      })
+      .filter(dia => dia.totalStack > 0); // Solo días con datos
+  }, [datosGrafico, estadosAMostrar]);
 
-  // Filtrar datos de cajas basado en estados seleccionados
-  const cajasFiltradas = datosCajas.map(dia => {
-    const diaFiltrado: any = { fecha: dia.fecha };
+  // Filtrar datos de cajas basado en estados seleccionados (memoizado)
+  const cajasFiltradas = useMemo(() => {
+    return datosCajas
+      .map(dia => {
+        const diaFiltrado: any = { fecha: dia.fecha };
 
-    estadosAMostrar.forEach(estado => {
-      diaFiltrado[estado] = dia[estado];
-    });
+        estadosAMostrar.forEach(estado => {
+          diaFiltrado[estado] = dia[estado];
+        });
 
-    const totalStack = estadosAMostrar.reduce((sum, estado) => {
-      const valor = dia[estado];
-      return sum + (typeof valor === 'number' ? valor : 0);
-    }, 0);
+        const totalStack = estadosAMostrar.reduce((sum, estado) => {
+          const valor = dia[estado];
+          return sum + (typeof valor === 'number' ? valor : 0);
+        }, 0);
 
-    diaFiltrado.totalStack = totalStack;
+        diaFiltrado.totalStack = totalStack;
 
-    return diaFiltrado;
-  });
+        return diaFiltrado;
+      })
+      .filter(dia => dia.totalStack > 0); // Solo días con datos
+  }, [datosCajas, estadosAMostrar]);
 
   // Calcular total general basado solo en estados a mostrar
-  const totalGeneral = datosFiltrados.reduce((sumTotal, dia) => {
+  const totalGeneral = useMemo(() => datosFiltrados.reduce((sumTotal, dia) => {
     return sumTotal + estadosAMostrar.reduce((sumDia, estado) => {
       const valor = dia[estado];
       return sumDia + (typeof valor === 'number' ? valor : 0);
     }, 0);
-  }, 0);
+  }, 0), [datosFiltrados, estadosAMostrar]);
+
+  // Lista de clientes filtrada por búsqueda (memoizada y limitada a 80 para no colgar el render)
+  const clientesFiltradosDropdown = useMemo(() => {
+    const q = busquedaCliente.toLowerCase().trim();
+    const res = q ? clientes.filter(c => c.toLowerCase().includes(q)) : clientes;
+    return res.slice(0, 80);
+  }, [clientes, busquedaCliente]);
 
   // Función para agrupar datos por mes
   const agruparPorMesFn = (datos: any[]) => {
@@ -261,9 +341,34 @@ const IndicadoresGuias: React.FC = () => {
     return Object.values(agrupado).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
   };
 
-  // Datos finales según agrupación
-  const datosPedidosFinal = agruparPorMes ? agruparPorMesFn(datosFiltrados) : datosFiltrados;
-  const datosCajasFinal = agruparPorMes ? agruparPorMesFn(cajasFiltradas) : cajasFiltradas;
+  // Datos finales según agrupación (memoizado)
+  const datosPedidosFinal = useMemo(
+    () => agruparPorMes ? agruparPorMesFn(datosFiltrados) : datosFiltrados,
+    [agruparPorMes, datosFiltrados]
+  );
+  const datosCajasFinal = useMemo(
+    () => agruparPorMes ? agruparPorMesFn(cajasFiltradas) : cajasFiltradas,
+    [agruparPorMes, cajasFiltradas]
+  );
+
+  // Datos de cajas para comparación multianual: una serie por año, agrupada por mes (memoizado)
+  const aniosGraficoCajas = useMemo(
+    () => Array.from(new Set(cajasFiltradas.map(d => parseISO(d.fecha).getFullYear()))).sort(),
+    [cajasFiltradas]
+  );
+  const COLORES_ANIOS = ['#0f1928', '#e8a000', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#ec4899', '#14b8a6'];
+  const cajasMultianual = useMemo(() => {
+    return MESES.map(m => {
+      const punto: any = { periodo: m.nombre };
+      aniosGraficoCajas.forEach(a => {
+        const total = cajasFiltradas
+          .filter(d => parseISO(d.fecha).getMonth() + 1 === m.valor && parseISO(d.fecha).getFullYear() === a)
+          .reduce((s, d) => s + (d.totalStack || 0), 0);
+        punto[a] = total > 0 ? total : null;
+      });
+      return punto;
+    }).filter(p => aniosGraficoCajas.some(a => p[a] !== null));
+  }, [cajasFiltradas, aniosGraficoCajas]);
 
   // Formateador de fecha según agrupación
   const formatoEjeX = (fecha: string) => {
@@ -271,9 +376,9 @@ const IndicadoresGuias: React.FC = () => {
       return format(parseISO(fecha + '-01'), 'MMM yy', { locale: es });
     }
     const date = parseISO(fecha);
-    const inicio = parseISO(filtrosAplicados.fechaInicio);
-    const fin = parseISO(filtrosAplicados.fechaFin);
-    if (inicio.getFullYear() !== fin.getFullYear()) {
+    // Si los datos abarcan varios años, mostrar el año en el eje
+    const aniosEnDatos = new Set(datosGrafico.map(d => parseISO(d.fecha).getFullYear()));
+    if (aniosEnDatos.size > 1) {
       return format(date, 'd MMM yy', { locale: es });
     }
     return format(date, 'd MMM', { locale: es });
@@ -303,13 +408,11 @@ const IndicadoresGuias: React.FC = () => {
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        fecha_inicio: filtrosAplicados.fechaInicio,
-        fecha_fin: filtrosAplicados.fechaFin,
-      });
+      const params = new URLSearchParams();
 
-      if (filtrosAplicados.estado) params.append('estado', filtrosAplicados.estado);
       filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
+      filtrosAplicados.anios.forEach(a => params.append('anio', String(a)));
+      filtrosAplicados.meses.forEach(m => params.append('mes', String(m)));
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-transporte/guias?${params.toString()}`);
 
@@ -326,6 +429,10 @@ const IndicadoresGuias: React.FC = () => {
         setClientes(data.data.clientes);
         setDatosPorCliente(data.data.datosPorCliente || []);
         setDatosCajas(data.data.datosCajas || []);
+        // Cargar años disponibles si vienen
+        if (data.data.anios && data.data.anios.length > 0) {
+          setAniosDisponibles(data.data.anios);
+        }
       } else {
         throw new Error(data.error || 'Error desconocido');
       }
@@ -340,9 +447,8 @@ const IndicadoresGuias: React.FC = () => {
   // Función que aplica los filtros y luego consulta
   const aplicarFiltros = () => {
     setFiltrosAplicados({
-      fechaInicio,
-      fechaFin,
-      estado: estadoSeleccionado,
+      anios: aniosSeleccionados,
+      meses: mesesSeleccionados,
       clientes: clientesSeleccionados,
     });
   };
@@ -351,24 +457,12 @@ const IndicadoresGuias: React.FC = () => {
     obtenerDatos();
   }, [filtrosAplicados]);
 
-  // Scroll al final del gráfico (fecha más reciente) cuando cargan datos
-  useEffect(() => {
-    if (scrollGraficoRef.current && datosFiltrados.length > 0) {
-      setTimeout(() => {
-        if (scrollGraficoRef.current) {
-          scrollGraficoRef.current.scrollLeft = scrollGraficoRef.current.scrollWidth;
-        }
-      }, 100);
-    }
-  }, [datosFiltrados]);
 
-
-  // Saber si hay filtros activos distintos al default (1 mes atrás, sin estado/cliente)
+  // Saber si hay filtros activos distintos al default (año actual, sin mes/cliente)
   const hasFiltrosActivos =
-    filtrosAplicados.estado !== '' ||
     filtrosAplicados.clientes.length > 0 ||
-    filtrosAplicados.fechaInicio !== format(subDays(new Date(), 30), 'yyyy-MM-dd') ||
-    filtrosAplicados.fechaFin !== format(new Date(), 'yyyy-MM-dd');
+    filtrosAplicados.meses.length > 0 ||
+    JSON.stringify([...filtrosAplicados.anios].sort()) !== JSON.stringify([new Date().getFullYear()]);
 
   return (
     <div className="IG-container">
@@ -417,76 +511,85 @@ const IndicadoresGuias: React.FC = () => {
 
       {/* Filtros */}
       <div className="IG-filtrosSection">
-        <button
-          className="IG-filtrosToggle"
-          onClick={() => setFiltrosAbiertos(!filtrosAbiertos)}
-        >
-          <FaFilter /> Filtros {filtrosAbiertos ? '▲' : '▼'}
-        </button>
-
-        {filtrosAbiertos && (
           <div className="IG-filtrosPanel">
-            <div className="IG-filtroGrupo IG-rangoFechas">
-              <label>Rango de fechas:</label>
-              <div className="IG-rangoDisplay" onClick={() => setCalendarioAbierto(!calendarioAbierto)}>
-                <span>{format(parseISO(fechaInicio), 'dd/MM/yy')}</span>
-                <span className="IG-rangoSeparador">→</span>
-                <span>{format(parseISO(fechaFin), 'dd/MM/yy')}</span>
-              </div>
-              <div className="IG-rangoAtajos">
-                <button className="IG-atajoBtn" onClick={() => {
-                  const hoy = new Date();
-                  setFechaInicio(format(startOfMonth(hoy), 'yyyy-MM-dd'));
-                  setFechaFin(format(hoy, 'yyyy-MM-dd'));
-                  setCalendarioAbierto(false);
-                }}>
-                  Mes actual
+            {/* Selector de Año (dropdown estilo Power BI) */}
+            <div className="IG-filtroGrupo" style={{ position: 'relative' }}>
+              <label>Año:</label>
+              <div className="IG-dropdownFiltro">
+                <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); setDropdownClienteAbierto(false); }}>
+                  <span className="IG-dropdownFiltroTexto">
+                    {aniosSeleccionados.length === 0
+                      ? 'Todos'
+                      : aniosSeleccionados.length === 1
+                        ? String(aniosSeleccionados[0])
+                        : `${aniosSeleccionados.length} años`}
+                  </span>
+                  <span className="IG-dropdownFiltroFlecha">▾</span>
                 </button>
-                <button className="IG-atajoBtn" onClick={() => {
-                  const hoy = new Date();
-                  setFechaInicio(format(new Date(hoy.getFullYear(), 0, 1), 'yyyy-MM-dd'));
-                  setFechaFin(format(hoy, 'yyyy-MM-dd'));
-                  setCalendarioAbierto(false);
-                }}>
-                  Este año
-                </button>
+                {dropdownAnioAbierto && (
+                  <div className="IG-dropdownFiltroLista">
+                    {aniosDisponibles.length === 0 ? (
+                      <div className="IG-clienteOpcion">Cargando...</div>
+                    ) : aniosDisponibles.map(a => (
+                      <label key={a} className={`IG-dropdownFiltroItem ${aniosSeleccionados.includes(a) ? 'seleccionado' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={aniosSeleccionados.includes(a)}
+                          onChange={() => {
+                            setAniosSeleccionados(prev =>
+                              prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a].sort()
+                            );
+                          }}
+                        />
+                        {a}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
-              {calendarioAbierto && (
-                <div className="IG-calendarioPopover">
-                  <DateRange
-                    ranges={[{
-                      startDate: parseISO(fechaInicio),
-                      endDate: parseISO(fechaFin),
-                      key: 'selection',
-                    }]}
-                    onChange={(ranges: any) => {
-                      setFechaInicio(format(ranges.selection.startDate, 'yyyy-MM-dd'));
-                      setFechaFin(format(ranges.selection.endDate, 'yyyy-MM-dd'));
-                    }}
-                    maxDate={new Date()}
-                    locale={es}
-                    months={1}
-                    direction="horizontal"
-                    showMonthAndYearPickers
-                    showDateDisplay={false}
-                    rangeColors={['#0f1928']}
-                  />
-                </div>
-              )}
             </div>
 
-            <div className="IG-filtroGrupo">
-              <label>Estado:</label>
-              <select
-                value={estadoSeleccionado}
-                onChange={(e) => setEstadoSeleccionado(e.target.value)}
-                className="IG-select"
-              >
-                <option value="">Todos</option>
-                {estados.map(estado => (
-                  <option key={estado} value={estado}>{estado.toUpperCase()}</option>
-                ))}
-              </select>
+            {/* Selector de Mes (dropdown estilo Power BI) */}
+            <div className="IG-filtroGrupo" style={{ position: 'relative' }}>
+              <label>Mes:</label>
+              <div className="IG-dropdownFiltro">
+                <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); setDropdownClienteAbierto(false); }}>
+                  <span className="IG-dropdownFiltroTexto">
+                    {mesesSeleccionados.length === 0
+                      ? 'Todos'
+                      : mesesSeleccionados.length === 1
+                        ? MESES.find(m => m.valor === mesesSeleccionados[0])?.nombre
+                        : `${mesesSeleccionados.length} meses`}
+                  </span>
+                  <span className="IG-dropdownFiltroFlecha">▾</span>
+                </button>
+                {dropdownMesAbierto && (
+                  <div className="IG-dropdownFiltroLista">
+                    <label className={`IG-dropdownFiltroItem ${mesesSeleccionados.length === 0 ? 'seleccionado' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={mesesSeleccionados.length === 0}
+                        onChange={() => setMesesSeleccionados([])}
+                      />
+                      Todos
+                    </label>
+                    {MESES.map(m => (
+                      <label key={m.valor} className={`IG-dropdownFiltroItem ${mesesSeleccionados.includes(m.valor) ? 'seleccionado' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={mesesSeleccionados.includes(m.valor)}
+                          onChange={() => {
+                            setMesesSeleccionados(prev =>
+                              prev.includes(m.valor) ? prev.filter(x => x !== m.valor) : [...prev, m.valor].sort((a,b) => a-b)
+                            );
+                          }}
+                        />
+                        {m.nombre}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="IG-filtroGrupo" ref={clienteFiltroRef} style={{ position: 'relative' }}>
@@ -523,9 +626,7 @@ const IndicadoresGuias: React.FC = () => {
                     >
                       Todos
                     </div>
-                    {clientes
-                      .filter(c => c.toLowerCase().includes(busquedaCliente.toLowerCase()))
-                      .map(c => (
+                    {clientesFiltradosDropdown.map(c => (
                         <div
                           key={c}
                           className={`IG-clienteOpcion ${clientesSeleccionados.includes(c) ? 'IG-clienteOpcionSeleccionada' : ''}`}
@@ -533,6 +634,7 @@ const IndicadoresGuias: React.FC = () => {
                             setClientesSeleccionados(prev =>
                               prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
                             );
+                            setBusquedaCliente('');
                           }}
                         >
                           <span className="IG-clienteCheck">{clientesSeleccionados.includes(c) ? '☑' : '☐'}</span>
@@ -544,32 +646,32 @@ const IndicadoresGuias: React.FC = () => {
               </div>
             </div>
 
-            <button className="IG-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownClienteAbierto(false); setCalendarioAbierto(false); setFiltrosAbiertos(false); setBusquedaCliente(''); }}>
+            <button className="IG-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownClienteAbierto(false); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setBusquedaCliente(''); }}>
               <FaFilter /> Filtrar
             </button>
 
           </div>
-        )}
       </div>
 
       {/* Chips de filtros activos */}
       {hasFiltrosActivos && (
         <div className="IG-filtrosActivos">
           <span className="IG-filtrosActivosLabel">Filtros:</span>
-          {(filtrosAplicados.fechaInicio !== format(subDays(new Date(), 30), 'yyyy-MM-dd') || filtrosAplicados.fechaFin !== format(new Date(), 'yyyy-MM-dd')) && (
+          {filtrosAplicados.anios.length > 0 && JSON.stringify([...filtrosAplicados.anios].sort()) !== JSON.stringify([new Date().getFullYear()]) && (
             <button className="IG-filtroChip" onClick={() => {
-              const fi = format(subDays(new Date(), 30), 'yyyy-MM-dd');
-              const ff = format(new Date(), 'yyyy-MM-dd');
-              setFechaInicio(fi);
-              setFechaFin(ff);
-              setFiltrosAplicados(f => ({ ...f, fechaInicio: fi, fechaFin: ff }));
+              const def = [new Date().getFullYear()];
+              setAniosSeleccionados(def);
+              setFiltrosAplicados(f => ({ ...f, anios: def }));
             }}>
-              {format(parseISO(filtrosAplicados.fechaInicio), 'dd/MM/yy')} – {format(parseISO(filtrosAplicados.fechaFin), 'dd/MM/yy')} ✕
+              Años: {filtrosAplicados.anios.join(', ')} ✕
             </button>
           )}
-          {filtrosAplicados.estado && (
-            <button className="IG-filtroChip" onClick={() => { setEstadoSeleccionado(''); setFiltrosAplicados(f => ({ ...f, estado: '' })); }}>
-              Estado: {filtrosAplicados.estado.toUpperCase()} ✕
+          {filtrosAplicados.meses.length > 0 && (
+            <button className="IG-filtroChip" onClick={() => {
+              setMesesSeleccionados([]);
+              setFiltrosAplicados(f => ({ ...f, meses: [] }));
+            }}>
+              Meses: {filtrosAplicados.meses.map(m => MESES.find(x => x.valor === m)?.nombre).join(', ')} ✕
             </button>
           )}
           {filtrosAplicados.clientes.length > 0 && filtrosAplicados.clientes.map(c => (
@@ -582,13 +684,11 @@ const IndicadoresGuias: React.FC = () => {
             </button>
           ))}
           <button className="IG-filtroLimpiar" onClick={() => {
-            const fi = format(subDays(new Date(), 30), 'yyyy-MM-dd');
-            const ff = format(new Date(), 'yyyy-MM-dd');
-            setFechaInicio(fi);
-            setFechaFin(ff);
-            setEstadoSeleccionado('');
+            const def = [new Date().getFullYear()];
+            setAniosSeleccionados(def);
+            setMesesSeleccionados([]);
             setClientesSeleccionados([]);
-            setFiltrosAplicados({ fechaInicio: fi, fechaFin: ff, estado: '', clientes: [] });
+            setFiltrosAplicados({ anios: def, meses: [], clientes: [] });
           }}>
             Limpiar todo
           </button>
@@ -635,40 +735,13 @@ const IndicadoresGuias: React.FC = () => {
               <div className="IG-kpisContainer">
                 <div className="IG-kpiCard IG-kpiTotal">
                   <div className="IG-kpiIcon">
-                    <FaBox />
+                    <FaClipboardList />
                   </div>
                   <div className="IG-kpiContent">
                     <p className="IG-kpiLabel">Pedidos</p>
                     <p className="IG-kpiValor">{formatearNumero(kpis.totalGuias)}</p>
                   </div>
                 </div>
-
-                {kpis.conteoPorEstado && Object.entries(kpis.conteoPorEstado)
-                  .sort(([,a], [,b]) => b - a)
-                  .map(([estado, cantidad]) => {
-                    const infoEstado: Record<string, { nombre: string; icon: React.ReactNode; clase: string }> = {
-                      'ENTREGADO': { nombre: 'Entregados', icon: <FaCheckCircle />, clase: 'IG-kpiEntregado' },
-                      'PENDIENTE': { nombre: 'Pendientes', icon: <FaClock />, clase: 'IG-kpiPendiente' },
-                      'CON NOVEDAD': { nombre: 'Con Novedad', icon: <FaExclamationTriangle />, clase: 'IG-kpiNovedad' },
-                      'En distribucion': { nombre: 'En distribución', icon: <FaChartBar />, clase: 'IG-kpiDistribucion' },
-                      'Transito Nacional': { nombre: 'Tránsito', icon: <FaChartBar />, clase: 'IG-kpiTransito' },
-                    };
-                    const info = infoEstado[estado] || { nombre: estado, icon: <FaBox />, clase: 'IG-kpiOtro' };
-                    const porcentaje = kpis.totalGuias > 0 ? ((cantidad / kpis.totalGuias) * 100).toFixed(1) : '0.0';
-
-                    return (
-                      <div key={estado} className={`IG-kpiCard ${info.clase}`}>
-                        <div className="IG-kpiIcon">
-                          {info.icon}
-                        </div>
-                        <div className="IG-kpiContent">
-                          <p className="IG-kpiLabel">{info.nombre}</p>
-                          <p className="IG-kpiValor">{porcentaje}%</p>
-                          <p className="IG-kpiSub">{formatearNumero(cantidad)} pedidos</p>
-                        </div>
-                      </div>
-                    );
-                  })}
 
                 <div className="IG-kpiCard IG-kpiPiezas">
                   <div className="IG-kpiIcon">
@@ -692,7 +765,116 @@ const IndicadoresGuias: React.FC = () => {
               </div>
             )}
 
-                {/* Gráfico */}
+                {/* Gráfico de Cajas por Día */}
+                <div className="IG-graficoContainer">
+                  {datosCajas && datosCajas.length > 0 ? (
+                    <>
+                      <div className="IG-graficoHeader">
+                        <h2 className="IG-graficoTitulo">📦 {cajasComparativo ? 'Cajas por mes' : 'Cajas por Día'}</h2>
+                        <label className="IG-switch">
+                          <span className="IG-switchLabel">Agrupar por mes</span>
+                          <input type="checkbox" checked={cajasComparativo} onChange={() => setCajasComparativo(!cajasComparativo)} />
+                          <span className="IG-switchSlider"></span>
+                        </label>
+                      </div>
+
+                      {cajasComparativo && aniosGraficoCajas.length > 0 ? (
+                        /* Vista comparativa: una línea por año, agrupada por mes */
+                        <ResponsiveContainer width="100%" height={400}>
+                          <LineChart data={cajasMultianual} margin={{ top: 30, right: 30, left: 10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="periodo" interval={0} height={50} tick={{ fontSize: 11 }} padding={{ left: 30, right: 30 }} />
+                            <YAxis tickFormatter={(v) => formatearNumero(v)} />
+                            <Tooltip
+                              formatter={(value: any, name: string) => [formatearNumero(value), `Año ${name}`]}
+                              contentStyle={{ backgroundColor: '#0f1928', border: 'none', borderRadius: '8px' }}
+                              labelStyle={{ color: '#ffffff', fontWeight: '700', marginBottom: '4px' }}
+                              itemStyle={{ color: '#ffffff' }}
+                            />
+                            <Legend />
+                            {aniosGraficoCajas.map((a, i) => {
+                              const esActual = a === new Date().getFullYear();
+                              return (
+                              <Line
+                                key={a}
+                                type="monotone"
+                                dataKey={String(a)}
+                                stroke={COLORES_ANIOS[i % COLORES_ANIOS.length]}
+                                strokeWidth={esActual ? 3 : 2}
+                                strokeDasharray={esActual ? undefined : '6 4'}
+                                dot={{ r: 3 }}
+                                activeDot={{ r: 6 }}
+                                connectNulls={false}
+                                name={String(a)}
+                              >
+                                <LabelList
+                                  dataKey={String(a)}
+                                  position="top"
+                                  offset={8}
+                                  formatter={(value: number) => value > 0 ? formatearNumero(value) : ''}
+                                  style={{ fill: '#0f1928', fontWeight: '700', fontSize: '10px' }}
+                                />
+                              </Line>
+                              );
+                            })}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        /* Vista por día: una línea (siempre diario, independiente del switch de Pedidos) */
+                        <div className="IG-scrollGrafico" key="cajas-diario" ref={scrollCajasRef}>
+                          <div style={{ minWidth: `${Math.max(cajasFiltradas.length * 50, 400)}px`, height: 350 }}>
+                            <ResponsiveContainer width="100%" height={350}>
+                              <LineChart data={cajasFiltradas} margin={{ top: 20, right: 20, left: 30, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis
+                                  dataKey="fecha"
+                                  angle={-90}
+                                  textAnchor="end"
+                                  interval={0}
+                                  height={70}
+                                  padding={{ left: 30, right: 30 }}
+                                  tick={{ fontSize: 11 }}
+                                  tickFormatter={(fecha) => formatoEjeX(fecha)}
+                                />
+                                <YAxis tickFormatter={(v) => formatearNumero(v)} />
+                                <Tooltip
+                                  labelFormatter={(fecha) => format(parseISO(fecha), 'dd/MM/yyyy')}
+                                  formatter={(value: any) => [formatearNumero(value), 'Cajas']}
+                                  contentStyle={{ backgroundColor: '#0f1928', border: 'none', borderRadius: '8px' }}
+                                  labelStyle={{ color: '#ffffff', fontWeight: '700', marginBottom: '4px' }}
+                                  itemStyle={{ color: '#ffffff' }}
+                                />
+                                <Line
+                                  type="monotone"
+                                  dataKey="totalStack"
+                                  stroke="#e8a000"
+                                  strokeWidth={3}
+                                  dot={{ r: 4 }}
+                                  activeDot={{ r: 6 }}
+                                  name="Cajas"
+                                >
+                                  <LabelList
+                                    dataKey="totalStack"
+                                    position="top"
+                                    offset={8}
+                                    formatter={(value: number) => value > 0 ? formatearNumero(value) : ''}
+                                    style={{ fill: '#0f1928', fontWeight: '700', fontSize: '10px' }}
+                                  />
+                                </Line>
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="IG-sinDatos">
+                      <p>No hay datos disponibles</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Gráfico Pedidos diarios */}
                 <div className="IG-graficoContainer">
                   {datosGrafico && datosGrafico.length > 0 ? (
                     <>
@@ -904,72 +1086,6 @@ const IndicadoresGuias: React.FC = () => {
                     </div>
                   )}
                 </div>
-
-                {/* Gráfico de Cajas por Día */}
-                <div className="IG-graficoContainer">
-                  {datosCajas && datosCajas.length > 0 ? (
-                    <>
-                      <div className="IG-graficoHeader">
-                        <h2 className="IG-graficoTitulo">📦 Cajas por Día</h2>
-                        <label className="IG-switch">
-                          <span className="IG-switchLabel">Agrupar por mes</span>
-                          <input type="checkbox" checked={agruparPorMes} onChange={() => setAgruparPorMes(!agruparPorMes)} />
-                          <span className="IG-switchSlider"></span>
-                        </label>
-                      </div>
-                      <div className="IG-scrollGrafico" key={`cajas-${agruparPorMes}`}>
-                        <div style={{ minWidth: `${Math.max(datosCajasFinal.length * 50, 400)}px`, height: 350 }}>
-                          <ResponsiveContainer width="100%" height={350}>
-                            <LineChart data={datosCajasFinal} margin={{ top: 20, right: 20, left: 30, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis
-                                dataKey="fecha"
-                                angle={agruparPorMes ? 0 : -90}
-                                textAnchor={agruparPorMes ? 'middle' : 'end'}
-                                interval={0}
-                                height={70}
-                                padding={{ left: 30, right: 30 }}
-                                tick={{ fontSize: 11 }}
-                                tickFormatter={(fecha) => formatoEjeX(fecha)}
-                              />
-                              <YAxis tickFormatter={(v) => formatearNumero(v)} />
-                              <Tooltip
-                                labelFormatter={(fecha) => agruparPorMes && fecha.length === 7
-                                  ? format(parseISO(fecha + '-01'), 'MMMM yyyy', { locale: es })
-                                  : format(parseISO(fecha), 'dd/MM/yyyy')}
-                                formatter={(value: any) => [formatearNumero(value), 'Cajas']}
-                                contentStyle={{ backgroundColor: '#0f1928', border: 'none', borderRadius: '8px' }}
-                                labelStyle={{ color: '#ffffff', fontWeight: '700', marginBottom: '4px' }}
-                                itemStyle={{ color: '#ffffff' }}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="totalStack"
-                                stroke="#e8a000"
-                                strokeWidth={3}
-                                dot={{ r: 5, fill: '#e8a000', stroke: '#ffffff', strokeWidth: 2 }}
-                                activeDot={{ r: 7, fill: '#0f1928', stroke: '#e8a000', strokeWidth: 2 }}
-                                name="Cajas"
-                              >
-                                <LabelList
-                                  dataKey="totalStack"
-                                  position="top"
-                                  offset={10}
-                                  formatter={(value: number) => value > 0 ? formatearNumero(value) : ''}
-                                  style={{ fill: '#0f1928', fontWeight: '700', fontSize: '11px' }}
-                                />
-                              </Line>
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="IG-sinDatos">
-                      <p>No hay datos disponibles</p>
-                    </div>
-                  )}
-                </div>
               </>
             )}
           </main>
@@ -980,7 +1096,15 @@ const IndicadoresGuias: React.FC = () => {
               <div className="IG-modalContenido" onClick={(e) => e.stopPropagation()}>
                 <div className="IG-modalHeader">
                   <h2 className="IG-modalTitulo">
-                    Detalle del {modalFecha ? format(parseISO(modalFecha), "dd/MM/yyyy", { locale: es }) : ''}
+                    {modalFecha ? (
+                      modalFecha.length === 7 ? (
+                        // Es un mes (YYYY-MM) -> mostrar nombre completo del mes
+                        <>Detalle de {format(parseISO(modalFecha + '-01'), 'MMMM yyyy', { locale: es })}</>
+                      ) : (
+                        // Es un día (YYYY-MM-DD) -> mostrar fecha formateada
+                        <>Detalle del {format(parseISO(modalFecha), "dd/MM/yyyy", { locale: es })}</>
+                      )
+                    ) : ''}
                   </h2>
                   <span className="IG-modalTotal">{modalRegistros.length} registros</span>
                   <button className="IG-modalCerrar" onClick={() => setModalAbierto(false)}>✕</button>

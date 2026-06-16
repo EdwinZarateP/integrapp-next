@@ -490,3 +490,64 @@ Indicadores de prioridad en CrucePacientesV3:
 
 #### Botón "Exportar CSV" eliminado
 - Se removió por solicitud del usuario
+
+## Actualizaciones Recientes (2026-06-16)
+
+### Módulo: Indicadores de Transporte (`/integrapp/indicadores/transporte`) — Mejoras continuas
+
+#### Nuevos filtros (estilo Power BI)
+- **Selector de Año (dropdown con checkboxes)**: muestra todos los años disponibles de la base de datos, por defecto el año actual. Permite seleccionar múltiples años
+- **Selector de Mes (dropdown con checkboxes)**: Enero a Diciembre + "Todos". Permite múltiples meses
+- **Rango de fechas eliminado**: reemplazado por los selectores de año y mes
+- **APIs migradas a FastAPI**: los endpoints `/indicadores-transporte/guias` y `/indicadores-transporte/guias/detalle` ahora viven en integrappi (FastAPI), no en Next.js. Esto permitió reactivar `output: 'export'` para despliegue estático en GoDaddy
+- **Panel de filtros siempre visible** (sin botón de colapsar)
+
+#### Gráfico "Pedidos diarios"
+- **Switch "Agrupar por mes"**: alterna entre vista diaria y agrupación mensual
+- **Eje X rotado verticalmente** cuando hay muchas barras
+- **Etiquetas de total** encima de cada barra
+- **Click en el día** (eje X) abre un **modal de detalle** con todos los registros de ese día (Guía, Cliente, Destino, Estado, Novedad, Servicio, Piezas, Kilos, etc.)
+- Respeta los estados filtrados en la leyenda del gráfico
+
+#### Gráfico "Cajas por Día"
+- **Dos modos** (switch "Agrupar por mes"):
+  - **Por día**: línea única con el total de cajas por día, etiquetas visibles
+  - **Comparativo**: una **línea por cada año** (leyenda por año) agrupada por mes, para comparar meses homólogos entre años
+- **Año actual** = línea sólida; **años anteriores** = líneas con guiones
+- Meses/años sin datos se muestran como `null` (no dibujan en cero)
+- Meses sin ningún dato no aparecen en el eje X
+
+#### Gráfico "Distribución por Estado"
+- Barras horizontales con color por estado, cantidad dentro de la barra y porcentaje a la derecha
+
+#### KPI Cards simplificadas
+- Solo 3 cards: **Pedidos**, **Cajas**, **Toneladas**
+- Contenido centrado
+- Card de Cajas con número en tamaño menor (puede llegar a millones)
+- Icono de Pedidos cambiado a documento (`FaClipboardList`)
+
+#### Detalle por día (modal)
+- Tabla responsive con scroll vertical (header fijo) y horizontal
+- Badge de color por estado
+- Cierra con ✕ o clic en el fondo
+- **API**: `/indicadores-transporte/guias/detalle?fecha=YYYY-MM-DD` con filtros de estado y cliente
+
+#### Animación de carga
+- Reemplazada la ruedita por un **camión SVG** que se mueve de izquierda a derecha y regresa, sobre una pista punteada
+
+#### Rendimiento
+- **Agregación en base de datos**: la API usa `GROUP BY` y `SUM`/`COUNT` en PostgreSQL (no trae registros individuales), similar a Power BI
+- **`useMemo`** en todos los cálculos pesados del frontend (`datosFiltrados`, `cajasFiltradas`, `cajasMultianual`, etc.) para evitar recálculos al escribir en filtros
+- **Dropdown de clientes** limitado a 80 resultados y memoizado
+- **Recomendación de índices** en PostgreSQL: trigram (`pg_trgm`) para `ILIKE` de cliente, e índice en `fecha_emision`
+
+#### Archivos principales modificados
+- `src/Paginas/IndicadoresTransporte/index.tsx`
+- `src/Paginas/IndicadoresTransporte/estilos.css`
+- `next.config.mjs` (reactivado `output: 'export'`)
+- `.env.local` (URL de FastAPI)
+
+### Backend (integrappi)
+- Nuevo archivo `rutas/indicadores_transporte.py` con los endpoints de indicadores
+- Conexión a PostgreSQL vía `psycopg2-binary` (variables `PG_*`)
+- Agregación server-side para máximo rendimiento
