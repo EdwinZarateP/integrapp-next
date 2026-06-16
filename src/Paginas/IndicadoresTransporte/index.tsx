@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaBox, FaCheckCircle, FaClock, FaExclamationTriangle, FaFilter, FaArrowLeft, FaSync, FaDownload, FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaBoxes, FaWeight, FaClipboardList } from 'react-icons/fa';
@@ -42,6 +42,7 @@ type ApiResponse = {
     datosGrafico: DatosGrafico[];
     datosPorCliente: any[];
     datosCajas: any[];
+    datosCajasPorCliente: any[];
     anios: number[];
     estados: string[];
     clientes: string[];
@@ -66,6 +67,14 @@ const IndicadoresGuias: React.FC = () => {
   const [clientes, setClientes] = useState<string[]>([]);
   const [datosPorCliente, setDatosPorCliente] = useState<any[]>([]);
   const [datosCajas, setDatosCajas] = useState<any[]>([]);
+  const [datosCajasPorCliente, setDatosCajasPorCliente] = useState<any[]>([]);
+
+  // Estado para mostrar datos del cliente seleccionado en el pie
+  const [clienteSeleccionadoPie, setClienteSeleccionadoPie] = useState<{
+    name: string;
+    value: number;
+    porcentaje: string;
+  } | null>(null);
 
   // Filtros (valores en pantalla, no disparan fetch automáticamente)
   const [clientesSeleccionados, setClientesSeleccionados] = useState<string[]>([]);
@@ -314,6 +323,38 @@ const IndicadoresGuias: React.FC = () => {
     }, 0);
   }, 0), [datosFiltrados, estadosAMostrar]);
 
+  // Calcular cajas por cliente (para gráfico tipo pie) basado en datos del backend
+  const cajasPorCliente = useMemo(() => {
+    if (!datosCajasPorCliente || datosCajasPorCliente.length === 0) return [];
+
+    // Filtrar por estados seleccionados y calcular totales
+    const clienteCajasMap: Record<string, number> = {};
+
+    datosCajasPorCliente.forEach((cliente: any) => {
+      const nombreCliente = cliente.cliente || 'Sin cliente';
+      // Sumar cajas de todos los estados visibles para este cliente
+      const totalCajasCliente = estadosAMostrar.reduce((sum: number, estado: string) => {
+        const valor = cliente[estado];
+        return sum + (typeof valor === 'number' ? valor : 0);
+      }, 0);
+
+      if (totalCajasCliente > 0) {
+        clienteCajasMap[nombreCliente] = totalCajasCliente;
+      }
+    });
+
+    // Convertir a array para el gráfico tipo pie
+    const totalCajas = Object.values(clienteCajasMap).reduce((sum, val) => sum + val, 0);
+    return Object.entries(clienteCajasMap)
+      .map(([cliente, cajas]) => ({
+        name: cliente,
+        value: cajas,
+        porcentaje: totalCajas > 0 ? ((cajas / totalCajas) * 100).toFixed(1) : '0'
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8); // Top 8 clientes
+  }, [datosCajasPorCliente, estadosAMostrar]);
+
   // Lista de clientes filtrada por búsqueda (memoizada y limitada a 80 para no colgar el render)
   const clientesFiltradosDropdown = useMemo(() => {
     const q = busquedaCliente.toLowerCase().trim();
@@ -429,6 +470,7 @@ const IndicadoresGuias: React.FC = () => {
         setClientes(data.data.clientes);
         setDatosPorCliente(data.data.datosPorCliente || []);
         setDatosCajas(data.data.datosCajas || []);
+        setDatosCajasPorCliente(data.data.datosCajasPorCliente || []);
         // Cargar años disponibles si vienen
         if (data.data.anios && data.data.anios.length > 0) {
           setAniosDisponibles(data.data.anios);
@@ -594,53 +636,51 @@ const IndicadoresGuias: React.FC = () => {
 
             <div className="IG-filtroGrupo" ref={clienteFiltroRef} style={{ position: 'relative' }}>
               <label>Cliente:</label>
-              <div className="IG-clienteMulti">
-                <div className="IG-clienteInputWrap" onClick={() => setDropdownClienteAbierto(!dropdownClienteAbierto)}>
-                  {clientesSeleccionados.length > 0 && (
-                    <div className="IG-clienteChips">
-                      {clientesSeleccionados.map(c => (
-                        <span key={c} className="IG-clienteChip">
-                          {c}
-                          <span className="IG-clienteChipX" onClick={(e) => {
-                            e.stopPropagation();
-                            setClientesSeleccionados(prev => prev.filter(x => x !== c));
-                          }}>✕</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <input
-                    type="text"
-                    className="IG-clienteBuscar"
-                    placeholder={clientesSeleccionados.length === 0 ? 'Buscar cliente...' : ''}
-                    value={busquedaCliente}
-                    onChange={(e) => { setBusquedaCliente(e.target.value); setDropdownClienteAbierto(true); }}
-                    onFocus={() => setDropdownClienteAbierto(true)}
-                  />
-                </div>
+              <div className="IG-dropdownFiltro">
+                <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownClienteAbierto(!dropdownClienteAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); }}>
+                  <span className="IG-dropdownFiltroTexto">
+                    {clientesSeleccionados.length === 0
+                      ? 'Todos'
+                      : clientesSeleccionados.length === 1
+                        ? clientesSeleccionados[0]
+                        : `${clientesSeleccionados.length} clientes`}
+                  </span>
+                  <span className="IG-dropdownFiltroFlecha">▾</span>
+                </button>
                 {dropdownClienteAbierto && (
-                  <div className="IG-clienteDropdown">
-                    <div
-                      className={`IG-clienteOpcion ${clientesSeleccionados.length === 0 ? 'IG-clienteOpcionSeleccionada' : ''}`}
-                      onClick={() => { setClientesSeleccionados([]); setDropdownClienteAbierto(false); }}
-                    >
-                      Todos
+                  <div className="IG-dropdownFiltroLista IG-dropdownClienteLista">
+                    <div className="IG-clienteBusquedaWrap">
+                      <input
+                        type="text"
+                        className="IG-clienteBusquedaInput"
+                        placeholder="Buscar cliente..."
+                        value={busquedaCliente}
+                        onChange={(e) => setBusquedaCliente(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
                     </div>
+                    <label className={`IG-dropdownFiltroItem ${clientesSeleccionados.length === 0 ? 'seleccionado' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={clientesSeleccionados.length === 0}
+                        onChange={() => setClientesSeleccionados([])}
+                      />
+                      Todos
+                    </label>
                     {clientesFiltradosDropdown.map(c => (
-                        <div
-                          key={c}
-                          className={`IG-clienteOpcion ${clientesSeleccionados.includes(c) ? 'IG-clienteOpcionSeleccionada' : ''}`}
-                          onClick={() => {
+                      <label key={c} className={`IG-dropdownFiltroItem ${clientesSeleccionados.includes(c) ? 'seleccionado' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={clientesSeleccionados.includes(c)}
+                          onChange={() => {
                             setClientesSeleccionados(prev =>
                               prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
                             );
-                            setBusquedaCliente('');
                           }}
-                        >
-                          <span className="IG-clienteCheck">{clientesSeleccionados.includes(c) ? '☑' : '☐'}</span>
-                          {c}
-                        </div>
-                      ))}
+                        />
+                        {c}
+                      </label>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1024,67 +1064,195 @@ const IndicadoresGuias: React.FC = () => {
                   )}
                 </div>
 
-                {/* Gráfico de distribución por estado */}
-                <div className="IG-graficoContainer">
-                  {kpis && kpis.conteoPorEstado && Object.keys(kpis.conteoPorEstado).length > 0 ? (
-                    <>
-                      <div className="IG-graficoHeader">
-                        <h2 className="IG-graficoTitulo">Distribución por Estado</h2>
-                      </div>
-                      <div className="IG-barrasHorizontales">
-                        {(() => {
-                          const colores: Record<string, string> = {
-                            'ENTREGADO': '#10b981',
-                            'En distribucion': '#3b82f6',
-                            'PENDIENTE': '#f59e0b',
-                            'Transito Nacional': '#8b5cf6',
-                            'CON NOVEDAD': '#ef4444'
-                          };
-                          const nombres: Record<string, string> = {
-                            'ENTREGADO': 'Entregado',
-                            'En distribucion': 'En distribución',
-                            'PENDIENTE': 'Pendiente',
-                            'Transito Nacional': 'Tránsito Nacional',
-                            'CON NOVEDAD': 'Con Novedad'
-                          };
-                          const total = kpis.totalGuias || 1;
-                          const estadosOrdenados = Object.entries(kpis.conteoPorEstado)
-                            .sort(([,a], [,b]) => b - a);
-                          const maxCantidad = estadosOrdenados[0]?.[1] || 1;
+                {/* Distribución por Estado + Cajas por Cliente */}
+                <div className="IG-graficosFila">
+                  {/* Distribución por Estado */}
+                  <div className="IG-graficoContainer">
+                    {kpis && kpis.conteoPorEstado && Object.keys(kpis.conteoPorEstado).length > 0 ? (
+                      <>
+                        <div className="IG-graficoHeader">
+                          <h2 className="IG-graficoTitulo">Distribución por Estado</h2>
+                        </div>
+                        <div className="IG-barrasHorizontales">
+                          {(() => {
+                            const colores: Record<string, string> = {
+                              'ENTREGADO': '#10b981',
+                              'En distribucion': '#3b82f6',
+                              'PENDIENTE': '#f59e0b',
+                              'Transito Nacional': '#8b5cf6',
+                              'CON NOVEDAD': '#ef4444'
+                            };
+                            const nombres: Record<string, string> = {
+                              'ENTREGADO': 'Entregado',
+                              'En distribucion': 'En distribución',
+                              'PENDIENTE': 'Pendiente',
+                              'Transito Nacional': 'Tránsito Nacional',
+                              'CON NOVEDAD': 'Con Novedad'
+                            };
+                            const total = kpis.totalGuias || 1;
+                            const estadosOrdenados = Object.entries(kpis.conteoPorEstado)
+                              .sort(([,a], [,b]) => b - a);
+                            const maxCantidad = estadosOrdenados[0]?.[1] || 1;
 
-                          return estadosOrdenados.map(([estado, cantidad]) => {
-                            const porcentaje = ((cantidad / total) * 100).toFixed(1);
-                            const ancho = ((cantidad / maxCantidad) * 100).toFixed(1);
+                            return estadosOrdenados.map(([estado, cantidad]) => {
+                              const porcentaje = ((cantidad / total) * 100).toFixed(1);
+                              const ancho = ((cantidad / maxCantidad) * 100).toFixed(1);
 
-                            return (
-                              <div key={estado} className="IG-barraHItem">
-                                <div className="IG-barraHLabel">
-                                  <span className="IG-barraHPunto" style={{ background: colores[estado] || '#6b7280' }}></span>
-                                  <span className="IG-barraHNombre">{nombres[estado] || estado}</span>
-                                </div>
-                                <div className="IG-barraHTrack">
-                                  <div
-                                    className="IG-barraHFill"
-                                    style={{
-                                      width: `${ancho}%`,
-                                      background: colores[estado] || '#6b7280',
-                                    }}
-                                  >
-                                    <span className="IG-barraHValor">{formatearNumero(cantidad)}</span>
+                              return (
+                                <div key={estado} className="IG-barraHItem">
+                                  <div className="IG-barraHLabel">
+                                    <span className="IG-barraHPunto" style={{ background: colores[estado] || '#6b7280' }}></span>
+                                    <span className="IG-barraHNombre">{nombres[estado] || estado}</span>
                                   </div>
+                                  <div className="IG-barraHTrack">
+                                    <div
+                                      className="IG-barraHFill"
+                                      style={{
+                                        width: `${ancho}%`,
+                                        background: colores[estado] || '#6b7280',
+                                      }}
+                                    >
+                                      <span className="IG-barraHValor">{formatearNumero(cantidad)}</span>
+                                    </div>
+                                  </div>
+                                  <span className="IG-barraHPorcentaje">{porcentaje}%</span>
                                 </div>
-                                <span className="IG-barraHPorcentaje">{porcentaje}%</span>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="IG-sinDatos">
+                        <p>No hay datos disponibles</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cajas por Cliente (gráfico tipo pie) */}
+                  <div className="IG-graficoContainer">
+                    {cajasPorCliente && cajasPorCliente.length > 0 ? (
+                      <>
+                        <div className="IG-graficoHeader">
+                          <h2 className="IG-graficoTitulo">Cajas por Cliente</h2>
+                          {clienteSeleccionadoPie && (
+                            <button
+                              className="IG-botonCerrarSeleccion"
+                              onClick={() => setClienteSeleccionadoPie(null)}
+                            >
+                              Limpiar selección
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Panel de información del cliente seleccionado */}
+                        {clienteSeleccionadoPie && (
+                          <div className="IG-clienteSeleccionadoInfo">
+                            <div className="IG-clienteInfoHeader">
+                              <span className="IG-clienteInfoNombre">{clienteSeleccionadoPie.name}</span>
+                              <span className="IG-clienteInfoPorcentaje">{clienteSeleccionadoPie.porcentaje}%</span>
+                            </div>
+                            <div className="IG-clienteInfoValor">
+                              {formatearNumero(clienteSeleccionadoPie.value)} cajas
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="IG-graficoPieWrap">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                              <Pie
+                                data={cajasPorCliente}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={80}
+                                label={({ name, percent, index }) => {
+                                  // Solo mostrar etiqueta para los top 3
+                                  if (index >= 3) return null;
+                                  // Abreviar nombre: máximo 12 caracteres
+                                  const nombreAbreviado = name.length > 12 ? name.substring(0, 12) + '...' : name;
+                                  return `${nombreAbreviado}: ${(percent * 100).toFixed(1)}%`;
+                                }}
+                                labelLine={false}
+                                onClick={(data: any) => {
+                                  setClienteSeleccionadoPie({
+                                    name: data.name,
+                                    value: data.value,
+                                    porcentaje: ((data.value / cajasPorCliente.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)
+                                  });
+                                }}
+                                cursor="pointer"
+                              >
+                                {cajasPorCliente.map((entry, index) => {
+                                  // Colores variados para cada cliente
+                                  const coloresPie = [
+                                    '#0f1928', '#1e3a5f', '#2d4f7a', '#3b82f6', '#0ea5e9',
+                                    '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'
+                                  ];
+                                  const isSelected = clienteSeleccionadoPie?.name === entry.name;
+                                  return (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={isSelected ? '#e8a000' : coloresPie[index % coloresPie.length]}
+                                      stroke="#fff"
+                                      strokeWidth={isSelected ? 3 : 2}
+                                    />
+                                  );
+                                })}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value: number, name: string) => [formatearNumero(value), name]}
+                                contentStyle={{ backgroundColor: '#0f1928', border: 'none', borderRadius: '8px' }}
+                                labelStyle={{ color: '#ffffff', fontWeight: '700', marginBottom: '4px' }}
+                                itemStyle={{ color: '#ffffff' }}
+                              />
+                              <Legend />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* Lista de clientes para móvil (solo en pantallas pequeñas) */}
+                        <div className="IG-clientesListaMobile">
+                          {cajasPorCliente.map((cliente, index) => {
+                            const coloresPie = [
+                              '#0f1928', '#1e3a5f', '#2d4f7a', '#3b82f6', '#0ea5e9',
+                              '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899'
+                            ];
+                            const isSelected = clienteSeleccionadoPie?.name === cliente.name;
+                            return (
+                              <div
+                                key={cliente.name}
+                                className={`IG-clienteListItem ${isSelected ? 'IG-clienteListItemActive' : ''}`}
+                                onClick={() => {
+                                  setClienteSeleccionadoPie({
+                                    name: cliente.name,
+                                    value: cliente.value,
+                                    porcentaje: cliente.porcentaje
+                                  });
+                                }}
+                              >
+                                <span
+                                  className="IG-clienteListColor"
+                                  style={{ background: isSelected ? '#e8a000' : coloresPie[index % coloresPie.length] }}
+                                ></span>
+                                <div className="IG-clienteListInfo">
+                                  <span className="IG-clienteListNombre">{cliente.name}</span>
+                                  <span className="IG-clienteListValor">{formatearNumero(cliente.value)}</span>
+                                </div>
+                                <span className="IG-clienteListPorcentaje">{cliente.porcentaje}%</span>
                               </div>
                             );
-                          });
-                        })()}
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="IG-sinDatos">
+                        <p>No hay datos disponibles</p>
                       </div>
-                    </>
-                  ) : (
-                    <div className="IG-sinDatos">
-                      <p>No hay datos disponibles</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </>
             )}

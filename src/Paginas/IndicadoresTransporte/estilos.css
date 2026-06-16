@@ -354,6 +354,39 @@
   padding: 0.25rem 0;
 }
 
+.IG-dropdownClienteLista {
+  max-height: 300px;
+}
+
+.IG-clienteBusquedaWrap {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+}
+
+.IG-clienteBusquedaInput {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.IG-clienteBusquedaInput:focus {
+  border-color: #e8a000;
+  box-shadow: 0 0 0 3px rgba(232,160,0,0.1);
+}
+
+.IG-clienteBusquedaInput::placeholder {
+  color: #94a3b8;
+}
+
 .IG-dropdownFiltroItem {
   display: flex;
   align-items: center;
@@ -901,13 +934,164 @@
    GRÁFICO
    ========================================== */
 
+.IG-graficosFila {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
 .IG-graficoContainer {
   background: #ffffff;
   border-radius: 12px;
   padding: 2rem;
-  margin-bottom: 2rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   border: 2px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.IG-graficoPieWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+/* Panel de información del cliente seleccionado en el pie */
+.IG-clienteSeleccionadoInfo {
+  background: linear-gradient(135deg, #0f1928 0%, #1e2f45 100%);
+  color: white;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(15, 25, 40, 0.15);
+  animation: slideInDown 0.3s ease-out;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.IG-clienteInfoHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  gap: 0.75rem;
+}
+
+.IG-clienteInfoNombre {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  word-break: break-word;
+}
+
+.IG-clienteInfoPorcentaje {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e8a000;
+  flex-shrink: 0;
+}
+
+.IG-clienteInfoValor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.IG-botonCerrarSeleccion {
+  padding: 0.35rem 0.75rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.IG-botonCerrarSeleccion:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Lista de clientes para móvil */
+.IG-clientesListaMobile {
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.IG-clienteListItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.IG-clienteListItem:hover {
+  border-color: #e8a000;
+  box-shadow: 0 2px 8px rgba(232, 160, 0, 0.15);
+}
+
+.IG-clienteListItemActive {
+  border-color: #e8a000;
+  background: #fff9e6;
+  box-shadow: 0 2px 12px rgba(232, 160, 0, 0.25);
+}
+
+.IG-clienteListColor {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #e2e8f0;
+}
+
+.IG-clienteListInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.IG-clienteListNombre {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f1928;
+  word-break: break-word;
+}
+
+.IG-clienteListValor {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f1928;
+}
+
+.IG-clienteListPorcentaje {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e8a000;
+  flex-shrink: 0;
 }
 
 .IG-scrollGrafico {
@@ -1461,6 +1645,15 @@
 }
 
 @media (max-width: 768px) {
+  .IG-graficosFila {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .IG-graficoContainer {
+    margin-bottom: 1rem;
+  }
+
   .IG-header {
     height: auto;
     min-height: 60px;
@@ -1654,6 +1847,38 @@
 
   .IG-kpiValor {
     font-size: 1.5rem;
+  }
+
+  /* Optimización del gráfico de pie para móviles */
+  .IG-graficoPieWrap {
+    display: none;
+  }
+
+  .IG-clientesListaMobile {
+    display: flex;
+  }
+
+  .IG-clienteSeleccionadoInfo {
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .IG-clienteInfoNombre {
+    font-size: 0.9rem;
+  }
+
+  .IG-clienteInfoPorcentaje {
+    font-size: 1rem;
+  }
+
+  .IG-clienteInfoValor {
+    font-size: 1.25rem;
+  }
+
+  .IG-graficoHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 }
 
