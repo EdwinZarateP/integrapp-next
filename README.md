@@ -551,3 +551,28 @@ Indicadores de prioridad en CrucePacientesV3:
 - Nuevo archivo `rutas/indicadores_transporte.py` con los endpoints de indicadores
 - Conexión a PostgreSQL vía `psycopg2-binary` (variables `PG_*`)
 - Agregación server-side para máximo rendimiento
+
+## Actualizaciones Recientes (2026-06-18)
+
+### Solicitud de Vehículos (`/integrapp/SolicitudVehiculos`)
+
+#### Búsqueda de planillas vía bot de scraping (reemplazo del WS caído)
+- El WS de Siscore V3 (`informe_v3.php`) dejó de funcionar. La búsqueda de planillas ahora usa un **bot de scraping del portal Siscore (Playwright)** que vive en el backend (`integrappi`).
+- La URL del endpoint es **configurable** por variable de entorno (`NEXT_PUBLIC_SISCORE_PLANILLAS_ENDPOINT`); por defecto sigue apuntando al WS viejo (**reversible**).
+  - En `.env.local`: `NEXT_PUBLIC_SISCORE_PLANILLAS_ENDPOINT=/siscore/consultar-planillas-bot`
+- El contrato de respuesta es idéntico al WS viejo, por lo que el parseo, agrupación, cálculo de tarifa y guardado **no cambiaron**.
+- Se trae adicionalmente **Placa** y **Manifiesto** desde el Excel del portal.
+- **Archivo**: `src/app/SolicitudVehiculos/page.tsx` (`handleBuscar`).
+
+#### Selector de Regional obligatorio para ADMIN/ANALISTA
+- Los perfiles **ADMIN y ANALISTA** (globales, sin regional fija) ahora deben **elegir una regional** en un dropdown de la barra de búsqueda antes de consultar (si no, el botón Buscar se bloquea con un aviso).
+- La regional elegida se asigna a todas las planillas de la tanda → el **consecutivo** queda con el nombre de la regional (ej: `CALI-20260618-1`) en vez de `TODOS-...`, y el campo **Regional** se muestra correctamente.
+- **ANALISTA** ahora también ve la barra de búsqueda (antes solo ADMIN y OPERATIVO).
+- **OPERATIVO** no ve el dropdown (tiene su regional fija por cookie).
+
+#### Regional mostrada como bodega para OPERATIVO
+- Para **OPERATIVO**, la columna Regional se muestra como la **bodega de origen** (CALI→YUMBO, BARRANQUILLA→GALAPA, MEDELLIN→GIRARDOTA), igual que se guarda en Mongo.
+
+### Indicadores de Transporte (`/integrapp/indicadores/transporte`)
+- **Fix del gráfico "Pedidos diarios"**: al activar un filtro de estado (ej: "En distribución") estando con el scroll a la derecha, el gráfico quedaba en blanco. Ahora se **reposiciona automáticamente al inicio** para mostrar las barras que sí tienen información.
+- **Archivo**: `src/Paginas/IndicadoresTransporte/index.tsx`.

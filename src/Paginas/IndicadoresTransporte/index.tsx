@@ -133,6 +133,27 @@ const IndicadoresGuias: React.FC = () => {
     return () => clearTimeout(timer);
   }, [agruparPorMes]);
 
+  // Resetear scroll a la izquierda al cambiar los estados visibles.
+  // Al filtrar por un estado quedan menos días con datos, y esos días se
+  // reordenan/comprimen desde el inicio del gráfico. Si el usuario estaba al
+  // final (viendo lo más reciente), la vista quedaba apuntando a una zona sin
+  // barras. scrollLeft = 0 es siempre válido sin importar el ancho, así que
+  // no compite con el repintado asíncrono de Recharts.
+  useEffect(() => {
+    const resetScroll = () => {
+      [scrollGraficoRef, scrollCajasRef].forEach(ref => {
+        if (ref.current) {
+          ref.current.scrollLeft = 0;
+        }
+      });
+    };
+    // Recharts repinta de forma asíncrona: disparamos dos resets para
+    // garantizar que quede al inicio después del repintado.
+    const t1 = setTimeout(resetScroll, 60);
+    const t2 = setTimeout(resetScroll, 220);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [estadosSeleccionados]);
+
   // Función para formatear números con separador de miles
   const formatearNumero = (num: number): string => {
     return new Intl.NumberFormat('es-CO').format(num);
@@ -244,23 +265,9 @@ const IndicadoresGuias: React.FC = () => {
       // Si no está seleccionado, lo agregamos
       return [...prev, estado];
     });
-
-    // Mover scroll al final - versión simplificada
-    setTimeout(() => {
-      [scrollGraficoRef, scrollCajasRef].forEach(ref => {
-        if (ref.current) {
-          ref.current.scrollLeft = ref.current.scrollWidth;
-        }
-      });
-    }, 50);
-
-    setTimeout(() => {
-      [scrollGraficoRef, scrollCajasRef].forEach(ref => {
-        if (ref.current && ref.current.scrollLeft < ref.current.scrollWidth - ref.current.clientWidth) {
-          ref.current.scrollLeft = ref.current.scrollWidth;
-        }
-      });
-    }, 150);
+    // El reset del scroll lo maneja el useEffect sobre [estadosSeleccionados]:
+    // al filtrar quedan menos barras, que se reordenan desde la izquierda,
+    // así que hay que volver al inicio para mostrar la información existente.
   };
 
   // Determinar qué estados mostrar: si hay seleccionados, solo esos; si no, todos

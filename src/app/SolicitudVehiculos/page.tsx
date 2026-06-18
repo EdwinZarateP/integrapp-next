@@ -112,6 +112,17 @@ const REGIONAL_MAP: Record<string, string> = {
   'CO09': 'MEDELLIN'
 };
 
+// Regionales seleccionables manualmente por perfiles globales (ADMIN/ANALISTA)
+const REGIONES = ['BARRANQUILLA', 'CALI', 'BUCARAMANGA', 'FUNZA', 'MEDELLIN'];
+
+// Mapa regional -> municipio de la bodega de origen (igual que se guarda en Mongo).
+// Se usa para mostrar el campo REGIONAL en pantalla para OPERATIVO.
+const REGIONAL_A_BODEGA: Record<string, string> = {
+  'BARRANQUILLA': 'GALAPA',
+  'CALI': 'YUMBO',
+  'MEDELLIN': 'GIRARDOTA',
+};
+
 const obtenerRegional = (bodega: string | undefined): string => {
   if (!bodega) return '-';
   return REGIONAL_MAP[bodega] || '-';
@@ -340,6 +351,7 @@ const SolicitudVehiculos: React.FC = () => {
   const [centroDistribucion, setCentroDistribucion] = useState('');
   const [loading, setLoading] = useState(false);
   const [planillasInput, setPlanillasInput] = useState('');
+  const [regionalSeleccionada, setRegionalSeleccionada] = useState('');
   const [resultados, setResultados] = useState<PlanillaResultado[]>([]);
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<SolicitudPendiente[]>([]);
   const [tiempoConsulta, setTiempoConsulta] = useState<number>(0);
@@ -352,6 +364,12 @@ const SolicitudVehiculos: React.FC = () => {
   const [importandoVulcano, setImportandoVulcano] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<'TODOS' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO'>('TODOS');
   const fabRef = useRef<HTMLDivElement>(null);
+
+  // Perfiles globales que deben elegir manualmente la regional al procesar planillas.
+  // OPERATIVO ya tiene regional fija (de su cookie), así que no elige.
+  const perfilUpper = (perfil || '').toUpperCase();
+  const esPerfilConRegional = perfilUpper === 'ADMIN' || perfilUpper === 'ANALISTA';
+  const puedeBuscar = esPerfilConRegional || perfilUpper === 'OPERATIVO';
 
   // Cerrar menú flotante al hacer clic fuera
   useEffect(() => {
@@ -473,6 +491,11 @@ const SolicitudVehiculos: React.FC = () => {
   const handleBuscar = async () => {
     if (!planillasInput.trim()) {
       Swal.fire('Advertencia', 'Por favor ingresa al menos una planilla', 'warning');
+      return;
+    }
+
+    if (esPerfilConRegional && !regionalSeleccionada) {
+      Swal.fire('Selecciona una regional', 'Para tu perfil debes elegir la regional antes de buscar las planillas (define el consecutivo y el origen).', 'warning');
       return;
     }
 
@@ -606,7 +629,10 @@ const SolicitudVehiculos: React.FC = () => {
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
-      const response = await fetch(`${API}/siscore/consultar-planillas`, {
+      // Endpoint configurable: por defecto el WS viejo; con NEXT_PUBLIC_SISCORE_PLANILLAS_ENDPOINT
+      // = /siscore/consultar-planillas-bot usa el bot de scraping (reemplazo del WS caído).
+      const endpointPlanillas = process.env.NEXT_PUBLIC_SISCORE_PLANILLAS_ENDPOINT || '/siscore/consultar-planillas';
+      const response = await fetch(`${API}${endpointPlanillas}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -797,6 +823,18 @@ const SolicitudVehiculos: React.FC = () => {
           flete_cobrado_fmc: 0
         };
       });
+
+      // ADMIN/ANALISTA: asignar la regional seleccionada a cada planilla de esta tanda.
+      // Define el prefijo del consecutivo (CALI-..., FUNZA-...) y el origen al exportar.
+      // centro_costo se deja en FMC para que la tarifa siga calculando igual.
+      if (esPerfilConRegional && regionalSeleccionada) {
+        resultadosProcesados.forEach(r => { r.regional = regionalSeleccionada; });
+      } else if (perfilUpper === 'OPERATIVO' && centroDistribucion) {
+        // OPERATIVO: mostrar la regional como la bodega de origen (CALI->YUMBO,
+        // BARRANQUILLA->GALAPA, MEDELLIN->GIRARDOTA), igual que se guarda en Mongo.
+        const bodega = REGIONAL_A_BODEGA[centroDistribucion.toUpperCase()] || centroDistribucion;
+        resultadosProcesados.forEach(r => { r.regional = bodega; });
+      }
 
       // Añadir nuevos resultados a los existentes
       const nuevosResultados = [...resultados, ...resultadosProcesados];
@@ -2106,8 +2144,23 @@ const SolicitudVehiculos: React.FC = () => {
           </div>
         ) : (
           <>
-            {['ADMIN', 'OPERATIVO'].includes(perfil) && (
+            {puedeBuscar && (
               <div className="SV-searchSection">
+                {esPerfilConRegional && (
+                  <div className="SV-inputGroup">
+                    <label htmlFor="regional">Regional:</label>
+                    <select
+                      id="regional"
+                      className="SV-input"
+                      value={regionalSeleccionada}
+                      onChange={(e) => setRegionalSeleccionada(e.target.value)}
+                      disabled={loading}
+                    >
+                      <option value="">Selecciona una regional...</option>
+                      {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="SV-inputGroup">
                   <label htmlFor="planillas">Planillas (separadas por coma):</label>
                   <input
