@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCheck, FaFileExport, FaTimes } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaTimes } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -99,6 +99,10 @@ interface PlanillaResultado {
   consecutivo_base?: string;
   // Flete cobrado FMC (piezas × $20,000)
   flete_cobrado_fmc?: number;
+  // Registros detallados por guía (cédula, nombre, dirección, etc.) para auditoría en MongoDB
+  registros_detalle?: any[];
+  // Info de división en carros (es_dividida, planilla_original, carros, ...)
+  division_info?: any;
 }
 
 const OPCIONES_VEHICULO = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
@@ -357,8 +361,9 @@ const SolicitudVehiculos: React.FC = () => {
   const [tiempoConsulta, setTiempoConsulta] = useState<number>(0);
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
   const [modalDetalle, setModalDetalle] = useState<{ abierto: boolean; resultado: PlanillaResultado | null; indice: number | null }>({ abierto: false, resultado: null, indice: null });
-  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; causal?: string } | null>(null);
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
+  const [rutasDisponibles, setRutasDisponibles] = useState<string[]>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
   const [menuFlotante, setMenuFlotante] = useState(false);
   const [importandoVulcano, setImportandoVulcano] = useState(false);
@@ -455,6 +460,22 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  const cargarRutasDisponibles = async (): Promise<string[]> => {
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const resp = await fetch(`${API}/siscore/rutas`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const rutas = data.rutas || [];
+        setRutasDisponibles(rutas);
+        return rutas;
+      }
+    } catch (e) {
+      console.error('Error al cargar rutas:', e);
+    }
+    return [];
+  };
+
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     if (!match) { router.replace('/LoginUsuario'); return; }
@@ -481,6 +502,9 @@ const SolicitudVehiculos: React.FC = () => {
 
     // Cargar resultados recientes (filtrado por regional para operativos)
     cargarResultadosRecientes(perfilValue, centroDist);
+
+    // Cargar listado de rutas para el autocompletar al asignar ruta
+    cargarRutasDisponibles();
 
     // También cargar solicitudes pendientes del usuario actual
     if (usuarioCookie) {
@@ -702,7 +726,8 @@ const SolicitudVehiculos: React.FC = () => {
             requiere_descargue: 0,
             punto_adicional: 0,
             desvio: 0,
-            estado: 'PREAPROBADO'
+            estado: 'PREAPROBADO',
+            registros_detalle: [] as any[]
           });
 
         }
@@ -710,6 +735,11 @@ const SolicitudVehiculos: React.FC = () => {
         const planillaData = planillasMap.get(planilla)!;
         planillaData.piezas += parseInt(reg.Piezas || 0) || 0;
         planillaData.peso_real += parseFloat(reg['Peso Real'] || 0) || 0;
+
+        // Guardar el registro crudo (cédula, nombre, dirección, valor declarado, etc.)
+        // para auditoría: se persiste en MongoDB dentro de la planilla.
+        if (!planillaData.registros_detalle) planillaData.registros_detalle = [];
+        planillaData.registros_detalle.push({ ...reg });
 
         const codigoPedido = reg['Codigo Pedido']?.toString().trim();
         if (codigoPedido) {
@@ -751,6 +781,56 @@ const SolicitudVehiculos: React.FC = () => {
           data.municipios_con_pedidos = {};
         }
       });
+
+      // === Asignación de ruta por el usuario (antes de calcular tarifa) ===
+      // La ruta se pre-llena con la derivada (divipolas); el usuario confirma o cambia.
+      // Es obligatoria: si cancela o deja alguna vacía, se aborta la carga.
+      // Cargar rutas si aún no están (usando el valor devuelto, no el del closure)
+      let rutas = rutasDisponibles;
+      if (rutas.length === 0) {
+        rutas = await cargarRutasDisponibles();
+      }
+      {
+        const esc = (s: string) => String(s).replace(/"/g, '&quot;');
+        const opcionesDatalist = `<datalist id="rutas-list">${rutas.map((r) => `<option value="${esc(r)}">`).join('')}</datalist>`;
+        const filasRutasHtml = planillasBuscadas.map((planilla) => {
+          const d = planillasMap.get(planilla);
+          const rutaPre = d?.ruta && d.ruta !== '-' ? String(d.ruta) : '';
+          const destino = d?.municipio_destino && d.municipio_destino !== '-' ? ` (${d.municipio_destino})` : '';
+          return `<div style="margin:10px 0;text-align:left">
+            <label style="font-weight:600;display:block">${planilla}<span style="color:#666;font-weight:normal">${destino}</span></label>
+            <input id="ruta-${planilla}" list="rutas-list" value="${esc(rutaPre)}" placeholder="Escribe o elige una ruta" autocomplete="off" style="width:100%;padding:6px;box-sizing:border-box;margin-top:3px"/>
+          </div>`;
+        }).join('');
+
+        const { value: rutasAsignadas, isConfirmed } = await Swal.fire({
+          title: 'Asigna la ruta de cada planilla',
+          html: `<div style="max-height:55vh;overflow-y:auto">${opcionesDatalist}${filasRutasHtml}</div><p style="color:#666;margin-top:8px;font-size:0.85rem">La ruta es obligatoria para calcular el flete y guardar.</p>`,
+          showCancelButton: true,
+          confirmButtonText: 'Calcular y guardar',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#005f56',
+          preConfirm: () => {
+            const mapa: Record<string, string> = {};
+            for (const p of planillasBuscadas) {
+              const el = document.getElementById(`ruta-${p}`) as HTMLInputElement | null;
+              const val = (el?.value || '').trim();
+              if (!val) { Swal.showValidationMessage(`La planilla ${p} no tiene ruta asignada`); return false; }
+              mapa[p] = val;
+            }
+            return mapa;
+          },
+        });
+
+        if (!isConfirmed || !rutasAsignadas) {
+          return;  // Canceló: no añadir resultados ni guardar
+        }
+        const rutasMap = rutasAsignadas as Record<string, string>;
+        for (const p of planillasBuscadas) {
+          const d = planillasMap.get(p);
+          if (d) d.ruta = rutasMap[p];
+        }
+      }
 
       // Calcular tarifas solo UNA VEZ por planilla consolidada
       for (const [planilla, data] of planillasMap) {
@@ -820,7 +900,8 @@ const SolicitudVehiculos: React.FC = () => {
           regional: '-',
           tarifa_calculada: 0,
           tipo_vehiculo: 'N/A',
-          flete_cobrado_fmc: 0
+          flete_cobrado_fmc: 0,
+          registros_detalle: []
         };
       });
 
@@ -962,6 +1043,7 @@ const SolicitudVehiculos: React.FC = () => {
         aforo: resultado.aforo || 0,
         placa: resultado.placa || '',
         tipo_veh_sicetac: resultado.tipo_veh_sicetac || '',
+        ruta: resultado.ruta && resultado.ruta !== '-' ? resultado.ruta : null,
         estado: estadoFinal,  // Usar el estado recalculado
         causal: resultado.causal || '',  // Agregar causal
         aprobado_por: (estadoFinal as string) === 'APROBADO' ? resultado.aprobado_por : null,
@@ -1209,6 +1291,194 @@ const SolicitudVehiculos: React.FC = () => {
 
     } catch (error) {
       Swal.fire('Error', 'Error al dividir la planilla', 'error');
+    }
+  };
+
+  const handleDividirConsecutivo = async (resultado: PlanillaResultado, index: number) => {
+    // Solo planillas no fusionadas y no ya divididas
+    if (resultado.fusion_info?.es_fusionada) {
+      Swal.fire('Info', 'Las planillas fusionadas se dividen con el botón morado', 'info');
+      return;
+    }
+    const pesoTotal = resultado.peso_real || 0;
+    if (pesoTotal <= 0) {
+      Swal.fire('No se puede dividir', 'La planilla no tiene peso real registrado', 'warning');
+      return;
+    }
+
+    // 1. Elegir número de carros (2-4)
+    const { value: numCarrosStr } = await Swal.fire({
+      title: 'Dividir consecutivo en carros',
+      input: 'select',
+      inputOptions: { '2': '2 carros', '3': '3 carros', '4': '4 carros' },
+      inputValue: '2',
+      inputLabel: `Planilla ${resultado.planilla} (consecutivo ${resultado.consecutivo || '-'})`,
+      html: `<p style="color:#666">Peso total a repartir: <b>${pesoTotal} kg</b></p>`,
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      confirmButtonColor: '#0891b2',
+    });
+    if (!numCarrosStr) return;
+    const numCarros = parseInt(numCarrosStr);
+
+    // 2. Ingresar peso por carro (pre-llenado equitativo; el último absorbe el residuo)
+    const base = Math.floor(pesoTotal / numCarros);
+    const inputsHtml = Array.from({ length: numCarros }, (_, i) => {
+      const def = i === numCarros - 1 ? (pesoTotal - base * (numCarros - 1)) : base;
+      const letra = String.fromCharCode(65 + i);
+      return `<div style="margin:6px 0;text-align:left;font-size:1rem">
+                <b>Carro ${letra}</b>
+                <input id="peso-${i}" type="number" min="0" value="${def}" style="width:110px;margin-left:10px;padding:4px"/> kg
+              </div>`;
+    }).join('');
+
+    const { value: pesosRaw } = await Swal.fire({
+      title: 'Peso por carro',
+      html: `<div>${inputsHtml}</div><p style="color:#666;margin-top:8px">La suma debe ser <b>${pesoTotal} kg</b></p>`,
+      showCancelButton: true,
+      confirmButtonText: 'Calcular tarifas',
+      confirmButtonColor: '#0891b2',
+      preConfirm: () => {
+        const pesos: number[] = [];
+        for (let i = 0; i < numCarros; i++) {
+          const el = document.getElementById(`peso-${i}`) as HTMLInputElement | null;
+          pesos.push(parseFloat(el?.value || '0') || 0);
+        }
+        const suma = pesos.reduce((a, b) => a + b, 0);
+        if (Math.abs(suma - pesoTotal) > 1) {
+          Swal.showValidationMessage(`La suma (${suma} kg) debe ser igual al peso total (${pesoTotal} kg)`);
+          return false;
+        }
+        if (pesos.some((p) => p <= 0)) {
+          Swal.showValidationMessage('Cada carro debe llevar más de 0 kg');
+          return false;
+        }
+        return pesos;
+      },
+    });
+    if (!pesosRaw) return;
+    const pesos: number[] = pesosRaw;
+
+    // 3. Calcular tipo de vehículo y flete por carro (vía consultar-tarifa)
+    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+    const usuarioCookie = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
+    Swal.fire({ title: 'Calculando tarifas...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    const carros: any[] = [];
+    for (let i = 0; i < numCarros; i++) {
+      try {
+        const resp = await fetch(`${API}/siscore/consultar-tarifa`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            centro_costo: resultado.centro_costo || 'FMC',
+            ruta: resultado.ruta,
+            peso_real: pesos[i],
+          }),
+        });
+        const data = await resp.json();
+        const tarifa = data.tarifa_calculada || 0;
+        const tipo = data.tipo_vehiculo || 'N/A';
+        // total = tarifa del carro + recargos heredados de la original (duplicados en cada carro)
+        const total = tarifa
+          + (resultado.requiere_descargue || 0)
+          + (resultado.punto_adicional || 0)
+          + (resultado.desvio || 0)
+          + (resultado.aforo || 0);
+        carros.push({ peso: pesos[i], tipo_vehiculo: tipo, tarifa_calculada: tarifa, tarifa_base: tarifa, total_solicitado: total });
+      } catch {
+        carros.push({ peso: pesos[i], tipo_vehiculo: 'N/A', tarifa_calculada: 0, tarifa_base: 0, total_solicitado: 0 });
+      }
+    }
+
+    // 4. Resumen + confirmar
+    const resumenHtml = carros.map((c, i) => {
+      const letra = String.fromCharCode(65 + i);
+      return `<li style="text-align:left">Carro ${letra}: <b>${c.peso} kg</b> → ${c.tipo_vehiculo} → $${(c.total_solicitado || 0).toLocaleString('es-CO')}</li>`;
+    }).join('');
+    const totalFlete = carros.reduce((a, c) => a + (c.total_solicitado || 0), 0);
+
+    const confirmar = await Swal.fire({
+      title: '¿Dividir planilla?',
+      html: `<div style="text-align:left"><ul style="list-style:none;padding:0">${resumenHtml}</ul>
+             <p style="margin-top:8px"><b>Total flete dividido:</b> $${totalFlete.toLocaleString('es-CO')}</p></div>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, dividir',
+      confirmButtonColor: '#0891b2',
+    });
+    if (!confirmar.isConfirmed) return;
+
+    // 5. Llamar al backend
+    try {
+      const resp = await fetch(`${API}/siscore/dividir-consecutivo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planilla: resultado.planilla, usuario: usuarioCookie, carros }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || 'Error al dividir');
+      }
+      const data = await resp.json();
+      const carrosResultado: PlanillaResultado[] = (data.carros || []).map((c: any) => ({
+        ...resultado,
+        ...c,
+        guardado: true,
+        encontrada: true,
+      }));
+      const nuevos = [...resultados];
+      nuevos.splice(index, 1, ...carrosResultado);
+      setResultados(nuevos);
+      playNotificationSound();
+      Swal.fire('División exitosa', `Se crearon ${carrosResultado.length} carros (${resultado.consecutivo || resultado.planilla}A…${String.fromCharCode(64 + carrosResultado.length)})`, 'success');
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'Error al dividir', 'error');
+    }
+  };
+
+  const handleUnirCarros = async (resultado: PlanillaResultado, index: number) => {
+    if (!resultado.division_info?.es_dividida) {
+      Swal.fire('Error', 'Esta planilla no es un carro dividido', 'error');
+      return;
+    }
+    const carrosPlanillas: string[] = (resultado.division_info.carros || []).map((c: any) => c.planilla);
+    if (!carrosPlanillas.includes(resultado.planilla)) carrosPlanillas.push(resultado.planilla);
+
+    const confirmar = await Swal.fire({
+      title: '¿Unir carros?',
+      html: `<div style="text-align:left">Se restaurará la planilla original <b>${resultado.division_info.planilla_original || ''}</b>.
+             <br><br>Carros a unir: ${carrosPlanillas.join(', ')}</div>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, unir',
+      confirmButtonColor: '#16a34a',
+    });
+    if (!confirmar.isConfirmed) return;
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const usuarioCookie = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
+      const resp = await fetch(`${API}/siscore/unir-carros`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planilla: resultado.planilla, usuario: usuarioCookie }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || 'Error al unir');
+      }
+      const data = await resp.json();
+      const originalRestaurada: PlanillaResultado = { ...(data.planilla as any), guardado: true, encontrada: true };
+      // Quitar todos los carros de la división y devolver la original a su posición
+      const nuevas = resultados.filter((r) => !carrosPlanillas.includes(r.planilla));
+      const pos = Math.min(index, nuevas.length);
+      nuevas.splice(pos, 0, originalRestaurada);
+      setResultados(nuevas);
+      playNotificationSound();
+      Swal.fire('Unión exitosa', `Restaurada ${originalRestaurada.planilla}`, 'success');
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'Error al unir', 'error');
     }
   };
 
@@ -1573,7 +1843,8 @@ const SolicitudVehiculos: React.FC = () => {
             placa: p.placa,
             tipo_veh_sicetac: p.tipo_veh_sicetac,
             consecutivo: p.consecutivo,  // Guardar el consecutivo original
-            consecutivo_base: p.consecutivo_base  // Guardar el consecutivo base original
+            consecutivo_base: p.consecutivo_base,  // Guardar el consecutivo base original
+            registros_detalle: p.registros_detalle ? [...p.registros_detalle] : []
           };
         });
 
@@ -1713,7 +1984,8 @@ const SolicitudVehiculos: React.FC = () => {
             cantidad_destinos: r.cantidad_destinos,
             municipios_destino_lista: r.municipios_destino_lista,
             municipios_con_pedidos: r.municipios_con_pedidos,
-            fusion_info: r.fusion_info
+            fusion_info: r.fusion_info,
+            registros_detalle: r.registros_detalle
           })),
           fecha_inicio: new Date().toISOString().split('T')[0],
           fecha_fin: new Date().toISOString().split('T')[0],
@@ -1904,6 +2176,11 @@ const SolicitudVehiculos: React.FC = () => {
       console.error('Error al cargar causales:', error);
     }
 
+    // Asegurar que el listado de rutas esté cargado para el autocompletar del modal
+    if (rutasDisponibles.length === 0) {
+      cargarRutasDisponibles();
+    }
+
     // Convertir valores antiguos ("NO"/"SI") a numéricos
     const convertirDescargue = (val: any): number => {
       if (typeof val === 'number') return val;
@@ -1926,6 +2203,7 @@ const SolicitudVehiculos: React.FC = () => {
       desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),
       aforo: resultado.aforo || 0,
       placa: resultado.placa || '',
+      ruta: resultado.ruta && resultado.ruta !== '-' ? resultado.ruta : '',
       causal: resultado.causal || ''  // Causal existente si la tiene
     };
     setModalDetalle({ abierto: true, resultado, indice });
@@ -2352,6 +2630,28 @@ const SolicitudVehiculos: React.FC = () => {
                                     <FaUnlink />
                                   </button>
                                 )}
+                                {/* Botón Dividir consecutivo (varios carros) - planillas no fusionadas/no divididas */}
+                                {!resultado.fusion_info?.es_fusionada && !resultado.division_info?.es_dividida && ['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfil) && (
+                                  <button
+                                    onClick={() => handleDividirConsecutivo(resultado, index)}
+                                    className="SV-btnAction"
+                                    title="Dividir consecutivo en varios carros"
+                                    style={{ background: '#0891b2' }}
+                                  >
+                                    <FaCodeBranch />
+                                  </button>
+                                )}
+                                {/* Botón Unir (revertir división) - carros divididos */}
+                                {resultado.division_info?.es_dividida && (
+                                  <button
+                                    onClick={() => handleUnirCarros(resultado, index)}
+                                    className="SV-btnAction"
+                                    title="Unir carros (revertir división)"
+                                    style={{ background: '#16a34a' }}
+                                  >
+                                    <FaObjectGroup />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleAbrirModal(resultado, index)}
                                   className="SV-btnAction SV-btnEdit"
@@ -2572,6 +2872,22 @@ const SolicitudVehiculos: React.FC = () => {
                     />
                   </div>
                   <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Ruta</label>
+                    <input
+                      type="text"
+                      className="SV-inputSmall"
+                      list="rutas-list"
+                      value={tempEdicion?.ruta || ''}
+                      onChange={(e) => setTempEdicion(prev => prev ? { ...prev, ruta: e.target.value } : null)}
+                      style={{ width: '100%', padding: '0.5rem' }}
+                      placeholder="Escribe o elige una ruta"
+                      autoComplete="off"
+                    />
+                    <datalist id="rutas-list">
+                      {rutasDisponibles.map((r) => <option key={r} value={r} />)}
+                    </datalist>
+                  </div>
+                  <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Vehículo SICETAC</label>
                     <select
                       className="SV-selectSmall"
@@ -2765,9 +3081,31 @@ const SolicitudVehiculos: React.FC = () => {
                       causal: tempEdicion.causal || ''  // Agregar causal
                     };
 
+                    // Si la ruta cambió, recalcular tarifa y tipo de vehículo con la nueva ruta
+                    const rutaOriginal = modalDetalle.resultado.ruta && modalDetalle.resultado.ruta !== '-' ? modalDetalle.resultado.ruta : '';
+                    const rutaEditada = (tempEdicion.ruta || '').trim();
+                    let tarifaBaseCalc = tempEdicion.tarifa_base || modalDetalle.resultado.tarifa_calculada || 0;
+                    let tarifaTeorico = modalDetalle.resultado.tarifa_calculada || 0;
+                    let tipoVehCalc = tempEdicion.tipo_veh_sicetac || modalDetalle.resultado.tipo_vehiculo || '';
+                    if (rutaEditada && rutaEditada !== rutaOriginal) {
+                      try {
+                        const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+                        const rt = await fetch(`${API}/siscore/consultar-tarifa`, {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ centro_costo: modalDetalle.resultado.centro_costo || 'FMC', ruta: rutaEditada, peso_real: modalDetalle.resultado.peso_real })
+                        });
+                        if (rt.ok) {
+                          const td = await rt.json();
+                          tarifaBaseCalc = td.tarifa_calculada || 0;
+                          tarifaTeorico = td.tarifa_calculada || 0;
+                          tipoVehCalc = td.tipo_vehiculo || tipoVehCalc;
+                        }
+                      } catch (e) { /* Si falla la consulta, se mantienen los valores previos */ }
+                    }
+
                     // Calcular el total EXPLÍCITAMENTE con los nuevos valores
                     const totalCalculado = (
-                      (tempEdicion.tarifa_base || modalDetalle.resultado.tarifa_calculada || 0) +
+                      tarifaBaseCalc +
                       (tempEdicion.requiere_descargue || 0) +
                       (tempEdicion.punto_adicional || 0) +
                       (tempEdicion.desvio || 0) +
@@ -2775,7 +3113,7 @@ const SolicitudVehiculos: React.FC = () => {
                     );
 
                     // Calcular diferencia manualmente
-                    const teorico = modalDetalle.resultado.tarifa_calculada || 0;
+                    const teorico = tarifaTeorico;
                     const diferencia = totalCalculado - teorico;
                     const porcentaje = teorico > 0 ? (Math.abs(diferencia) / teorico) * 100 : 0;
                     const esMayor = diferencia > 0;
@@ -2822,7 +3160,12 @@ const SolicitudVehiculos: React.FC = () => {
                       total_solicitado: totalCalculado,  // Actualizar total calculado
                       estado: nuevoEstado,
                       aprobado_por: undefined,  // Limpiar aprobador al editar
-                      fecha_aprobacion: undefined  // Limpiar fecha de aprobación
+                      fecha_aprobacion: undefined,  // Limpiar fecha de aprobación
+                      ruta: rutaEditada || rutaOriginal,  // Ruta (editada o mantenida)
+                      tarifa_base: tarifaBaseCalc,
+                      tarifa_calculada: tarifaTeorico,
+                      tipo_vehiculo: tipoVehCalc,
+                      tipo_veh_sicetac: tipoVehCalc
                     };
 
                     // Aplicar cambios locales - actualizar todo de una vez
