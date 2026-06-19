@@ -576,3 +576,17 @@ Indicadores de prioridad en CrucePacientesV3:
 ### Indicadores de Transporte (`/integrapp/indicadores/transporte`)
 - **Fix del gráfico "Pedidos diarios"**: al activar un filtro de estado (ej: "En distribución") estando con el scroll a la derecha, el gráfico quedaba en blanco. Ahora se **reposiciona automáticamente al inicio** para mostrar las barras que sí tienen información.
 - **Archivo**: `src/Paginas/IndicadoresTransporte/index.tsx`.
+
+## Actualizaciones Recientes (2026-06-19)
+
+### Solicitud de Vehículos (`/integrapp/SolicitudVehiculos`)
+
+- **Asignación obligatoria de ruta al cargar**: tras consultar planillas con el bot, se abre un **modal que lista todas las planillas** con su ruta pre-llenada (la derivada de divipolas) en un input con **autocompletar** (`<datalist>` con las rutas que tienen tarifa, vía `GET /siscore/rutas`). La ruta es **obligatoria** (bloquea si alguna queda vacía); si se cancela, se descarta la carga. Al confirmar, se recalcula la tarifa con la ruta elegida. El listado de rutas se carga al montar el componente.
+- **Ruta editable en el modal de edición** (lápiz): nuevo campo Ruta con autocompletar; al cambiarla, **recalcula tarifa, tipo de vehículo y total** automáticamente antes de guardar.
+- **Botón "Dividir consecutivo"** (azul, `FaCodeBranch`): divide una planilla en hasta **4 carros** (`3A`, `3B`, ...). Modal por pasos: nº de carros → peso por carro (pre-llenado equitativo, **valida suma = peso total**) → cálculo de tipo y flete por carro → confirmación. La original se reemplaza por los carros en la tabla.
+- **Botón "Unir"** (verde, `FaObjectGroup`): revierte una división (restaura la planilla original).
+- **Detalle por guía**: `handleBuscar` acumula los registros crudos (cédula, nombre, dirección, etc.) en `registros_detalle` por planilla, y los preserva al fusionar (`datosOriginales`). Campo `registros_detalle?: any[]` y `division_info?: any` añadidos a la interfaz `PlanillaResultado`.
+
+### Exportación a Excel (cambios en el backend que afectan a este módulo)
+- Las planillas **fusionadas** se exportan como **filas separadas** con el flete repartido proporcionalmente por cajas.
+- Las planillas de **FRESENIUS KABI** generan **filas duplicadas por destinatario** con "Ubicación Descargue" = `FKC_Nombre_Cedula`.
