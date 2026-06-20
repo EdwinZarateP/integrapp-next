@@ -535,7 +535,15 @@
   width: 100%;
   margin: 0 auto;
   padding: 0 28px 2rem;
+  display: flex;
+  flex-direction: column;
 }
+
+/* Reorden visual: KPIs → Pedidos → Cajas → desgloses (sin mover el DOM) */
+.IG-kpisContainer { order: 1; }
+.IG-graficoPedidos { order: 2; }
+.IG-graficoCajas { order: 3; }
+.IG-graficosFila { order: 4; }
 
 .IG-loading {
   display: flex;
@@ -636,9 +644,10 @@
 
 .IG-kpisContainer {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: 1.6fr 1fr 1fr;
   gap: 0.75rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+  align-items: stretch;
 }
 
 .IG-kpiCard {
@@ -745,6 +754,311 @@
   margin: 0;
   font-size: 0.8rem;
   color: #6b7a8d;
+}
+
+/* ==========================================
+   KPIs — NUEVO DISEÑO (hero + tiles)
+   ========================================== */
+
+.IG-kpiHero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  background: linear-gradient(135deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 25, 40, 0.18);
+  position: relative;
+  overflow: hidden;
+  animation: IG-cardIn 0.4s ease-out both;
+}
+
+.IG-kpiHero::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(232, 160, 0, 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.IG-kpiHeroInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  z-index: 1;
+  min-width: 0;
+}
+
+.IG-kpiHeroLabel {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.IG-kpiHeroDetalle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+  flex-wrap: wrap;
+}
+
+.IG-kpiHeroIcon {
+  font-size: 1.1rem;
+}
+
+.IG-kpiHeroDetalleSep {
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 0.1rem;
+}
+
+.IG-kpiHeroDetalleTot {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 700;
+}
+
+.IG-kpiHeroDetalleTxt {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  margin-left: 0.2rem;
+}
+
+.IG-kpiHeroSub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.IG-kpiHeroTrend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-start;
+  margin-top: 0.4rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.16);
+  border-radius: 20px;
+}
+
+.IG-kpiHeroTrendDown {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.IG-gaugeWrap {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  flex-shrink: 0;
+}
+
+.IG-gaugeSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.IG-gaugeTrack {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 9;
+}
+
+.IG-gaugeFill {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.IG-gaugeCentro {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.IG-gaugeNum {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.IG-gaugeCaption {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 3px;
+}
+
+.IG-kpiTile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 1rem 1rem 0.85rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e8edf3;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  animation: IG-cardIn 0.4s ease-out both;
+}
+
+.IG-kpiTile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.IG-kpiTile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.IG-kpiTileTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.IG-kpiTileIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.IG-kpiTileLabel {
+  margin: 0.3rem 0 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7a8d;
+}
+
+.IG-kpiTileValor {
+  margin: 0.1rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f1928;
+  line-height: 1.1;
+}
+
+/* Acentos por tipo de tile */
+.IG-kpiTileTotal::before { background: #0f1928; }
+.IG-kpiTileTotal .IG-kpiTileIcon { background: rgba(15, 25, 40, 0.1); color: #0f1928; }
+
+.IG-kpiTileCajas::before { background: #3b82f6; }
+.IG-kpiTileCajas .IG-kpiTileIcon { background: rgba(59, 130, 246, 0.15); color: #2563eb; }
+
+.IG-kpiTileTon::before { background: #f59e0b; }
+.IG-kpiTileTon .IG-kpiTileIcon { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+
+.IG-kpiTileNovedad::before { background: #ef4444; }
+.IG-kpiTileNovedad .IG-kpiTileIcon { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+
+.IG-kpiTilePct {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.IG-kpiTrend {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.12);
+  padding: 0.15rem 0.4rem;
+  border-radius: 20px;
+}
+
+.IG-kpiTrendDown {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.IG-spark {
+  width: 100%;
+  height: 30px;
+  margin-top: 0.35rem;
+  opacity: 0.85;
+}
+
+@keyframes IG-cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cabecera de gráfico: título + hint + acciones */
+.IG-graficoTituloWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.IG-graficoHint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #6b7a8d;
+}
+
+.IG-graficoAcciones {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Botón exportar compacto (redefine el original) */
+.IG-botonExportar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  margin-top: 0;
+  border: none;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+  background: #e8a000;
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.IG-botonExportar:hover {
+  background: #c88800;
+  box-shadow: 0 4px 12px rgba(232, 160, 0, 0.3);
 }
 
 /* ==========================================
@@ -2004,5 +2318,47 @@
   .IG-tabla td {
     padding: 0.75rem 0.5rem;
     font-size: 0.75rem;
+  }
+}
+
+/* ==========================================
+   RESPONSIVE — rejilla de KPIs (nuevo diseño)
+   Deben ir después para prevalecer sobre las
+   reglas .IG-kpisContainer genéricas de arriba.
+   ========================================== */
+
+@media (max-width: 1024px) {
+  .IG-kpisContainer {
+    grid-template-columns: 1fr 1fr;
+  }
+  .IG-kpiHero {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .IG-kpisContainer {
+    grid-template-columns: 1fr 1fr;
+  }
+  .IG-kpiHero {
+    grid-column: span 2;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .IG-kpiHeroDetalle {
+    font-size: 1.25rem;
+  }
+  .IG-graficoAcciones {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .IG-kpisContainer {
+    grid-template-columns: 1fr;
+  }
+  .IG-kpiHero {
+    grid-column: span 1;
   }
 }

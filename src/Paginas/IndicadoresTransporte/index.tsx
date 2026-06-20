@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FaBox, FaCheckCircle, FaClock, FaExclamationTriangle, FaFilter, FaArrowLeft, FaSync, FaDownload, FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaBoxes, FaWeight, FaClipboardList } from 'react-icons/fa';
+import { FaBox, FaCheckCircle, FaClock, FaFilter, FaArrowLeft, FaSync, FaDownload, FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaBoxes, FaWeight } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -418,6 +418,61 @@ const IndicadoresGuias: React.FC = () => {
     }).filter(p => aniosGraficoCajas.some(a => p[a] !== null));
   }, [cajasFiltradas, aniosGraficoCajas]);
 
+  // === Métricas para la nueva cabecera de KPIs ===
+
+  // Serie diaria total (todos los estados) para el sparkline y la variación
+  const serieDiaria = useMemo(() => {
+    return datosGrafico
+      .map(dia => ({
+        fecha: dia.fecha,
+        total: estados.reduce((s, e) => s + (typeof dia[e] === 'number' ? (dia[e] as number) : 0), 0),
+      }))
+      .filter(d => d.total > 0);
+  }, [datosGrafico, estados]);
+
+  // % de cumplimiento (ENTREGADO / total)
+  const pctCumplimiento = useMemo(() => {
+    if (!kpis) return 0;
+    const entregados = kpis.conteo?.ENTREGADO ?? 0;
+    const total = kpis.totalGuias || 1;
+    return Math.round((entregados / total) * 100);
+  }, [kpis]);
+
+  // Color del gauge y del número según desempeño
+  const colorCumplimiento =
+    pctCumplimiento >= 90 ? '#10b981' : pctCumplimiento >= 75 ? '#e8a000' : '#ef4444';
+
+  // Variación REAL de volumen: suma de los últimos 7 días vs 7 días anteriores
+  const variacionPedidos = useMemo(() => {
+    if (serieDiaria.length < 8) return null;
+    const ultimos7 = serieDiaria.slice(-7).reduce((s, d) => s + d.total, 0);
+    const previos7 = serieDiaria.slice(-14, -7).reduce((s, d) => s + d.total, 0);
+    if (previos7 === 0) return null;
+    return Math.round(((ultimos7 - previos7) / previos7) * 100);
+  }, [serieDiaria]);
+
+  // Exportar la serie visible de Pedidos a CSV (abre correcto en Excel-ES)
+  const exportarPedidos = () => {
+    if (!datosPedidosFinal.length) return;
+    const cabeceras = ['Fecha', ...estadosAMostrar, 'Total'];
+    const filas = datosPedidosFinal.map(d => {
+      const etiqueta = d.fecha.length === 7
+        ? format(parseISO(d.fecha + '-01'), 'MM/yyyy')
+        : format(parseISO(d.fecha), 'dd/MM/yyyy');
+      return [etiqueta, ...estadosAMostrar.map(e => (d as any)[e] ?? 0), d.totalStack ?? ''];
+    });
+    const csv = [cabeceras, ...filas].map(r => r.join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pedidos_diarios_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Formateador de fecha según agrupación
   const formatoEjeX = (fecha: string) => {
     if (agruparPorMes && fecha.length === 7) {
@@ -780,46 +835,74 @@ const IndicadoresGuias: React.FC = () => {
             {/* KPIs */}
             {kpis && (
               <div className="IG-kpisContainer">
-                <div className="IG-kpiCard IG-kpiTotal">
-                  <div className="IG-kpiIcon">
-                    <FaClipboardList />
+                {/* Tarjeta hero: cumplimiento de entrega */}
+                <div className="IG-kpiHero">
+                  <div className="IG-kpiHeroInfo">
+                    <p className="IG-kpiHeroLabel">Cumplimiento de entrega</p>
+                    <div className="IG-kpiHeroDetalle">
+                      <FaCheckCircle className="IG-kpiHeroIcon" style={{ color: colorCumplimiento }} />
+                      <span>{formatearNumero(kpis.conteo?.ENTREGADO ?? 0)}</span>
+                      <span className="IG-kpiHeroDetalleSep">/</span>
+                      <span className="IG-kpiHeroDetalleTot">{formatearNumero(kpis.totalGuias)}</span>
+                      <span className="IG-kpiHeroDetalleTxt">pedidos</span>
+                    </div>
+                    <p className="IG-kpiHeroSub">
+                      {kpis.conteo?.PENDIENTE ? `${formatearNumero(kpis.conteo.PENDIENTE)} pendientes` : ''}
+                      {kpis.conteo?.PENDIENTE && kpis.conteo?.['CON NOVEDAD'] ? ' · ' : ''}
+                      {kpis.conteo?.['CON NOVEDAD'] ? `${formatearNumero(kpis.conteo['CON NOVEDAD'])} con novedad` : ''}
+                    </p>
+                    {variacionPedidos !== null && (
+                      <span className={`IG-kpiHeroTrend ${variacionPedidos < 0 ? 'IG-kpiHeroTrendDown' : ''}`} title="Últimos 7 días vs semana anterior">
+                        {variacionPedidos >= 0 ? '▲' : '▼'} {Math.abs(variacionPedidos)}% vs semana anterior
+                      </span>
+                    )}
                   </div>
-                  <div className="IG-kpiContent">
-                    <p className="IG-kpiLabel">Pedidos</p>
-                    <p className="IG-kpiValor">{formatearNumero(kpis.totalGuias)}</p>
+                  <div className="IG-gaugeWrap">
+                    <svg viewBox="0 0 100 100" className="IG-gaugeSvg">
+                      <circle cx="50" cy="50" r="42" className="IG-gaugeTrack" />
+                      <circle
+                        cx="50" cy="50" r="42"
+                        className="IG-gaugeFill"
+                        stroke={colorCumplimiento}
+                        strokeDasharray={2 * Math.PI * 42}
+                        strokeDashoffset={2 * Math.PI * 42 * (1 - pctCumplimiento / 100)}
+                      />
+                    </svg>
+                    <div className="IG-gaugeCentro">
+                      <span className="IG-gaugeNum" style={{ color: colorCumplimiento }}>{pctCumplimiento}%</span>
+                      <span className="IG-gaugeCaption">entregado</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="IG-kpiCard IG-kpiPiezas">
-                  <div className="IG-kpiIcon">
-                    <FaBoxes />
+                {/* Tile: Cajas */}
+                <div className="IG-kpiTile IG-kpiTileCajas">
+                  <div className="IG-kpiTileTop">
+                    <span className="IG-kpiTileIcon"><FaBoxes /></span>
                   </div>
-                  <div className="IG-kpiContent">
-                    <p className="IG-kpiLabel">Cajas</p>
-                    <p className="IG-kpiValor IG-kpiValorPeq">{kpis.peso ? formatearNumero(kpis.peso.totalPiezas) : '0'}</p>
-                  </div>
+                  <p className="IG-kpiTileLabel">Cajas</p>
+                  <p className="IG-kpiTileValor">{kpis.peso ? formatearNumero(kpis.peso.totalPiezas) : '0'}</p>
                 </div>
 
-                <div className="IG-kpiCard IG-kpiToneladas">
-                  <div className="IG-kpiIcon">
-                    <FaWeight />
+                {/* Tile: Toneladas */}
+                <div className="IG-kpiTile IG-kpiTileTon">
+                  <div className="IG-kpiTileTop">
+                    <span className="IG-kpiTileIcon"><FaWeight /></span>
                   </div>
-                  <div className="IG-kpiContent">
-                    <p className="IG-kpiLabel">Toneladas</p>
-                    <p className="IG-kpiValor">{kpis.peso ? Math.round(kpis.peso.totalToneladas).toLocaleString('es-CO') : '0'}</p>
-                  </div>
+                  <p className="IG-kpiTileLabel">Toneladas</p>
+                  <p className="IG-kpiTileValor">{kpis.peso ? Math.round(kpis.peso.totalToneladas).toLocaleString('es-CO') : '0'}</p>
                 </div>
               </div>
             )}
 
                 {/* Gráfico de Cajas por Día */}
-                <div className="IG-graficoContainer">
+                <div className="IG-graficoContainer IG-graficoCajas">
                   {datosCajas && datosCajas.length > 0 ? (
                     <>
                       <div className="IG-graficoHeader">
-                        <h2 className="IG-graficoTitulo">📦 {cajasComparativo ? 'Cajas por mes' : 'Cajas por Día'}</h2>
+                        <h2 className="IG-graficoTitulo">📦 {cajasComparativo ? 'Comparativo anual de cajas' : 'Cajas por Día'}</h2>
                         <label className="IG-switch">
-                          <span className="IG-switchLabel">Agrupar por mes</span>
+                          <span className="IG-switchLabel">Comparar años</span>
                           <input type="checkbox" checked={cajasComparativo} onChange={() => setCajasComparativo(!cajasComparativo)} />
                           <span className="IG-switchSlider"></span>
                         </label>
@@ -922,16 +1005,24 @@ const IndicadoresGuias: React.FC = () => {
                 </div>
 
                 {/* Gráfico Pedidos diarios */}
-                <div className="IG-graficoContainer">
+                <div className="IG-graficoContainer IG-graficoPedidos">
                   {datosGrafico && datosGrafico.length > 0 ? (
                     <>
                       <div className="IG-graficoHeader">
-                        <h2 className="IG-graficoTitulo">Pedidos diarios</h2>
-                        <label className="IG-switch">
-                          <span className="IG-switchLabel">Agrupar por mes</span>
-                          <input type="checkbox" checked={agruparPorMes} onChange={() => setAgruparPorMes(!agruparPorMes)} />
-                          <span className="IG-switchSlider"></span>
-                        </label>
+                        <div className="IG-graficoTituloWrap">
+                          <h2 className="IG-graficoTitulo">Pedidos diarios</h2>
+                          <span className="IG-graficoHint">💡 Haz clic en una fecha para ver el detalle</span>
+                        </div>
+                        <div className="IG-graficoAcciones">
+                          <button className="IG-botonExportar" onClick={exportarPedidos} title="Exportar serie visible a Excel">
+                            <FaDownload /> Exportar
+                          </button>
+                          <label className="IG-switch">
+                            <span className="IG-switchLabel">Agrupar por mes</span>
+                            <input type="checkbox" checked={agruparPorMes} onChange={() => setAgruparPorMes(!agruparPorMes)} />
+                            <span className="IG-switchSlider"></span>
+                          </label>
+                        </div>
                       </div>
 
                       {/* Leyenda personalizada con botones clickeables */}
@@ -1001,11 +1092,12 @@ const IndicadoresGuias: React.FC = () => {
                                         transform={agruparPorMes ? '' : 'rotate(-90)'}
                                         textAnchor={agruparPorMes ? 'middle' : 'end'}
                                         fontSize={11}
-                                        fill="#0f1928"
-                                        fontWeight={600}
-                                        style={{ cursor: 'pointer' }}
+                                        fill="#b87d00"
+                                        fontWeight={700}
+                                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
                                         onClick={() => abrirDetalleDia(fecha)}
                                       >
+                                        <title>Ver detalle de {label}</title>
                                         {label}
                                       </text>
                                     </g>
