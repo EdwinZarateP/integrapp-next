@@ -57,6 +57,7 @@ interface PlanillaResultado {
   encontrada: boolean;
   piezas: number;
   peso_real: number;
+  peso_sicetac?: number;  // Peso operacional editable (default = peso_real); se usa para trámites
   ruta: string;
   codigo_pedido: string;
   cantidad_pedidos: number;
@@ -94,6 +95,7 @@ interface PlanillaResultado {
   estado?: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
   aprobado_por?: string;  // Usuario que aprobó
   fecha_aprobacion?: string;  // Fecha de aprobación
+  fecha_creacion?: string;  // Fecha de creación (para ordenar y mostrar en pantalla)
   // Campo de consecutivo único
   consecutivo?: string;
   consecutivo_base?: string;
@@ -132,6 +134,31 @@ const obtenerRegional = (bodega: string | undefined): string => {
   return REGIONAL_MAP[bodega] || '-';
 };
 
+// Ordena por fecha de creación ASCENDENTE (más antiguo primero).
+// Las que no tienen fecha (p.ej. planillas no encontradas en una búsqueda) quedan al final.
+const ordenarPorCreacion = (lista: PlanillaResultado[]): PlanillaResultado[] =>
+  [...lista].sort((a, b) => {
+    const ta = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : Number.MAX_SAFE_INTEGER;
+    const tb = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : Number.MAX_SAFE_INTEGER;
+    return ta - tb;
+  });
+
+// Formatea una fecha ISO en zona horaria de Colombia (America/Bogota), dd/MM/yyyy HH:mm.
+const formatearFechaColombia = (fecha?: string): string => {
+  if (!fecha) return '-';
+  const d = new Date(fecha);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 const SolicitudVehiculos: React.FC = () => {
 
   // Cargar resultados recientes automáticamente (filtrado por regional para operativos)
@@ -155,6 +182,7 @@ const SolicitudVehiculos: React.FC = () => {
               encontrada: p.encontrada || false,
               piezas: p.piezas || 0,
               peso_real: p.peso_real || 0,
+              peso_sicetac: p.peso_sicetac ?? p.peso_real ?? 0,
               ruta: p.ruta || '-',
               codigo_pedido: p.codigo_pedido || '-',
               cantidad_pedidos: p.cantidad_pedidos || 0,
@@ -185,7 +213,8 @@ const SolicitudVehiculos: React.FC = () => {
               fecha_aprobacion: p.fecha_aprobacion,
               consecutivo: p.consecutivo,
               consecutivo_base: p.consecutivo_base,
-              flete_cobrado_fmc: p.flete_cobrado_fmc || 0
+              flete_cobrado_fmc: p.flete_cobrado_fmc || 0,
+              fecha_creacion: p.fecha_creacion
             };
 
             // Si no tiene estado o tiene PREAPROBADO, recalcular estado correcto
@@ -195,7 +224,7 @@ const SolicitudVehiculos: React.FC = () => {
 
             return resultado;
           });
-          setResultados(resultadosRestaurados);
+          setResultados(ordenarPorCreacion(resultadosRestaurados));
           setMostrarPendientes(false);
           return;
         }
@@ -209,7 +238,7 @@ const SolicitudVehiculos: React.FC = () => {
               guardado: true,
               solicitando_id: null
             }));
-            setResultados(resultadosRestaurados);
+            setResultados(ordenarPorCreacion(resultadosRestaurados));
             setMostrarPendientes(false);
             return;
           }
@@ -361,7 +390,7 @@ const SolicitudVehiculos: React.FC = () => {
   const [tiempoConsulta, setTiempoConsulta] = useState<number>(0);
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
   const [modalDetalle, setModalDetalle] = useState<{ abierto: boolean; resultado: PlanillaResultado | null; indice: number | null }>({ abierto: false, resultado: null, indice: null });
-  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string } | null>(null);
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [rutasDisponibles, setRutasDisponibles] = useState<string[]>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
@@ -917,8 +946,13 @@ const SolicitudVehiculos: React.FC = () => {
         resultadosProcesados.forEach(r => { r.regional = bodega; });
       }
 
-      // Añadir nuevos resultados a los existentes
-      const nuevosResultados = [...resultados, ...resultadosProcesados];
+      // Añadir nuevos resultados a los existentes (ordenados por fecha de creación)
+      const ahoraIso = new Date().toISOString();
+      resultadosProcesados.forEach(r => {
+        if (!r.fecha_creacion) r.fecha_creacion = ahoraIso;
+        if (r.peso_sicetac === undefined || r.peso_sicetac === null) r.peso_sicetac = r.peso_real || 0;
+      });
+      const nuevosResultados = ordenarPorCreacion([...resultados, ...resultadosProcesados]);
       setResultados(nuevosResultados);
 
       // Limpiar selecciones de fusión
@@ -970,7 +1004,7 @@ const SolicitudVehiculos: React.FC = () => {
               }
               return r;
             });
-            setResultados(resultadosActualizados);
+            setResultados(ordenarPorCreacion(resultadosActualizados));
             console.log('🔄 Resultados actualizados con consecutivos');
           }
         } else {
@@ -1043,6 +1077,7 @@ const SolicitudVehiculos: React.FC = () => {
         aforo: resultado.aforo || 0,
         placa: resultado.placa || '',
         tipo_veh_sicetac: resultado.tipo_veh_sicetac || '',
+        peso_sicetac: resultado.peso_sicetac ?? resultado.peso_real ?? 0,
         ruta: resultado.ruta && resultado.ruta !== '-' ? resultado.ruta : null,
         estado: estadoFinal,  // Usar el estado recalculado
         causal: resultado.causal || '',  // Agregar causal
@@ -2198,6 +2233,7 @@ const SolicitudVehiculos: React.FC = () => {
     const tempEdicionInit = {
       tarifa_base: resultado.tarifa_base || resultado.tarifa_calculada || 0,
       tipo_veh_sicetac: resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || 'CARRY',
+      peso_sicetac: resultado.peso_sicetac ?? resultado.peso_real ?? 0,
       requiere_descargue: convertirDescargue(resultado.requiere_descargue),
       punto_adicional: typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0),
       desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),
@@ -2593,24 +2629,26 @@ const SolicitudVehiculos: React.FC = () => {
                         </th>
                         <th>Acciones</th>
                         <th>Consecutivo</th>
+                        <th>Fecha Creación</th>
                         <th>Estado</th>
+                        <th>Total Solicitado</th>
+                        <th>Diferencia</th>
                         <th>Regional</th>
                         <th>Planilla</th>
                         <th>Placa</th>
                         <th>Piezas</th>
                         <th>Peso Real</th>
+                        <th>Peso SICETAC</th>
                         <th>Cant. Pedidos</th>
                         <th>Ruta</th>
                         <th>Tipo Vehículo</th>
+                        <th>Vehículo SICETAC</th>
                         <th>Flete teórico</th>
                         <th>Flete solicitado</th>
-                        <th>Vehículo SICETAC</th>
                         <th>Descargue</th>
                         <th>Punto Adic.</th>
                         <th>Desvío</th>
                         <th>Aforo</th>
-                        <th>Total Solicitado</th>
-                        <th>Diferencia</th>
                         <th>Municipio Principal</th>
                         <th>Cliente Origen</th>
                         <th>Cant. Destinos</th>
@@ -2742,6 +2780,9 @@ const SolicitudVehiculos: React.FC = () => {
                           <td style={{ fontWeight: '700', color: '#004d40', fontFamily: 'monospace', fontSize: '0.95rem' }}>
                             {resultado.consecutivo || '-'}
                           </td>
+                          <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>
+                            {formatearFechaColombia(resultado.fecha_creacion)}
+                          </td>
                           <td>
                             {resultado.encontrada && (
                               <>
@@ -2772,6 +2813,12 @@ const SolicitudVehiculos: React.FC = () => {
                               </>
                             )}
                           </td>
+                          <td style={{ fontWeight: 'bold', color: '#005f56', background: '#dcfce7' }}>
+                            ${resultado.encontrada ? total.toLocaleString('es-CO') : '-'}
+                          </td>
+                          <td style={{ color: diferencia > 0 ? '#16a34a' : diferencia < 0 ? '#dc2626' : '#666' }}>
+                            {resultado.encontrada ? (diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0') : '-'}
+                          </td>
                           <td style={{ fontWeight: 'bold' }}>{resultado.regional || '-'}</td>
                           <td className="SV-planillaCell">
                             {resultado.planilla}
@@ -2779,9 +2826,11 @@ const SolicitudVehiculos: React.FC = () => {
                           <td style={{ fontWeight: '600' }}>{resultado.placa || 'NA'}</td>
                           <td>{resultado.encontrada ? resultado.piezas : '-'}</td>
                           <td>{resultado.encontrada ? resultado.peso_real.toLocaleString('es-CO', { maximumFractionDigits: 0 }) : '-'}</td>
+                          <td>{resultado.encontrada ? (resultado.peso_sicetac ?? resultado.peso_real).toLocaleString('es-CO', { maximumFractionDigits: 0 }) : '-'}</td>
                           <td>{resultado.encontrada ? resultado.cantidad_pedidos : '-'}</td>
                           <td>{resultado.ruta}</td>
                           <td>{resultado.tipo_vehiculo || '-'}</td>
+                          <td>{resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || '-'}</td>
                           <td>${resultado.tarifa_calculada?.toLocaleString('es-CO') || '-'}</td>
                           <td>
                             {resultado.encontrada ? (
@@ -2790,7 +2839,6 @@ const SolicitudVehiculos: React.FC = () => {
                               </span>
                             ) : '-'}
                           </td>
-                          <td>{resultado.tipo_veh_sicetac || resultado.tipo_vehiculo || '-'}</td>
                           <td>
                             {resultado.encontrada ? `$${(typeof resultado.requiere_descargue === 'number' ? resultado.requiere_descargue : ((resultado.requiere_descargue === 'SI' || resultado.requiere_descargue === true) ? 50000 : 0)).toLocaleString('es-CO')}` : '-'}
                           </td>
@@ -2802,12 +2850,6 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td style={{ fontWeight: '600' }}>
                             {resultado.encontrada && resultado.aforo ? `$${resultado.aforo.toLocaleString('es-CO')}` : resultado.encontrada ? '$0' : '-'}
-                          </td>
-                          <td style={{ fontWeight: 'bold', color: '#005f56' }}>
-                            ${resultado.encontrada ? total.toLocaleString('es-CO') : '-'}
-                          </td>
-                          <td style={{ color: diferencia > 0 ? '#16a34a' : diferencia < 0 ? '#dc2626' : '#666' }}>
-                            {resultado.encontrada ? (diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0') : '-'}
                           </td>
                           <td>{resultado.municipio_destino}</td>
                           <td className="SV-truncate" title={resultado.cliente_origen}>
@@ -2970,6 +3012,19 @@ const SolicitudVehiculos: React.FC = () => {
                         <option key={op} value={op}>{op}</option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Peso SICETAC (kg)</label>
+                    <input
+                      type="number"
+                      className="SV-selectSmall"
+                      value={tempEdicion?.peso_sicetac ?? 0}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setTempEdicion(prev => prev ? { ...prev, peso_sicetac: isNaN(val) ? 0 : val } : null);
+                      }}
+                      style={{ width: '100%', padding: '0.5rem' }}
+                    />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Total Solicitado</label>
@@ -3142,6 +3197,7 @@ const SolicitudVehiculos: React.FC = () => {
                       ...modalDetalle.resultado,
                       tarifa_base: tempEdicion.tarifa_base,
                       tipo_veh_sicetac: tempEdicion.tipo_veh_sicetac,
+                      peso_sicetac: tempEdicion.peso_sicetac,
                       requiere_descargue: tempEdicion.requiere_descargue,
                       punto_adicional: tempEdicion.punto_adicional,
                       desvio: tempEdicion.desvio,
@@ -3150,18 +3206,23 @@ const SolicitudVehiculos: React.FC = () => {
                       causal: tempEdicion.causal || ''  // Agregar causal
                     };
 
-                    // Si la ruta cambió, recalcular tarifa y tipo de vehículo con la nueva ruta
+                    // Recalcular tarifa y tipo de vehículo si cambió la ruta O el Peso SICETAC.
+                    // El peso operacional que se envía es peso_sicetac (reemplaza a peso_real para trámites).
                     const rutaOriginal = modalDetalle.resultado.ruta && modalDetalle.resultado.ruta !== '-' ? modalDetalle.resultado.ruta : '';
                     const rutaEditada = (tempEdicion.ruta || '').trim();
+                    const pesoSicetacOriginal = modalDetalle.resultado.peso_sicetac ?? modalDetalle.resultado.peso_real ?? 0;
+                    const pesoSicetacEditado = tempEdicion.peso_sicetac ?? pesoSicetacOriginal;
+                    const rutaCambiada = !!(rutaEditada && rutaEditada !== rutaOriginal);
+                    const pesoCambiado = pesoSicetacEditado !== pesoSicetacOriginal;
                     let tarifaBaseCalc = tempEdicion.tarifa_base || modalDetalle.resultado.tarifa_calculada || 0;
                     let tarifaTeorico = modalDetalle.resultado.tarifa_calculada || 0;
                     let tipoVehCalc = tempEdicion.tipo_veh_sicetac || modalDetalle.resultado.tipo_vehiculo || '';
-                    if (rutaEditada && rutaEditada !== rutaOriginal) {
+                    if (rutaCambiada || pesoCambiado) {
                       try {
                         const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
                         const rt = await fetch(`${API}/siscore/consultar-tarifa`, {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ centro_costo: modalDetalle.resultado.centro_costo || 'FMC', ruta: rutaEditada, peso_real: modalDetalle.resultado.peso_real })
+                          body: JSON.stringify({ centro_costo: modalDetalle.resultado.centro_costo || 'FMC', ruta: rutaEditada || rutaOriginal, peso_real: pesoSicetacEditado })
                         });
                         if (rt.ok) {
                           const td = await rt.json();
