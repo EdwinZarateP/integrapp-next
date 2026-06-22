@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaTimes } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -2293,6 +2293,64 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  const handleAsignarPedidoManual = async (resultado: PlanillaResultado) => {
+    const consecutivo = resultado.consecutivo;
+    if (!consecutivo) {
+      Swal.fire('Sin consecutivo', 'Esta planilla no tiene consecutivo para asignar el pedido.', 'warning');
+      return;
+    }
+
+    const { value: pedidoInput } = await Swal.fire({
+      title: 'Asignar pedido Vulcano',
+      input: 'text',
+      inputLabel: `Consecutivo: ${consecutivo}`,
+      inputPlaceholder: 'Digite el número de pedido',
+      showCancelButton: true,
+      confirmButtonText: 'Asignar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#005f56',
+      cancelButtonColor: '#6b7280',
+      inputValidator: (value) => {
+        if (!value || !value.trim()) return 'Debe digitar un número de pedido';
+      }
+    });
+
+    const pedido = (pedidoInput || '').trim();
+    if (!pedido) return;
+
+    try {
+      Swal.fire({
+        title: 'Asignando pedido...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/siscore/asignar-pedido-manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consecutivo, pedido, usuario })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Error al asignar el pedido');
+      }
+
+      await Swal.fire(
+        '✅ Asignado',
+        `Pedido <strong>${pedido}</strong> asignado al consecutivo <strong>${consecutivo}</strong> y movido a histórico.`,
+        'success'
+      );
+
+      // Refrescar lista (igual que al importar el Excel)
+      setResultados([]);
+      await cargarResultadosRecientes(perfil, centroDistribucion);
+    } catch (error: any) {
+      Swal.fire('Error', error.message || 'Error al asignar el pedido', 'error');
+    }
+  };
+
   return (
     <div className="SV-layout">
       <NavMedicalCare paginaActual="solicitud" />
@@ -2660,6 +2718,17 @@ const SolicitudVehiculos: React.FC = () => {
                                 >
                                   <FaPen />
                                 </button>
+                                {/* Asignar pedido Vulcano manualmente - Solo ADMIN/ANALISTA, con consecutivo y estado APROBADO */}
+                                {resultado.consecutivo && resultado.estado === 'APROBADO' && ['ADMIN', 'ANALISTA'].includes(perfil) && (
+                                  <button
+                                    onClick={() => handleAsignarPedidoManual(resultado)}
+                                    className="SV-btnAction"
+                                    title="Asignar pedido Vulcano manualmente"
+                                    style={{ background: '#0d9488' }}
+                                  >
+                                    <FaFileImport />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleEliminarResultado(index)}
                                   className="SV-btnAction SV-btnDelete"
