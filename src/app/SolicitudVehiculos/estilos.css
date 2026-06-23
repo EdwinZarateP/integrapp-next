@@ -261,6 +261,15 @@
   background: #d1d5db;
 }
 
+/* Filas en estado CREADO (borrador del operativo, aún no visible para analista) */
+.SV-rowCreado {
+  background: #f8fafc;
+}
+
+.SV-rowCreado:hover {
+  background: #eef2f7;
+}
+
 /* Badge para casos sin tarifa */
 .SV-estadoSinTarifa {
   background: #9ca3af;
@@ -283,6 +292,13 @@
   background: #f3f4f6;
   color: #6b7280;
   border: 2px solid #9ca3af;
+}
+
+/* Badge CREADO: borrador del operativo (solo lo ve el creador y ADMIN) */
+.SV-estadoCreado {
+  background: #e2e8f0;
+  color: #475569;
+  border: 2px solid #94a3b8;
 }
 
 .SV-estadoCoordinador {

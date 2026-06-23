@@ -92,10 +92,11 @@ interface PlanillaResultado {
   solicitando_id?: string;
   causal?: string;
   // Estado de aprobación
-  estado?: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
+  estado?: 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
   aprobado_por?: string;  // Usuario que aprobó
   fecha_aprobacion?: string;  // Fecha de aprobación
   fecha_creacion?: string;  // Fecha de creación (para ordenar y mostrar en pantalla)
+  fecha_preaprobado?: string;  // Fecha en que quedó PREAPROBADO (visible para todos)
   // Campo de consecutivo único
   consecutivo?: string;
   consecutivo_base?: string;
@@ -162,12 +163,13 @@ const formatearFechaColombia = (fecha?: string): string => {
 const SolicitudVehiculos: React.FC = () => {
 
   // Cargar resultados recientes automáticamente (filtrado por regional para operativos)
-  const cargarResultadosRecientes = async (perfilFiltro?: string, centroFiltro?: string) => {
+  const cargarResultadosRecientes = async (perfilFiltro?: string, centroFiltro?: string, usuarioFiltro?: string) => {
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
       const params = new URLSearchParams({ limite: '100' });
       if (perfilFiltro) params.set('perfil', perfilFiltro);
       if (centroFiltro) params.set('centro_distribucion', centroFiltro);
+      if (usuarioFiltro) params.set('usuario', usuarioFiltro);
       const url = `${API}/siscore/obtener-resultados-recientes?${params}`;
       const response = await fetch(url);
 
@@ -211,6 +213,7 @@ const SolicitudVehiculos: React.FC = () => {
               estado: p.estado || 'PREAPROBADO',
               aprobado_por: p.aprobado_por,
               fecha_aprobacion: p.fecha_aprobacion,
+              fecha_preaprobado: p.fecha_preaprobado ?? p.fecha_creacion,
               consecutivo: p.consecutivo,
               consecutivo_base: p.consecutivo_base,
               flete_cobrado_fmc: p.flete_cobrado_fmc || 0,
@@ -344,7 +347,12 @@ const SolicitudVehiculos: React.FC = () => {
   };
 
   // Determinar el estado correcto basado en la diferencia
-  const determinarEstado = (resultado: PlanillaResultado): 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO' => {
+  const determinarEstado = (resultado: PlanillaResultado): 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO' => {
+    // Si está en CREADO (borrador del operativo), mantenerlo hasta paso explícito a PREAPROBADO
+    if (resultado.estado === 'CREADO') {
+      return 'CREADO';
+    }
+
     // Si ya está aprobada, mantenerlo
     if (resultado.estado === 'APROBADO') {
       return 'APROBADO';
@@ -366,6 +374,20 @@ const SolicitudVehiculos: React.FC = () => {
 
     // Si no hay diferencia, preaprobado
     return 'PREAPROBADO';
+  };
+
+  // Calcula el estado que corresponde a una planilla según sus valores actuales
+  // (tarifa teórica vs total solicitado), SIN preservar CREADO ni APROBADO.
+  // Se usa al "Enviar" una planilla desde CREADO: decide si va a PREAPROBADO,
+  // REQUIERE_APROBACION_COORDINADOR (≤7%) o REQUIERE_APROBACION_CONTROL (>7%).
+  const calcularEstadoPorValores = (resultado: PlanillaResultado): 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' => {
+    const teorico = resultado.tarifa_calculada || 0;
+    const total = calcularTotalSolicitado(resultado);
+    if (teorico === 0 || total <= teorico) {
+      return 'PREAPROBADO';
+    }
+    const { porcentaje } = calcularDiferenciaPorcentual(resultado);
+    return porcentaje <= 7 ? 'REQUIERE_APROBACION_COORDINADOR' : 'REQUIERE_APROBACION_CONTROL';
   };
 
   const calcularTotalTemporal = (): number => {
@@ -530,7 +552,7 @@ const SolicitudVehiculos: React.FC = () => {
     if (cliente && cliente !== 'MEDICAL_CARE') router.replace('/Pedidos');
 
     // Cargar resultados recientes (filtrado por regional para operativos)
-    cargarResultadosRecientes(perfilValue, centroDist);
+    cargarResultadosRecientes(perfilValue, centroDist, usuarioCookie);
 
     // Cargar listado de rutas para el autocompletar al asignar ruta
     cargarRutasDisponibles();
@@ -755,7 +777,7 @@ const SolicitudVehiculos: React.FC = () => {
             requiere_descargue: 0,
             punto_adicional: 0,
             desvio: 0,
-            estado: 'PREAPROBADO',
+            estado: perfil === 'OPERATIVO' ? 'CREADO' : 'PREAPROBADO',
             registros_detalle: [] as any[]
           });
 
@@ -831,6 +853,10 @@ const SolicitudVehiculos: React.FC = () => {
             <input id="ruta-${planilla}" list="rutas-list" value="${esc(rutaPre)}" placeholder="Escribe o elige una ruta" autocomplete="off" style="width:100%;padding:6px;box-sizing:border-box;margin-top:3px"/>
           </div>`;
         }).join('');
+
+        // Aviso sonoro: las planillas ya cargaron y se pidieron las rutas;
+        // al usuario solo le falta colocar las rutas en el diálogo que se abre ahora.
+        playNotificationSound();
 
         const { value: rutasAsignadas, isConfirmed } = await Swal.fire({
           title: 'Asigna la ruta de cada planilla',
@@ -1015,9 +1041,6 @@ const SolicitudVehiculos: React.FC = () => {
         console.error('❌ Error al guardar planillas:', error);
       }
 
-      // Reproducir sonido de notificación
-      playNotificationSound();
-
       Swal.fire(
         'Consulta finalizada',
         `Se encontraron ${encontradas} de ${planillasBuscadas.length} planillas (${registros.length} registros) en ${tiempoTotal} segundos`,
@@ -1042,7 +1065,7 @@ const SolicitudVehiculos: React.FC = () => {
       const total = calcularTotalSolicitado(resultado);
 
       // CALCULAR EL NUEVO ESTADO según los valores actuales
-      let nuevoEstado: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
+      let nuevoEstado: 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
       const teorico = resultado.tarifa_calculada || 0;
 
       if (teorico === 0) {
@@ -1060,6 +1083,12 @@ const SolicitudVehiculos: React.FC = () => {
         } else {
           nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
         }
+      }
+
+      // Si la planilla está en CREADO (borrador del operativo), mantener ese estado al
+      // guardar la edición; solo el botón "Enviar" la libera al estado que corresponda.
+      if (resultado.estado === 'CREADO') {
+        nuevoEstado = 'CREADO';
       }
 
       // Si la planilla estaba APROBADA y se está editando, recalcular estado completamente
@@ -1601,6 +1630,162 @@ const SolicitudVehiculos: React.FC = () => {
       Swal.fire('Error', 'Error al aprobar la planilla', 'error');
     }
   };
+
+  // Pasar una planilla CREADO a PREAPROBADO (visible para ADMIN y OPERATIVO creador)
+  // Etiqueta corta de un estado para los avisos
+  const etiquetaEstado = (estado: string): string => {
+    if (estado === 'REQUIERE_APROBACION_COORDINADOR') return 'COORDINADOR';
+    if (estado === 'REQUIERE_APROBACION_CONTROL') return 'CONTROL';
+    return estado;
+  };
+
+  // Enviar una planilla CREADO al estado que le corresponde según sus valores
+  // (PREAPROBADO, o COORDINADOR/CONTROL si requiere autorización). Visible para ADMIN y OPERATIVO.
+  const handleEnviarPlanilla = async (resultado: PlanillaResultado, index: number) => {
+    if (resultado.estado !== 'CREADO') return;
+
+    const estadoDestino = calcularEstadoPorValores(resultado);
+    const total = calcularTotalSolicitado(resultado);
+    const teorico = resultado.tarifa_calculada || 0;
+    const etiquetaDestino = etiquetaEstado(estadoDestino);
+
+    const result = await Swal.fire({
+      title: '¿Enviar planilla?',
+      html: `
+        <div style="text-align: left;">
+          <p><strong>Planilla:</strong> ${resultado.planilla}</p>
+          <p><strong>Flete teórico:</strong> $${teorico.toLocaleString('es-CO')}</p>
+          <p><strong>Total solicitado:</strong> $${total.toLocaleString('es-CO')}</p>
+          <p>Al enviarla pasará a estado <strong>${etiquetaDestino}</strong> y será visible para los perfiles correspondientes.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#0891b2',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, enviar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const nuevosResultados = [...resultados];
+      nuevosResultados[index] = { ...resultado, estado: estadoDestino, fecha_preaprobado: new Date().toISOString() };
+      setResultados(nuevosResultados);
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/siscore/actualizar-estado-planilla`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planilla: resultado.planilla,
+          estado: estadoDestino,
+          aprobado_por: usuario
+        })
+      });
+
+      if (response.ok) {
+        Swal.fire('✅ Enviada', `Planilla ${resultado.planilla} ahora en ${etiquetaDestino}`, 'success');
+      } else {
+        Swal.fire('⚠️ Parcial', 'Planilla actualizada en local pero falló en BD. Recarga la página.', 'warning');
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error al enviar la planilla', 'error');
+    }
+  };
+
+  // Enviar masivamente las planillas CREADO seleccionadas al estado que corresponde a cada una.
+  const handleEnviarSeleccionadas = async () => {
+    try {
+      if (planillasSeleccionadas.size === 0) {
+        Swal.fire('Advertencia', 'Selecciona al menos 1 planilla', 'warning');
+        return;
+      }
+      if (!['ADMIN', 'OPERATIVO'].includes(perfil)) {
+        Swal.fire('No Autorizado', 'Tu perfil no tiene permisos para esta acción', 'warning');
+        return;
+      }
+
+      const indices = Array.from(planillasSeleccionadas).sort((a, b) => a - b);
+      const seleccionadas = indices.map(i => resultados[i]);
+      const paraEnviar = seleccionadas.filter(p => p.estado === 'CREADO');
+
+      if (paraEnviar.length === 0) {
+        Swal.fire('No hay planillas CREADO', 'Las planillas seleccionadas no están en estado CREADO.', 'info');
+        return;
+      }
+
+      // Calcular destino de cada una
+      const conDestino = paraEnviar.map(p => ({ resultado: p, destino: calcularEstadoPorValores(p) }));
+      const resumen = conDestino.map(({ resultado, destino }) =>
+        `• ${resultado.planilla} → ${etiquetaEstado(destino)}`
+      ).join('\n');
+
+      const result = await Swal.fire({
+        title: '¿Enviar planillas?',
+        html: `<div style="text-align: left; white-space: pre-wrap;">Se enviarán ${conDestino.length} planilla(s) desde CREADO a su estado correspondiente:\n\n${resumen}</div>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#0891b2',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, enviar',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'Enviando planillas...',
+        html: '<div class="swal2-loader"></div><p>Por favor espera...</p>',
+        allowOutsideClick: false,
+        showConfirmButton: false
+      });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      let ok = 0, errores = 0;
+      const resultadosActualizados = [...resultados];
+
+      for (const { resultado, destino } of conDestino) {
+        try {
+          const response = await fetch(`${API}/siscore/actualizar-estado-planilla`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              planilla: resultado.planilla,
+              estado: destino,
+              aprobado_por: usuario
+            })
+          });
+          if (response.ok) {
+            const idx = resultados.findIndex(r => r.planilla === resultado.planilla);
+            if (idx !== -1) {
+              resultadosActualizados[idx] = { ...resultadosActualizados[idx], estado: destino, fecha_preaprobado: new Date().toISOString() };
+            }
+            ok++;
+          } else {
+            errores++;
+          }
+        } catch (error) {
+          console.error(`Error enviando ${resultado.planilla}:`, error);
+          errores++;
+        }
+      }
+
+      setResultados(resultadosActualizados);
+      setPlanillasSeleccionadas(new Set());
+      playNotificationSound();
+      Swal.fire(
+        'Envío Finalizado',
+        `✅ Enviadas: ${ok}\n${errores > 0 ? `❌ Con errores: ${errores}` : ''}`,
+        errores > 0 ? 'warning' : 'success'
+      );
+    } catch (error: any) {
+      console.error('Error al enviar planillas masivamente:', error);
+      Swal.fire('Error', `Error: ${error?.message || 'desconocido'}`, 'error');
+    }
+  };
+
 
   const handleDescargarExcel = async () => {
     try {
@@ -2564,6 +2749,7 @@ const SolicitudVehiculos: React.FC = () => {
                       style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', minWidth: '150px' }}
                     >
                       <option value="TODOS">Todos</option>
+                      <option value="CREADO">Creado</option>
                       <option value="PREAPROBADO">Preaprobado</option>
                       <option value="REQUIERE_APROBACION_COORDINADOR">Coordinador</option>
                       <option value="REQUIERE_APROBACION_CONTROL">Control</option>
@@ -2598,6 +2784,16 @@ const SolicitudVehiculos: React.FC = () => {
                         ✅ Aprobar ({planillasSeleccionadas.size})
                       </button>
                     )}
+                    {/* Botón Enviar Masivo (CREADO -> estado que corresponde) - ADMIN y OPERATIVO */}
+                    {['ADMIN', 'OPERATIVO'].includes(perfil) && planillasSeleccionadas.size > 0 && (
+                      <button
+                        onClick={handleEnviarSeleccionadas}
+                        className="SV-btnToggle"
+                        style={{ background: '#0891b2', fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                      >
+                        📤 Enviar ({planillasSeleccionadas.size})
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="SV-tableContainer">
@@ -2630,7 +2826,7 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Acciones</th>
                         <th>Consecutivo</th>
                         <th>Planilla</th>
-                        <th>Fecha Creación</th>
+                        <th>Fecha Preaprobado</th>
                         <th>Estado</th>
                         <th>Total Solicitado</th>
                         <th>Diferencia</th>
@@ -2695,6 +2891,7 @@ const SolicitudVehiculos: React.FC = () => {
                         <tr
                           key={index}
                           className={
+                            resultado.estado === 'CREADO' ? 'SV-rowCreado' :
                             resultado.estado === 'APROBADO' ? 'SV-rowApproved' :
                             resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'SV-rowNeedsApprovalCoord' :
                             resultado.estado === 'REQUIERE_APROBACION_CONTROL' ? 'SV-rowNeedsApprovalCtrl' :
@@ -2784,26 +2981,41 @@ const SolicitudVehiculos: React.FC = () => {
                             {resultado.planilla}
                           </td>
                           <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>
-                            {formatearFechaColombia(resultado.fecha_creacion)}
+                            {formatearFechaColombia(resultado.fecha_preaprobado || resultado.fecha_creacion)}
                           </td>
                           <td>
                             {resultado.encontrada && (
                               <>
                                 {/* Badge de estado */}
                                 <span className={`SV-estadoBadge ${
+                                  resultado.estado === 'CREADO' ? 'SV-estadoCreado' :
                                   resultado.estado === 'APROBADO' ? 'SV-estadoAprobado' :
                                   resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'SV-estadoCoordinador' :
                                   resultado.estado === 'REQUIERE_APROBACION_CONTROL' ? 'SV-estadoControl' :
                                   'SV-estadoPreaprobado'
                                 }`}>
-                                  {resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'COORDINADOR' :
+                                  {resultado.estado === 'CREADO' ? 'CREADO' :
+                                   resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ? 'COORDINADOR' :
                                    resultado.estado === 'REQUIERE_APROBACION_CONTROL' ? 'CONTROL' :
                                    resultado.estado === 'APROBADO' ? 'APROBADO' :
                                    'PREAPROBADO'}
                                 </span>
 
-                                {/* Botón de aprobar - Solo para perfiles autorizados */}
-                                {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && (
+                                {/* Botón Enviar - visible para ADMIN y OPERATIVO sobre planillas en CREADO.
+                                    Calcula el estado destino (PREAPROBADO o COORDINADOR/CONTROL) según los valores. */}
+                                {resultado.estado === 'CREADO' && ['ADMIN', 'OPERATIVO'].includes(perfil) && (
+                                  <button
+                                    onClick={() => handleEnviarPlanilla(resultado, index)}
+                                    className="SV-btnAction"
+                                    title="Enviar planilla: pasa de CREADO al estado que corresponde (Preaprobado / Coordinador / Control)"
+                                    style={{ marginTop: '5px', width: '100%', fontSize: '0.75rem', padding: '0.25rem', background: '#0891b2', color: '#fff' }}
+                                  >
+                                    <FaPaperPlane /> Enviar
+                                  </button>
+                                )}
+
+                                {/* Botón de aprobar - Solo para perfiles autorizados (no en CREADO) */}
+                                {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && resultado.estado !== 'CREADO' && (
                                   <button
                                     onClick={() => handleAprobarPlanilla(resultado, index)}
                                     className="SV-btnAction SV-btnSave"
@@ -3271,8 +3483,12 @@ const SolicitudVehiculos: React.FC = () => {
                     let causalFinal = tempEdicion.causal || '';
 
                     // Determinar el estado correcto basado en la diferencia
-                    let nuevoEstado: 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
-                    if (modalDetalle.resultado.estado === 'APROBADO') {
+                    let nuevoEstado: 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
+                    if (modalDetalle.resultado.estado === 'CREADO') {
+                      // Borrador del operativo: la edición NO lo saca de CREADO (aunque haya sobrecosto);
+                      // solo el botón "Enviar" lo libera al estado que corresponda.
+                      nuevoEstado = 'CREADO';
+                    } else if (modalDetalle.resultado.estado === 'APROBADO') {
                       nuevoEstado = 'APROBADO';
                     } else if (esMayor && porcentaje > 0) {
                       // Distinguir entre coordinador (≤ 7%) y control (> 7%)
@@ -3295,8 +3511,8 @@ const SolicitudVehiculos: React.FC = () => {
                       ruta: rutaEditada || rutaOriginal,  // Ruta (editada o mantenida)
                       tarifa_base: tarifaBaseCalc,
                       tarifa_calculada: tarifaTeorico,
-                      tipo_vehiculo: tipoVehCalc,
-                      tipo_veh_sicetac: tipoVehCalc
+                      tipo_veh_sicetac: tipoVehCalc  // Solo el SICETAC toma el valor editado/recalculado;
+                      // tipo_vehiculo se conserva del original (Siscore), ya viene en resultadoTemp.
                     };
 
                     // Aplicar cambios locales - actualizar todo de una vez
