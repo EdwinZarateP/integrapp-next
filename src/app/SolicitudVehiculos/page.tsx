@@ -2629,12 +2629,12 @@ const SolicitudVehiculos: React.FC = () => {
                         </th>
                         <th>Acciones</th>
                         <th>Consecutivo</th>
+                        <th>Planilla</th>
                         <th>Fecha Creación</th>
                         <th>Estado</th>
                         <th>Total Solicitado</th>
                         <th>Diferencia</th>
                         <th>Regional</th>
-                        <th>Planilla</th>
                         <th>Placa</th>
                         <th>Piezas</th>
                         <th>Peso Real</th>
@@ -2780,6 +2780,9 @@ const SolicitudVehiculos: React.FC = () => {
                           <td style={{ fontWeight: '700', color: '#004d40', fontFamily: 'monospace', fontSize: '0.95rem' }}>
                             {resultado.consecutivo || '-'}
                           </td>
+                          <td className="SV-planillaCell">
+                            {resultado.planilla}
+                          </td>
                           <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>
                             {formatearFechaColombia(resultado.fecha_creacion)}
                           </td>
@@ -2820,9 +2823,6 @@ const SolicitudVehiculos: React.FC = () => {
                             {resultado.encontrada ? (diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0') : '-'}
                           </td>
                           <td style={{ fontWeight: 'bold' }}>{resultado.regional || '-'}</td>
-                          <td className="SV-planillaCell">
-                            {resultado.planilla}
-                          </td>
                           <td style={{ fontWeight: '600' }}>{resultado.placa || 'NA'}</td>
                           <td>{resultado.encontrada ? resultado.piezas : '-'}</td>
                           <td>{resultado.encontrada ? resultado.peso_real.toLocaleString('es-CO', { maximumFractionDigits: 0 }) : '-'}</td>
