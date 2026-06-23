@@ -502,6 +502,17 @@ input[type="number"] {
     justify-content: center;
   }
 
+  /* Barra de Resultados: apilar título + filtro + conteo sobre las acciones */
+  .SV-resultsHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .SV-resultsMeta {
+    width: 100%;
+    align-items: center;
+  }
+
   .SV-table {
     min-width: 800px;
   }
@@ -525,6 +536,12 @@ input[type="number"] {
 @media (max-width: 600px) {
   .recargos-grid {
     grid-template-columns: 1fr;
+  }
+
+  .SV-modalBox {
+    padding: 1rem !important;
+    width: 95% !important;
+    border-radius: 10px !important;
   }
 }
 

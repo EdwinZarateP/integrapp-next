@@ -2554,8 +2554,8 @@ const SolicitudVehiculos: React.FC = () => {
 
             {resultados.length > 0 && (
               <div className="SV-resultsSection">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div className="SV-resultsHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', rowGap: '0.75rem', marginBottom: '1.5rem' }}>
+                  <div className="SV-resultsMeta" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                     <h2 className="SV-resultsTitle" style={{ margin: 0 }}>Resultados</h2>
                     <select
                       value={filtroEstado}
@@ -2891,14 +2891,15 @@ const SolicitudVehiculos: React.FC = () => {
             alignItems: 'center',
             zIndex: 9999
           }}
-          onDoubleClick={(e) => {
-            // Solo cerrar con doble click en el overlay
+          onClick={(e) => {
+            // Clic en el fondo cierra SIN guardar (el botón Guardar es el que guarda).
             if (e.target === e.currentTarget) {
               handleCerrarModal();
             }
           }}
         >
           <div
+            className="SV-modalBox"
             style={{
               background: 'white',
               borderRadius: '12px',
@@ -2925,7 +2926,7 @@ const SolicitudVehiculos: React.FC = () => {
               <button onClick={handleCerrarModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
               <div><strong>Regional:</strong> {modalDetalle.resultado.regional || '-'}</div>
               <div><strong>Ruta:</strong> {modalDetalle.resultado.ruta}</div>
               <div><strong>Piezas:</strong> {modalDetalle.resultado.piezas}</div>
@@ -2948,7 +2949,7 @@ const SolicitudVehiculos: React.FC = () => {
               {/* Sección: Tarifas */}
               <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
                 <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#666', fontWeight: '600' }}>💰 FLETES</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem' }}>Flete Teórico</label>
                     <div style={{ padding: '0.5rem', background: 'white', border: '1px solid #e0e0e0', borderRadius: '6px', fontWeight: '600', color: '#005f56' }}>
