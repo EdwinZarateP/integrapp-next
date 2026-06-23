@@ -474,14 +474,27 @@ input[type="number"] {
 @media (max-width: 768px) {
   .SV-main {
     padding: 1rem;
+    width: 100%;
   }
 
   .SV-title {
     font-size: 1.5rem;
   }
 
+  /* En columna, stretch = campos a ancho completo (corrige el "descentrado":
+     flex-end heredado de desktop los pegaba a la derecha). */
   .SV-searchSection {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .SV-inputGroup {
+    width: 100%;
+  }
+
+  .SV-input {
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .SV-btnSearch {
