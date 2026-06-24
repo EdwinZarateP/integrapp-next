@@ -1100,6 +1100,7 @@ const SolicitudVehiculos: React.FC = () => {
         planilla: resultado.planilla,
         total_solicitado: typeof total === 'number' ? total : parseFloat(total as any) || 0,
         tarifa_base: resultado.tarifa_base || 0,
+        tarifa_calculada: resultado.tarifa_calculada || 0,
         requiere_descargue: typeof resultado.requiere_descargue === 'number' ? resultado.requiere_descargue : (typeof resultado.requiere_descargue === 'string' && (resultado.requiere_descargue as string) === 'SI' ? 50000 : 0),
         punto_adicional: typeof resultado.punto_adicional === 'number' ? resultado.punto_adicional : (resultado.punto_adicional === true ? 80000 : 0),
         desvio: typeof resultado.desvio === 'number' ? resultado.desvio : (resultado.desvio === true ? 100000 : 0),

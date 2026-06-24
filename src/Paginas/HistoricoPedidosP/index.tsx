@@ -28,9 +28,12 @@ interface HistoricoDoc {
   tarifa_base: number;
   diferencia: number;
   estado: string;
+  fecha_preaprobado: string;
+  fecha_creacion: string;
   fecha_movimiento_historico: string;
   placa: string;
   tipo_veh_sicetac: string;
+  peso_sicetac: number;
   requiere_descargue: number;
   punto_adicional: number;
   desvio: number;
@@ -41,7 +44,7 @@ interface HistoricoDoc {
   [key: string]: any;
 }
 
-const COLS = 26;
+const COLS = 27;
 
 const HistoricoPedidosP: React.FC = () => {
   const router = useRouter();
@@ -163,7 +166,8 @@ const HistoricoPedidosP: React.FC = () => {
 
   const fmtVal = (val: any): number => {
     if (typeof val === 'number') return val;
-    return 0;
+    const parsed = Number(val);
+    return Number.isFinite(parsed) ? parsed : 0;
   };
 
   const fmtRecargo = (val: any, fallbackIfTrue: number): string => {
@@ -222,32 +226,33 @@ const HistoricoPedidosP: React.FC = () => {
             <table className="HP-table">
               <thead>
                 <tr>
-                  <th>Pedido Vulcano</th>
                   <th>Consecutivo</th>
-                  <th>Estado</th>
-                  <th>Regional</th>
                   <th>Planilla</th>
+                  <th>Pedido Vulcano</th>
+                  <th>Fecha Preaprobado</th>
+                  <th>Estado</th>
+                  <th>Total Solicitado</th>
+                  <th>Diferencia</th>
+                  <th>Regional</th>
                   <th>Placa</th>
                   <th>Piezas</th>
                   <th>Peso Real</th>
+                  <th>Peso SICETAC</th>
                   <th>Cant. Pedidos</th>
                   <th>Ruta</th>
                   <th>Tipo Vehículo</th>
+                  <th>Vehículo SICETAC</th>
                   <th>Flete Teórico</th>
                   <th>Flete Solicitado</th>
-                  <th>Vehículo SICETAC</th>
                   <th>Descargue</th>
                   <th>Punto Adic.</th>
                   <th>Desvío</th>
                   <th>Aforo</th>
-                  <th>Total Solicitado</th>
-                  <th>Diferencia</th>
-                  <th>Municipio Destino</th>
+                  <th>Municipio Principal</th>
                   <th>Cliente Origen</th>
                   <th>Cant. Destinos</th>
                   <th>Código Pedido</th>
                   <th>Observaciones</th>
-                  <th>Fecha Movimiento</th>
                 </tr>
               </thead>
               <tbody>
@@ -257,12 +262,18 @@ const HistoricoPedidosP: React.FC = () => {
                   </tr>
                 ) : (
                   planillasFiltradas.map(p => {
-                    const diferencia = p.diferencia || 0;
+                    const totalSolicitado = fmtVal(p.total_solicitado);
+                    const fleteTeorico = fmtVal(p.tarifa_calculada);
+                    const diferencia = p.diferencia !== undefined && p.diferencia !== null
+                      ? fmtVal(p.diferencia)
+                      : totalSolicitado - fleteTeorico;
                     const diferenciaColor = diferencia > 0 ? '#b91c1c' : diferencia < 0 ? '#15803d' : '#666';
                     return (
                       <tr key={p._id}>
-                        <td style={{ fontWeight: 600, color: '#2563eb' }}>{p.pedido_vulcano || '-'}</td>
                         <td className="HP-cellMono" style={{ fontWeight: 700, color: '#004d40' }}>{p.consecutivo || '-'}</td>
+                        <td>{p.planilla}</td>
+                        <td style={{ fontWeight: 600, color: '#2563eb' }}>{p.pedido_vulcano || '-'}</td>
+                        <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>{formatDate(p.fecha_preaprobado || p.fecha_creacion)}</td>
                         <td>
                           <span style={{
                             padding: '2px 8px',
@@ -277,35 +288,34 @@ const HistoricoPedidosP: React.FC = () => {
                              p.estado || 'PREAPROBADO'}
                           </span>
                         </td>
+                        <td style={{ fontWeight: 'bold', color: '#005f56', background: '#dcfce7' }}>${totalSolicitado.toLocaleString('es-CO')}</td>
+                        <td style={{ fontWeight: 'bold', color: diferenciaColor }}>
+                          {diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0'}
+                        </td>
                         <td style={{ fontWeight: 'bold' }}>{p.regional || '-'}</td>
-                        <td>{p.planilla}</td>
                         <td style={{ fontWeight: 600 }}>{p.placa || 'NA'}</td>
                         <td>{p.piezas || 0}</td>
                         <td>{fmtVal(p.peso_real).toLocaleString('es-CO')}</td>
+                        <td>{fmtVal(p.peso_sicetac ?? p.peso_real).toLocaleString('es-CO')}</td>
                         <td>{p.cantidad_pedidos || '-'}</td>
                         <td>{p.ruta || '-'}</td>
                         <td>{p.tipo_vehiculo || '-'}</td>
-                        <td>${fmtVal(p.tarifa_calculada).toLocaleString('es-CO')}</td>
+                        <td>{p.tipo_veh_sicetac || p.tipo_vehiculo || '-'}</td>
+                        <td>${fleteTeorico.toLocaleString('es-CO')}</td>
                         <td>
                           <span style={{ fontWeight: 600, color: '#005f56' }}>
                             ${fmtVal(p.tarifa_base || p.tarifa_calculada).toLocaleString('es-CO')}
                           </span>
                         </td>
-                        <td>{p.tipo_veh_sicetac || p.tipo_vehiculo || '-'}</td>
                         <td>{fmtRecargo(p.requiere_descargue, 50000)}</td>
                         <td>{fmtRecargo(p.punto_adicional, 80000)}</td>
                         <td>{fmtRecargo(p.desvio, 100000)}</td>
                         <td style={{ fontWeight: 600 }}>{p.aforo ? `$${fmtVal(p.aforo).toLocaleString('es-CO')}` : '$0'}</td>
-                        <td style={{ fontWeight: 'bold', color: '#005f56' }}>${fmtVal(p.total_solicitado).toLocaleString('es-CO')}</td>
-                        <td style={{ fontWeight: 'bold', color: diferenciaColor }}>
-                          {diferencia > 0 ? `+$${diferencia.toLocaleString('es-CO')}` : diferencia < 0 ? `-$${Math.abs(diferencia).toLocaleString('es-CO')}` : '$0'}
-                        </td>
                         <td>{p.municipio_destino || '-'}</td>
                         <td className="HP-truncate" title={p.cliente_origen}>{p.cliente_origen || '-'}</td>
                         <td style={{ textAlign: 'center', fontWeight: 600, color: '#005f56' }}>{p.cantidad_destinos || '-'}</td>
                         <td className="HP-truncate" title={p.codigo_pedido}>{p.codigo_pedido || '-'}</td>
                         <td className="HP-truncate" title={p.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>{p.causal || '-'}</td>
-                        <td style={{ fontSize: '0.8rem', color: '#666', whiteSpace: 'nowrap' }}>{formatDate(p.fecha_movimiento_historico)}</td>
                       </tr>
                     );
                   })

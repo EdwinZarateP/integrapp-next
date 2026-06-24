@@ -41,7 +41,7 @@ const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CONDUCTOR', 'CONTROL', 'COORDIN
 
 const USUARIO_VACIO: BaseUsuario = {
   nombre: '', correo: '', regional: '', celular: '',
-  perfil: 'OPERATIVO', usuario: '', clave: '', clientes: ['KABI'],
+  perfil: 'OPERATIVO', usuario: '', clave: '', clientes: [],
 };
 
 const GestionUsuariosP: React.FC = () => {
@@ -274,9 +274,17 @@ const GestionUsuariosP: React.FC = () => {
     setModal(true);
   };
 
+  const cerrarAlClickFondo = (e: React.MouseEvent<HTMLDivElement>, cerrar: () => void) => {
+    if (e.target === e.currentTarget) cerrar();
+  };
+
   const guardarUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (form.perfil !== 'CLIENTE_FMC' && (!form.clientes || form.clientes.length === 0)) {
+      setError('Selecciona al menos un cliente.');
+      return;
+    }
     setGuardando(true);
     try {
       const res = await crearUsuario({
@@ -461,8 +469,8 @@ const GestionUsuariosP: React.FC = () => {
 
       {/* ══ MODAL: NUEVO USUARIO ══ */}
       {modal && (
-        <div className="GU-modalOverlay" onClick={() => setModal(false)}>
-          <div className="GU-modalCard" onClick={e => e.stopPropagation()}>
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModal(false))}>
+          <div className="GU-modalCard" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <div className="GU-modalHeader">
               <h3 className="GU-modalTitulo">Nuevo usuario</h3>
               <button className="GU-modalCerrar" onClick={() => setModal(false)}><FaTimes /></button>
@@ -552,8 +560,8 @@ const GestionUsuariosP: React.FC = () => {
       )}
       {/* ══ MODAL: EDITAR USUARIO ══ */}
       {modalEditar && (
-        <div className="GU-modalOverlay" onClick={() => setModalEditar(null)}>
-          <div className="GU-modalCard" onClick={e => e.stopPropagation()}>
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalEditar(null))}>
+          <div className="GU-modalCard" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <div className="GU-modalHeader">
               <div>
                 <h3 className="GU-modalTitulo">Editar usuario</h3>
@@ -617,8 +625,8 @@ const GestionUsuariosP: React.FC = () => {
 
       {/* ══ MODAL: RESETEAR CONTRASEÑA ══ */}
       {modalReset && (
-        <div className="GU-modalOverlay" onClick={() => setModalReset(null)}>
-          <div className="GU-modalCard GU-modalCard--sm" onClick={e => e.stopPropagation()}>
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalReset(null))}>
+          <div className="GU-modalCard GU-modalCard--sm" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <div className="GU-modalHeader">
               <div>
                 <h3 className="GU-modalTitulo"><FaKey style={{ marginRight: 8, color: '#b45309' }} />Resetear contraseña</h3>
@@ -657,8 +665,8 @@ const GestionUsuariosP: React.FC = () => {
 
       {/* ══ MODAL: CLAVE AL CAMBIAR PERFIL ══ */}
       {modalClavePerfil && (
-        <div className="GU-modalOverlay" onClick={() => setModalClavePerfil(null)}>
-          <div className="GU-modalCard GU-modalCard--sm" onClick={e => e.stopPropagation()}>
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalClavePerfil(null))}>
+          <div className="GU-modalCard GU-modalCard--sm" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <div className="GU-modalHeader">
               <div>
                 <h3 className="GU-modalTitulo">Asignar contraseña</h3>
@@ -690,8 +698,8 @@ const GestionUsuariosP: React.FC = () => {
 
       {/* ══ MODAL: NOTIFICACIONES MC ══ */}
       {modalNotifMc && (
-        <div className="GU-modalOverlay" onClick={() => setModalNotifMc(null)}>
-          <div className="GU-modalCard GU-modalCard--sm" onClick={e => e.stopPropagation()}>
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalNotifMc(null))}>
+          <div className="GU-modalCard GU-modalCard--sm" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <div className="GU-modalHeader">
               <div>
                 <h3 className="GU-modalTitulo"><FaBell style={{ marginRight: 8, color: '#004d40' }} />Notificaciones MC</h3>
