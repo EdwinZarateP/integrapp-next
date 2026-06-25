@@ -145,19 +145,30 @@ const ordenarPorCreacion = (lista: PlanillaResultado[]): PlanillaResultado[] =>
   });
 
 // Formatea una fecha ISO en zona horaria de Colombia (America/Bogota), dd/MM/yyyy HH:mm.
+// Hace conversión manual UTC → Colombia (UTC-5) para asegurar consistencia en todos los navegadores.
 const formatearFechaColombia = (fecha?: string): string => {
   if (!fecha) return '-';
   const d = new Date(fecha);
   if (isNaN(d.getTime())) return '-';
-  return d.toLocaleString('es-CO', {
-    timeZone: 'America/Bogota',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
+
+  // Convertir UTC a Colombia (UTC-5) manualmente
+  // getTime() retorna milisegundos desde epoch en UTC
+  const utc = d.getTime();
+  // Restar 5 horas (5 * 60 * 60 * 1000 ms) para Colombia
+  const colombiaOffset = -5 * 60 * 60 * 1000;
+  const colombiaTime = new Date(utc + colombiaOffset);
+
+  // Formatear manualmente para asegurar formato dd/MM/yyyy HH:mm a.m./p.m.
+  const day = String(colombiaTime.getDate()).padStart(2, '0');
+  const month = String(colombiaTime.getMonth() + 1).padStart(2, '0');
+  const year = colombiaTime.getFullYear();
+  let hours = colombiaTime.getHours();
+  const minutes = String(colombiaTime.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'p. m.' : 'a. m.';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // 0 debe ser 12
+
+  return `${day}/${month}/${year}, ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
 const SolicitudVehiculos: React.FC = () => {
