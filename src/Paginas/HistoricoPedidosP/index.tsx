@@ -54,7 +54,10 @@ const HistoricoPedidosP: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
 
-  const hoy = new Date().toISOString().split('T')[0];
+  // "Hoy" en zona Colombia (America/Bogota). Antes se usaba new Date().toISOString(),
+  // que devuelve la fecha UTC: a partir de las 7 pm Colombia (00:00 UTC) saltaba al día
+  // siguiente y ocultaba los pedidos de hoy.
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const [fechaInicio, setFechaInicio] = useState(hoy);
   const [fechaFin, setFechaFin] = useState(hoy);
   const [descargando, setDescargando] = useState(false);
@@ -159,9 +162,27 @@ const HistoricoPedidosP: React.FC = () => {
 
   const formatDate = (val: any) => {
     if (!val) return '-';
-    if (typeof val === 'string') return val.replace('T', ' ').substring(0, 16);
-    if (val instanceof Date) return val.toISOString().replace('T', ' ').substring(0, 16);
-    try { return new Date(val).toISOString().replace('T', ' ').substring(0, 16); } catch { return String(val); }
+    // FastAPI + pymongo (tz_aware=False) devuelven las fechas Mongo como ISO SIN zona hororia
+    // (p.ej. '2026-06-25T21:28:43.718000'). El servidor corre en UTC, así que ese valor es UTC.
+    // Si no se marca como UTC, new Date() lo interpreta como hora LOCAL del navegador y la
+    // conversión a Colombia queda mal (mostraba 21:28 en vez de 16:28). Por eso añadimos 'Z'
+    // cuando el string no trae offset, y luego formateamos a America/Bogota (UTC-5).
+    let s: string;
+    if (val instanceof Date) {
+      s = val.toISOString();
+    } else {
+      s = String(val).trim();
+      if (s && !/[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+    }
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return String(val);
+    const partes = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(d);
+    const g = (t: string) => partes.find(p => p.type === t)?.value ?? '00';
+    return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}`;
   };
 
   const fmtVal = (val: any): number => {

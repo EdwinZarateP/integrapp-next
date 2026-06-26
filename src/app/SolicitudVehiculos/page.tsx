@@ -119,8 +119,12 @@ const REGIONAL_MAP: Record<string, string> = {
   'CO09': 'MEDELLIN'
 };
 
-// Regionales seleccionables manualmente por perfiles globales (ADMIN/ANALISTA)
-const REGIONES = ['BARRANQUILLA', 'CALI', 'BUCARAMANGA', 'FUNZA', 'MEDELLIN'];
+// Opciones del menú "Regional" para perfiles globales (ADMIN/ANALISTA).
+// Se usan los municipios de la bodega de origen (GALAPA/YUMBO/GIRARDOTA) en vez del
+// nombre de la regional: este valor se guarda en `regional` y define el PREFIJO del
+// consecutivo (ej. YUMBO-20260625-1). BUCARAMANGA/FUNZA no tienen bodega y se dejan igual.
+// Decisión del usuario 2026-06-25.
+const REGIONES = ['GALAPA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'];
 
 // Mapa regional -> municipio de la bodega de origen (igual que se guarda en Mongo).
 // Se usa para mostrar el campo REGIONAL en pantalla para OPERATIVO.
@@ -3431,29 +3435,37 @@ const SolicitudVehiculos: React.FC = () => {
                       causal: tempEdicion.causal || ''  // Agregar causal
                     };
 
-                    // Recalcular tarifa y tipo de vehículo si cambió la ruta O el Peso SICETAC.
-                    // El peso operacional que se envía es peso_sicetac (reemplaza a peso_real para trámites).
+                    // Recalcular la tarifa (Flete Teórico) si cambió la ruta O el tipo_veh_sicetac.
+                    // La tarifa se busca en la tabla de fletes por (ruta, tipo_veh_sicetac) elegido.
+                    // El peso SICETAC es solo operacional: NO afecta la tarifa.
                     const rutaOriginal = modalDetalle.resultado.ruta && modalDetalle.resultado.ruta !== '-' ? modalDetalle.resultado.ruta : '';
                     const rutaEditada = (tempEdicion.ruta || '').trim();
-                    const pesoSicetacOriginal = modalDetalle.resultado.peso_sicetac ?? modalDetalle.resultado.peso_real ?? 0;
-                    const pesoSicetacEditado = tempEdicion.peso_sicetac ?? pesoSicetacOriginal;
+                    const pesoSicetacEditado = tempEdicion.peso_sicetac ?? modalDetalle.resultado.peso_sicetac ?? modalDetalle.resultado.peso_real ?? 0;
                     const rutaCambiada = !!(rutaEditada && rutaEditada !== rutaOriginal);
-                    const pesoCambiado = pesoSicetacEditado !== pesoSicetacOriginal;
+                    const tipoVehSicetacOriginal = (modalDetalle.resultado.tipo_veh_sicetac || modalDetalle.resultado.tipo_vehiculo || '').toUpperCase();
+                    const tipoVehSicetacEditado = (tempEdicion.tipo_veh_sicetac || modalDetalle.resultado.tipo_vehiculo || '').toUpperCase();
+                    const tipoVehSicetacCambiado = tipoVehSicetacEditado !== tipoVehSicetacOriginal;
                     let tarifaBaseCalc = tempEdicion.tarifa_base || modalDetalle.resultado.tarifa_calculada || 0;
                     let tarifaTeorico = modalDetalle.resultado.tarifa_calculada || 0;
                     let tipoVehCalc = tempEdicion.tipo_veh_sicetac || modalDetalle.resultado.tipo_vehiculo || '';
-                    if (rutaCambiada || pesoCambiado) {
+                    if (rutaCambiada || tipoVehSicetacCambiado) {
                       try {
                         const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
                         const rt = await fetch(`${API}/siscore/consultar-tarifa`, {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ centro_costo: modalDetalle.resultado.centro_costo || 'FMC', ruta: rutaEditada || rutaOriginal, peso_real: pesoSicetacEditado })
+                          body: JSON.stringify({
+                            centro_costo: modalDetalle.resultado.centro_costo || 'FMC',
+                            ruta: rutaEditada || rutaOriginal,
+                            peso_real: pesoSicetacEditado,
+                            tipo_vehiculo: tipoVehCalc  // La tarifa se busca por el tipo de vehículo elegido (SICETAC)
+                          })
                         });
                         if (rt.ok) {
                           const td = await rt.json();
-                          tarifaBaseCalc = td.tarifa_calculada || 0;
+                          // Solo se recalcula el Flete Teórico (flete real de comparación) para el
+                          // vehículo/ruta elegidos. tarifaBaseCalc (Flete solicitado) SE RESPETA:
+                          // conserva el valor manual que el usuario escribió en el input.
                           tarifaTeorico = td.tarifa_calculada || 0;
-                          tipoVehCalc = td.tipo_vehiculo || tipoVehCalc;
                         }
                       } catch (e) { /* Si falla la consulta, se mantienen los valores previos */ }
                     }
@@ -3523,7 +3535,7 @@ const SolicitudVehiculos: React.FC = () => {
                       ruta: rutaEditada || rutaOriginal,  // Ruta (editada o mantenida)
                       tarifa_base: tarifaBaseCalc,
                       tarifa_calculada: tarifaTeorico,
-                      tipo_veh_sicetac: tipoVehCalc  // Solo el SICETAC toma el valor editado/recalculado;
+                      tipo_veh_sicetac: tipoVehCalc  // SICETAC = valor editado manualmente (independiente del peso);
                       // tipo_vehiculo se conserva del original (Siscore), ya viene en resultadoTemp.
                     };
 
