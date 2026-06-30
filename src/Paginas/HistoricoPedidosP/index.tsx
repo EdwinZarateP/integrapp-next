@@ -53,6 +53,7 @@ const HistoricoPedidosP: React.FC = () => {
   const [planillas, setPlanillas] = useState<HistoricoDoc[]>([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [regionalSeleccionada, setRegionalSeleccionada] = useState('');
 
   // "Hoy" en zona Colombia (America/Bogota). Antes se usaba new Date().toISOString(),
   // que devuelve la fecha UTC: a partir de las 7 pm Colombia (00:00 UTC) saltaba al día
@@ -84,13 +85,14 @@ const HistoricoPedidosP: React.FC = () => {
     cargarHistorico(hoy, hoy, perfilCookie, regionalCookie.startsWith('CO') ? CEDI_MAP[regionalCookie] || regionalCookie : regionalCookie);
   }, [router]);
 
-  const cargarHistorico = async (fInicio: string, fFin: string, perfilVal?: string, centroVal?: string) => {
+  const cargarHistorico = async (fInicio: string, fFin: string, perfilVal?: string, centroVal?: string, regionalVal?: string) => {
     setCargando(true);
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
       const params = new URLSearchParams({ fecha_inicio: fInicio, fecha_fin: fFin });
       if (perfilVal) params.set('perfil', perfilVal);
       if (centroVal) params.set('centro_distribucion', centroVal);
+      if (regionalVal) params.set('regional', regionalVal);
 
       const response = await fetch(`${API}/siscore/historico?${params}`);
       if (response.ok) {
@@ -105,7 +107,7 @@ const HistoricoPedidosP: React.FC = () => {
   };
 
   const handleBuscar = () => {
-    cargarHistorico(fechaInicio, fechaFin, perfil, centroDistribucion);
+    cargarHistorico(fechaInicio, fechaFin, perfil, centroDistribucion, regionalSeleccionada);
   };
 
   const handleDescargarExcel = async () => {
@@ -127,6 +129,7 @@ const HistoricoPedidosP: React.FC = () => {
           fecha_fin: fechaFin,
           perfil,
           centro_distribucion: centroDistribucion,
+          regional: regionalSeleccionada || null,
           busqueda: busqueda || null
         })
       });
@@ -215,6 +218,19 @@ const HistoricoPedidosP: React.FC = () => {
             <input type="date" className="HP-dateInput" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} />
             <label>Hasta</label>
             <input type="date" className="HP-dateInput" value={fechaFin} onChange={e => setFechaFin(e.target.value)} />
+            {['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL'].includes(perfil) && (
+              <select
+                className="HP-dateInput"
+                style={{ minWidth: '150px' }}
+                value={regionalSeleccionada}
+                onChange={e => setRegionalSeleccionada(e.target.value)}
+              >
+                <option value="">Todas las regionales</option>
+                {['GALAPA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'].map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            )}
             <button className="HP-btn HP-btnPrimary" onClick={handleBuscar}>
               <FaSearch /> Buscar
             </button>

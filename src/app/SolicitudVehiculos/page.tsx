@@ -2153,8 +2153,10 @@ const SolicitudVehiculos: React.FC = () => {
       // Calcular flete cobrado FMC (piezas × $20,000)
       planillasFusionada.flete_cobrado_fmc = totalPiezas * 20000;
 
-      // Determinar el estado correcto basado en la diferencia
-      const estadoFusionada = determinarEstado(planillasFusionada);
+      // Determinar el estado de la fusionada. El OPERATIVO trabaja en borrador CREADO
+      // (igual que al crear/guardar una planilla normal); los demás perfiles se calculan
+      // por diferencia. Así la fusión de un operativo NO se sale de CREADO hasta "Enviar".
+      const estadoFusionada = perfil === 'OPERATIVO' ? 'CREADO' : determinarEstado(planillasFusionada);
       (planillasFusionada as any).estado = estadoFusionada;
 
       console.log('💰 Total calculado:', planillasFusionada.total_solicitado);
