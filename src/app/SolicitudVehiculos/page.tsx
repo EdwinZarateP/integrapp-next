@@ -2508,9 +2508,11 @@ const SolicitudVehiculos: React.FC = () => {
         title: 'Importación completada',
         html: `
           <div style="text-align:left">
-            <p>✅ <strong>${data.exitosos}</strong> planillas movidas a histórico</p>
-            ${data.no_encontrados > 0 ? `<p>⚠️ <strong>${data.no_encontrados}</strong> consecutivos no encontrados</p>` : ''}
-            ${data.errores > 0 ? `<p>❌ <strong>${data.errores}</strong> errores</p>` : ''}
+            <p>✅ <strong>${data.exitosos ?? 0}</strong> pedido(s) asignado(s)</p>
+            ${(data.fusiones_movidas ?? 0) > 0 ? `<p>📦 <strong>${data.fusiones_movidas}</strong> fusión(es) completada(s) y movida(s) a histórico</p>` : ''}
+            ${(data.asignados_parciales ?? 0) > 0 ? `<p>⏳ <strong>${data.asignados_parciales}</strong> pedido(s) en fusión(es) aún pendientes</p>` : ''}
+            ${(data.no_encontrados ?? 0) > 0 ? `<p>⚠️ <strong>${data.no_encontrados}</strong> consecutivos no encontrados</p>` : ''}
+            ${(data.errores ?? 0) > 0 ? `<p>❌ <strong>${data.errores}</strong> errores</p>` : ''}
             ${data.consecutivos_no_encontrados ? `<details style="margin-top:8px;font-size:0.85rem;color:#666"><summary>Ver no encontrados</summary>${data.consecutivos_no_encontrados.join(', ')}</details>` : ''}
           </div>
         `,
@@ -2586,6 +2588,25 @@ const SolicitudVehiculos: React.FC = () => {
     } catch (error: any) {
       Swal.fire('Error', error.message || 'Error al asignar el pedido', 'error');
     }
+  };
+
+  // Predicado de visibilidad de la tabla: filtra por estado (filtroEstado) y, para
+  // ADMIN/ANALISTA, por la regional elegida en el dropdown "Regional:".
+  // Se aplica en el render de filas, en el conteo del header y en el checkbox
+  // "seleccionar todas" para que los tres queden siempre coherentes.
+  const cumpleFiltrosVista = (r: PlanillaResultado) => {
+    if (filtroEstado !== 'TODOS') {
+      if (filtroEstado === 'PREAPROBADO') {
+        if (!(r.estado === 'PREAPROBADO' || !r.estado)) return false;
+      } else if (r.estado !== filtroEstado) {
+        return false;
+      }
+    }
+    // Filtro por regional (dropdown visible solo para ADMIN/ANALISTA).
+    if (esPerfilConRegional && regionalSeleccionada && r.regional !== regionalSeleccionada) {
+      return false;
+    }
+    return true;
   };
 
   return (
@@ -2772,11 +2793,7 @@ const SolicitudVehiculos: React.FC = () => {
                       <option value="APROBADO">Aprobado</option>
                     </select>
                     <span style={{ fontSize: '0.85rem', color: '#666' }}>
-                      {resultados.filter(r =>
-                        filtroEstado === 'TODOS' ? true :
-                        filtroEstado === 'PREAPROBADO' ? r.estado === 'PREAPROBADO' || !r.estado :
-                        r.estado === filtroEstado
-                      ).length} de {resultados.length}
+                      {resultados.filter(cumpleFiltrosVista).length} de {resultados.length}
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '1rem' }}>
@@ -2820,22 +2837,31 @@ const SolicitudVehiculos: React.FC = () => {
                           {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA', 'OPERATIVO'].includes(perfil) ? (
                             <input
                               type="checkbox"
-                              checked={resultados.length > 0 && resultados.every((r, i) =>
-                                !r.encontrada || planillasSeleccionadas.has(i)
-                              )}
+                              checked={
+                                resultados.some((r, i) => r.encontrada && cumpleFiltrosVista(r)) &&
+                                resultados.every((r, i) =>
+                                  !(r.encontrada && cumpleFiltrosVista(r)) || planillasSeleccionadas.has(i)
+                                )
+                              }
                               onChange={() => {
-                                if (resultados.every((r, i) => !r.encontrada || planillasSeleccionadas.has(i))) {
-                                  setPlanillasSeleccionadas(new Set());
+                                // Seleccionar/deseleccionar SOLO las filas visibles y encontradas
+                                // (respeta los filtros de estado y regional), conservando el resto.
+                                const indicesVisibles: number[] = [];
+                                resultados.forEach((r, i) => {
+                                  if (r.encontrada && cumpleFiltrosVista(r)) indicesVisibles.push(i);
+                                });
+                                const todasMarcadas = indicesVisibles.length > 0 &&
+                                  indicesVisibles.every(i => planillasSeleccionadas.has(i));
+                                const nuevo = new Set(planillasSeleccionadas);
+                                if (todasMarcadas) {
+                                  indicesVisibles.forEach(i => nuevo.delete(i));
                                 } else {
-                                  const todas = new Set<number>();
-                                  resultados.forEach((r, i) => {
-                                    if (r.encontrada) todas.add(i);
-                                  });
-                                  setPlanillasSeleccionadas(todas);
+                                  indicesVisibles.forEach(i => nuevo.add(i));
                                 }
+                                setPlanillasSeleccionadas(nuevo);
                               }}
                               className="SV-fusionCheckbox"
-                              title="Seleccionar/deseleccionar todas"
+                              title="Seleccionar/deseleccionar todas las visibles"
                             />
                           ) : 'Fusionar'}
                         </th>
@@ -2870,13 +2896,7 @@ const SolicitudVehiculos: React.FC = () => {
                     </thead>
                     <tbody>
                       {resultados
-                        .filter((resultado) => {
-                          if (filtroEstado === 'TODOS') return true;
-                          if (filtroEstado === 'PREAPROBADO') {
-                            return resultado.estado === 'PREAPROBADO' || !resultado.estado;
-                          }
-                          return resultado.estado === filtroEstado;
-                        })
+                        .filter(cumpleFiltrosVista)
                         .sort((a, b) => {
                           // Ordenar por consecutivo (orden ascendente)
                           const consA = a.consecutivo || '';
