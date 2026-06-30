@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -316,45 +316,39 @@ const SolicitudVehiculos: React.FC = () => {
 
   // Verificar si el perfil puede aprobar una planilla según el estado
   const puedeAprobarPlanilla = (resultado: PlanillaResultado, perfilUsuario: string): { puede: boolean; motivo?: string } => {
-    // Si el flete teórico es 0, cualquiera con permisos puede aprobar (caso especial)
-    if ((resultado.tarifa_calculada || 0) === 0) {
-      if (['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfilUsuario)) {
+    const estado = resultado.estado;
+    const tarifaCero = (resultado.tarifa_calculada || 0) === 0;
+
+    // Si ya está aprobada, no necesita aprobación.
+    if (estado === 'APROBADO') {
+      return { puede: true };
+    }
+
+    // ADMIN y CONTROL pueden aprobar cualquier planilla.
+    if (perfilUsuario === 'ADMIN' || perfilUsuario === 'CONTROL') {
+      return { puede: true };
+    }
+
+    // ANALISTA: solo lo que NO requiere autorización (PREAPROBADO / sin estado / tarifa teórica 0).
+    if (perfilUsuario === 'ANALISTA') {
+      if (estado === 'PREAPROBADO' || !estado || tarifaCero) {
         return { puede: true };
       }
       return {
         puede: false,
-        motivo: 'Tu perfil no tiene permisos para aprobar planillas.'
+        motivo: 'Esta planilla requiere autorización de coordinador/control; el analista solo aprueba lo que no la requiere.'
       };
     }
 
-    // Si ya está aprobada o preaprobada, no necesita aprobación
-    if (resultado.estado === 'APROBADO' || resultado.estado === 'PREAPROBADO') {
-      return { puede: true };
-    }
-
-    // ADMIN siempre puede aprobar
-    if (perfilUsuario === 'ADMIN') {
-      return { puede: true };
-    }
-
-    // CONTROL puede aprobar cualquiera (COORDINADOR o CONTROL)
-    if (perfilUsuario === 'CONTROL') {
-      return { puede: true };
-    }
-
-    // COORDINADOR solo puede aprobar REQUIERE_APROBACION_COORDINADOR (≤ 7%)
+    // COORDINADOR: aprueba PREAPROBADO, tarifa 0 y REQUIERE_APROBACION_COORDINADOR (≤7%); no CONTROL.
     if (perfilUsuario === 'COORDINADOR') {
-      if (resultado.estado === 'REQUIERE_APROBACION_COORDINADOR') {
-        return { puede: true };
-      } else if (resultado.estado === 'REQUIERE_APROBACION_CONTROL') {
-        return {
-          puede: false,
-          motivo: 'Esta planilla requiere aprobación de CONTROL.'
-        };
+      if (estado === 'REQUIERE_APROBACION_CONTROL') {
+        return { puede: false, motivo: 'Esta planilla requiere aprobación de CONTROL.' };
       }
+      return { puede: true };
     }
 
-    // ANALISTA y OPERATIVO no pueden aprobar
+    // OPERATIVO y demás no pueden aprobar.
     return {
       puede: false,
       motivo: 'Tu perfil no tiene permisos para aprobar planillas.'
@@ -1711,6 +1705,59 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  // Volver a CREADO (solo ADMIN/ANALISTA): reabre la edición de una planilla ya enviada.
+  // El OPERATIVO no puede editar fuera de CREADO, así que debe pedir al analista/admin este paso.
+  const handleVolverCreado = async (resultado: PlanillaResultado, index: number) => {
+    const result = await Swal.fire({
+      title: '¿Volver a CREADO?',
+      html: `
+        <div style="text-align: left;">
+          <p><strong>Planilla:</strong> ${resultado.planilla}</p>
+          <p>La planilla volverá a <strong>CREADO</strong> (borrador del operativo) y este podrá editarla de nuevo.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, volver a CREADO',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      // El ANALISTA no ve las planillas en CREADO (solo admin y operativo creador):
+      // al volverla a CREADO debe salir de su lista. El ADMIN sí la sigue viendo.
+      if (perfil === 'ANALISTA') {
+        setResultados(resultados.filter((_, i) => i !== index));
+      } else {
+        const nuevosResultados = [...resultados];
+        nuevosResultados[index] = { ...resultado, estado: 'CREADO', fecha_preaprobado: undefined };
+        setResultados(nuevosResultados);
+      }
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API}/siscore/actualizar-estado-planilla`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planilla: resultado.planilla,
+          estado: 'CREADO',
+          aprobado_por: usuario
+        })
+      });
+
+      if (response.ok) {
+        Swal.fire('✅ Habilitada', `Planilla ${resultado.planilla} volvió a CREADO`, 'success');
+      } else {
+        Swal.fire('⚠️ Parcial', 'Actualizada en local pero falló en BD. Recarga la página.', 'warning');
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error al volver a CREADO', 'error');
+    }
+  };
+
   // Enviar masivamente las planillas CREADO seleccionadas al estado que corresponde a cada una.
   const handleEnviarSeleccionadas = async () => {
     try {
@@ -2191,9 +2238,9 @@ const SolicitudVehiculos: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          usuario: cookies.usuario || 'desconocido',
-          perfil: cookies.perfil || 'desconocido',
-          centro_distribucion: cookies.centroDistribucion || 'TODOS',
+          usuario: usuario || 'desconocido',
+          perfil: perfil || 'desconocido',
+          centro_distribucion: centroDistribucion || 'TODOS',
           planillas_buscadas: [planillasFusionada.planilla],
           resultados_consolidados: nuevosResultados.map(r => ({
             planilla: r.planilla,
@@ -2273,7 +2320,7 @@ const SolicitudVehiculos: React.FC = () => {
       }
 
       // Verificar permisos del perfil
-      if (!['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+      if (!['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA'].includes(perfil)) {
         Swal.fire('No Autorizado', 'Tu perfil no tiene permisos para aprobar planillas', 'warning');
         return;
       }
@@ -2611,6 +2658,9 @@ const SolicitudVehiculos: React.FC = () => {
     return true;
   };
 
+  // El ANALISTA abre el modal solo para visualizar (no editar).
+  const soloLectura = perfil === 'ANALISTA';
+
   return (
     <div className="SV-layout">
       <NavMedicalCare paginaActual="solicitud" />
@@ -2809,8 +2859,8 @@ const SolicitudVehiculos: React.FC = () => {
                         🔗 Fusionar ({planillasSeleccionadas.size})
                       </button>
                     )}
-                    {/* Botón Aprobar Masivo */}
-                    {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && planillasSeleccionadas.size > 0 && (
+                    {/* Botón Aprobar Masivo (el analista solo aprobará las PREAPROBADO) */}
+                    {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA'].includes(perfil) && planillasSeleccionadas.size > 0 && (
                       <button
                         onClick={handleAprobarSeleccionadas}
                         className="SV-btnToggle"
@@ -2950,8 +3000,8 @@ const SolicitudVehiculos: React.FC = () => {
                           <td>
                             {resultado.encontrada && (
                               <div style={{ display: 'flex', gap: '5px' }}>
-                                {/* Botón Dividir - Solo para planillas fusionadas */}
-                                {resultado.fusion_info?.es_fusionada && (
+                                {/* Botón Dividir - Solo para planillas fusionadas (no ANALISTA; operativo solo en CREADO) */}
+                                {resultado.fusion_info?.es_fusionada && perfil !== 'ANALISTA' && !(perfil === 'OPERATIVO' && resultado.estado && resultado.estado !== 'CREADO') && (
                                   <button
                                     onClick={() => handleDividirPlanilla(resultado, index)}
                                     className="SV-btnAction"
@@ -2961,8 +3011,8 @@ const SolicitudVehiculos: React.FC = () => {
                                     <FaUnlink />
                                   </button>
                                 )}
-                                {/* Botón Dividir consecutivo (varios carros) - planillas no fusionadas/no divididas */}
-                                {!resultado.fusion_info?.es_fusionada && !resultado.division_info?.es_dividida && ['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfil) && (
+                                {/* Botón Dividir consecutivo (varios carros) - planillas no fusionadas/no divididas (no ANALISTA; operativo solo en CREADO) */}
+                                {!resultado.fusion_info?.es_fusionada && !resultado.division_info?.es_dividida && ['ADMIN', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfil) && !(perfil === 'OPERATIVO' && resultado.estado && resultado.estado !== 'CREADO') && (
                                   <button
                                     onClick={() => handleDividirConsecutivo(resultado, index)}
                                     className="SV-btnAction"
@@ -2983,14 +3033,28 @@ const SolicitudVehiculos: React.FC = () => {
                                     <FaObjectGroup />
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => handleAbrirModal(resultado, index)}
-                                  className="SV-btnAction SV-btnEdit"
-                                  title="Ver/editar detalles"
-                                  style={{ background: '#2563eb' }}
-                                >
-                                  <FaPen />
-                                </button>
+                                {/* Editar/Ver detalles: el OPERATIVO no puede editar una vez enviada (estado != CREADO). */}
+                                {!(perfil === 'OPERATIVO' && resultado.estado && resultado.estado !== 'CREADO') && (
+                                  <button
+                                    onClick={() => handleAbrirModal(resultado, index)}
+                                    className="SV-btnAction SV-btnEdit"
+                                    title="Ver/editar detalles"
+                                    style={{ background: '#2563eb' }}
+                                  >
+                                    <FaPen />
+                                  </button>
+                                )}
+                                {/* Volver a CREADO (reabrir edición): solo ADMIN/ANALISTA, sobre planillas ya enviadas. */}
+                                {['ADMIN', 'ANALISTA'].includes(perfil) && resultado.estado && resultado.estado !== 'CREADO' && (
+                                  <button
+                                    onClick={() => handleVolverCreado(resultado, index)}
+                                    className="SV-btnAction"
+                                    title="Volver a CREADO (habilita edición del operativo)"
+                                    style={{ background: '#f59e0b' }}
+                                  >
+                                    <FaLockOpen />
+                                  </button>
+                                )}
                                 {/* Asignar pedido Vulcano manualmente - Solo ADMIN/ANALISTA, con consecutivo y estado APROBADO */}
                                 {resultado.consecutivo && resultado.estado === 'APROBADO' && ['ADMIN', 'ANALISTA'].includes(perfil) && (
                                   <button
@@ -3002,13 +3066,16 @@ const SolicitudVehiculos: React.FC = () => {
                                     <FaFileImport />
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => handleEliminarResultado(index)}
-                                  className="SV-btnAction SV-btnDelete"
-                                  title="Eliminar planilla"
-                                >
-                                  <FaTrash />
-                                </button>
+                                {/* Eliminar (operativo solo en CREADO) */}
+                                {!(perfil === 'OPERATIVO' && resultado.estado && resultado.estado !== 'CREADO') && (
+                                  <button
+                                    onClick={() => handleEliminarResultado(index)}
+                                    className="SV-btnAction SV-btnDelete"
+                                    title="Eliminar planilla"
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </td>
@@ -3052,8 +3119,8 @@ const SolicitudVehiculos: React.FC = () => {
                                   </button>
                                 )}
 
-                                {/* Botón de aprobar - Solo para perfiles autorizados (no en CREADO) */}
-                                {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && resultado.estado !== 'CREADO' && (
+                                {/* Botón de aprobar - Perfiles autorizados (no en CREADO); ANALISTA solo en PREAPROBADO */}
+                                {((['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && resultado.estado !== 'CREADO') || (perfil === 'ANALISTA' && resultado.estado === 'PREAPROBADO')) && (
                                   <button
                                     onClick={() => handleAprobarPlanilla(resultado, index)}
                                     className="SV-btnAction SV-btnSave"
@@ -3172,7 +3239,7 @@ const SolicitudVehiculos: React.FC = () => {
             onContextMenu={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0, color: '#004d40' }}>Editar Planilla {modalDetalle.resultado.planilla}</h2>
+              <h2 style={{ margin: 0, color: '#004d40' }}>{soloLectura ? 'Ver Planilla' : 'Editar Planilla'} {modalDetalle.resultado.planilla}{soloLectura ? ' (solo lectura)' : ''}</h2>
               <button onClick={handleCerrarModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
 
@@ -3193,8 +3260,8 @@ const SolicitudVehiculos: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3 style={{ color: '#004d40', marginBottom: '1rem', fontSize: '1.1rem', borderBottom: '2px solid #e0e0e0', paddingBottom: '0.5rem' }}>Campos Editables</h3>
+            <fieldset disabled={soloLectura} style={{ marginTop: '1.5rem', border: 'none', padding: 0, margin: 0 }}>
+              <h3 style={{ color: '#004d40', marginBottom: '1rem', fontSize: '1.1rem', borderBottom: '2px solid #e0e0e0', paddingBottom: '0.5rem' }}>{soloLectura ? 'Visualización (solo lectura)' : 'Campos Editables'}</h3>
 
               {/* Sección: Tarifas */}
               <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
@@ -3435,10 +3502,11 @@ const SolicitudVehiculos: React.FC = () => {
                   })()}
                 </div>
               </div>
-            </div>
+            </fieldset>
 
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              {/* Botón Guardar cambios */}
+              {/* Botón Guardar cambios (oculto en modo solo lectura para ANALISTA) */}
+              {!soloLectura && (
               <button
                 onClick={async () => {
                   if (modalDetalle.indice !== null && tempEdicion && modalDetalle.resultado) {
@@ -3591,6 +3659,10 @@ const SolicitudVehiculos: React.FC = () => {
               >
                 💾 Guardar
               </button>
+              )}
+              {soloLectura && (
+                <span style={{ color: '#666', fontStyle: 'italic', alignSelf: 'center' }}>👁️ Modo solo lectura (ANALISTA)</span>
+              )}
             </div>
           </div>
         </div>
