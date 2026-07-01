@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
@@ -154,6 +154,58 @@ const HistoricoPedidosP: React.FC = () => {
     }
   };
 
+  // Solo ADMIN: devuelve una planilla del histórico a SolicitudVehiculos.
+  // Quita el pedido Vulcano y la deja en APROBADO (operación inversa a asignar pedido).
+  const handleDevolverASolicitud = async (p: HistoricoDoc) => {
+    const result = await Swal.fire({
+      title: '¿Devolver a SolicitudVehiculos?',
+      html: `<div style="text-align:left;font-size:0.9rem;line-height:1.6">
+        <p>Planilla: <b>${p.planilla}</b></p>
+        <p>Consecutivo: <b>${p.consecutivo || '-'}</b></p>
+        <p>Pedido Vulcano actual: <b>${p.pedido_vulcano || '-'}</b></p>
+        <p style="margin-top:10px;color:#b45309">Se quitará el pedido Vulcano y la planilla volverá a
+        SolicitudVehiculos en estado <b>APROBADO</b>.</p>
+      </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d97706',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, devolver',
+      cancelButtonText: 'Cancelar',
+      input: 'text',
+      inputPlaceholder: 'Motivo del retroceso (opcional)',
+      inputAttributes: { maxlength: '200' },
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      Swal.fire({ title: 'Devolviendo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const usuario = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || 'admin';
+      const response = await fetch(`${API}/siscore/retroceder-a-solicitud`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planilla: p.planilla,
+          usuario,
+          motivo: (result.value as string) || null,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setPlanillas(prev => prev.filter(x => x._id !== p._id));
+        Swal.fire('✅ Devuelta', data.mensaje || `Planilla ${p.planilla} devuelta a SolicitudVehiculos`, 'success');
+      } else {
+        Swal.fire('Error', data.detail || 'No se pudo devolver la planilla', 'error');
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error de conexión al devolver la planilla', 'error');
+    }
+  };
+
   const planillasFiltradas = planillas.filter(p =>
     (p.consecutivo || '').toLowerCase().includes(busqueda.toLowerCase()) ||
     (p.planilla || '').toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -290,12 +342,13 @@ const HistoricoPedidosP: React.FC = () => {
                   <th>Cant. Destinos</th>
                   <th>Código Pedido</th>
                   <th>Observaciones</th>
+                  {perfil === 'ADMIN' && <th>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {planillasFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={COLS} className="HP-empty">No se encontraron registros</td>
+                    <td colSpan={COLS + (perfil === 'ADMIN' ? 1 : 0)} className="HP-empty">No se encontraron registros</td>
                   </tr>
                 ) : (
                   planillasFiltradas.map(p => {
@@ -353,6 +406,18 @@ const HistoricoPedidosP: React.FC = () => {
                         <td style={{ textAlign: 'center', fontWeight: 600, color: '#005f56' }}>{p.cantidad_destinos || '-'}</td>
                         <td className="HP-truncate" title={p.codigo_pedido}>{p.codigo_pedido || '-'}</td>
                         <td className="HP-truncate" title={p.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>{p.causal || '-'}</td>
+                        {perfil === 'ADMIN' && (
+                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <button
+                              className="HP-btnAction"
+                              title="Devolver a SolicitudVehiculos (quita el pedido Vulcano)"
+                              style={{ background: '#d97706' }}
+                              onClick={() => handleDevolverASolicitud(p)}
+                            >
+                              <FaUndo />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })

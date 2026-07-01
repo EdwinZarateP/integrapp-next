@@ -1917,6 +1917,65 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  // Descarga un Excel de DETALLE completo (una fila por planilla con todos sus campos),
+  // usando el mismo filtro de visibilidad que handleDescargarExcel.
+  const handleDescargarDetalle = async () => {
+    try {
+      let resultadosFiltrados = [...resultados];
+
+      if (perfil === 'OPERATIVO' && centroDistribucion) {
+        resultadosFiltrados = resultadosFiltrados.filter(r => {
+          const regional = obtenerRegional(r.centro_costo || r.regional || '');
+          return regional === centroDistribucion;
+        });
+      }
+
+      if (resultadosFiltrados.length === 0) {
+        Swal.fire('Info', 'No hay planillas para descargar con tus filtros actuales', 'info');
+        return;
+      }
+
+      Swal.fire({
+        title: 'Generando detalle...',
+        text: 'Por favor espera',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+      const response = await fetch(`${API}/siscore/exportar-planillas-detalle-excel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planillas: resultadosFiltrados.map(r => r.planilla),
+          perfil: perfil,
+          centro_distribucion: centroDistribucion
+        })
+      });
+
+      if (!response.ok) throw new Error('Error al generar el detalle');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const fechaHora = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      a.download = `detalle_planillas_${fechaHora}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      Swal.fire('✅ Éxito', 'Detalle generado exitosamente', 'success');
+    } catch (error) {
+      console.error('Error al descargar detalle:', error);
+      Swal.fire('Error', 'Error al generar el detalle', 'error');
+    }
+  };
+
   const handleFusionarPlanillas = async () => {
     try {
       console.log('🔗 Iniciando fusión de planillas...');
@@ -3681,6 +3740,9 @@ const SolicitudVehiculos: React.FC = () => {
             <div className="SV-fabMenu">
               <button className="SV-fabItem SV-fabItemExcel" onClick={() => { setMenuFlotante(false); handleDescargarExcel(); }}>
                 📥 Descargar Excel
+              </button>
+              <button className="SV-fabItem SV-fabItemExcel" onClick={() => { setMenuFlotante(false); handleDescargarDetalle(); }} title="Descargar detalle completo de cada planilla (una fila por consecutivo)">
+                📊 Detalle
               </button>
               <label className="SV-fabItem SV-fabItemVulcano" style={importandoVulcano ? { opacity: 0.6, cursor: 'not-allowed' } : { cursor: 'pointer' }}>
                 🔗 Importar Vulcano

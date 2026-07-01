@@ -147,6 +147,26 @@
   box-shadow: 0 4px 12px rgba(22,163,74,.3);
 }
 
+/* Botón de acción por fila (ej. devolver a SolicitudVehiculos, solo ADMIN) */
+.HP-btnAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.HP-btnAction:hover {
+  transform: scale(1.1);
+  filter: brightness(1.05);
+}
+
 /* ── Loading ── */
 .HP-loading {
   display: flex;
