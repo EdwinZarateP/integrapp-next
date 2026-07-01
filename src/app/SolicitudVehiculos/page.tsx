@@ -421,6 +421,9 @@ const SolicitudVehiculos: React.FC = () => {
   const [tiempoConsulta, setTiempoConsulta] = useState<number>(0);
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
   const [modalDetalle, setModalDetalle] = useState<{ abierto: boolean; resultado: PlanillaResultado | null; indice: number | null }>({ abierto: false, resultado: null, indice: null });
+  // Trackea si el mousedown empezó en el fondo del overlay, para evitar que
+  // seleccionar texto dentro de un input (mousedown dentro, mouseup fuera) cierre el modal.
+  const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
   const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [rutasDisponibles, setRutasDisponibles] = useState<string[]>([]);
@@ -3210,10 +3213,13 @@ const SolicitudVehiculos: React.FC = () => {
           }}
           onClick={(e) => {
             // Clic en el fondo cierra SIN guardar (el botón Guardar es el que guarda).
-            if (e.target === e.currentTarget) {
+            // Solo cerrar si el mousedown TAMBIÉN empezó en el fondo; así, seleccionar
+            // texto dentro de un input arrastrando el mouse hacia afuera no cierra el modal.
+            if (e.target === e.currentTarget && mouseDownOnBackdrop) {
               handleCerrarModal();
             }
           }}
+          onMouseDown={(e) => setMouseDownOnBackdrop(e.target === e.currentTarget)}
         >
           <div
             className="SV-modalBox"
