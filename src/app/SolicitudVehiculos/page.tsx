@@ -139,6 +139,28 @@ const obtenerRegional = (bodega: string | undefined): string => {
   return REGIONAL_MAP[bodega] || '-';
 };
 
+// Construye la lista de municipios que lleva una planilla para el desplegable
+// "Municipio Principal" del modal de edición. Ordena por participación (más pedidos primero).
+// Fuente principal: municipios_con_pedidos; fallback: municipios_destino_lista; y siempre
+// incluye el municipio principal actual aunque no estuviera en el conteo.
+const construirOpcionesMunicipio = (r: PlanillaResultado): { m: string; n: number }[] => {
+  let opciones: { m: string; n: number }[];
+  if (r.municipios_con_pedidos && Object.keys(r.municipios_con_pedidos).length) {
+    opciones = Object.entries(r.municipios_con_pedidos)
+      .map(([m, n]) => ({ m, n }))
+      .sort((a, b) => b.n - a.n);
+  } else if (r.municipios_destino_lista && r.municipios_destino_lista !== '-') {
+    opciones = r.municipios_destino_lista.split(', ').map(m => ({ m, n: 0 }));
+  } else {
+    opciones = [{ m: r.municipio_destino || '-', n: 0 }];
+  }
+  const actual = r.municipio_destino || '-';
+  if (!opciones.some(o => o.m === actual)) {
+    opciones.unshift({ m: actual, n: 0 });
+  }
+  return opciones;
+};
+
 // Ordena por fecha de creación ASCENDENTE (más antiguo primero).
 // Las que no tienen fecha (p.ej. planillas no encontradas en una búsqueda) quedan al final.
 const ordenarPorCreacion = (lista: PlanillaResultado[]): PlanillaResultado[] =>
@@ -424,7 +446,7 @@ const SolicitudVehiculos: React.FC = () => {
   // Trackea si el mousedown empezó en el fondo del overlay, para evitar que
   // seleccionar texto dentro de un input (mousedown dentro, mouseup fuera) cierre el modal.
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
-  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string } | null>(null);
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string; municipio_destino?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [rutasDisponibles, setRutasDisponibles] = useState<string[]>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
@@ -1125,6 +1147,7 @@ const SolicitudVehiculos: React.FC = () => {
         causal: resultado.causal || '',  // Agregar causal
         aprobado_por: (estadoFinal as string) === 'APROBADO' ? resultado.aprobado_por : null,
         fecha_aprobacion: (estadoFinal as string) === 'APROBADO' ? resultado.fecha_aprobacion : null,
+        municipio_destino: resultado.municipio_destino || null,  // Municipio principal (editable manualmente)
         usuario_modificacion: usuarioCookie  // Trazabilidad: quién está editando
       };
 
@@ -2552,7 +2575,8 @@ const SolicitudVehiculos: React.FC = () => {
       aforo: resultado.aforo || 0,
       placa: resultado.placa || '',
       ruta: resultado.ruta && resultado.ruta !== '-' ? resultado.ruta : '',
-      causal: resultado.causal || ''  // Causal existente si la tiene
+      causal: resultado.causal || '',  // Causal existente si la tiene
+      municipio_destino: resultado.municipio_destino || '-'  // Municipio principal (editable; default = el de mayor participación)
     };
     setModalDetalle({ abierto: true, resultado, indice });
     setTempEdicion(tempEdicionInit);
@@ -3315,14 +3339,39 @@ const SolicitudVehiculos: React.FC = () => {
               <div><strong>Peso Real:</strong> {modalDetalle.resultado.peso_real}</div>
               <div><strong>Cant. Pedidos:</strong> {modalDetalle.resultado.cantidad_pedidos}</div>
               <div><strong>Tipo Vehículo:</strong> {modalDetalle.resultado.tipo_vehiculo}</div>
-              <div><strong>Municipio Principal:</strong> {modalDetalle.resultado.municipio_destino}</div>
-              <div><strong>Departamento Destino:</strong> {modalDetalle.resultado.departamento_destino}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Cliente Origen:</strong> {modalDetalle.resultado.cliente_origen}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Códigos Pedido:</strong> {modalDetalle.resultado.codigo_pedido}</div>
+              <div style={{ gridColumn: '1 / -1', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem 1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: '#005f56', fontWeight: 700, marginBottom: '0.4rem' }}>
+                  🏙️ Municipio Principal{soloLectura ? '' : ' (selecciona cuál mostrar)'}
+                </label>
+                {soloLectura ? (
+                  <span style={{ fontSize: '1rem', fontWeight: 600 }}>{modalDetalle.resultado.municipio_destino}</span>
+                ) : (
+                  <>
+                    <select
+                      className="SV-selectSmall"
+                      value={tempEdicion?.municipio_destino ?? modalDetalle.resultado.municipio_destino ?? '-'}
+                      onChange={(e) => setTempEdicion(prev => prev ? { ...prev, municipio_destino: e.target.value } : null)}
+                      style={{ width: '100%', maxWidth: '420px', padding: '0.55rem', fontSize: '0.95rem' }}
+                    >
+                      {construirOpcionesMunicipio(modalDetalle.resultado).map(o => (
+                        <option key={o.m} value={o.m}>
+                          {o.m}{o.n ? ` (${o.n} ${o.n === 1 ? 'pedido' : 'pedidos'})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p style={{ fontSize: '0.78rem', color: '#666', margin: '0.45rem 0 0 0' }}>
+                      Cambia solo el municipio que se muestra como principal. No afecta flete, recargos, total ni estado.
+                    </p>
+                  </>
+                )}
+              </div>
               <div style={{ gridColumn: '1 / -1', background: '#f0fdf4', padding: '0.5rem', borderRadius: '6px' }}>
                 <strong style={{ color: '#005f56' }}>Todos los Municipios ({modalDetalle.resultado.cantidad_destinos || 0}):</strong>
                 <div style={{ marginTop: '0.3rem', color: '#333' }}>{modalDetalle.resultado.municipios_destino_lista || '-'}</div>
               </div>
+              <div style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}><strong>Departamento Destino:</strong> {modalDetalle.resultado.departamento_destino}</div>
             </div>
 
             <fieldset disabled={soloLectura} style={{ marginTop: '1.5rem', border: 'none', padding: 0, margin: 0 }}>
@@ -3587,7 +3636,8 @@ const SolicitudVehiculos: React.FC = () => {
                       desvio: tempEdicion.desvio,
                       aforo: tempEdicion.aforo,
                       placa: tempEdicion.placa,
-                      causal: tempEdicion.causal || ''  // Agregar causal
+                      causal: tempEdicion.causal || '',  // Agregar causal
+                      municipio_destino: tempEdicion.municipio_destino || modalDetalle.resultado.municipio_destino  // Municipio principal elegido manualmente
                     };
 
                     // Recalcular la tarifa (Flete Teórico) si cambió la ruta O el tipo_veh_sicetac.

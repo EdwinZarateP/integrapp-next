@@ -1,0 +1,44 @@
+# ============================================================
+# .htaccess para integrapp-next (Next.js static export) en cPanel
+# Ruta en el servidor:  public_html/integrapp/.htaccess
+# ============================================================
+
+RewriteEngine On
+
+# 1) /pagina  ->  pagina.html  (formato plano del export de Next)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.*)$ $1.html [L,QSA]
+
+# 2) /carpeta  ->  carpeta/index.html  (por si alguna ruta exporta asi)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}/index.html -f
+RewriteRule ^(.*)$ $1/index.html [L,QSA]
+
+# --- Cabeceras de cache ---
+# HTML: revalidar SIEMPRE. Evita que tras un deploy los usuarios
+# queden con un HTML viejo que apunta a chunks (JS/CSS) que ya no existen.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # Assets con hash en el nombre (inmutables): 1 ano
+  <FilesMatch "\.(js|mjs|css|woff|woff2|ttf|otf|eot|png|jpg|jpeg|gif|webp|svg|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# --- Expiracion (respaldo para servidores sin mod_headers) ---
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/javascript "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>

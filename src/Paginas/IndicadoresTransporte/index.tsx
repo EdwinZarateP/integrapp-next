@@ -581,7 +581,7 @@ const IndicadoresGuias: React.FC = () => {
           </button>
 
           <h1 className="IG-titulo">
-            <span className="IG-tituloDesktop">Indicadores de Guías de Transporte</span>
+            <span className="IG-tituloDesktop">Indicadores de Transporte</span>
             <span className="IG-tituloMobile">Indicadores Transporte</span>
           </h1>
 
