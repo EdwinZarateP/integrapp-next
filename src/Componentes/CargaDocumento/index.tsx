@@ -1,10 +1,14 @@
 'use client';
 import React, { useState } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import Lottie from 'lottie-react';
 import animationData from "@/Imagenes/AnimationPuntos.json";
 import { tiposMapping } from '@/Funciones/documentConstants';
 import './estilos.css';
+
+const MAX_SIZE_MB = 10;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 interface CargaDocumentoProps {
   documentName: string;
@@ -43,7 +47,12 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
         ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)
       );
       if (validFiles.length === 0) {
-        alert('Solo se permiten archivos de imagen (jpg, jpeg, png) o PDF');
+        Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'Solo se permiten archivos de imagen (jpg, jpeg, png) o PDF.' });
+        return;
+      }
+      const tooBig = validFiles.filter(file => file.size > MAX_SIZE_BYTES);
+      if (tooBig.length > 0) {
+        Swal.fire({ icon: 'error', title: 'Archivo muy pesado', text: `Cada archivo debe pesar máximo ${MAX_SIZE_MB} MB. Revisa: ${tooBig.map(f => f.name).join(', ')}` });
         return;
       }
       await handleUpload(validFiles);
@@ -61,11 +70,16 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     formData.append('tipo', tipo);
 
     setUploading(true);
-    setProgress(50);
+    setProgress(0);
     try {
-      console.log(`Subiendo a: ${endpoint} con tipo ${tipo}`);
       const response = await axios.put<UploadResponse>(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const pct = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          setProgress(Math.min(pct, 99));
+        }
       });
 
       if (response.status === 200) {
@@ -80,11 +94,11 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             }
         }
       } else {
-        alert('Error al subir el documento');
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Error al subir el documento.' });
       }
     } catch (error: any) {
       console.error('Error de carga:', error);
-      alert(`Error al subir el documento: ${error.message}`);
+      Swal.fire({ icon: 'error', title: 'Error al subir', text: error?.message || 'No se pudo subir el documento.' });
     } finally {
       setUploading(false);
     }

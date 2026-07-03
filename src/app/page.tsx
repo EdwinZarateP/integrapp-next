@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaTruck, FaSearch } from "react-icons/fa";
+import { FaTruck, FaSearch, FaRoad } from "react-icons/fa";
 import { GiRadioTower } from "react-icons/gi";
 import { LiaPeopleCarrySolid } from "react-icons/lia";
 import { FaMapMarkerAlt, FaPhone, FaEnvelope } from "react-icons/fa";
@@ -11,6 +11,13 @@ import logo from "@/Imagenes/albatros.png";
 import styles from "./page.module.css";
 
 const portales = [
+  {
+    icon: <FaRoad />,
+    text: "En Ruta",
+    descripcion: "Conductores: registra tu vehículo y hoja de vida",
+    ruta: "/LoginConductores",
+    acento: false,
+  },
   {
     icon: <FaTruck />,
     text: "Portal Transportadores",

@@ -238,8 +238,11 @@ const PanelConductoresVista: React.FC = () => {
   };
 
   const handleCreateVehicle = async () => {
-    if (!newPlate.trim()) return Swal.fire("Error", "Ingrese una placa válida", "error");
     const placaCreada = newPlate.trim().toUpperCase();
+    if (!placaCreada) return Swal.fire("Error", "Ingrese una placa válida", "error");
+    if (!/^[A-Z]{3}\d{3,4}$/.test(placaCreada)) {
+      return Swal.fire("Placa inválida", "La placa debe tener 3 letras seguidas de 3 o 4 números (ej: ABC123).", "warning");
+    }
 
     try {
       const formData = new FormData();
@@ -340,19 +343,41 @@ const PanelConductoresVista: React.FC = () => {
     else Swal.fire("Error", "Configuración de documento no encontrada", "error");
   };
 
-  const eliminarDocumento = (sectionIdx: number, itemIdx: number) => {
-      Swal.fire({
-        title: '¿Eliminar documento?', text: "Tendrás que cargarlo de nuevo.", icon: 'warning',
-        showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, borrar'
-      }).then((result) => {
-        if (result.isConfirmed) {
-            const newSec = JSON.parse(JSON.stringify(secciones));
-            newSec[sectionIdx].items[itemIdx].progreso = 0;
-            newSec[sectionIdx].items[itemIdx].url = undefined;
-            setSecciones(newSec);
-            Swal.fire('Borrado', 'El documento ha sido eliminado.', 'success');
-        }
+  const eliminarDocumento = async (sectionIdx: number, itemIdx: number) => {
+      const item = secciones[sectionIdx]?.items[itemIdx];
+      const tipo = tiposMapping[normalizeKey(item?.nombre)] || "";
+      if (!item || !tipo || !selectedPlate) return;
+
+      const confirmacion = await Swal.fire({
+        title: '¿Eliminar documento?',
+        text: "Tendrás que cargarlo de nuevo. Esta acción no se puede deshacer.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, borrar'
       });
+      if (!confirmacion.isConfirmed) return;
+
+      try {
+        if (tipo === "fotos") {
+          const urls = Array.isArray(item.url) ? item.url : (item.url ? [item.url] : []);
+          for (const rawUrl of urls) {
+            const urlLimpia = String(rawUrl).split("?")[0];
+            await fetch(`${API_BASE}/vehiculos/eliminar-foto?placa=${selectedPlate}&url=${encodeURIComponent(urlLimpia)}`, { method: "DELETE" });
+          }
+        } else {
+          const res = await fetch(`${API_BASE}/vehiculos/eliminar-documento?placa=${selectedPlate}&tipo=${tipo}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("El servidor no pudo eliminar el documento.");
+        }
+        const newSec = JSON.parse(JSON.stringify(secciones));
+        newSec[sectionIdx].items[itemIdx].progreso = 0;
+        newSec[sectionIdx].items[itemIdx].url = undefined;
+        setSecciones(newSec);
+        Swal.fire('Borrado', 'El documento ha sido eliminado.', 'success');
+      } catch (error: any) {
+        Swal.fire('Error', error?.message || 'No se pudo eliminar el documento.', 'error');
+      }
   };
 
   const handleFinalizar = async () => {

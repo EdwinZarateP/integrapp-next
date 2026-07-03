@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
+import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaMoneyBillWave } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -64,6 +64,13 @@ const IndicadoresMenu: React.FC = () => {
       descripcion: 'Dashboard de guías de transporte y métricas logísticas',
       icono: <FaTruck />,
       ruta: '/indicadores/transporte',
+    },
+    {
+      id: 'fletes',
+      titulo: 'Indicadores de Fletes',
+      descripcion: 'Dashboard financiero y operativo de fletes por cliente, ruta y región',
+      icono: <FaMoneyBillWave />,
+      ruta: '/indicadores/fletes',
     },
     // Aquí se agregarán más indicadores en el futuro
   ];

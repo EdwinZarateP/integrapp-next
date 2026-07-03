@@ -1,0 +1,65 @@
+/* ==========================================
+   INDICADORES DE FLETES - ESTILOS
+   Reutiliza todo el chrome de Transporte (header, filtros, tiles, gráficos,
+   modal) mediante `import '../IndicadoresTransporte/estilos.css'` en el
+   componente. Aquí solo van los ajustes específicos de Fletes.
+   ========================================== */
+
+/* Tile "Diferencia": acento verde (positivo) por defecto; se sobreescribe a rojo
+   desde el componente con .IG-kpiTileNovedad cuando la diferencia es negativa. */
+.IG-kpiTileDif::before { background: #16a34a; }
+.IG-kpiTileDif .IG-kpiTileIcon { background: rgba(22, 163, 74, 0.15); color: #16a34a; }
+
+/* Valor monetario en tiles: un poco más pequeño para que cifras largas (COP) quepan */
+.IG-kpiTileValor.IG-valorMoneda {
+  font-size: 1.2rem;
+}
+
+/* Subtexto bajo el valor del tile (ej. "% sobre teórico") */
+.IG-kpiTileSub {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* Detalle del hero: la cifra principal de flete (COP) */
+.IG-fleteHeroValor {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #0f1928;
+  line-height: 1;
+}
+.IG-fleteHeroTeorico {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6b7a8d;
+  margin-top: 0.35rem;
+}
+
+/* Indicador de diferencia en el hero (verde/rojo) */
+.IG-fleteHeroDifPos { color: #16a34a; font-weight: 700; }
+.IG-fleteHeroDifNeg { color: #dc2626; font-weight: 700; }
+
+/* Gráfico teórico vs cobrado: cursor pointer en las etiquetas del eje X */
+.IG-ejeClickeable text {
+  cursor: pointer;
+}
+
+/* Modal de detalle: tabla con cifras alineadas a la derecha */
+.IG-modalTabla td.IG-num,
+.IG-modalTabla th.IG-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.IG-difPos { color: #16a34a; font-weight: 700; }
+.IG-difNeg { color: #dc2626; font-weight: 700; }
+.IG-difCero { color: #94a3b8; }
+
+/* Columna Cliente/Ruta con truncate para que la tabla no se desborde */
+.IG-modalTabla td.IG-trunc {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

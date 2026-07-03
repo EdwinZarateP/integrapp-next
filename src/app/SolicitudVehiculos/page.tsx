@@ -161,6 +161,20 @@ const construirOpcionesMunicipio = (r: PlanillaResultado): { m: string; n: numbe
   return opciones;
 };
 
+// Verifica si una ruta es válida para guardar en el modal de edición:
+//   - No puede estar vacía.
+//   - Si la lista de rutas ya se cargó, debe existir en ella (la lista desplegable).
+// La comparación es sin espacios y case-insensitive para no rechazar diferencias de
+// mayúsculas/minúsculas. Si la lista aún no se cargó, solo valida que no esté vacía:
+// no bloquea el guardado por un fallo de red del endpoint de rutas.
+const rutaEsValida = (ruta: string | undefined | null, rutas: string[]): boolean => {
+  const v = (ruta ?? '').trim();
+  if (!v) return false;
+  if (!rutas || rutas.length === 0) return true;
+  const lower = v.toLowerCase();
+  return rutas.some(r => r.toLowerCase() === lower);
+};
+
 // Ordena por fecha de creación ASCENDENTE (más antiguo primero).
 // Las que no tienen fecha (p.ej. planillas no encontradas en una búsqueda) quedan al final.
 const ordenarPorCreacion = (lista: PlanillaResultado[]): PlanillaResultado[] =>
@@ -339,7 +353,6 @@ const SolicitudVehiculos: React.FC = () => {
   // Verificar si el perfil puede aprobar una planilla según el estado
   const puedeAprobarPlanilla = (resultado: PlanillaResultado, perfilUsuario: string): { puede: boolean; motivo?: string } => {
     const estado = resultado.estado;
-    const tarifaCero = (resultado.tarifa_calculada || 0) === 0;
 
     // Si ya está aprobada, no necesita aprobación.
     if (estado === 'APROBADO') {
@@ -351,9 +364,10 @@ const SolicitudVehiculos: React.FC = () => {
       return { puede: true };
     }
 
-    // ANALISTA: solo lo que NO requiere autorización (PREAPROBADO / sin estado / tarifa teórica 0).
+    // ANALISTA: solo lo que NO requiere autorización (PREAPROBADO o sin estado).
+    // Las planillas sin tarifa teórica ahora van a CONTROL, así que el ANALISTA no las aprueba.
     if (perfilUsuario === 'ANALISTA') {
-      if (estado === 'PREAPROBADO' || !estado || tarifaCero) {
+      if (estado === 'PREAPROBADO' || !estado) {
         return { puede: true };
       }
       return {
@@ -362,7 +376,8 @@ const SolicitudVehiculos: React.FC = () => {
       };
     }
 
-    // COORDINADOR: aprueba PREAPROBADO, tarifa 0 y REQUIERE_APROBACION_COORDINADOR (≤7%); no CONTROL.
+    // COORDINADOR: aprueba PREAPROBADO y REQUIERE_APROBACION_COORDINADOR (≤7%); no CONTROL
+    // (las de tarifa teórica 0 van a CONTROL, así que tampoco las aprueba).
     if (perfilUsuario === 'COORDINADOR') {
       if (estado === 'REQUIERE_APROBACION_CONTROL') {
         return { puede: false, motivo: 'Esta planilla requiere aprobación de CONTROL.' };
@@ -387,6 +402,11 @@ const SolicitudVehiculos: React.FC = () => {
     // Si ya está aprobada, mantenerlo
     if (resultado.estado === 'APROBADO') {
       return 'APROBADO';
+    }
+
+    // Sin tarifa teórica no hay base para validar el sobrecosto → requiere CONTROL.
+    if ((resultado.tarifa_calculada || 0) === 0) {
+      return 'REQUIERE_APROBACION_CONTROL';
     }
 
     // Calcular diferencia
@@ -414,7 +434,11 @@ const SolicitudVehiculos: React.FC = () => {
   const calcularEstadoPorValores = (resultado: PlanillaResultado): 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' => {
     const teorico = resultado.tarifa_calculada || 0;
     const total = calcularTotalSolicitado(resultado);
-    if (teorico === 0 || total <= teorico) {
+    // Sin tarifa teórica no hay base para validar el sobrecosto → requiere CONTROL.
+    if (teorico === 0) {
+      return 'REQUIERE_APROBACION_CONTROL';
+    }
+    if (total <= teorico) {
       return 'PREAPROBADO';
     }
     const { porcentaje } = calcularDiferenciaPorcentual(resultado);
@@ -1103,8 +1127,8 @@ const SolicitudVehiculos: React.FC = () => {
       const teorico = resultado.tarifa_calculada || 0;
 
       if (teorico === 0) {
-        // Caso especial: sin tarifa
-        nuevoEstado = 'PREAPROBADO';
+        // Sin tarifa teórica no hay base para validar el sobrecosto → requiere CONTROL.
+        nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
       } else if (total <= teorico) {
         // Total menor o igual al teórico
         nuevoEstado = 'PREAPROBADO';
@@ -3422,7 +3446,13 @@ const SolicitudVehiculos: React.FC = () => {
                       list="rutas-list"
                       value={tempEdicion?.ruta || ''}
                       onChange={(e) => setTempEdicion(prev => prev ? { ...prev, ruta: e.target.value } : null)}
-                      style={{ width: '100%', padding: '0.5rem' }}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        ...(tempEdicion && !soloLectura && !rutaEsValida(tempEdicion.ruta, rutasDisponibles)
+                          ? { border: '2px solid #dc2626', backgroundColor: '#fef2f2' }
+                          : {})
+                      }}
                       placeholder="Escribe o elige una ruta"
                       autoComplete="off"
                     />
@@ -3625,6 +3655,27 @@ const SolicitudVehiculos: React.FC = () => {
                 onClick={async () => {
                   if (modalDetalle.indice !== null && tempEdicion && modalDetalle.resultado) {
 
+                    // === VALIDACIÓN DE RUTA ===
+                    // La ruta es obligatoria y debe existir en la lista desplegable
+                    // (no se permite vacía ni un valor que no esté en la lista).
+                    if (!rutaEsValida(tempEdicion.ruta, rutasDisponibles)) {
+                      const valor = (tempEdicion.ruta || '').trim();
+                      Swal.fire({
+                        title: 'Ruta no válida',
+                        text: !valor
+                          ? 'La ruta es obligatoria. Escribe o elige una ruta de la lista desplegable.'
+                          : `La ruta "${valor}" no existe en la lista desplegable. Selecciona una ruta válida.`,
+                        icon: 'warning',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#dc2626',
+                        customClass: {
+                          container: 'swal2-container-sobre-modal',
+                          popup: 'swal2-popup-sobre-modal'
+                        }
+                      });
+                      return;
+                    }
+
                     // Crear resultado actualizado - Calcular estado correcto
                     const resultadoTemp = {
                       ...modalDetalle.resultado,
@@ -3719,6 +3770,9 @@ const SolicitudVehiculos: React.FC = () => {
                       nuevoEstado = 'CREADO';
                     } else if (modalDetalle.resultado.estado === 'APROBADO') {
                       nuevoEstado = 'APROBADO';
+                    } else if (teorico === 0) {
+                      // Sin tarifa teórica no hay base para validar el sobrecosto → requiere CONTROL.
+                      nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
                     } else if (esMayor && porcentaje > 0) {
                       // Distinguir entre coordinador (≤ 7%) y control (> 7%)
                       if (porcentaje <= 7) {

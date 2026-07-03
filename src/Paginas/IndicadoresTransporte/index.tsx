@@ -420,17 +420,7 @@ const IndicadoresGuias: React.FC = () => {
 
   // === Métricas para la nueva cabecera de KPIs ===
 
-  // Serie diaria total (todos los estados) para el sparkline y la variación
-  const serieDiaria = useMemo(() => {
-    return datosGrafico
-      .map(dia => ({
-        fecha: dia.fecha,
-        total: estados.reduce((s, e) => s + (typeof dia[e] === 'number' ? (dia[e] as number) : 0), 0),
-      }))
-      .filter(d => d.total > 0);
-  }, [datosGrafico, estados]);
-
-  // % de cumplimiento (ENTREGADO / total)
+  // % de cumplimiento (ENTREGADO / total) — refleja todo el rango filtrado (gauge)
   const pctCumplimiento = useMemo(() => {
     if (!kpis) return 0;
     const entregados = kpis.conteo?.ENTREGADO ?? 0;
@@ -442,14 +432,60 @@ const IndicadoresGuias: React.FC = () => {
   const colorCumplimiento =
     pctCumplimiento >= 90 ? '#10b981' : pctCumplimiento >= 75 ? '#e8a000' : '#ef4444';
 
-  // Variación REAL de volumen: suma de los últimos 7 días vs 7 días anteriores
-  const variacionPedidos = useMemo(() => {
-    if (serieDiaria.length < 8) return null;
-    const ultimos7 = serieDiaria.slice(-7).reduce((s, d) => s + d.total, 0);
-    const previos7 = serieDiaria.slice(-14, -7).reduce((s, d) => s + d.total, 0);
-    if (previos7 === 0) return null;
-    return Math.round(((ultimos7 - previos7) / previos7) * 100);
-  }, [serieDiaria]);
+  // Comparativo de VOLUMEN de pedidos: lo que va del mes actual (del día 1 a hoy)
+  // vs el MISMO período del mes anterior (del día 1 al mismo día de hoy).
+  // Ej.: hoy 10-jul → suma del 1 al 10 de julio vs suma del 1 al 10 de junio.
+  // Respeta el filtro de cliente. Si el filtro no trae datos de ambos períodos
+  // (o el mes anterior dio 0), no hay con qué comparar → se oculta el pill.
+  const comparativoMesAnterior = useMemo(() => {
+    if (!datosGrafico.length) return null;
+
+    const totalesDia = (d: DatosGrafico) =>
+      estados.reduce((s, e) => s + (typeof d[e] === 'number' ? (d[e] as number) : 0), 0);
+
+    // fecha (YYYY-MM-DD) -> total pedidos (solo días con datos)
+    const porFecha: Record<string, number> = {};
+    datosGrafico.forEach(d => {
+      const t = totalesDia(d);
+      if (t > 0) porFecha[d.fecha] = t;
+    });
+
+    const hoy = new Date();
+    const diaHoy = hoy.getDate();            // ej. 10
+    const mesActual0 = hoy.getMonth();       // 0-based
+    const anioActual = hoy.getFullYear();
+
+    // Mes anterior (calcula bien el cruce de año: diciembre -> enero del año previo)
+    const refAnt = new Date(anioActual, mesActual0 - 1, 1);
+    const anioAnt = refAnt.getFullYear();
+    const mesAnt0 = refAnt.getMonth();
+
+    const mm = (m: number) => String(m + 1).padStart(2, '0');
+    const dd = (d: number) => String(d).padStart(2, '0');
+
+    let actual = 0;
+    let anterior = 0;
+    let hayActual = false;
+    let hayAnterior = false;
+    for (let dia = 1; dia <= diaHoy; dia++) {
+      const fActual = `${anioActual}-${mm(mesActual0)}-${dd(dia)}`;
+      const fAnterior = `${anioAnt}-${mm(mesAnt0)}-${dd(dia)}`;
+      if (porFecha[fActual] !== undefined) { actual += porFecha[fActual]; hayActual = true; }
+      if (porFecha[fAnterior] !== undefined) { anterior += porFecha[fAnterior]; hayAnterior = true; }
+    }
+
+    if (!hayActual || !hayAnterior || anterior === 0) return null;
+
+    const nombresMes = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return {
+      actual,
+      anterior,
+      pct: Math.round(((actual - anterior) / anterior) * 100),
+      diaHoy,
+      mesActual: nombresMes[mesActual0],
+      mesAnterior: nombresMes[mesAnt0],
+    };
+  }, [datosGrafico, estados]);
 
   // Exportar la serie visible de Pedidos a CSV (abre correcto en Excel-ES)
   const exportarPedidos = () => {
@@ -851,9 +887,13 @@ const IndicadoresGuias: React.FC = () => {
                       {kpis.conteo?.PENDIENTE && kpis.conteo?.['CON NOVEDAD'] ? ' · ' : ''}
                       {kpis.conteo?.['CON NOVEDAD'] ? `${formatearNumero(kpis.conteo['CON NOVEDAD'])} con novedad` : ''}
                     </p>
-                    {variacionPedidos !== null && (
-                      <span className={`IG-kpiHeroTrend ${variacionPedidos < 0 ? 'IG-kpiHeroTrendDown' : ''}`} title="Últimos 7 días vs semana anterior">
-                        {variacionPedidos >= 0 ? '▲' : '▼'} {Math.abs(variacionPedidos)}% vs semana anterior
+                    {/* Color invertido a propósito: por encima (más volumen) se ve rojo, por debajo verde */}
+                    {comparativoMesAnterior && (
+                      <span
+                        className={`IG-kpiHeroTrend ${comparativoMesAnterior.pct >= 0 ? 'IG-kpiHeroTrendDown' : ''}`}
+                        title={`Del 1 al ${comparativoMesAnterior.diaHoy} de ${comparativoMesAnterior.mesActual}: ${formatearNumero(comparativoMesAnterior.actual)} pedidos · mismo período de ${comparativoMesAnterior.mesAnterior}: ${formatearNumero(comparativoMesAnterior.anterior)} pedidos`}
+                      >
+                        {comparativoMesAnterior.pct >= 0 ? '▲' : '▼'} {Math.abs(comparativoMesAnterior.pct)}% {comparativoMesAnterior.pct >= 0 ? 'por encima' : 'por debajo'} vs mes anterior misma fecha
                       </span>
                     )}
                   </div>

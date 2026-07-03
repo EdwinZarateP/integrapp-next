@@ -3,6 +3,7 @@ const nextConfig = {
   output: 'export',
   basePath: '/integrapp',
   assetPrefix: '/integrapp',
+  trailingSlash: true,
   images: {
     unoptimized: true,
     remotePatterns: [

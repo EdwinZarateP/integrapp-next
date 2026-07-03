@@ -31,12 +31,13 @@ interface InputFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   options?: string[];
   disabled?: boolean;
+  required?: boolean;
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
 }
 
-const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, options, disabled, inputProps }) => (
+const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, options, disabled, inputProps, required }) => (
   <div className="Datos-input-container">
-    <label>{label}</label>
+    <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
     {options ? (
       <select name={name} value={value} onChange={onChange} disabled={disabled}>
         <option value="">Seleccione...</option>
@@ -69,6 +70,7 @@ interface FormSectionProps {
   formData: Record<string, string>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   disabled?: boolean;
+  requiredFields?: string[];
 }
 
 const categoriasLicencia = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3"];
@@ -78,7 +80,7 @@ const arlColombia = ["Positiva", "Sura", "Colpatria", "Bolívar", "Axa Colpatria
 const parentescos = ["Padre", "Madre", "Hijo(a)", "Hermano(a)", "Esposo(a)", "Abuelo(a)", "Tio(a)", "Otro"];
 const tiposCarroceria = ["S.R.S.","FURGON","ESTACAS","TANQUE","VOLCO","TOLVA","RECOLECTOR COMPARTADOR","PANEL","CAMABAJA","VAN","PLANCHON","PORTACONTENEDORES","PLATAFORMA","HOMIGONERO","BOTELLERO",];
 
-const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, handleChange, disabled = false }) => (
+const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, handleChange, disabled = false, requiredFields }) => (
   <div className="Datos-form-section">
     <h4>{title}</h4>
     <div className="Datos-fields-container">
@@ -92,6 +94,7 @@ const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, hand
           onChange={handleChange}
           options={options}
           disabled={disabled}
+          required={requiredFields?.includes(name)}
           inputProps={inputProps}
         />
       ))}
@@ -408,6 +411,11 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
         <div className="Datos-barra-avance">
           <div className="Datos-progreso" style={{ width: `${calcularAvance()}%` }}></div>
         </div>
+        {calcularAvance() < 100 && (
+          <span className="Datos-avance-faltan" style={{ display: 'block', fontSize: '0.85rem', color: '#e67e22', marginTop: '6px' }}>
+            Faltan {requiredFields.filter(f => !formData[f] || formData[f].trim() === '').length} campos obligatorios (*)
+          </span>
+        )}
       </div>
 
       <div className="Datos-Form-datos-generales">
@@ -422,7 +430,7 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
               </div>
             )}
             {fields.length > 0 && (
-              <FormSection title={title} fields={fields} formData={formData} handleChange={handleChange} disabled={title.includes("Tenedor") && tenedorSame} />
+              <FormSection title={title} fields={fields} formData={formData} handleChange={handleChange} disabled={title.includes("Tenedor") && tenedorSame} requiredFields={requiredFields} />
             )}
           </div>
         ))}
