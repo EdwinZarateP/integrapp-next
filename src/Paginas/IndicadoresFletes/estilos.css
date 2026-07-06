@@ -5,6 +5,29 @@
    componente. Aquí solo van los ajustes específicos de Fletes.
    ========================================== */
 
+/* Responsive: en pantallas grandes el contenido centrado (header, filtros,
+   chips y main) ocupa el 90% del ancho (>=85%). El chrome compartido lo cap a
+   max-width 1200px; aquí lo ensanchamos SOLO para Fletes y solo en desktop,
+   sin tocar los breakpoints móviles (<=1024px) que ya hacen el contenido
+   full-width. */
+@media (min-width: 1025px) {
+  .IG-headerInner,
+  .IG-filtrosSection,
+  .IG-filtrosActivos,
+  .IG-main {
+    width: 90%;
+    max-width: none;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* El chrome compartido aplica `.IG-graficosFila { order: 4 }` (para el layout de
+   Transporte: KPIs → Pedidos → Cajas → desgloses). Como `IG-main` es flex-column,
+   eso empuja las filas debajo de los gráficos sueltos y rompe el orden visual en
+   Fletes. Lo reseteamos aquí para respetar el orden del DOM. */
+.IG-graficosFila { order: 0; }
+
 /* Tile "Diferencia": acento verde (positivo) por defecto; se sobreescribe a rojo
    desde el componente con .IG-kpiTileNovedad cuando la diferencia es negativa. */
 .IG-kpiTileDif::before { background: #16a34a; }
@@ -46,6 +69,80 @@
   cursor: pointer;
 }
 
+/* Toggle segmentado Diario/Mensual del gráfico "Flete facturado" */
+.IG-toggleGrupo {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+.IG-toggleBtn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.IG-toggleBtn:hover {
+  background: #e2e8f0;
+}
+.IG-toggleBtnActivo,
+.IG-toggleBtnActivo:hover {
+  background: #0f1928;
+  color: #ffffff;
+}
+
+/* Badge de vista junto al título del gráfico */
+.IG-graficoBadge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #0f1928;
+  background: #e8a000;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+/* Subtítulo bajo el header de un gráfico (ej. total de sobrecosto de la torta) */
+.IG-graficoSub {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7a8d;
+}
+.IG-graficoSub b {
+  color: #0f1928;
+}
+
+/* Tooltip personalizado del gráfico "Flete facturado" (cobrado/teórico/diferencia) */
+.IG-tooltipSerie {
+  background: #0f1928;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  color: #ffffff;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.IG-tooltipSerie p { margin: 0; }
+.IG-tooltipSerieFecha {
+  font-weight: 800;
+  margin-bottom: 0.25rem !important;
+}
+.IG-tooltipSerieSub {
+  margin-top: 0.25rem !important;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
 /* Modal de detalle: tabla con cifras alineadas a la derecha */
 .IG-modalTabla td.IG-num,
 .IG-modalTabla th.IG-num {
@@ -62,4 +159,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Dropdown de Día: hasta 31 opciones → scroll vertical para no desbordar */
+.IG-dropdownDiaLista {
+  max-height: 240px;
+  overflow-y: auto;
 }

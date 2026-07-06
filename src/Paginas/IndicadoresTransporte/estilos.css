@@ -1619,7 +1619,7 @@
 
 .IG-barraHItem {
   display: grid;
-  grid-template-columns: 140px 1fr 60px;
+  grid-template-columns: 170px 1fr 60px;
   align-items: center;
   gap: 0.75rem;
 }
@@ -1628,6 +1628,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .IG-barraHPunto {
@@ -1642,6 +1644,9 @@
   font-weight: 600;
   color: #0f1928;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .IG-barraHTrack {

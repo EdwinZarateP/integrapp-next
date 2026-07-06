@@ -2,41 +2,33 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaMoneyBillWave, FaTruck, FaWeight, FaBoxOpen, FaDownload, FaCoins } from 'react-icons/fa';
+import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaDownload, FaCoins } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 // Chrome compartido con Transporte + extras propios de Fletes
 import '../IndicadoresTransporte/estilos.css';
 import './estilos.css';
 
-type KPIs = {
-  flete_cobrado: number;
-  flete_teorico: number;
-  diferencia: number;
-  toneladas: number;
-  piezas: number;
-  despachos: number;
-  con_diferencia_positiva: number;
-  pct_sobre_teorico: number;
-  pct_con_diferencia_positiva: number;
-  ticket_promedio: number;
-};
-
 type SerieMes = { mes: string; cobrado: number; teorico: number; despachos: number };
-type ItemFlete = { cliente?: string; ruta?: string; tipo_vehiculo?: string; regional?: string; flete: number; despachos: number; toneladas?: number };
+type SerieDia = { fecha: string; cobrado: number; teorico: number; despachos: number };
+type ItemFleteSerie = { fecha: string; cobrado: number; teorico: number; base: number; sobrecosto: number; ahorro: number; despachos: number };
+type CausalSobrecosto = { causal: string; cantidad: number; sobrecosto: number };
+type ItemFlete = { cliente?: string; ruta?: string; tipo_vehiculo?: string; regional?: string; flete: number; sobrecosto?: number; despachos: number; toneladas?: number };
+type ItemRutaSobrecosto = { ruta: string; sobrecosto: number; despachos: number };
+type ItemRegionalSobrecosto = { regional: string; sobrecosto: number; despachos: number };
 
 type ApiResponse = {
   success: boolean;
   data?: {
-    kpis: KPIs;
-    recargos: Record<string, number>;
     serieMensual: SerieMes[];
+    serieDiaria: SerieDia[];
     porCliente: ItemFlete[];
-    porRuta: ItemFlete[];
+    porRuta: ItemRutaSobrecosto[];
     porTipoVeh: ItemFlete[];
-    porRegional: ItemFlete[];
+    sobrecostoPorRegional: ItemRegionalSobrecosto[];
+    causalesSobrecosto: CausalSobrecosto[];
     anios: number[];
     clientes: string[];
   };
@@ -66,18 +58,22 @@ const IndicadoresFletes: React.FC = () => {
   const [datosUsuario, setDatosUsuario] = useState<{ usuario: string; perfil?: string; regional?: string } | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [kpis, setKpis] = useState<KPIs | null>(null);
-  const [recargos, setRecargos] = useState<Record<string, number>>({});
   const [serieMensual, setSerieMensual] = useState<SerieMes[]>([]);
+  const [serieDiaria, setSerieDiaria] = useState<SerieDia[]>([]);
+
+  // Vista del gráfico "Flete facturado": diario (default) o mensual
+  const [vistaSerie, setVistaSerie] = useState<'diaria' | 'mensual'>('diaria');
   const [porCliente, setPorCliente] = useState<ItemFlete[]>([]);
-  const [porRuta, setPorRuta] = useState<ItemFlete[]>([]);
+  const [porRuta, setPorRuta] = useState<ItemRutaSobrecosto[]>([]);
   const [porTipoVeh, setPorTipoVeh] = useState<ItemFlete[]>([]);
-  const [porRegional, setPorRegional] = useState<ItemFlete[]>([]);
+  const [sobrecostoPorRegional, setSobrecostoPorRegional] = useState<ItemRegionalSobrecosto[]>([]);
+  const [causalesSobrecosto, setCausalesSobrecosto] = useState<CausalSobrecosto[]>([]);
 
   // Filtros en pantalla (no disparan fetch hasta "Filtrar")
   const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
   const [aniosSeleccionados, setAniosSeleccionados] = useState<number[]>([new Date().getFullYear()]);
   const [mesesSeleccionados, setMesesSeleccionados] = useState<number[]>([]);
+  const [diasSeleccionados, setDiasSeleccionados] = useState<number[]>([]);
   const [clientesDisponibles, setClientesDisponibles] = useState<string[]>([]);
   const [clientesSeleccionados, setClientesSeleccionados] = useState<string[]>([]);
   const [regionalSeleccionada, setRegionalSeleccionada] = useState<string>('');
@@ -85,6 +81,7 @@ const IndicadoresFletes: React.FC = () => {
 
   const [dropdownAnioAbierto, setDropdownAnioAbierto] = useState(false);
   const [dropdownMesAbierto, setDropdownMesAbierto] = useState(false);
+  const [dropdownDiaAbierto, setDropdownDiaAbierto] = useState(false);
   const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
   const [dropdownRegionalAbierto, setDropdownRegionalAbierto] = useState(false);
 
@@ -92,15 +89,27 @@ const IndicadoresFletes: React.FC = () => {
   const [filtrosAplicados, setFiltrosAplicados] = useState({
     anios: [new Date().getFullYear()] as number[],
     meses: [] as number[],
+    dias: [] as number[],
     clientes: [] as string[],
     regional: '',
   });
 
-  // Modal de detalle por mes
-  const [modalAbierto, setModalAbierto] = useState(false);
-  const [modalMes, setModalMes] = useState('');
-  const [modalRegistros, setModalRegistros] = useState<any[]>([]);
-  const [modalCargando, setModalCargando] = useState(false);
+  // Días ofrecidos en el dropdown: si hay un solo mes seleccionado, hasta el último
+  // día de ese mes (considerando año bisiesto si hay un solo año); si no, 1..31.
+  const diasDisponibles = useMemo(() => {
+    if (mesesSeleccionados.length === 1) {
+      const mes = mesesSeleccionados[0];
+      const anioBase = aniosSeleccionados.length === 1 ? aniosSeleccionados[0] : new Date().getFullYear();
+      const ultimo = new Date(anioBase, mes, 0).getDate();
+      return Array.from({ length: ultimo }, (_, i) => i + 1);
+    }
+    return Array.from({ length: 31 }, (_, i) => i + 1);
+  }, [mesesSeleccionados, aniosSeleccionados]);
+
+  // Si al cambiar el mes/año algún día seleccionado queda fuera de rango, se quita.
+  useEffect(() => {
+    setDiasSeleccionados(prev => prev.filter(d => diasDisponibles.includes(d)));
+  }, [diasDisponibles]);
 
   // Formateadores
   const formatearMoneda = (num: number): string =>
@@ -140,6 +149,7 @@ const IndicadoresFletes: React.FC = () => {
       const params = new URLSearchParams();
       filtrosAplicados.anios.forEach(a => params.append('anio', String(a)));
       filtrosAplicados.meses.forEach(m => params.append('mes', String(m)));
+      filtrosAplicados.dias.forEach(d => params.append('dia', String(d)));
       filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
       if (filtrosAplicados.regional) params.append('regional', filtrosAplicados.regional);
 
@@ -147,13 +157,13 @@ const IndicadoresFletes: React.FC = () => {
       if (!response.ok) throw new Error('Error al obtener datos');
       const data: ApiResponse = await response.json();
       if (data.success && data.data) {
-        setKpis(data.data.kpis);
-        setRecargos(data.data.recargos || {});
         setSerieMensual(data.data.serieMensual || []);
+        setSerieDiaria(data.data.serieDiaria || []);
         setPorCliente(data.data.porCliente || []);
         setPorRuta(data.data.porRuta || []);
         setPorTipoVeh(data.data.porTipoVeh || []);
-        setPorRegional(data.data.porRegional || []);
+        setSobrecostoPorRegional(data.data.sobrecostoPorRegional || []);
+        setCausalesSobrecosto(data.data.causalesSobrecosto || []);
         if (data.data.anios?.length) setAniosDisponibles(data.data.anios);
         setClientesDisponibles(data.data.clientes || []);
       } else {
@@ -170,6 +180,7 @@ const IndicadoresFletes: React.FC = () => {
     setFiltrosAplicados({
       anios: aniosSeleccionados,
       meses: mesesSeleccionados,
+      dias: diasSeleccionados,
       clientes: clientesSeleccionados,
       regional: regionalSeleccionada,
     });
@@ -177,26 +188,39 @@ const IndicadoresFletes: React.FC = () => {
 
   useEffect(() => { obtenerDatos(); /* eslint-disable-next-line */ }, [filtrosAplicados]);
 
-  // Comparativo del último mes vs el anterior (sobre la serie mensual)
-  const comparativoMesAnterior = useMemo(() => {
-    if (!serieMensual || serieMensual.length < 2) return null;
-    const actual = serieMensual[serieMensual.length - 1];
-    const anterior = serieMensual[serieMensual.length - 2];
-    if (!anterior.cobrado) return null;
-    const pct = Math.round(((actual.cobrado - anterior.cobrado) / anterior.cobrado) * 100);
-    const nombreMes = (ym: string) => {
-      const [y, m] = ym.split('-').map(Number);
-      return `${MESES[m - 1].nombre} ${y}`;
-    };
-    return { actual: actual.cobrado, anterior: anterior.cobrado, pct, mesActual: nombreMes(actual.mes), mesAnterior: nombreMes(anterior.mes) };
-  }, [serieMensual]);
-
-  // Datos de recargos para el pie (solo no nulos)
-  const recargosData = useMemo(() =>
-    Object.entries(recargos)
-      .map(([name, value]) => ({ name, value: Math.round(value || 0) }))
+  // Causales de sobrecosto para el pie: tamaño de porción = $ sobrecosto por causal
+  const causalesData = useMemo(() =>
+    (causalesSobrecosto || [])
+      .map(c => ({ name: c.causal, value: Math.round(c.sobrecosto || 0), cantidad: c.cantidad || 0 }))
       .filter(r => r.value > 0),
-    [recargos]);
+    [causalesSobrecosto]);
+
+  // Totales para el subtítulo de la torta de causales
+  const causalesTotales = useMemo(() => {
+    const sobrecosto = causalesData.reduce((s, c) => s + c.value, 0);
+    const envios = causalesData.reduce((s, c) => s + (c.cantidad || 0), 0);
+    return { sobrecosto, envios };
+  }, [causalesData]);
+
+  // Datos del gráfico "Flete facturado" según la vista (diaria/mensual). Cada item lleva
+  // base (gris = min(cobrado,teórico)), sobrecosto (rojo) y ahorro (verde).
+  const dataChart = useMemo<ItemFleteSerie[]>(() => {
+    const origen: SerieDia[] | SerieMes[] = vistaSerie === 'diaria' ? serieDiaria : serieMensual;
+    return origen.map((d) => {
+      const cobrado = d.cobrado || 0;
+      const teorico = d.teorico || 0;
+      const fecha = ('fecha' in d ? d.fecha : d.mes) as string;
+      return {
+        fecha,
+        cobrado,
+        teorico,
+        base: Math.min(cobrado, teorico),
+        sobrecosto: Math.max(cobrado - teorico, 0),
+        ahorro: Math.max(teorico - cobrado, 0),
+        despachos: d.despachos || 0,
+      };
+    });
+  }, [vistaSerie, serieDiaria, serieMensual]);
 
   // Clientes filtrados por búsqueda en el dropdown (limitado para no colgar el render)
   const clientesFiltradosDropdown = useMemo(() => {
@@ -208,56 +232,32 @@ const IndicadoresFletes: React.FC = () => {
   const hasFiltrosActivos =
     filtrosAplicados.clientes.length > 0 ||
     filtrosAplicados.meses.length > 0 ||
+    filtrosAplicados.dias.length > 0 ||
     !!filtrosAplicados.regional ||
     JSON.stringify([...filtrosAplicados.anios].sort()) !== JSON.stringify([new Date().getFullYear()]);
 
-  // Gauge: % flete cobrado sobre teórico (capado a 100% en el anillo)
-  const pctSobreTeorico = kpis?.pct_sobre_teorico ?? 0;
-  const capGauge = Math.min(pctSobreTeorico, 100);
-  const colorGauge = pctSobreTeorico >= 100 ? '#16a34a' : pctSobreTeorico >= 90 ? '#e8a000' : '#dc2626';
-
-  const diferenciaPositiva = (kpis?.diferencia ?? 0) >= 0;
-
-  const abrirDetalleMes = async (ym: string) => {
-    if (!ym || ym.length !== 7) return;
-    const [anioStr, mesStr] = ym.split('-');
-    setModalMes(ym);
-    setModalAbierto(true);
-    setModalCargando(true);
-    setModalRegistros([]);
-    try {
-      const params = new URLSearchParams();
-      params.append('anio', anioStr);
-      params.append('mes', mesStr);
-      filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
-      if (filtrosAplicados.regional) params.append('regional', filtrosAplicados.regional);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-fletes/detalle?${params.toString()}`);
-      const data = await res.json();
-      if (data.success) setModalRegistros(data.data || []);
-    } catch (err) {
-      console.error('Error al cargar detalle:', err);
-    } finally {
-      setModalCargando(false);
-    }
-  };
-
-  // Exportar la serie visible (teórico vs cobrado) a CSV (Excel-ES)
+  // Exportar la serie visible (diaria o mensual, según la vista) a CSV (Excel-ES)
   const exportarSerie = () => {
-    if (!serieMensual.length) return;
-    const cabeceras = ['Mes', 'Flete teórico', 'Flete cobrado', 'Diferencia', 'Despachos'];
-    const filas = serieMensual.map(s => [
-      format(parseISO(s.mes + '-01'), 'MM/yyyy'),
-      Math.round(s.teorico || 0),
-      Math.round(s.cobrado || 0),
-      Math.round((s.cobrado || 0) - (s.teorico || 0)),
-      s.despachos || 0,
-    ]);
+    const origen: SerieDia[] | SerieMes[] = vistaSerie === 'diaria' ? serieDiaria : serieMensual;
+    if (!origen.length) return;
+    const colFecha = vistaSerie === 'diaria' ? 'Día' : 'Mes';
+    const fmtFecha = (f: string) =>
+      vistaSerie === 'diaria'
+        ? format(parseISO(f), 'dd/MM/yyyy')
+        : format(parseISO(f + '-01'), 'MM/yyyy');
+    const cabeceras = [colFecha, 'Flete teórico', 'Flete cobrado', 'Diferencia', 'Despachos'];
+    const filas = origen.map((d) => {
+      const fecha = ('fecha' in d ? d.fecha : d.mes) as string;
+      const cobrado = d.cobrado || 0;
+      const teorico = d.teorico || 0;
+      return [fmtFecha(fecha), Math.round(teorico), Math.round(cobrado), Math.round(cobrado - teorico), d.despachos || 0];
+    });
     const csv = [cabeceras, ...filas].map(r => r.join(';')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fletes_mensual_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `fletes_${vistaSerie === 'diaria' ? 'diario' : 'mensual'}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -274,11 +274,39 @@ const IndicadoresFletes: React.FC = () => {
     router.push('/LoginUsuario');
   };
 
-  // Etiqueta de mes para los ejes: "MMM yy" (ej. jul 26)
-  const formatoEjeMes = (ym: string) => {
-    try { return format(parseISO(ym + '-01'), 'MMM yy', { locale: es }); }
-    catch { return ym; }
+  // Etiqueta del eje X del gráfico "Flete facturado" según la vista
+  const formatoEjeSerie = (val: string) => {
+    try {
+      if (vistaSerie === 'diaria') return format(parseISO(val), 'd MMM', { locale: es });
+      return format(parseISO(val + '-01'), 'MMM yy', { locale: es });
+    } catch { return val; }
   };
+
+  // Tooltip personalizado del gráfico "Flete facturado"
+  const tooltipSerie = (props: any) => {
+    if (!props.active || !props.payload || !props.payload.length) return null;
+    const d = props.payload[0].payload as ItemFleteSerie;
+    const dif = d.cobrado - d.teorico;
+    const fechaTxt = vistaSerie === 'diaria'
+      ? format(parseISO(d.fecha), "d 'de' MMMM yyyy", { locale: es })
+      : format(parseISO(d.fecha + '-01'), 'MMMM yyyy', { locale: es });
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
+        <p>Flete cobrado: <b>{formatearMoneda(d.cobrado)}</b></p>
+        <p>Flete teórico: <b>{formatearMoneda(d.teorico)}</b></p>
+        <p>Diferencia:{' '}
+          <b className={dif > 0 ? 'IG-difPos' : dif < 0 ? 'IG-difNeg' : 'IG-difCero'}>
+            {dif > 0 ? '+' : ''}{formatearMoneda(dif)}
+          </b>
+        </p>
+        <p className="IG-tooltipSerieSub">{formatearNumero(d.despachos)} despachos</p>
+      </div>
+    );
+  };
+
+  // Intervalo del eje X para no amontonar etiquetas cuando hay muchos días
+  const intervalSerie = dataChart.length > 1 ? Math.max(0, Math.ceil(dataChart.length / 12) - 1) : 0;
 
   return (
     <div className="IG-container">
@@ -324,7 +352,7 @@ const IndicadoresFletes: React.FC = () => {
           <div className="IG-filtroGrupo" style={{ position: 'relative' }}>
             <label>Año:</label>
             <div className="IG-dropdownFiltro">
-              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); setDropdownClienteAbierto(false); setDropdownRegionalAbierto(false); }}>
+              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); setDropdownDiaAbierto(false); setDropdownClienteAbierto(false); setDropdownRegionalAbierto(false); }}>
                 <span className="IG-dropdownFiltroTexto">
                   {aniosSeleccionados.length === 0 ? 'Todos' : aniosSeleccionados.length === 1 ? String(aniosSeleccionados[0]) : `${aniosSeleccionados.length} años`}
                 </span>
@@ -347,7 +375,7 @@ const IndicadoresFletes: React.FC = () => {
           <div className="IG-filtroGrupo" style={{ position: 'relative' }}>
             <label>Mes:</label>
             <div className="IG-dropdownFiltro">
-              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); setDropdownClienteAbierto(false); setDropdownRegionalAbierto(false); }}>
+              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); setDropdownDiaAbierto(false); setDropdownClienteAbierto(false); setDropdownRegionalAbierto(false); }}>
                 <span className="IG-dropdownFiltroTexto">
                   {mesesSeleccionados.length === 0 ? 'Todos' : mesesSeleccionados.length === 1 ? MESES.find(m => m.valor === mesesSeleccionados[0])?.nombre : `${mesesSeleccionados.length} meses`}
                 </span>
@@ -370,11 +398,38 @@ const IndicadoresFletes: React.FC = () => {
             </div>
           </div>
 
+          {/* Día */}
+          <div className="IG-filtroGrupo" style={{ position: 'relative' }}>
+            <label>Día:</label>
+            <div className="IG-dropdownFiltro">
+              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownDiaAbierto(!dropdownDiaAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownClienteAbierto(false); setDropdownRegionalAbierto(false); }}>
+                <span className="IG-dropdownFiltroTexto">
+                  {diasSeleccionados.length === 0 ? 'Todos' : diasSeleccionados.length === 1 ? String(diasSeleccionados[0]) : `${diasSeleccionados.length} días`}
+                </span>
+                <span className="IG-dropdownFiltroFlecha">▾</span>
+              </button>
+              {dropdownDiaAbierto && (
+                <div className="IG-dropdownFiltroLista IG-dropdownDiaLista">
+                  <label className={`IG-dropdownFiltroItem ${diasSeleccionados.length === 0 ? 'seleccionado' : ''}`}>
+                    <input type="checkbox" checked={diasSeleccionados.length === 0} onChange={() => setDiasSeleccionados([])} />
+                    Todos
+                  </label>
+                  {diasDisponibles.map(d => (
+                    <label key={d} className={`IG-dropdownFiltroItem ${diasSeleccionados.includes(d) ? 'seleccionado' : ''}`}>
+                      <input type="checkbox" checked={diasSeleccionados.includes(d)} onChange={() => setDiasSeleccionados(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort((a, b) => a - b))} />
+                      {d}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Cliente */}
           <div className="IG-filtroGrupo" ref={clienteFiltroRef} style={{ position: 'relative' }}>
             <label>Cliente:</label>
             <div className="IG-dropdownFiltro">
-              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownClienteAbierto(!dropdownClienteAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownRegionalAbierto(false); }}>
+              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownClienteAbierto(!dropdownClienteAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownDiaAbierto(false); setDropdownRegionalAbierto(false); }}>
                 <span className="IG-dropdownFiltroTexto">
                   {clientesSeleccionados.length === 0 ? 'Todos' : clientesSeleccionados.length === 1 ? clientesSeleccionados[0] : `${clientesSeleccionados.length} clientes`}
                 </span>
@@ -404,7 +459,7 @@ const IndicadoresFletes: React.FC = () => {
           <div className="IG-filtroGrupo" style={{ position: 'relative' }}>
             <label>Regional:</label>
             <div className="IG-dropdownFiltro">
-              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownRegionalAbierto(!dropdownRegionalAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownClienteAbierto(false); }}>
+              <button className="IG-dropdownFiltroBtn" onClick={() => { setDropdownRegionalAbierto(!dropdownRegionalAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownDiaAbierto(false); setDropdownClienteAbierto(false); }}>
                 <span className="IG-dropdownFiltroTexto">{regionalSeleccionada || 'Todas'}</span>
                 <span className="IG-dropdownFiltroFlecha">▾</span>
               </button>
@@ -425,7 +480,7 @@ const IndicadoresFletes: React.FC = () => {
             </div>
           </div>
 
-          <button className="IG-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownClienteAbierto(false); setDropdownRegionalAbierto(false); setBusquedaCliente(''); }}>
+          <button className="IG-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownDiaAbierto(false); setDropdownClienteAbierto(false); setDropdownRegionalAbierto(false); setBusquedaCliente(''); }}>
             <FaCoins /> Filtrar
           </button>
         </div>
@@ -445,6 +500,11 @@ const IndicadoresFletes: React.FC = () => {
               Meses: {filtrosAplicados.meses.map(m => MESES.find(x => x.valor === m)?.nombre).join(', ')} ✕
             </button>
           )}
+          {filtrosAplicados.dias.length > 0 && (
+            <button className="IG-filtroChip" onClick={() => { setDiasSeleccionados([]); setFiltrosAplicados(f => ({ ...f, dias: [] })); }}>
+              Días: {filtrosAplicados.dias.join(', ')} ✕
+            </button>
+          )}
           {filtrosAplicados.clientes.length > 0 && filtrosAplicados.clientes.map(c => (
             <button key={c} className="IG-filtroChip" onClick={() => { const n = clientesSeleccionados.filter(x => x !== c); setClientesSeleccionados(n); setFiltrosAplicados(f => ({ ...f, clientes: n })); }}>
               {c} ✕
@@ -455,7 +515,7 @@ const IndicadoresFletes: React.FC = () => {
               Regional: {filtrosAplicados.regional} ✕
             </button>
           )}
-          <button className="IG-filtroLimpiar" onClick={() => { const def = [new Date().getFullYear()]; setAniosSeleccionados(def); setMesesSeleccionados([]); setClientesSeleccionados([]); setRegionalSeleccionada(''); setFiltrosAplicados({ anios: def, meses: [], clientes: [], regional: '' }); }}>
+          <button className="IG-filtroLimpiar" onClick={() => { const def = [new Date().getFullYear()]; setAniosSeleccionados(def); setMesesSeleccionados([]); setDiasSeleccionados([]); setClientesSeleccionados([]); setRegionalSeleccionada(''); setFiltrosAplicados({ anios: def, meses: [], dias: [], clientes: [], regional: '' }); }}>
             Limpiar todo
           </button>
         </div>
@@ -489,88 +549,22 @@ const IndicadoresFletes: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* KPIs */}
-            {kpis && (
-              <div className="IG-kpisContainer">
-                {/* Hero: flete facturado + gauge % sobre teórico */}
-                <div className="IG-kpiHero">
-                  <div className="IG-kpiHeroInfo">
-                    <p className="IG-kpiHeroLabel">Flete facturado</p>
-                    <div className="IG-kpiHeroDetalle">
-                      <FaMoneyBillWave className="IG-kpiHeroIcon" style={{ color: colorGauge }} />
-                      <span className="IG-fleteHeroValor">{formatearMoneda(kpis.flete_cobrado)}</span>
-                    </div>
-                    <p className="IG-fleteHeroTeorico">
-                      Teórico {formatearMoneda(kpis.flete_teorico)} · Diferencia{' '}
-                      <span className={diferenciaPositiva ? 'IG-fleteHeroDifPos' : 'IG-fleteHeroDifNeg'}>
-                        {diferenciaPositiva ? '+' : ''}{formatearMoneda(kpis.diferencia)}
-                      </span>
-                    </p>
-                    <p className="IG-kpiHeroSub">
-                      {formatearNumero(kpis.despachos)} despachos · {Math.round(kpis.toneladas)} toneladas
-                    </p>
-                    {comparativoMesAnterior && (
-                      <span className={`IG-kpiHeroTrend ${comparativoMesAnterior.pct < 0 ? 'IG-kpiHeroTrendDown' : ''}`}
-                        title={`${comparativoMesAnterior.mesActual}: ${formatearMoneda(comparativoMesAnterior.actual)} · ${comparativoMesAnterior.mesAnterior}: ${formatearMoneda(comparativoMesAnterior.anterior)}`}>
-                        {comparativoMesAnterior.pct >= 0 ? '▲' : '▼'} {Math.abs(comparativoMesAnterior.pct)}% vs {comparativoMesAnterior.mesAnterior}
-                      </span>
-                    )}
-                  </div>
-                  <div className="IG-gaugeWrap">
-                    <svg viewBox="0 0 100 100" className="IG-gaugeSvg">
-                      <circle cx="50" cy="50" r="42" className="IG-gaugeTrack" />
-                      <circle cx="50" cy="50" r="42" className="IG-gaugeFill" stroke={colorGauge}
-                        strokeDasharray={2 * Math.PI * 42}
-                        strokeDashoffset={2 * Math.PI * 42 * (1 - capGauge / 100)} />
-                    </svg>
-                    <div className="IG-gaugeCentro">
-                      <span className="IG-gaugeNum" style={{ color: colorGauge }}>{Math.round(pctSobreTeorico)}%</span>
-                      <span className="IG-gaugeCaption">sobre teórico</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tile: Diferencia */}
-                <div className={`IG-kpiTile ${diferenciaPositiva ? 'IG-kpiTileDif' : 'IG-kpiTileNovedad'}`}>
-                  <div className="IG-kpiTileTop"><span className="IG-kpiTileIcon"><FaCoins /></span></div>
-                  <p className="IG-kpiTileLabel">Diferencia total</p>
-                  <p className="IG-kpiTileValor IG-valorMoneda">{diferenciaPositiva ? '+' : ''}{formatearMoneda(kpis.diferencia)}</p>
-                  <p className="IG-kpiTileSub">{kpis.pct_con_diferencia_positiva}% despachos con recargo</p>
-                </div>
-
-                {/* Tile: Toneladas */}
-                <div className="IG-kpiTile IG-kpiTileTon">
-                  <div className="IG-kpiTileTop"><span className="IG-kpiTileIcon"><FaWeight /></span></div>
-                  <p className="IG-kpiTileLabel">Toneladas</p>
-                  <p className="IG-kpiTileValor">{Math.round(kpis.toneladas).toLocaleString('es-CO')}</p>
-                </div>
-
-                {/* Tile: Despachos */}
-                <div className="IG-kpiTile IG-kpiTileTotal">
-                  <div className="IG-kpiTileTop"><span className="IG-kpiTileIcon"><FaTruck /></span></div>
-                  <p className="IG-kpiTileLabel">Despachos</p>
-                  <p className="IG-kpiTileValor">{formatearNumero(kpis.despachos)}</p>
-                </div>
-
-                {/* Tile: Ticket promedio */}
-                <div className="IG-kpiTile IG-kpiTileCajas">
-                  <div className="IG-kpiTileTop"><span className="IG-kpiTileIcon"><FaBoxOpen /></span></div>
-                  <p className="IG-kpiTileLabel">Ticket promedio</p>
-                  <p className="IG-kpiTileValor IG-valorMoneda">{formatearMoneda(kpis.ticket_promedio)}</p>
-                  <p className="IG-kpiTileSub">flete por despacho</p>
-                </div>
-              </div>
-            )}
-
-            {/* Tendencia mensual del flete */}
+            {/* Flete facturado: diario/mensual con sobrecosto (rojo) y ahorro (verde) */}
             <div className="IG-graficoContainer">
-              {serieMensual.length > 0 ? (
+              {dataChart.length > 0 ? (
                 <>
                   <div className="IG-graficoHeader">
                     <div className="IG-graficoTituloWrap">
-                      <h2 className="IG-graficoTitulo">📈 Flete facturado mensual</h2>
+                      <h2 className="IG-graficoTitulo">
+                        📈 Flete facturado
+                        <span className="IG-graficoBadge">{vistaSerie === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                      </h2>
                     </div>
                     <div className="IG-graficoAcciones">
+                      <div className="IG-toggleGrupo" role="group" aria-label="Vista del gráfico">
+                        <button className={`IG-toggleBtn ${vistaSerie === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaSerie('diaria')}>Diario</button>
+                        <button className={`IG-toggleBtn ${vistaSerie === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaSerie('mensual')}>Mensual</button>
+                      </div>
                       <button className="IG-botonExportar" onClick={exportarSerie} title="Exportar serie a Excel">
                         <FaDownload /> Exportar
                       </button>
@@ -578,21 +572,33 @@ const IndicadoresFletes: React.FC = () => {
                   </div>
                   <div style={{ width: '100%', height: 380 }}>
                     <ResponsiveContainer width="100%" height={380}>
-                      <LineChart data={serieMensual} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
+                      <BarChart data={dataChart} margin={{ top: 36, right: 20, left: 20, bottom: 28 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="mes" tickFormatter={formatoEjeMes} tick={{ fontSize: 11 }} />
-                        <YAxis tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
-                        <Tooltip
-                          labelFormatter={(ym) => format(parseISO(ym + '-01'), 'MMMM yyyy', { locale: es })}
-                          formatter={(value: number) => [formatearMoneda(value), 'Flete']}
-                          contentStyle={{ backgroundColor: '#0f1928', border: 'none', borderRadius: '8px' }}
-                          labelStyle={{ color: '#ffffff', fontWeight: '700', marginBottom: '4px' }}
-                          itemStyle={{ color: '#ffffff' }}
+                        <XAxis
+                          dataKey="fecha"
+                          tickFormatter={formatoEjeSerie}
+                          interval={intervalSerie}
+                          tick={{ fontSize: 11 }}
                         />
-                        <Line type="monotone" dataKey="cobrado" stroke="#e8a000" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Flete">
-                          <LabelList dataKey="cobrado" position="top" offset={8} formatter={(value: number) => value > 0 ? formatearMonedaCorta(value) : ''} style={{ fill: '#0f1928', fontWeight: '700', fontSize: '10px' }} />
-                        </Line>
-                      </LineChart>
+                        <YAxis tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
+                        <Tooltip content={tooltipSerie} cursor={{ fill: 'rgba(15,25,40,0.05)' }} />
+                        <Legend />
+                        <Bar dataKey="base" stackId="a" fill="#9ca3af" name="Flete (común)" isAnimationActive={false} />
+                        <Bar dataKey="sobrecosto" stackId="a" fill="#dc2626" name="Sobrecosto" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                        {/* Bar "ahorro" = último del stack: su cima SIEMPRE coincide con la cima total
+                            de la pila (aunque su segmento valga 0), por lo que un LabelList con
+                            position="top" aquí cae en la cima real. Patrón igual a "Pedidos diarios"
+                            de Transporte. dataKey="cobrado" muestra el flete solicitado. */}
+                        <Bar dataKey="ahorro" stackId="a" fill="#16a34a" name="Ahorro" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                          <LabelList
+                            dataKey="cobrado"
+                            position="top"
+                            offset={8}
+                            formatter={(value: number) => (value > 0 ? formatearMonedaCorta(value) : '')}
+                            style={{ fill: '#0f1928', fontWeight: 700, fontSize: 11 }}
+                          />
+                        </Bar>
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </>
@@ -601,109 +607,149 @@ const IndicadoresFletes: React.FC = () => {
               )}
             </div>
 
-            {/* Teórico vs Cobrado (clic en mes = detalle) */}
-            <div className="IG-graficoContainer">
-              {serieMensual.length > 0 ? (
-                <>
-                  <div className="IG-graficoHeader">
-                    <div className="IG-graficoTituloWrap">
-                      <h2 className="IG-graficoTitulo">⚖️ Flete teórico vs cobrado</h2>
-                      <span className="IG-graficoHint">💡 Haz clic en un mes para ver el detalle de planillas</span>
-                    </div>
-                  </div>
-                  <div style={{ width: '100%', height: 380 }}>
-                    <ResponsiveContainer width="100%" height={380}>
-                      <BarChart data={serieMensual} margin={{ top: 30, right: 20, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="mes" tickFormatter={formatoEjeMes} className="IG-ejeClickeable"
-                          tick={({ x, y, payload }) => (
-                            <g transform={`translate(${x},${y})`}>
-                              <text textAnchor="middle" fontSize={11} fill="#b87d00" fontWeight={700} style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => abrirDetalleMes(payload.value)}>
-                                <title>Ver detalle de {format(parseISO(payload.value + '-01'), 'MMMM yyyy', { locale: es })}</title>
-                                {formatoEjeMes(payload.value)}
-                              </text>
-                            </g>
-                          )}
-                        />
-                        <YAxis tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
-                        <Tooltip
-                          labelFormatter={(ym) => format(parseISO(ym + '-01'), 'MMMM yyyy', { locale: es })}
-                          formatter={(value: number, name: string) => [formatearMoneda(value), name]}
-                          contentStyle={{ backgroundColor: '#0f1928', border: 'none', borderRadius: '8px' }}
-                          labelStyle={{ color: '#ffffff', fontWeight: '700', marginBottom: '4px' }}
-                          itemStyle={{ color: '#ffffff' }}
-                        />
-                        <Legend />
-                        <Bar dataKey="teorico" fill="#3b82f6" name="Teórico" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                        <Bar dataKey="cobrado" fill="#e8a000" name="Cobrado" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                          <LabelList dataKey="cobrado" position="top" offset={6} formatter={(value: number) => value > 0 ? formatearMonedaCorta(value) : ''} style={{ fill: '#0f1928', fontWeight: '700', fontSize: '10px' }} />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </>
-              ) : (
-                <div className="IG-sinDatos"><p>No hay datos disponibles</p></div>
-              )}
-            </div>
-
-            {/* Fila: Flete por cliente + Composición de recargos */}
+            {/* Fila: Sobrecosto por regional + Causales de sobrecosto */}
             <div className="IG-graficosFila">
               <div className="IG-graficoContainer">
-                {porCliente.length > 0 ? (
+                {sobrecostoPorRegional.length > 0 ? (
                   <>
-                    <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">Flete por cliente</h2></div>
+                    <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">📍 Sobrecosto por regional</h2></div>
                     <div className="IG-barrasHorizontales">
                       {(() => {
-                        const total = porCliente.reduce((s, c) => s + (c.flete || 0), 0) || 1;
-                        const max = Math.max(...porCliente.map(c => c.flete || 0)) || 1;
-                        return porCliente.slice(0, 8).map((c, i) => {
-                          const nombre = c.cliente || 'Sin cliente';
-                          return (
-                            <div key={i} className="IG-barraHItem">
-                              <div className="IG-barraHLabel">
-                                <span className="IG-barraHPunto" style={{ background: COLORES_PIE[i % COLORES_PIE.length] }}></span>
-                                <span className="IG-barraHNombre">{nombre}</span>
-                              </div>
-                              <div className="IG-barraHTrack">
-                                <div className="IG-barraHFill" style={{ width: `${((c.flete / max) * 100).toFixed(1)}%`, background: COLORES_PIE[i % COLORES_PIE.length] }}>
-                                  <span className="IG-barraHValor">{formatearMonedaCorta(c.flete)}</span>
-                                </div>
-                              </div>
-                              <span className="IG-barraHPorcentaje">{((c.flete / total) * 100).toFixed(1)}%</span>
+                        const total = sobrecostoPorRegional.reduce((s, c) => s + (c.sobrecosto || 0), 0) || 1;
+                        const max = Math.max(...sobrecostoPorRegional.map(c => c.sobrecosto || 0)) || 1;
+                        return sobrecostoPorRegional.map((c, i) => (
+                          <div key={i} className="IG-barraHItem">
+                            <div className="IG-barraHLabel" title={c.regional || 'SIN REGIONAL'}>
+                              <span className="IG-barraHPunto" style={{ background: '#dc2626' }}></span>
+                              <span className="IG-barraHNombre">{c.regional || 'SIN REGIONAL'}</span>
                             </div>
-                          );
-                        });
+                            <div className="IG-barraHTrack">
+                              <div className="IG-barraHFill" style={{ width: `${(((c.sobrecosto || 0) / max) * 100).toFixed(1)}%`, background: '#dc2626' }}>
+                                <span className="IG-barraHValor">{formatearMonedaCorta(c.sobrecosto || 0)}</span>
+                              </div>
+                            </div>
+                            <span className="IG-barraHPorcentaje">{(((c.sobrecosto || 0) / total) * 100).toFixed(1)}%</span>
+                          </div>
+                        ));
                       })()}
                     </div>
                   </>
-                ) : <div className="IG-sinDatos"><p>No hay datos disponibles</p></div>}
+                ) : <div className="IG-sinDatos"><p>No hay sobrecostos por regional en el período seleccionado</p></div>}
               </div>
 
               <div className="IG-graficoContainer">
-                {recargosData.length > 0 ? (
+                {causalesData.length > 0 ? (
                   <>
-                    <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">Composición de recargos</h2></div>
-                    <div className="IG-graficoPieWrap">
-                      <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                          <Pie data={recargosData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
-                            label={({ name, percent }) => `${name}: ${(percent ? percent * 100 : 0).toFixed(0)}%`} labelLine={false}>
-                            {recargosData.map((_, i) => <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} stroke="#fff" strokeWidth={2} />)}
-                          </Pie>
-                          <Tooltip formatter={(value: number, name: string) => [formatearMoneda(value), name]}
-                            contentStyle={{ backgroundColor: '#0f1928', border: 'none', borderRadius: '8px' }}
-                            labelStyle={{ color: '#fff' }} itemStyle={{ color: '#fff' }} />
-                        </PieChart>
-                      </ResponsiveContainer>
+                    <div className="IG-graficoHeader">
+                      <div className="IG-graficoTituloWrap">
+                        <h2 className="IG-graficoTitulo">Causales de sobrecosto</h2>
+                      </div>
+                    </div>
+                    <p className="IG-graficoSub">
+                      Sobrecosto total <b>{formatearMoneda(causalesTotales.sobrecosto)}</b>
+                      {' · '}{formatearNumero(causalesTotales.envios)} envíos con causal
+                    </p>
+                    <div className="IG-barrasHorizontales">
+                      {(() => {
+                        const total = causalesTotales.sobrecosto || 1;
+                        const max = Math.max(...causalesData.map(c => c.value || 0)) || 1;
+                        return causalesData.map((c, i) => (
+                          <div key={i} className="IG-barraHItem">
+                            <div className="IG-barraHLabel" title={c.name}>
+                              <span className="IG-barraHPunto" style={{ background: '#dc2626' }}></span>
+                              <span className="IG-barraHNombre">{c.name}</span>
+                            </div>
+                            <div className="IG-barraHTrack">
+                              <div className="IG-barraHFill" style={{ width: `${((c.value / max) * 100).toFixed(1)}%`, background: '#dc2626' }}>
+                                <span className="IG-barraHValor">{formatearMonedaCorta(c.value)}</span>
+                              </div>
+                            </div>
+                            <span className="IG-barraHPorcentaje">{((c.value / total) * 100).toFixed(1)}%</span>
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </>
-                ) : <div className="IG-sinDatos"><p>Sin recargos en el período</p></div>}
+                ) : (
+                  <div className="IG-sinDatos"><p>No hay envíos con causal de sobrecosto en el período seleccionado</p></div>
+                )}
               </div>
             </div>
 
-            {/* Fila: Flete por tipo de vehículo + Flete por regional */}
+            {/* Top rutas con sobrecosto (solo rutas con diferencia > 0) */}
+            <div className="IG-graficoContainer">
+              {porRuta.length > 0 ? (
+                <>
+                  <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">🛣️ Top rutas con sobrecosto</h2></div>
+                  <div className="IG-barrasHorizontales">
+                    {(() => {
+                      const total = porRuta.reduce((s, c) => s + (c.sobrecosto || 0), 0) || 1;
+                      const max = Math.max(...porRuta.map(c => c.sobrecosto || 0)) || 1;
+                      return porRuta.map((c, i) => (
+                        <div key={i} className="IG-barraHItem">
+                          <div className="IG-barraHLabel" title={c.ruta || 'Sin ruta'}>
+                            <span className="IG-barraHPunto" style={{ background: '#dc2626' }}></span>
+                            <span className="IG-barraHNombre">{c.ruta || 'Sin ruta'}</span>
+                          </div>
+                          <div className="IG-barraHTrack">
+                            <div className="IG-barraHFill" style={{ width: `${(((c.sobrecosto || 0) / max) * 100).toFixed(1)}%`, background: '#dc2626' }}>
+                              <span className="IG-barraHValor">{formatearMonedaCorta(c.sobrecosto || 0)}</span>
+                            </div>
+                          </div>
+                          <span className="IG-barraHPorcentaje">{(((c.sobrecosto || 0) / total) * 100).toFixed(1)}%</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </>
+              ) : <div className="IG-sinDatos"><p>No hay rutas con sobrecosto en el período seleccionado</p></div>}
+            </div>
+
+            {/* Fila: Flete por cliente + Flete por tipo de vehículo */}
             <div className="IG-graficosFila">
+              <div className="IG-graficoContainer">
+                {(() => {
+                  const datos = porCliente.filter(c => (c.sobrecosto || 0) > 0);
+                  return datos.length > 0 ? (
+                    <>
+                      <div className="IG-graficoHeader">
+                        <div className="IG-graficoTituloWrap">
+                          <h2 className="IG-graficoTitulo">Sobrecosto por cliente</h2>
+                        </div>
+                      </div>
+                      <p className="IG-graficoSub">
+                        Sobrecosto total <b>{formatearMoneda(datos.reduce((s, c) => s + (c.sobrecosto || 0), 0))}</b>
+                        {' · '}en fusionadas se reparte por cajas
+                      </p>
+                      <div className="IG-barrasHorizontales">
+                        {(() => {
+                          const total = datos.reduce((s, c) => s + (c.sobrecosto || 0), 0) || 1;
+                          const max = Math.max(...datos.map(c => c.sobrecosto || 0)) || 1;
+                          return datos.slice(0, 8).map((c, i) => {
+                            const nombre = c.cliente || 'Sin cliente';
+                            const sob = c.sobrecosto || 0;
+                            return (
+                              <div key={i} className="IG-barraHItem">
+                                <div className="IG-barraHLabel" title={nombre}>
+                                  <span className="IG-barraHPunto" style={{ background: '#dc2626' }}></span>
+                                  <span className="IG-barraHNombre">{nombre}</span>
+                                </div>
+                                <div className="IG-barraHTrack">
+                                  <div className="IG-barraHFill" style={{ width: `${((sob / max) * 100).toFixed(1)}%`, background: '#dc2626' }}>
+                                    <span className="IG-barraHValor">{formatearMonedaCorta(sob)}</span>
+                                  </div>
+                                </div>
+                                <span className="IG-barraHPorcentaje">{((sob / total) * 100).toFixed(1)}%</span>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </>
+                  ) : <div className="IG-sinDatos"><p>No hay sobrecosto por cliente en el período seleccionado</p></div>;
+                })()}
+              </div>
+
               <div className="IG-graficoContainer">
                 {porTipoVeh.length > 0 ? (
                   <>
@@ -731,119 +777,10 @@ const IndicadoresFletes: React.FC = () => {
                   </>
                 ) : <div className="IG-sinDatos"><p>No hay datos disponibles</p></div>}
               </div>
-
-              <div className="IG-graficoContainer">
-                {porRegional.length > 0 ? (
-                  <>
-                    <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">Flete por regional</h2></div>
-                    <div className="IG-barrasHorizontales">
-                      {(() => {
-                        const total = porRegional.reduce((s, c) => s + (c.flete || 0), 0) || 1;
-                        const max = Math.max(...porRegional.map(c => c.flete || 0)) || 1;
-                        return porRegional.map((c, i) => (
-                          <div key={i} className="IG-barraHItem">
-                            <div className="IG-barraHLabel">
-                              <span className="IG-barraHPunto" style={{ background: '#16a34a' }}></span>
-                              <span className="IG-barraHNombre">{c.regional || 'SIN REGIONAL'}</span>
-                            </div>
-                            <div className="IG-barraHTrack">
-                              <div className="IG-barraHFill" style={{ width: `${((c.flete / max) * 100).toFixed(1)}%`, background: '#16a34a' }}>
-                                <span className="IG-barraHValor">{formatearMonedaCorta(c.flete)}</span>
-                              </div>
-                            </div>
-                            <span className="IG-barraHPorcentaje">{((c.flete / total) * 100).toFixed(1)}%</span>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </>
-                ) : <div className="IG-sinDatos"><p>No hay datos disponibles</p></div>}
-              </div>
-            </div>
-
-            {/* Top rutas por flete */}
-            <div className="IG-graficoContainer">
-              {porRuta.length > 0 ? (
-                <>
-                  <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">🛣️ Top rutas por flete</h2></div>
-                  <div className="IG-barrasHorizontales">
-                    {(() => {
-                      const total = porRuta.reduce((s, c) => s + (c.flete || 0), 0) || 1;
-                      const max = Math.max(...porRuta.map(c => c.flete || 0)) || 1;
-                      return porRuta.map((c, i) => (
-                        <div key={i} className="IG-barraHItem">
-                          <div className="IG-barraHLabel">
-                            <span className="IG-barraHPunto" style={{ background: '#e8a000' }}></span>
-                            <span className="IG-barraHNombre">{c.ruta || 'Sin ruta'}</span>
-                          </div>
-                          <div className="IG-barraHTrack">
-                            <div className="IG-barraHFill" style={{ width: `${((c.flete / max) * 100).toFixed(1)}%`, background: '#e8a000' }}>
-                              <span className="IG-barraHValor">{formatearMonedaCorta(c.flete)}</span>
-                            </div>
-                          </div>
-                          <span className="IG-barraHPorcentaje">{((c.flete / total) * 100).toFixed(1)}%</span>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </>
-              ) : <div className="IG-sinDatos"><p>No hay datos disponibles</p></div>}
             </div>
           </>
         )}
       </main>
-
-      {/* Modal de detalle por mes */}
-      {modalAbierto && (
-        <div className="IG-modalOverlay" onClick={() => setModalAbierto(false)}>
-          <div className="IG-modalContenido" onClick={(e) => e.stopPropagation()}>
-            <div className="IG-modalHeader">
-              <h2 className="IG-modalTitulo">
-                {modalMes ? <>Detalle de {format(parseISO(modalMes + '-01'), 'MMMM yyyy', { locale: es })}</> : ''}
-              </h2>
-              <span className="IG-modalTotal">{modalRegistros.length} planillas</span>
-              <button className="IG-modalCerrar" onClick={() => setModalAbierto(false)}>✕</button>
-            </div>
-            {modalCargando ? (
-              <div className="IG-modalCargando"><div className="IG-spinner"></div><p>Cargando planillas...</p></div>
-            ) : modalRegistros.length === 0 ? (
-              <div className="IG-modalVacio">No se encontraron planillas</div>
-            ) : (
-              <div className="IG-modalTablaWrap">
-                <table className="IG-modalTabla">
-                  <thead>
-                    <tr>
-                      <th>Consecutivo</th><th>Cliente</th><th>Ruta</th><th>Regional</th><th>Destino</th>
-                      <th>Tipo Veh</th><th className="IG-num">Peso</th><th className="IG-num">Teórico</th>
-                      <th className="IG-num">Cobrado</th><th className="IG-num">Diferencia</th><th>Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modalRegistros.map((r, i) => {
-                      const dif = (r.total_solicitado || 0) - (r.tarifa_calculada || 0);
-                      return (
-                        <tr key={i}>
-                          <td>{r.consecutivo || r.planilla || '-'}</td>
-                          <td className="IG-trunc">{r.cliente_origen || '-'}</td>
-                          <td className="IG-trunc">{r.ruta || '-'}</td>
-                          <td>{r.regional || '-'}</td>
-                          <td className="IG-trunc">{r.municipio_destino || '-'}</td>
-                          <td>{r.tipo_veh_sicetac || 'N/A'}</td>
-                          <td className="IG-num">{Math.round(r.peso_real || 0).toLocaleString('es-CO')}</td>
-                          <td className="IG-num">{formatearMonedaCorta(r.tarifa_calculada || 0)}</td>
-                          <td className="IG-num">{formatearMonedaCorta(r.total_solicitado || 0)}</td>
-                          <td className={`IG-num ${dif > 0 ? 'IG-difPos' : dif < 0 ? 'IG-difNeg' : 'IG-difCero'}`}>{dif > 0 ? '+' : ''}{formatearMonedaCorta(dif)}</td>
-                          <td>{r.fecha || '-'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <footer className="IG-footer">
         <p>© {new Date().getFullYear()} Integra — Indicadores de Fletes</p>
