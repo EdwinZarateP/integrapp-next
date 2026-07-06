@@ -221,6 +221,9 @@
 .Ped-dropItemDanger { color: #c9302c; }
 .Ped-dropItemDanger:hover { background: #fff5f5; }
 
+.Ped-dropItemSwitch { color: #1d4ed8; font-weight: 600; }
+.Ped-dropItemSwitch:hover { background: #eff6ff; }
+
 /* ── MENÚ MÓVIL ── */
 .Ped-menuMobile {
   position: fixed;

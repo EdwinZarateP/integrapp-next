@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -211,6 +211,84 @@ const formatearFechaColombia = (fecha?: string): string => {
   return `${day}/${month}/${year}, ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
+// Parseo tolerante a formato es-CO ("$1.234,56" -> 1234.56) y a números puros.
+const parseNumeroTolerante = (v: any): number => {
+  if (typeof v === 'number') return v;
+  if (v === null || v === undefined) return 0;
+  const s = String(v).replace(/[^0-9,.]/g, '').replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+
+// Sub-tabla de detalle de pedidos que se despliega al expandir una planilla.
+// Lee registros_detalle (registros crudos del Excel de Siscore) con sus claves exactas.
+// En planillas FUSIONADAS el detalle viene embebido en fusion_info.datos_originales
+// (registros_detalle de la fusionada está vacío); se aplana y se etiqueta el origen.
+const DetallePlanilla: React.FC<{ resultado: PlanillaResultado }> = ({ resultado }) => {
+  const esFusionada = !!resultado.fusion_info?.es_fusionada;
+  const filas: { reg: any; origen: string | null }[] = [];
+  if (esFusionada) {
+    (resultado.fusion_info?.datos_originales || []).forEach((orig: any) => {
+      (orig.registros_detalle || []).forEach((reg: any) => filas.push({ reg, origen: orig.planilla }));
+    });
+  } else {
+    (resultado.registros_detalle || []).forEach((reg: any) => filas.push({ reg, origen: null }));
+  }
+
+  if (!filas.length) {
+    return (
+      <div style={{ padding: '8px 12px', color: '#666', fontSize: '0.85rem' }}>
+        Sin detalle de pedidos disponible.
+      </div>
+    );
+  }
+  const totalPiezas = filas.reduce((acc, f) => acc + parseNumeroTolerante(f.reg['Piezas']), 0);
+  const totalPeso = filas.reduce((acc, f) => acc + parseNumeroTolerante(f.reg['Peso Real']), 0);
+  // Columnas de texto antes de Piezas: con columna Planilla = 5, sin ella = 4.
+  const colSpanTotales = esFusionada ? 5 : 4;
+  const numPlanillasOrigen = resultado.fusion_info?.planillas_originales?.length || 0;
+
+  return (
+    <div style={{ maxHeight: '320px', overflowY: 'auto', padding: '4px 8px' }}>
+      <table className="SV-subTable">
+        <thead>
+          <tr>
+            <th style={{ width: '32px' }}>#</th>
+            {esFusionada && <th>Planilla</th>}
+            <th>Código Pedido / Guía</th>
+            <th>Nombre</th>
+            <th>Municipio</th>
+            <th style={{ textAlign: 'right' }}>Piezas</th>
+            <th style={{ textAlign: 'right' }}>Peso Real</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((f, i) => (
+            <tr key={i}>
+              <td style={{ color: '#94a3b8' }}>{i + 1}</td>
+              {esFusionada && <td style={{ fontFamily: 'monospace', color: '#475569' }}>{f.origen}</td>}
+              <td style={{ fontFamily: 'monospace' }}>{f.reg['Codigo Pedido'] || f.reg['Guia'] || '-'}</td>
+              <td>{f.reg['Nombre'] || '-'}</td>
+              <td>{f.reg['Municipio Destino'] || '-'}</td>
+              <td style={{ textAlign: 'right' }}>{f.reg['Piezas'] ?? '-'}</td>
+              <td style={{ textAlign: 'right' }}>{f.reg['Peso Real'] ?? '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={colSpanTotales} style={{ textAlign: 'right' }}>
+              Totales ({filas.length} pedidos{esFusionada ? ` · ${numPlanillasOrigen} planillas` : ''})
+            </td>
+            <td style={{ textAlign: 'right' }}>{totalPiezas.toLocaleString('es-CO')}</td>
+            <td style={{ textAlign: 'right' }}>{totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+};
+
 const SolicitudVehiculos: React.FC = () => {
 
   // Cargar resultados recientes automáticamente (filtrado por regional para operativos)
@@ -268,7 +346,8 @@ const SolicitudVehiculos: React.FC = () => {
               consecutivo: p.consecutivo,
               consecutivo_base: p.consecutivo_base,
               flete_cobrado_fmc: p.flete_cobrado_fmc || 0,
-              fecha_creacion: p.fecha_creacion
+              fecha_creacion: p.fecha_creacion,
+              registros_detalle: p.registros_detalle
             };
 
             // Si no tiene estado o tiene PREAPROBADO, recalcular estado correcto
@@ -467,6 +546,10 @@ const SolicitudVehiculos: React.FC = () => {
   const [tiempoConsulta, setTiempoConsulta] = useState<number>(0);
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
   const [modalDetalle, setModalDetalle] = useState<{ abierto: boolean; resultado: PlanillaResultado | null; indice: number | null }>({ abierto: false, resultado: null, indice: null });
+  // Planillas con la fila de detalle expandida (clave: número de planilla).
+  const [planillasExpandidas, setPlanillasExpandidas] = useState<Record<string, boolean>>({});
+  const toggleExpandPlanilla = (planilla: string) =>
+    setPlanillasExpandidas(prev => ({ ...prev, [planilla]: !prev[planilla] }));
   // Trackea si el mousedown empezó en el fondo del overlay, para evitar que
   // seleccionar texto dentro de un input (mousedown dentro, mouseup fuera) cierre el modal.
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
@@ -901,14 +984,24 @@ const SolicitudVehiculos: React.FC = () => {
       }
       {
         const esc = (s: string) => String(s).replace(/"/g, '&quot;');
-        const opcionesDatalist = `<datalist id="rutas-list">${rutas.map((r) => `<option value="${esc(r)}">`).join('')}</datalist>`;
         const filasRutasHtml = planillasBuscadas.map((planilla) => {
           const d = planillasMap.get(planilla);
           const rutaPre = d?.ruta && d.ruta !== '-' ? String(d.ruta) : '';
           const destino = d?.municipio_destino && d.municipio_destino !== '-' ? ` (${d.municipio_destino})` : '';
+          // Solo se permite elegir una ruta del listado desplegable (no texto libre):
+          // se usa <select> en vez de <input> + <datalist>. Si la ruta derivada existe
+          // en el listado queda preseleccionada; si no, se debe elegir una del listado.
+          const opciones = rutas.map((r) =>
+            `<option value="${esc(r)}"${r === rutaPre ? ' selected' : ''}>${esc(r)}</option>`
+          ).join('');
+          const placeholder = !rutaPre || rutas.every((r) => r !== rutaPre)
+            ? '<option value="" disabled selected>— Selecciona una ruta del listado —</option>'
+            : '';
           return `<div style="margin:10px 0;text-align:left">
             <label style="font-weight:600;display:block">${planilla}<span style="color:#666;font-weight:normal">${destino}</span></label>
-            <input id="ruta-${planilla}" list="rutas-list" value="${esc(rutaPre)}" placeholder="Escribe o elige una ruta" autocomplete="off" style="width:100%;padding:6px;box-sizing:border-box;margin-top:3px"/>
+            <select id="ruta-${planilla}" style="width:100%;padding:6px;box-sizing:border-box;margin-top:3px">
+              ${placeholder}${opciones}
+            </select>
           </div>`;
         }).join('');
 
@@ -918,7 +1011,7 @@ const SolicitudVehiculos: React.FC = () => {
 
         const { value: rutasAsignadas, isConfirmed } = await Swal.fire({
           title: 'Asigna la ruta de cada planilla',
-          html: `<div style="max-height:55vh;overflow-y:auto">${opcionesDatalist}${filasRutasHtml}</div><p style="color:#666;margin-top:8px;font-size:0.85rem">La ruta es obligatoria para calcular el flete y guardar.</p>`,
+          html: `<div style="max-height:55vh;overflow-y:auto">${filasRutasHtml}</div><p style="color:#666;margin-top:8px;font-size:0.85rem">Elige una ruta del listado para calcular el flete y guardar.</p>`,
           showCancelButton: true,
           confirmButtonText: 'Calcular y guardar',
           cancelButtonText: 'Cancelar',
@@ -3086,8 +3179,8 @@ const SolicitudVehiculos: React.FC = () => {
                         // Usar el estado directamente para determinar el estilo
                         const esTeoricoCero = (resultado.tarifa_calculada || 0) === 0;
                         return (
+                        <Fragment key={index}>
                         <tr
-                          key={index}
                           className={
                             resultado.estado === 'CREADO' ? 'SV-rowCreado' :
                             resultado.estado === 'APROBADO' ? 'SV-rowApproved' :
@@ -3110,6 +3203,15 @@ const SolicitudVehiculos: React.FC = () => {
                           <td>
                             {resultado.encontrada && (
                               <div style={{ display: 'flex', gap: '5px' }}>
+                                {/* Expandir/colapsar detalle de pedidos de la planilla */}
+                                <button
+                                  onClick={() => toggleExpandPlanilla(resultado.planilla)}
+                                  className="SV-btnAction"
+                                  title={planillasExpandidas[resultado.planilla] ? 'Ocultar detalle de pedidos' : 'Ver detalle de pedidos'}
+                                  style={{ background: '#475569' }}
+                                >
+                                  {planillasExpandidas[resultado.planilla] ? <FaChevronDown /> : <FaChevronRight />}
+                                </button>
                                 {/* Botón Dividir - Solo para planillas fusionadas (no ANALISTA; operativo solo en CREADO) */}
                                 {resultado.fusion_info?.es_fusionada && perfil !== 'ANALISTA' && !(perfil === 'OPERATIVO' && resultado.estado && resultado.estado !== 'CREADO') && (
                                   <button
@@ -3292,6 +3394,14 @@ const SolicitudVehiculos: React.FC = () => {
                             {resultado.causal || '-'}
                           </td>
                         </tr>
+                        {planillasExpandidas[resultado.planilla] && resultado.encontrada && (
+                          <tr className="SV-detalleRow">
+                            <td colSpan={28}>
+                              <DetallePlanilla resultado={resultado} />
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                         );
                       })}
                     </tbody>

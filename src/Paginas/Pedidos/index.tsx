@@ -6,7 +6,7 @@ import {
   FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaChevronDown,
   FaPlus, FaTimes, FaFileUpload, FaFileDownload, FaCloudUploadAlt, FaUsers, FaTable,
-  FaBars,
+  FaBars, FaExchangeAlt,
 } from 'react-icons/fa';
 import CargarPedidos from '@/Componentes/PedidosComponentes/CargarPedidos';
 import TablaPedidos from '@/Componentes/PedidosComponentes/TablaPedidos';
@@ -20,6 +20,7 @@ const Pedidos: React.FC = () => {
   const perfil = Cookies.get('perfilPedidosCookie') || '';
   const usuario = Cookies.get('usuarioPedidosCookie') || '';
   const regional = Cookies.get('regionalPedidosCookie') || '';
+  const clientes = (Cookies.get('clientesPedidosCookie') || '').split(',').filter(Boolean);
   const router = useRouter();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
@@ -36,10 +37,19 @@ const Pedidos: React.FC = () => {
   };
 
   const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(name => {
+    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie', 'clientesPedidosCookie'].forEach(name => {
       document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
     });
     router.push('/LoginUsuario');
+  };
+
+  // Cambiar al portal Fresenius Medical Care (solo si el usuario tiene el cliente MEDICAL_CARE)
+  const irAMedical = () => {
+    setMenuAbierto(false);
+    const expiracion = new Date();
+    expiracion.setDate(expiracion.getDate() + 14);
+    document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; expires=${expiracion.toUTCString()}`;
+    router.push('/MedicalCare');
   };
 
   // Cerrar menú al click fuera
@@ -89,6 +99,12 @@ const Pedidos: React.FC = () => {
 
             {menuAbierto && (
               <div className="Ped-dropdown">
+                {clientes.includes('MEDICAL_CARE') && (
+                  <button className="Ped-dropItem Ped-dropItemSwitch" onClick={irAMedical}>
+                    <FaExchangeAlt /> Ir a Medical
+                  </button>
+                )}
+                {clientes.includes('MEDICAL_CARE') && <div className="Ped-dropDivider" />}
                 <button className="Ped-dropItem" onClick={() => { setMenuAbierto(false); router.push('/PedidosCompletados'); }}>
                   <FaCheckCircle /> Pedidos Completados
                 </button>

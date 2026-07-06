@@ -220,6 +220,9 @@
 .PC-dropItemDanger { color: #c9302c; }
 .PC-dropItemDanger:hover { background: #fff5f5; }
 
+.PC-dropItemSwitch { color: #1d4ed8; font-weight: 600; }
+.PC-dropItemSwitch:hover { background: #eff6ff; }
+
 /* ── MENÚ MÓVIL ── */
 .PC-menuMobile {
   position: fixed;

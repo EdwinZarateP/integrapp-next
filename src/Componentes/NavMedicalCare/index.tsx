@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
+  FaExchangeAlt,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
@@ -32,14 +33,17 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
   const [abierto, setAbierto] = useState(false);
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil] = useState('');
+  const [clientes, setClientes] = useState<string[]>([]);
   const [montado, setMontado] = useState(false);
 
   useEffect(() => {
     setMontado(true);
     const usuarioCookie = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+    const clientesCookie = document.cookie.match(/(^| )clientesPedidosCookie=([^;]+)/)?.[2] || '';
     setUsuario(usuarioCookie);
     setPerfil(perfilCookie);
+    setClientes(clientesCookie ? clientesCookie.split(',').filter(Boolean) : []);
   }, []);
 
   // Cerrar menú al hacer clic fuera
@@ -56,7 +60,7 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
   }, [abierto]);
 
   const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie']
+    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie', 'clientesPedidosCookie']
       .forEach(n => { document.cookie = `${n}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`; });
     router.push('/LoginUsuario');
   };
@@ -64,6 +68,15 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
   const navegar = (ruta: string, esActual: boolean) => {
     setAbierto(false);
     if (!esActual) router.push(ruta);
+  };
+
+  // Cambiar al portal Fresenius Kabi (solo si el usuario tiene el cliente KABI)
+  const irAKabi = () => {
+    setAbierto(false);
+    const exp = new Date();
+    exp.setDate(exp.getDate() + 14);
+    document.cookie = `clientePedidosCookie=KABI; path=/; expires=${exp.toUTCString()}`;
+    router.push('/Pedidos');
   };
 
   return (
@@ -89,6 +102,12 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
 
           {abierto && (
             <div className="NMC-dropdown">
+              {clientes.includes('KABI') && (
+                <button className="NMC-dropItem NMC-dropItemSwitch" onClick={irAKabi}>
+                  <FaExchangeAlt /> Ir a Kabi
+                </button>
+              )}
+              {clientes.includes('KABI') && <div className="NMC-dropDivider" />}
               {ITEMS.map(item => {
                 const esActual = item.id === paginaActual;
                 // Ocultar elementos de ADMIN si el perfil no es ADMIN ni CONTROL

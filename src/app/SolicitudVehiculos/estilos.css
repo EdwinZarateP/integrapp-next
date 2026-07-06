@@ -672,3 +672,56 @@ input[type="number"] {
   background: linear-gradient(135deg, #bf360c 0%, #e65100 100%);
   box-shadow: 0 4px 16px rgba(191,54,12,.35);
 }
+
+/* ── Fila de detalle expandible (sub-tabla de pedidos por planilla) ── */
+.SV-detalleRow {
+  background: #f8fafc !important;
+}
+
+.SV-detalleRow:hover {
+  background: #f8fafc !important;
+}
+
+.SV-detalleRow > td {
+  padding: 0 !important;
+  border-top: 2px solid #005f56 !important;
+}
+
+.SV-subTable {
+  width: auto;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin: 4px 0;
+}
+
+.SV-subTable th,
+.SV-subTable td {
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.SV-subTable thead th {
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.SV-subTable tbody tr:nth-child(even) {
+  background: #ffffff;
+}
+
+.SV-subTable tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.SV-subTable tfoot td {
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #005f56;
+}

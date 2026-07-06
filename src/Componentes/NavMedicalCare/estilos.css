@@ -125,6 +125,9 @@
 .NMC-dropItemDanger { color: #dc3545; }
 .NMC-dropItemDanger:hover { background: #fff5f5; }
 
+.NMC-dropItemSwitch { color: #1d4ed8; font-weight: 600; }
+.NMC-dropItemSwitch:hover { background: #eff6ff; }
+
 @media (max-width: 600px) {
   .NMC-inner { padding: 0 14px; }
   .NMC-badge { display: none; }

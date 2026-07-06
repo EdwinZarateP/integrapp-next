@@ -63,6 +63,8 @@ const LoginUsuario: React.FC = () => {
       document.cookie = `perfilPedidosCookie=${res.usuario.perfil}; path=/; ${expires}`;
 
       const clientes = res.usuario.clientes || ["KABI"];
+      // Guardar la lista completa de clientes para habilitar el cambio de portal en los menús
+      document.cookie = `clientesPedidosCookie=${clientes.join(",")}; path=/; ${expires}`;
       // Siempre agregar INDICADORES como opción disponible
       const clientesConIndicadores = Array.from(new Set([...clientes, "INDICADORES"]));
       setDatosUsuario({ ...res.usuario, clientes: clientesConIndicadores });

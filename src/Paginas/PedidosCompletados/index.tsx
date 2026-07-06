@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
   FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaChevronDown,
-  FaUsers, FaTable, FaBars, FaTimes,
+  FaUsers, FaTable, FaBars, FaTimes, FaExchangeAlt,
 } from 'react-icons/fa';
 import TablaPedidosCompletados from '@/Componentes/PedidosComponentes/TablaPedidosCompletados';
 import Cookies from 'js-cookie';
@@ -16,16 +16,26 @@ const PedidosCompletados: React.FC = () => {
   const perfil = Cookies.get('perfilPedidosCookie') || '';
   const usuario = Cookies.get('usuarioPedidosCookie') || '';
   const regional = Cookies.get('regionalPedidosCookie') || '';
+  const clientes = (Cookies.get('clientesPedidosCookie') || '').split(',').filter(Boolean);
   const router = useRouter();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie'].forEach(name => {
+    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie', 'clientesPedidosCookie'].forEach(name => {
       document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
     });
     router.push('/LoginUsuario');
+  };
+
+  // Cambiar al portal Fresenius Medical Care (solo si el usuario tiene el cliente MEDICAL_CARE)
+  const irAMedical = () => {
+    setMenuAbierto(false);
+    const expiracion = new Date();
+    expiracion.setDate(expiracion.getDate() + 14);
+    document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; expires=${expiracion.toUTCString()}`;
+    router.push('/MedicalCare');
   };
 
   useEffect(() => {
@@ -74,6 +84,12 @@ const PedidosCompletados: React.FC = () => {
 
             {menuAbierto && (
               <div className="PC-dropdown">
+                {clientes.includes('MEDICAL_CARE') && (
+                  <button className="PC-dropItem PC-dropItemSwitch" onClick={irAMedical}>
+                    <FaExchangeAlt /> Ir a Medical
+                  </button>
+                )}
+                {clientes.includes('MEDICAL_CARE') && <div className="PC-dropDivider" />}
                 <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/Pedidos'); }}>
                   <FaBoxOpen /> Gestión de Pedidos
                 </button>
