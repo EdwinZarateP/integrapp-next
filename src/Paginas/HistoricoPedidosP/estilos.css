@@ -302,3 +302,180 @@
   .HP-filtroGroup { flex-direction: column; align-items: stretch; }
   .HP-searchBox { min-width: 100%; }
 }
+
+/* ── Botón-link del consecutivo (abre modal de detalle) ── */
+.HP-consecutivoLink {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-family: monospace;
+  font-weight: 700;
+  color: #004d40;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.HP-consecutivoLink:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.HP-consecutivoLink:disabled {
+  cursor: default;
+  color: #94a3b8;
+}
+
+/* ── Modal de detalle ── */
+.HP-modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.HP-modalBox {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+}
+
+.HP-modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.6rem;
+}
+
+.HP-modalTitle {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #004d40;
+  font-family: monospace;
+}
+
+.HP-modalSubtitle {
+  font-size: 0.85rem;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.HP-modalClose {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  color: #475569;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.HP-modalClose:hover {
+  background: #e2e8f0;
+  color: #dc2626;
+}
+
+.HP-modalSection {
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+  color: #005f56;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.HP-modalGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.4rem 0.9rem;
+}
+
+.HP-modalField {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+
+.HP-modalLabel {
+  color: #64748b;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.HP-modalValue {
+  color: #0f172a;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.HP-modalEmpty {
+  color: #666;
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+}
+
+/* ── Sub-tabla de pedidos / originales (dentro del modal) ── */
+.HP-subTableWrap {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.HP-subTable {
+  width: auto;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin: 4px 0;
+}
+
+.HP-subTable th,
+.HP-subTable td {
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.HP-subTable thead th {
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.HP-subTable tbody tr:nth-child(even) {
+  background: #ffffff;
+}
+
+.HP-subTable tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.HP-subTable tfoot td {
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #005f56;
+}

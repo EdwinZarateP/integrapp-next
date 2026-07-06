@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo, FaTimes,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
@@ -46,6 +46,74 @@ interface HistoricoDoc {
 
 const COLS = 27;
 
+// Parseo tolerante a formato es-CO ("$1.234,56" -> 1234.56) y a números puros.
+const parseNumeroTolerante = (v: any): number => {
+  if (typeof v === 'number') return v;
+  if (v === null || v === undefined) return 0;
+  const s = String(v).replace(/[^0-9,.]/g, '').replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+
+// Sub-tabla de pedidos del modal de detalle. Aplana registros_detalle; si el documento
+// es una fusión, toma los detalles de cada planilla original y añade la columna "Planilla".
+const DetallePedidosModal: React.FC<{ doc: HistoricoDoc }> = ({ doc }) => {
+  const esFusionada = !!doc.fusion_info?.es_fusionada;
+  const filas: { reg: any; origen: string | null }[] = [];
+  if (esFusionada) {
+    (doc.fusion_info?.datos_originales || []).forEach((orig: any) => {
+      (orig.registros_detalle || []).forEach((reg: any) => filas.push({ reg, origen: orig.planilla }));
+    });
+  } else {
+    (doc.registros_detalle || []).forEach((reg: any) => filas.push({ reg, origen: null }));
+  }
+
+  if (!filas.length) {
+    return <div className="HP-modalEmpty">Sin detalle de pedidos.</div>;
+  }
+  const totalPiezas = filas.reduce((acc, f) => acc + parseNumeroTolerante(f.reg['Piezas']), 0);
+  const totalPeso = filas.reduce((acc, f) => acc + parseNumeroTolerante(f.reg['Peso Real']), 0);
+  const colSpanTotales = esFusionada ? 5 : 4;
+
+  return (
+    <div className="HP-subTableWrap">
+      <table className="HP-subTable">
+        <thead>
+          <tr>
+            <th style={{ width: '32px' }}>#</th>
+            {esFusionada && <th>Planilla</th>}
+            <th>Código Pedido / Guía</th>
+            <th>Nombre</th>
+            <th>Municipio</th>
+            <th style={{ textAlign: 'right' }}>Piezas</th>
+            <th style={{ textAlign: 'right' }}>Peso Real</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((f, i) => (
+            <tr key={i}>
+              <td style={{ color: '#94a3b8' }}>{i + 1}</td>
+              {esFusionada && <td style={{ fontFamily: 'monospace', color: '#475569' }}>{f.origen}</td>}
+              <td style={{ fontFamily: 'monospace' }}>{f.reg['Codigo Pedido'] || f.reg['Guia'] || '-'}</td>
+              <td>{f.reg['Nombre'] || '-'}</td>
+              <td>{f.reg['Municipio Destino'] || '-'}</td>
+              <td style={{ textAlign: 'right' }}>{f.reg['Piezas'] ?? '-'}</td>
+              <td style={{ textAlign: 'right' }}>{f.reg['Peso Real'] ?? '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={colSpanTotales} style={{ textAlign: 'right' }}>Totales ({filas.length} pedidos)</td>
+            <td style={{ textAlign: 'right' }}>{totalPiezas.toLocaleString('es-CO')}</td>
+            <td style={{ textAlign: 'right' }}>{totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+};
+
 const HistoricoPedidosP: React.FC = () => {
   const router = useRouter();
   const [perfil, setPerfil] = useState('');
@@ -62,6 +130,16 @@ const HistoricoPedidosP: React.FC = () => {
   const [fechaInicio, setFechaInicio] = useState(hoy);
   const [fechaFin, setFechaFin] = useState(hoy);
   const [descargando, setDescargando] = useState(false);
+  // Documento del histórico cuyo detalle se muestra en el modal (al clic en el consecutivo).
+  const [modalDoc, setModalDoc] = useState<HistoricoDoc | null>(null);
+
+  // Cerrar el modal con la tecla Escape.
+  useEffect(() => {
+    if (!modalDoc) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModalDoc(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [modalDoc]);
 
   useEffect(() => {
     const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
@@ -252,6 +330,14 @@ const HistoricoPedidosP: React.FC = () => {
     return '$0';
   };
 
+  // Par etiqueta/valor para el grid del modal de detalle.
+  const Campo = (label: string, valor: any) => (
+    <div className="HP-modalField">
+      <span className="HP-modalLabel">{label}</span>
+      <span className="HP-modalValue">{valor === undefined || valor === null || valor === '' ? '-' : valor}</span>
+    </div>
+  );
+
   return (
     <div className="HP-layout">
       <NavMedicalCare paginaActual="historico" />
@@ -360,7 +446,16 @@ const HistoricoPedidosP: React.FC = () => {
                     const diferenciaColor = diferencia > 0 ? '#b91c1c' : diferencia < 0 ? '#15803d' : '#666';
                     return (
                       <tr key={p._id}>
-                        <td className="HP-cellMono" style={{ fontWeight: 700, color: '#004d40' }}>{p.consecutivo || '-'}</td>
+                        <td className="HP-cellMono" style={{ fontWeight: 700, color: '#004d40' }}>
+                          <button
+                            className="HP-consecutivoLink"
+                            onClick={() => p.consecutivo && setModalDoc(p)}
+                            title="Ver detalle de la planilla"
+                            disabled={!p.consecutivo}
+                          >
+                            {p.consecutivo || '-'}
+                          </button>
+                        </td>
                         <td>{p.planilla}</td>
                         <td style={{ fontWeight: 600, color: '#2563eb' }}>{p.pedido_vulcano || '-'}</td>
                         <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>{formatDate(p.fecha_preaprobado || p.fecha_creacion)}</td>
@@ -442,6 +537,110 @@ const HistoricoPedidosP: React.FC = () => {
           <span className="HP-footerCopy">© {new Date().getFullYear()} Integra</span>
         </div>
       </footer>
+
+      {modalDoc && (
+        <div className="HP-modalOverlay" onClick={() => setModalDoc(null)}>
+          <div className="HP-modalBox" onClick={(e) => e.stopPropagation()}>
+            {/* Cabecera */}
+            <div className="HP-modalHeader">
+              <div>
+                <h2 className="HP-modalTitle">{modalDoc.consecutivo}</h2>
+                <div className="HP-modalSubtitle">
+                  Planilla: <b>{modalDoc.planilla || '-'}</b>
+                  {modalDoc.pedido_vulcano ? <> · Pedido Vulcano: <b>{modalDoc.pedido_vulcano}</b></> : null}
+                  {' · '}Estado: <b>{modalDoc.estado || 'PREAPROBADO'}</b>
+                </div>
+              </div>
+              <button className="HP-modalClose" onClick={() => setModalDoc(null)} title="Cerrar (Esc)">
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Datos principales */}
+            <div className="HP-modalSection">Datos de la planilla</div>
+            <div className="HP-modalGrid">
+              {Campo('Regional', modalDoc.regional)}
+              {Campo('Ruta', modalDoc.ruta)}
+              {Campo('Placa', modalDoc.placa || 'NA')}
+              {Campo('Tipo Vehículo', modalDoc.tipo_vehiculo)}
+              {Campo('Tipo Veh SICETAC', modalDoc.tipo_veh_sicetac || modalDoc.tipo_vehiculo)}
+              {Campo('Piezas', modalDoc.piezas)}
+              {Campo('Peso Real', fmtVal(modalDoc.peso_real).toLocaleString('es-CO'))}
+              {Campo('Peso SICETAC', fmtVal(modalDoc.peso_sicetac ?? modalDoc.peso_real).toLocaleString('es-CO'))}
+              {Campo('Cant. Pedidos', modalDoc.cantidad_pedidos)}
+              {Campo('Cant. Destinos', modalDoc.cantidad_destinos)}
+              {Campo('Municipio Principal', modalDoc.municipio_destino)}
+              {Campo('Cliente Origen', modalDoc.cliente_origen)}
+            </div>
+            <div className="HP-modalGrid" style={{ marginTop: '0.25rem' }}>
+              {Campo('Códigos Pedido', modalDoc.codigo_pedido)}
+              {Campo('Causal', modalDoc.causal)}
+            </div>
+            <div className="HP-modalField" style={{ marginTop: '0.5rem' }}>
+              <span className="HP-modalLabel">Todos los Municipios</span>
+              <span className="HP-modalValue">{modalDoc.municipios_destino_lista || '-'}</span>
+            </div>
+
+            {/* Fletes y recargos */}
+            <div className="HP-modalSection">Fletes y recargos</div>
+            <div className="HP-modalGrid">
+              {Campo('Tarifa calculada (teórico)', `$${fmtVal(modalDoc.tarifa_calculada).toLocaleString('es-CO')}`)}
+              {Campo('Tarifa base', `$${fmtVal(modalDoc.tarifa_base || modalDoc.tarifa_calculada).toLocaleString('es-CO')}`)}
+              {Campo('Total solicitado', `$${fmtVal(modalDoc.total_solicitado).toLocaleString('es-CO')}`)}
+              {Campo('Diferencia', `$${fmtVal(modalDoc.diferencia).toLocaleString('es-CO')}`)}
+              {Campo('Descargue', fmtRecargo(modalDoc.requiere_descargue, 50000))}
+              {Campo('Punto adicional', fmtRecargo(modalDoc.punto_adicional, 80000))}
+              {Campo('Desvío', fmtRecargo(modalDoc.desvio, 100000))}
+              {Campo('Aforo', modalDoc.aforo ? `$${fmtVal(modalDoc.aforo).toLocaleString('es-CO')}` : '$0')}
+            </div>
+
+            {/* Fechas */}
+            <div className="HP-modalSection">Fechas</div>
+            <div className="HP-modalGrid">
+              {Campo('Preaprobado', formatDate(modalDoc.fecha_preaprobado))}
+              {Campo('Creación', formatDate(modalDoc.fecha_creacion))}
+              {Campo('Movimiento a histórico', formatDate(modalDoc.fecha_movimiento_historico))}
+            </div>
+
+            {/* Planillas originales (si es fusión) */}
+            {modalDoc.fusion_info?.es_fusionada && (
+              <>
+                <div className="HP-modalSection">Planillas originales de la fusión</div>
+                <div className="HP-subTableWrap">
+                  <table className="HP-subTable">
+                    <thead>
+                      <tr>
+                        <th>Planilla</th>
+                        <th>Consecutivo</th>
+                        <th>Ruta</th>
+                        <th>Municipio</th>
+                        <th style={{ textAlign: 'right' }}>Piezas</th>
+                        <th style={{ textAlign: 'right' }}>Peso Real</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(modalDoc.fusion_info?.datos_originales || []).map((o: any, i: number) => (
+                        <tr key={i}>
+                          <td style={{ fontFamily: 'monospace' }}>{o.planilla || '-'}</td>
+                          <td style={{ fontFamily: 'monospace', color: '#475569' }}>{o.consecutivo || '-'}</td>
+                          <td>{o.ruta || '-'}</td>
+                          <td>{o.municipio_destino || '-'}</td>
+                          <td style={{ textAlign: 'right' }}>{o.piezas ?? '-'}</td>
+                          <td style={{ textAlign: 'right' }}>{fmtVal(o.peso_real).toLocaleString('es-CO')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {/* Detalle de pedidos */}
+            <div className="HP-modalSection">Detalle de pedidos</div>
+            <DetallePedidosModal doc={modalDoc} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
