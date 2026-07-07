@@ -571,7 +571,7 @@ Indicadores de prioridad en CrucePacientesV3:
 - **OPERATIVO** no ve el dropdown (tiene su regional fija por cookie).
 
 #### Regional mostrada como bodega para OPERATIVO
-- Para **OPERATIVO**, la columna Regional se muestra como la **bodega de origen** (CALI→YUMBO, BARRANQUILLA→GALAPA, MEDELLIN→GIRARDOTA), igual que se guarda en Mongo.
+- Para **OPERATIVO**, la columna Regional se muestra como la **bodega de origen** (CALI→YUMBO, BARRANQUILLA→JUAN MINA, MEDELLIN→GIRARDOTA), igual que se guarda en Mongo.
 
 ### Indicadores de Transporte (`/integrapp/indicadores/transporte`)
 - **Fix del gráfico "Pedidos diarios"**: al activar un filtro de estado (ej: "En distribución") estando con el scroll a la derecha, el gráfico quedaba en blanco. Ahora se **reposiciona automáticamente al inicio** para mostrar las barras que sí tienen información.

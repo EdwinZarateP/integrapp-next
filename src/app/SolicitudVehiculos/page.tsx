@@ -120,16 +120,16 @@ const REGIONAL_MAP: Record<string, string> = {
 };
 
 // Opciones del menú "Regional" para perfiles globales (ADMIN/ANALISTA).
-// Se usan los municipios de la bodega de origen (GALAPA/YUMBO/GIRARDOTA) en vez del
+// Se usan los municipios de la bodega de origen (JUAN MINA/YUMBO/GIRARDOTA) en vez del
 // nombre de la regional: este valor se guarda en `regional` y define el PREFIJO del
 // consecutivo (ej. YUMBO-20260625-1). BUCARAMANGA/FUNZA no tienen bodega y se dejan igual.
 // Decisión del usuario 2026-06-25.
-const REGIONES = ['GALAPA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'];
+const REGIONES = ['JUAN MINA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'];
 
 // Mapa regional -> municipio de la bodega de origen (igual que se guarda en Mongo).
 // Se usa para mostrar el campo REGIONAL en pantalla para OPERATIVO.
 const REGIONAL_A_BODEGA: Record<string, string> = {
-  'BARRANQUILLA': 'GALAPA',
+  'BARRANQUILLA': 'JUAN MINA',
   'CALI': 'YUMBO',
   'MEDELLIN': 'GIRARDOTA',
 };
@@ -1118,7 +1118,7 @@ const SolicitudVehiculos: React.FC = () => {
         resultadosProcesados.forEach(r => { r.regional = regionalSeleccionada; });
       } else if (perfilUpper === 'OPERATIVO' && centroDistribucion) {
         // OPERATIVO: mostrar la regional como la bodega de origen (CALI->YUMBO,
-        // BARRANQUILLA->GALAPA, MEDELLIN->GIRARDOTA), igual que se guarda en Mongo.
+        // BARRANQUILLA->JUAN MINA, MEDELLIN->GIRARDOTA), igual que se guarda en Mongo.
         const bodega = REGIONAL_A_BODEGA[centroDistribucion.toUpperCase()] || centroDistribucion;
         resultadosProcesados.forEach(r => { r.regional = bodega; });
       }

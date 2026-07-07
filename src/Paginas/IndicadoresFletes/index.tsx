@@ -50,7 +50,7 @@ const MESES = [
 ];
 
 // Opciones del filtro Regional (bodega de origen). Coincide con REGIONES de SolicitudVehiculos.
-const REGIONES = ['GALAPA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'];
+const REGIONES = ['JUAN MINA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'];
 
 const COLORES_PIE = ['#0f1928', '#1e3a5f', '#2d4f7a', '#3b82f6', '#0ea5e9', '#6366f1', '#8b5cf6', '#a855f7'];
 

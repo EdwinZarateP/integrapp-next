@@ -364,7 +364,7 @@ const HistoricoPedidosP: React.FC = () => {
                 onChange={e => setRegionalSeleccionada(e.target.value)}
               >
                 <option value="">Todas las regionales</option>
-                {['GALAPA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'].map(r => (
+                {['JUAN MINA', 'YUMBO', 'BUCARAMANGA', 'FUNZA', 'GIRARDOTA'].map(r => (
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
