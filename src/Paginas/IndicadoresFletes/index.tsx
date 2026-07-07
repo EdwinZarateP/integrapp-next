@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, Cell, ReferenceLine } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaDownload, FaCoins } from 'react-icons/fa';
@@ -13,6 +13,7 @@ import './estilos.css';
 
 type SerieMes = { mes: string; cobrado: number; teorico: number; despachos: number };
 type SerieDia = { fecha: string; cobrado: number; teorico: number; despachos: number };
+type SerieCosto = { fecha?: string; mes?: string; cobrado: number; piezas: number; costo: number };
 type ItemFleteSerie = { fecha: string; cobrado: number; teorico: number; base: number; sobrecosto: number; ahorro: number; despachos: number };
 type CausalSobrecosto = { causal: string; cantidad: number; sobrecosto: number };
 type ItemFlete = { cliente?: string; ruta?: string; tipo_vehiculo?: string; regional?: string; flete: number; sobrecosto?: number; despachos: number; toneladas?: number };
@@ -24,6 +25,10 @@ type ApiResponse = {
   data?: {
     serieMensual: SerieMes[];
     serieDiaria: SerieDia[];
+    costoPorCajaMensual: SerieCosto[];
+    costoPorCajaDiaria: SerieCosto[];
+    costoPorCajaYTD: number;
+    anioYTD: number;
     porCliente: ItemFlete[];
     porRuta: ItemRutaSobrecosto[];
     porTipoVeh: ItemFlete[];
@@ -63,6 +68,12 @@ const IndicadoresFletes: React.FC = () => {
 
   // Vista del gráfico "Flete facturado": diario (default) o mensual
   const [vistaSerie, setVistaSerie] = useState<'diaria' | 'mensual'>('diaria');
+  // Vista del gráfico "Costo por caja": diario (default) o mensual
+  const [vistaCosto, setVistaCosto] = useState<'diaria' | 'mensual'>('diaria');
+  const [costoPorCajaDiaria, setCostoPorCajaDiaria] = useState<SerieCosto[]>([]);
+  const [costoPorCajaMensual, setCostoPorCajaMensual] = useState<SerieCosto[]>([]);
+  const [costoYTD, setCostoYTD] = useState(0);
+  const [anioYTD, setAnioYTD] = useState(new Date().getFullYear());
   const [porCliente, setPorCliente] = useState<ItemFlete[]>([]);
   const [porRuta, setPorRuta] = useState<ItemRutaSobrecosto[]>([]);
   const [porTipoVeh, setPorTipoVeh] = useState<ItemFlete[]>([]);
@@ -159,6 +170,10 @@ const IndicadoresFletes: React.FC = () => {
       if (data.success && data.data) {
         setSerieMensual(data.data.serieMensual || []);
         setSerieDiaria(data.data.serieDiaria || []);
+        setCostoPorCajaMensual(data.data.costoPorCajaMensual || []);
+        setCostoPorCajaDiaria(data.data.costoPorCajaDiaria || []);
+        setCostoYTD(data.data.costoPorCajaYTD || 0);
+        setAnioYTD(data.data.anioYTD || new Date().getFullYear());
         setPorCliente(data.data.porCliente || []);
         setPorRuta(data.data.porRuta || []);
         setPorTipoVeh(data.data.porTipoVeh || []);
@@ -221,6 +236,18 @@ const IndicadoresFletes: React.FC = () => {
       };
     });
   }, [vistaSerie, serieDiaria, serieMensual]);
+
+  // Datos del gráfico "Costo por caja" según la vista (diaria/mensual). costo = flete
+  // cobrado / piezas (promedio ponderado por bucket, viene calculado del backend).
+  const dataCosto = useMemo(() => {
+    const origen: SerieCosto[] = vistaCosto === 'diaria' ? costoPorCajaDiaria : costoPorCajaMensual;
+    return origen.map((d) => ({
+      fecha: (d.fecha ?? d.mes) as string,
+      costo: d.costo || 0,
+      cobrado: d.cobrado || 0,
+      piezas: d.piezas || 0,
+    }));
+  }, [vistaCosto, costoPorCajaDiaria, costoPorCajaMensual]);
 
   // Clientes filtrados por búsqueda en el dropdown (limitado para no colgar el render)
   const clientesFiltradosDropdown = useMemo(() => {
@@ -305,8 +332,41 @@ const IndicadoresFletes: React.FC = () => {
     );
   };
 
+  // Etiqueta del eje X del gráfico "Costo por caja" según la vista
+  const formatoEjeCosto = (val: string) => {
+    try {
+      if (vistaCosto === 'diaria') return format(parseISO(val), 'd MMM', { locale: es });
+      return format(parseISO(val + '-01'), 'MMM yy', { locale: es });
+    } catch { return val; }
+  };
+
+  // Tooltip del gráfico "Costo por caja": costo/caja, flete cobrado, piezas y comparación
+  // contra el promedio YTD del año en curso (rojo si queda por encima, verde si debajo).
+  const tooltipCosto = (props: any) => {
+    if (!props.active || !props.payload || !props.payload.length) return null;
+    const d = props.payload[0].payload as { fecha: string; costo: number; cobrado: number; piezas: number };
+    const diff = d.costo - costoYTD;
+    const fechaTxt = vistaCosto === 'diaria'
+      ? format(parseISO(d.fecha), "d 'de' MMMM yyyy", { locale: es })
+      : format(parseISO(d.fecha + '-01'), 'MMMM yyyy', { locale: es });
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
+        <p>Costo por caja: <b>{formatearMoneda(d.costo)}</b></p>
+        <p className="IG-tooltipSerieSub">Flete cobrado: {formatearMoneda(d.cobrado)} · {formatearNumero(d.piezas)} cajas</p>
+        <p>vs. promedio {anioYTD}:{' '}
+          <b className={diff > 0 ? 'IG-difPos' : diff < 0 ? 'IG-difNeg' : 'IG-difCero'}>
+            {diff > 0 ? '+' : ''}{formatearMoneda(diff)}
+          </b>
+        </p>
+      </div>
+    );
+  };
+
   // Intervalo del eje X para no amontonar etiquetas cuando hay muchos días
   const intervalSerie = dataChart.length > 1 ? Math.max(0, Math.ceil(dataChart.length / 12) - 1) : 0;
+  // Mismo cálculo para el eje X del gráfico "Costo por caja"
+  const intervalCosto = dataCosto.length > 1 ? Math.max(0, Math.ceil(dataCosto.length / 12) - 1) : 0;
 
   return (
     <div className="IG-container">
@@ -676,33 +736,88 @@ const IndicadoresFletes: React.FC = () => {
               </div>
             </div>
 
-            {/* Top rutas con sobrecosto (solo rutas con diferencia > 0) */}
-            <div className="IG-graficoContainer">
-              {porRuta.length > 0 ? (
-                <>
-                  <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">🛣️ Top rutas con sobrecosto</h2></div>
-                  <div className="IG-barrasHorizontales">
-                    {(() => {
-                      const total = porRuta.reduce((s, c) => s + (c.sobrecosto || 0), 0) || 1;
-                      const max = Math.max(...porRuta.map(c => c.sobrecosto || 0)) || 1;
-                      return porRuta.map((c, i) => (
-                        <div key={i} className="IG-barraHItem">
-                          <div className="IG-barraHLabel" title={c.ruta || 'Sin ruta'}>
-                            <span className="IG-barraHPunto" style={{ background: '#dc2626' }}></span>
-                            <span className="IG-barraHNombre">{c.ruta || 'Sin ruta'}</span>
-                          </div>
-                          <div className="IG-barraHTrack">
-                            <div className="IG-barraHFill" style={{ width: `${(((c.sobrecosto || 0) / max) * 100).toFixed(1)}%`, background: '#dc2626' }}>
-                              <span className="IG-barraHValor">{formatearMonedaCorta(c.sobrecosto || 0)}</span>
+            {/* Fila: Top rutas con sobrecosto + Costo por caja */}
+            <div className="IG-graficosFila">
+              {/* Top rutas con sobrecosto (solo rutas con diferencia > 0) */}
+              <div className="IG-graficoContainer">
+                {porRuta.length > 0 ? (
+                  <>
+                    <div className="IG-graficoHeader"><h2 className="IG-graficoTitulo">🛣️ Top rutas con sobrecosto</h2></div>
+                    <div className="IG-barrasHorizontales">
+                      {(() => {
+                        const total = porRuta.reduce((s, c) => s + (c.sobrecosto || 0), 0) || 1;
+                        const max = Math.max(...porRuta.map(c => c.sobrecosto || 0)) || 1;
+                        return porRuta.map((c, i) => (
+                          <div key={i} className="IG-barraHItem">
+                            <div className="IG-barraHLabel" title={c.ruta || 'Sin ruta'}>
+                              <span className="IG-barraHPunto" style={{ background: '#dc2626' }}></span>
+                              <span className="IG-barraHNombre">{c.ruta || 'Sin ruta'}</span>
                             </div>
+                            <div className="IG-barraHTrack">
+                              <div className="IG-barraHFill" style={{ width: `${(((c.sobrecosto || 0) / max) * 100).toFixed(1)}%`, background: '#dc2626' }}>
+                                <span className="IG-barraHValor">{formatearMonedaCorta(c.sobrecosto || 0)}</span>
+                              </div>
+                            </div>
+                            <span className="IG-barraHPorcentaje">{(((c.sobrecosto || 0) / total) * 100).toFixed(1)}%</span>
                           </div>
-                          <span className="IG-barraHPorcentaje">{(((c.sobrecosto || 0) / total) * 100).toFixed(1)}%</span>
+                        ));
+                      })()}
+                    </div>
+                  </>
+                ) : <div className="IG-sinDatos"><p>No hay rutas con sobrecosto en el período seleccionado</p></div>}
+              </div>
+
+              {/* Costo por caja: total_solicitado / piezas, con promedio YTD del año en curso como referencia.
+                  Rojo = por encima del promedio, verde = por debajo. */}
+              <div className="IG-graficoContainer">
+                {dataCosto.length > 0 ? (
+                  <>
+                    <div className="IG-graficoHeader">
+                      <div className="IG-graficoTituloWrap">
+                        <h2 className="IG-graficoTitulo">
+                          📦 Costo por caja
+                          <span className="IG-graficoBadge">{vistaCosto === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                        </h2>
+                      </div>
+                      <div className="IG-graficoAcciones">
+                        <div className="IG-toggleGrupo" role="group" aria-label="Vista del gráfico">
+                          <button className={`IG-toggleBtn ${vistaCosto === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaCosto('diaria')}>Diario</button>
+                          <button className={`IG-toggleBtn ${vistaCosto === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaCosto('mensual')}>Mensual</button>
                         </div>
-                      ));
-                    })()}
-                  </div>
-                </>
-              ) : <div className="IG-sinDatos"><p>No hay rutas con sobrecosto en el período seleccionado</p></div>}
+                      </div>
+                    </div>
+                    <p className="IG-graficoSub">
+                      Promedio {anioYTD} (YTD): <b>{formatearMoneda(costoYTD)}</b>
+                      {' · '}<span style={{ color: '#dc2626' }}>●</span> sobre promedio
+                      {' · '}<span style={{ color: '#16a34a' }}>●</span> bajo promedio
+                    </p>
+                    <div style={{ width: '100%', height: 380 }}>
+                      <ResponsiveContainer width="100%" height={380}>
+                        <BarChart data={dataCosto} margin={{ top: 28, right: 20, left: 20, bottom: 28 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="fecha" tickFormatter={formatoEjeCosto} interval={intervalCosto} tick={{ fontSize: 11 }} />
+                          <YAxis tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
+                          <Tooltip content={tooltipCosto} cursor={{ fill: 'rgba(15,25,40,0.05)' }} />
+                          <ReferenceLine y={costoYTD} stroke="#e8a000" strokeDasharray="5 5"
+                            label={{ value: `Prom. ${anioYTD}`, position: 'insideTopRight', fill: '#0f1928', fontSize: 11 }} />
+                          <Bar dataKey="costo" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                            {dataCosto.map((d, i) => (
+                              <Cell key={i} fill={d.costo > costoYTD ? '#dc2626' : '#16a34a'} />
+                            ))}
+                            <LabelList
+                              dataKey="costo"
+                              position="top"
+                              offset={6}
+                              formatter={(value: number) => (value > 0 ? formatearMonedaCorta(value) : '')}
+                              style={{ fill: '#0f1928', fontWeight: 700, fontSize: 11 }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                ) : <div className="IG-sinDatos"><p>No hay datos de costo por caja para el período seleccionado</p></div>}
+              </div>
             </div>
 
             {/* Fila: Flete por cliente + Flete por tipo de vehículo */}
