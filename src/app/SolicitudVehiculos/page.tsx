@@ -3209,6 +3209,8 @@ const SolicitudVehiculos: React.FC = () => {
                         </th>
                         <th>Acciones</th>
                         <th>Consecutivo</th>
+                        <th>Municipio Principal</th>
+                        <th>Cliente Origen</th>
                         <th>Planilla</th>
                         <th>Fecha Preaprobado</th>
                         <th>Estado</th>
@@ -3229,8 +3231,6 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Punto Adic.</th>
                         <th>Desvío</th>
                         <th>Aforo</th>
-                        <th>Municipio Principal</th>
-                        <th>Cliente Origen</th>
                         <th>Cant. Destinos</th>
                         <th>Código Pedido</th>
                         <th>Observaciones</th>
@@ -3381,6 +3381,10 @@ const SolicitudVehiculos: React.FC = () => {
                           <td style={{ fontWeight: '700', color: '#004d40', fontFamily: 'monospace', fontSize: '0.95rem' }}>
                             {resultado.consecutivo || '-'}
                           </td>
+                          <td>{resultado.municipio_destino}</td>
+                          <td className="SV-truncate" title={resultado.cliente_origen}>
+                            {resultado.cliente_origen}
+                          </td>
                           <td className="SV-planillaCell">
                             {resultado.planilla}
                           </td>
@@ -3466,10 +3470,6 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td style={{ fontWeight: '600' }}>
                             {resultado.encontrada && resultado.aforo ? `$${resultado.aforo.toLocaleString('es-CO')}` : resultado.encontrada ? '$0' : '-'}
-                          </td>
-                          <td>{resultado.municipio_destino}</td>
-                          <td className="SV-truncate" title={resultado.cliente_origen}>
-                            {resultado.cliente_origen}
                           </td>
                           <td style={{ fontWeight: '600', color: '#005f56', textAlign: 'center' }}>
                             {resultado.encontrada && resultado.cantidad_destinos !== undefined ? resultado.cantidad_destinos : '-'}
