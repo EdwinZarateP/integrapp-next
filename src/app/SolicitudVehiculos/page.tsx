@@ -871,6 +871,9 @@ const SolicitudVehiculos: React.FC = () => {
       setTiempoConsulta(parseFloat(tiempoTotal));
 
       const registros = data.registros || [];
+      // Planillas ya tramitadas (en histórico de hoy/ayes): el bot NO las consultó
+      // en Siscore. Se muestran al usuario para que sepa por qué no aparecen.
+      const omitidasTramitadas = Array.isArray(data.omitidas_ya_tramitadas) ? data.omitidas_ya_tramitadas : [];
 
       // DEBUG: Ver qué campos vienen de Siscore
       if (registros.length > 0) {
@@ -974,6 +977,24 @@ const SolicitudVehiculos: React.FC = () => {
         }
       });
 
+      // Si el bot omitió planillas ya tramitadas (histórico hoy/ayes), avisar ANTES
+      // del formulario de rutas y excluirlas: no se les pide ruta ni se guardan.
+      const omitidasSet = new Set(omitidasTramitadas);
+      const planillasAProcesar = planillasBuscadas.filter(p => !omitidasSet.has(p));
+
+      if (omitidasTramitadas.length > 0) {
+        await Swal.fire({
+          title: 'Planillas ya tramitadas',
+          html: `Se omitieron <strong>${omitidasTramitadas.length}</strong> planilla(s) por ya estar tramitadas (hoy/ayes) y no se consultaron en Siscore:<br>${omitidasTramitadas.join(', ')}`,
+          icon: 'warning',
+          confirmButtonText: 'Continuar',
+          confirmButtonColor: '#005f56',
+        });
+      }
+      if (planillasAProcesar.length === 0) {
+        return;  // Todas ya estaban tramitadas: no hay nada que asignar ni guardar.
+      }
+
       // === Asignación de ruta por el usuario (antes de calcular tarifa) ===
       // La ruta se pre-llena con la derivada (divipolas); el usuario confirma o cambia.
       // Es obligatoria: si cancela o deja alguna vacía, se aborta la carga.
@@ -984,7 +1005,7 @@ const SolicitudVehiculos: React.FC = () => {
       }
       {
         const esc = (s: string) => String(s).replace(/"/g, '&quot;');
-        const filasRutasHtml = planillasBuscadas.map((planilla) => {
+        const filasRutasHtml = planillasAProcesar.map((planilla) => {
           const d = planillasMap.get(planilla);
           const rutaPre = d?.ruta && d.ruta !== '-' ? String(d.ruta) : '';
           const destino = d?.municipio_destino && d.municipio_destino !== '-' ? ` (${d.municipio_destino})` : '';
@@ -1018,7 +1039,7 @@ const SolicitudVehiculos: React.FC = () => {
           confirmButtonColor: '#005f56',
           preConfirm: () => {
             const mapa: Record<string, string> = {};
-            for (const p of planillasBuscadas) {
+            for (const p of planillasAProcesar) {
               const el = document.getElementById(`ruta-${p}`) as HTMLInputElement | null;
               const val = (el?.value || '').trim();
               if (!val) { Swal.showValidationMessage(`La planilla ${p} no tiene ruta asignada`); return false; }
@@ -1032,7 +1053,7 @@ const SolicitudVehiculos: React.FC = () => {
           return;  // Canceló: no añadir resultados ni guardar
         }
         const rutasMap = rutasAsignadas as Record<string, string>;
-        for (const p of planillasBuscadas) {
+        for (const p of planillasAProcesar) {
           const d = planillasMap.get(p);
           if (d) d.ruta = rutasMap[p];
         }
@@ -1170,19 +1191,32 @@ const SolicitudVehiculos: React.FC = () => {
 
           // Actualizar resultados con los consecutivos devueltos por el backend
           if (responseData.consecutivos) {
-            const resultadosActualizados = nuevosResultados.map(r => {
-              const consInfo = responseData.consecutivos[r.planilla];
-              if (consInfo) {
-                return {
-                  ...r,
-                  consecutivo: consInfo.consecutivo,
-                  consecutivo_base: consInfo.consecutivo_base
-                };
-              }
-              return r;
-            });
+            // Las planillas ya tramitadas (en histórico de hoy/ayes) no se guardaron:
+            // se quitan de la lista para que no queden visibles como cargadas.
+            const omitidasTramitadas = new Set(responseData.omitidas_ya_tramitadas || []);
+            const resultadosActualizados = nuevosResultados
+              .filter(r => !omitidasTramitadas.has(r.planilla))
+              .map(r => {
+                const consInfo = responseData.consecutivos[r.planilla];
+                if (consInfo) {
+                  return {
+                    ...r,
+                    consecutivo: consInfo.consecutivo,
+                    consecutivo_base: consInfo.consecutivo_base
+                  };
+                }
+                return r;
+              });
             setResultados(ordenarPorCreacion(resultadosActualizados));
             console.log('🔄 Resultados actualizados con consecutivos');
+
+            if (omitidasTramitadas.size > 0) {
+              Swal.fire({
+                title: 'Planillas omitidas',
+                html: `Se omitieron <strong>${omitidasTramitadas.size}</strong> planilla(s) por ya estar tramitadas (hoy/ayes):<br>${[...omitidasTramitadas].join(', ')}`,
+                icon: 'warning',
+              });
+            }
           }
         } else {
           const errorText = await guardarResponse.text();
