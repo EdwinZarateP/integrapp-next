@@ -2,14 +2,16 @@
    BARRA SUPERIOR PROFESIONAL
    --------------------------- */
 .barra-superior {
-  background-color: #145a32;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
   color: #ffffff;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 30px;
+  padding: 0 28px;
+  flex-shrink: 0;
   z-index: 9999;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
 /* ---------------------------
@@ -29,37 +31,41 @@
 }
 
 .barra-logo {
-  width: auto; 
-  height: 55px; 
-  border-radius: 5px; 
-  object-fit: contain; 
+  width: auto;
+  height: 40px;
+  border-radius: 5px;
+  object-fit: contain;
 }
 
 /* Contenedor Flex para alinear las líneas de título verticalmente */
 .barra-titulos-agrupados {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
-  padding-top: 5px;
+  line-height: 1.15;
 }
 
-/* NUEVA CLASE: Contenedor para INTEGR APP */
-.barra-subtitulos-linea {
-   display: flex; 
-   align-items: center;
-   margin-top: 2px;
+/* Marca IntegrApp (mismo estilo que HeaderApp) */
+.barra-marca {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+.barra-marca-acento {
+  color: #e8a000;
 }
 
 /* ---------------------------
-   TÍTULO MEJORADO 
+   TÍTULO MEJORADO
    --------------------------- */
 .barra-titulo {
-  font-size: 16px; 
-  font-weight: 700;
-  letter-spacing: 1.5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
   text-transform: uppercase;
   margin: 0;
-  text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.35);
+  color: #c7d2dc;
 }
 
 .barra-subtitulo {

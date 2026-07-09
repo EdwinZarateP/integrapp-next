@@ -44,11 +44,8 @@ const BarraSeguridad: React.FC = () => {
       >
         <img src={logo.src} alt="Logo" className="barra-logo" />
         <div className="barra-titulos-agrupados">
-          <h2 className="barra-titulo">HOJA DE VIDA VEHICULOS</h2>
-          <div className="barra-subtitulos-linea">
-            <span className="barra-subtitulo">INTEGR</span>
-            <span className="barra-subsubtitulo"> APP</span>
-          </div>
+          <span className="barra-marca">Integr<span className="barra-marca-acento">App</span></span>
+          <h2 className="barra-titulo">Hoja de Vida Vehículos</h2>
         </div>
       </div>
 

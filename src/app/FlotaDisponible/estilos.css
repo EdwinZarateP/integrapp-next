@@ -1,0 +1,25 @@
+.FD-contenedor { padding: 24px 16px 60px; max-width: 1200px; margin: 0 auto; font-family: 'Segoe UI', system-ui, sans-serif; }
+.FD-contenedor h2 { color: #004d40; margin: 0 0 4px; }
+.FD-sub-desc { color: #6b7280; font-size: 0.88rem; margin: 0 0 16px; }
+
+.FD-filtros { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; align-items: center; }
+.FD-filtros select, .FD-filtros input { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; background: #fff; }
+.FD-filtros input { min-width: 200px; }
+.FD-filtros button { padding: 9px 18px; background: #004d40; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.FD-filtros button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.FD-total { color: #374151; font-weight: 600; margin-bottom: 10px; }
+
+.FD-tabla-wrap { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
+.FD-tabla { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.FD-tabla th { background: #f0fdfa; color: #065f46; text-align: left; padding: 11px 12px; border-bottom: 1px solid #ccfbf1; white-space: nowrap; }
+.FD-tabla td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+.FD-tabla tbody tr:hover { background: #f9fafb; }
+
+.FD-placa { font-weight: 700; letter-spacing: 0.5px; color: #111827; }
+.FD-sub { color: #6b7280; font-size: 0.78rem; }
+.FD-contacto { display: flex; flex-direction: column; gap: 3px; }
+.FD-contacto a { color: #004d40; text-decoration: none; font-size: 0.82rem; }
+.FD-contacto a:hover { text-decoration: underline; }
+.FD-destinos { max-width: 300px; color: #374151; }
+.FD-vacio { text-align: center; color: #9ca3af; padding: 30px; }

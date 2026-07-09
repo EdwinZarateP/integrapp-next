@@ -23,15 +23,15 @@ body, html {
 /* 2. BARRA SUPERIOR (HEADER)                                                 */
 /* -------------------------------------------------------------------------- */
 .barra-superior {
-  background-color: #2c3e50;
-  color: #fffcfc;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px; /* Reducido un poco para móviles */
-  height: 65px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  flex-shrink: 0; 
+  padding: 0 24px;
+  height: 64px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
   z-index: 1000;
   position: relative;
 }
@@ -41,41 +41,27 @@ body, html {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  overflow: hidden; /* Evita desbordes */
+  overflow: hidden;
 }
 
 .barra-logo {
-  height: 60px;     
+  height: 40px;
   width: auto;
-  object-fit: contain; 
-  filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  object-fit: contain;
 }
 
-.barra-titulos-agrupados {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-
-.barra-titulo {
-  font-size: 14px;
+.barra-marca {
+  font-size: 1.3rem;
   font-weight: 800;
-  letter-spacing: 0.5px;
-  margin: 0;
-  color: #fff;
   text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
   white-space: nowrap;
 }
 
-.barra-subtitulos-linea {
-  display: flex;
-  font-size: 11px;
-  font-weight: 500;
-  opacity: 0.9;
+.barra-marca-acento {
+  color: #e8a000;
 }
-
-.barra-subtitulo { color: #ffffff; }
-.barra-subsubtitulo { color: #bacf65; font-weight: 800; margin-left: 0px; }
 
 .barra-derecha {
   display: flex;
@@ -83,17 +69,65 @@ body, html {
   gap: 15px;
 }
 
-.barra-usuario { 
-  font-weight: 600; 
-  font-size: 13px; 
-  display: flex; 
-  align-items: center; 
-  gap: -70px; 
-  background: rgba(255,255,255,0.1); 
-  padding: 5px 5px; 
+/* Banner "Mi disponibilidad" (acción principal del conductor, fuera del header) */
+.banner-disponibilidad {
+  width: calc(100% - 40px);
+  max-width: 1160px;
+  margin: 16px auto 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f5b433 0%, #e8a000 100%);
+  color: #1a1a1a;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 14px rgba(232, 160, 0, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.banner-disponibilidad:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(232, 160, 0, 0.45);
+}
+.banner-disponibilidad:active { transform: scale(0.99); }
+
+.banner-disponibilidad-icono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #b87c00;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.banner-disponibilidad-texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+}
+.banner-disponibilidad-texto strong { font-size: 1rem; font-weight: 800; }
+.banner-disponibilidad-texto small { font-size: 0.8rem; opacity: 0.85; margin-top: 2px; }
+.banner-disponibilidad-flecha { font-size: 1.4rem; font-weight: bold; flex-shrink: 0; }
+
+.barra-usuario {
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.1);
+  padding: 5px 12px;
   border-radius: 20px;
   border: 1px solid rgba(255,255,255,0.1);
-  max-width: 220px; 
+  max-width: 220px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -585,10 +619,9 @@ body, html {
   }
 
   .barra-logo {
-    height: 32px; 
+    height: 32px;
   }
-  .barra-subtitulos-linea { display: none; }
-  .barra-titulo { font-size: 12px; }
+  .barra-marca { font-size: 1.1rem; }
 
   /* Usuario más discreto */
   .barra-usuario {
@@ -638,6 +671,11 @@ body, html {
     background-color: #2c3e50;
     color: white;
     border-color: #2c3e50;
+  }
+
+  /* En fila horizontal, el botón de rechazados no debe desfazar verticalmente */
+  .btn-sidebar-step.btn-rechazados {
+    margin-top: 0 !important;
   }
 
   /* 4. CONTENIDO PRINCIPAL: APROVECHAR ESPACIO */
@@ -716,10 +754,346 @@ body, html {
   
   /* Botón Guardar fijo */
   .contenedor-formulario-fijo button[type="submit"],
-  .contenedor-formulario-fijo .btn-guardar { 
+  .contenedor-formulario-fijo .btn-guardar {
     bottom: 10px;
     right: 10px;
     padding: 10px 15px;
     font-size: 0.9rem;
   }
+
+  /* Filas de documentos: dejan de apretarse y envuelven botones debajo */
+  .doc-item-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 0;
+  }
+  .doc-name {
+    max-width: 100%;
+    flex: 1 1 100%;
+    font-size: 0.88rem;
+  }
+
+  /* Tarjetas inline (aprobados / en revisión) envuelven su etiqueta */
+  .vehiculo-aprobado-card,
+  .vehiculo-revision-card {
+    flex-wrap: wrap;
+  }
+  .vehiculo-aprobado-card > span,
+  .vehiculo-revision-card > span {
+    margin-left: 0 !important;
+    flex-basis: 100%;
+    font-size: 0.75rem !important;
+  }
+
+  /* Header: espaciado más compacto entre elementos */
+  .barra-derecha { gap: 8px; }
+
+  /* Secciones de listas reducen relleno */
+  .seccion-lista-vehiculos {
+    padding: 10px;
+  }
+
+  /* Banner: ocupa casi todo el ancho en tablet */
+  .banner-disponibilidad {
+    width: calc(100% - 10px);
+    margin: 10px auto 0 auto;
+    padding: 12px 16px;
+    border-radius: 12px;
+  }
+}
+
+/* ========================================================================== */
+/* MÓVIL ESTÁNDAR (≤600px)                                                    */
+/* ========================================================================== */
+@media (max-width: 600px) {
+  /* Banner más compacto */
+  .banner-disponibilidad {
+    width: calc(100% - 10px);
+    margin: 10px auto 0 auto;
+    padding: 11px 14px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+  .banner-disponibilidad-icono { width: 34px; height: 34px; font-size: 1rem; }
+  .banner-disponibilidad-texto strong { font-size: 0.88rem; }
+  .banner-disponibilidad-texto small { font-size: 0.7rem; }
+  .banner-disponibilidad-flecha { font-size: 1.1rem; }
+
+  /* Nombre del conductor más corto para evitar desbordes */
+  .barra-usuario {
+    max-width: 110px;
+    padding: 5px 8px;
+  }
+
+  /* Título más compacto */
+  .barra-marca { font-size: 1rem; }
+
+  /* Botones de acción de documentos ocupan ancho completo cuando envuelven */
+  .doc-item-row {
+    justify-content: flex-start;
+  }
+
+  /* Tarjeta de rechazado a ancho completo, botón no se sale */
+  .card-rechazado {
+    padding: 12px;
+  }
+
+  /* Botón finalizar un poco más compacto */
+  .btn-finalizar {
+    padding: 14px;
+    font-size: 1rem;
+  }
+}
+
+/* ========================================================================== */
+/* MÓVIL PEQUEÑO (≤480px)                                                     */
+/* ========================================================================== */
+@media (max-width: 480px) {
+  /* Header ultra compacto */
+  .barra-superior {
+    height: 46px;
+    padding: 0 8px;
+  }
+  .barra-logo { height: 28px; }
+  .barra-marca { font-size: 0.95rem; letter-spacing: 0.3px; }
+
+  /* Banner: una sola línea, sin subtítulo para ahorrar espacio */
+  .banner-disponibilidad {
+    width: calc(100% - 8px);
+    margin: 8px auto 0 auto;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .banner-disponibilidad-icono { width: 32px; height: 32px; font-size: 0.95rem; }
+  .banner-disponibilidad-texto strong { font-size: 0.82rem; }
+  .banner-disponibilidad-texto small { display: none; }
+
+  /* Ocultar el nombre del conductor, conservar el icono */
+  .barra-usuario {
+    font-size: 0;
+    padding: 6px;
+    max-width: none;
+  }
+
+  .barra-derecha { gap: 6px; }
+
+  /* Layout casi sin margen para aprovechar toda la pantalla */
+  .layout-conductor {
+    padding: 4px;
+    gap: 6px;
+  }
+
+  /* Sidebar píldoras aún más compactas */
+  .btn-sidebar-step {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+  }
+  .btn-sidebar-step .step-indicator {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+    margin-right: 4px;
+  }
+
+  /* Contenido con menos relleno */
+  .contenido-conductor-container {
+    padding: 12px;
+    border-radius: 6px;
+  }
+
+  .step-header { margin-bottom: 12px; padding-bottom: 8px; }
+  .step-header h2 { font-size: 1rem; gap: 8px; }
+  .step-header h2 svg { font-size: 0.9rem; }
+  .step-header p { font-size: 0.75rem; }
+
+  /* Encabezado de cada bloque de listas */
+  .seccion-lista-vehiculos h4 { font-size: 0.85rem; }
+
+  /* Filas de documentos: botones a ancho completo, apilados */
+  .doc-name { font-size: 0.82rem; }
+  .doc-item-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .doc-item-row > div {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .btn-doc-action {
+    padding: 8px 10px;
+    font-size: 0.78rem;
+  }
+
+  /* Botón "Crear Placa" ocupa todo el ancho */
+  .btn-moderno-accion { font-size: 0.9rem; }
+
+  /* Botón corregir a ancho completo */
+  .btn-corregir {
+    width: 100%;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  /* Botón flotante WhatsApp un poco más pequeño y separado del borde */
+  .btn-whatsapp-flotante {
+    padding: 6px;
+    bottom: 8px;
+    left: 8px;
+  }
+}
+
+/* ========================================================================== */
+/* MODAL "VER MIS DATOS" (vehículo aprobado, solo lectura)                    */
+/* ========================================================================== */
+.btn-ver-mis-datos {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #155724;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.btn-ver-mis-datos:hover { background: #0e3d1b; }
+
+.vermisdatos-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 30px 16px;
+  z-index: 2000;
+  overflow-y: auto;
+}
+
+.vermisdatos-modal {
+  background: #fff;
+  width: 100%;
+  max-width: 720px;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+
+.vermisdatos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
+}
+.vermisdatos-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vermisdatos-cerrar {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.vermisdatos-cerrar:hover { background: rgba(255, 255, 255, 0.3); }
+
+.vermisdatos-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.vermisdatos-cargando {
+  text-align: center;
+  color: #777;
+  padding: 30px 0;
+}
+
+.vermisdatos-seccion { margin-bottom: 20px; }
+.vermisdatos-seccion h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.95rem;
+  color: #2c3e50;
+  border-bottom: 2px solid #eef2f5;
+  padding-bottom: 6px;
+}
+
+.vermisdatos-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 16px;
+}
+
+.vermisdatos-campo {
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.vermisdatos-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #7f8c8d;
+  font-weight: 600;
+}
+.vermisdatos-valor {
+  font-size: 0.92rem;
+  color: #2c3e50;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.vermisdocs-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vermisdocs-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  background: #fff;
+}
+.vermisdocs-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #444;
+}
+.vermisdocs-falta {
+  font-size: 0.8rem;
+  color: #aaa;
+  font-style: italic;
+}
+.vermisdocs-falta-icon { color: #ccc; }
+
+@media (max-width: 600px) {
+  .vermisdatos-overlay { padding: 12px; }
+  .vermisdatos-grid { grid-template-columns: 1fr; }
+  .vermisdatos-header h3 { font-size: 0.95rem; }
+  .vermisdocs-item { flex-wrap: wrap; }
 }

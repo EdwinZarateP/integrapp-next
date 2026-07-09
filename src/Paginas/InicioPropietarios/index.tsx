@@ -6,6 +6,7 @@ import Image from "next/image";
 import logo from "@/Imagenes/albatros.png";
 import Cookies from 'js-cookie';
 import BotonSencillo from "@/Componentes/BotonSencillo";
+import HeaderApp from "@/Componentes/HeaderApp";
 import { ContextoApp } from "@/Contexto/index";
 import HashLoader from "react-spinners/HashLoader";
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
@@ -75,16 +76,7 @@ const InicioPropietarios: React.FC = () => {
     <div className="IP-layout">
 
       {/* ── HEADER ── */}
-      <header className="IP-header">
-        <div className="IP-headerInner">
-          <button className="IP-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="IP-brandName">
-              Integr<span className="IP-brandAccent">App</span>
-            </span>
-          </button>
-        </div>
-      </header>
+      <HeaderApp />
 
       {/* ── MAIN ── */}
       <main className="IP-main">

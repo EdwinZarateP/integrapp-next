@@ -6,7 +6,7 @@ import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import logo from "@/Imagenes/albatros.png";
-import HeaderLogo from "@/Componentes/HeaderLogo";
+import HeaderApp from "@/Componentes/HeaderApp";
 import "./estilos.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
@@ -56,7 +56,7 @@ const LoginConductores = () => {
       const correoNormalizado = correo.trim().toLowerCase();
 
       const response = await axios.post<RespuestaBackend>(
-        `${API_BASE}/baseusuarios/loginConductor`,
+        `${API_BASE}/conductores/login`,
         {
           usuario: correoNormalizado,
           clave
@@ -118,7 +118,7 @@ const LoginConductores = () => {
 
       {/* Header fijo */}
       <div style={{ position: "absolute", top: 0, left: 0, width: "100%", zIndex: 10 }}>
-          <HeaderLogo />
+          <HeaderApp />
       </div>
 
       <img src={logo.src} alt="logo" className="LoginConductores-Logo" style={{ marginTop: '80px' }} />
@@ -177,6 +177,14 @@ const LoginConductores = () => {
             Olvidé la clave
         </Link>
       </div>
+
+      <button
+        type="button"
+        className="LoginConductores-boton-seguridad"
+        onClick={() => router.push("/LoginUsuariosSeguridad")}
+      >
+        🛡️ Acceso Seguridad
+      </button>
 
       {error && <p className="LoginConductores-error">{error}</p>}
     </div>

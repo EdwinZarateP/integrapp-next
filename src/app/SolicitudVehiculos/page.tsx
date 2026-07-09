@@ -226,13 +226,23 @@ const parseNumeroTolerante = (v: any): number => {
 // (registros_detalle de la fusionada está vacío); se aplana y se etiqueta el origen.
 const DetallePlanilla: React.FC<{ resultado: PlanillaResultado }> = ({ resultado }) => {
   const esFusionada = !!resultado.fusion_info?.es_fusionada;
-  const filas: { reg: any; origen: string | null }[] = [];
+  const SIN_CLIENTE = 'Sin cliente';
+
+  // Cada fila de detalle sabe a qué cliente (y, en fusiones, a qué planilla original)
+  // pertenece. El cliente es el cliente_origen de la planilla/original a la que pertenece.
+  const filas: { cliente: string; planilla: string | null; reg: any }[] = [];
   if (esFusionada) {
     (resultado.fusion_info?.datos_originales || []).forEach((orig: any) => {
-      (orig.registros_detalle || []).forEach((reg: any) => filas.push({ reg, origen: orig.planilla }));
+      const cli = orig.cliente_origen && orig.cliente_origen !== '-' ? orig.cliente_origen : SIN_CLIENTE;
+      (orig.registros_detalle || []).forEach((reg: any) =>
+        filas.push({ cliente: cli, planilla: orig.planilla, reg })
+      );
     });
   } else {
-    (resultado.registros_detalle || []).forEach((reg: any) => filas.push({ reg, origen: null }));
+    const cli = resultado.cliente_origen && resultado.cliente_origen !== '-' ? resultado.cliente_origen : SIN_CLIENTE;
+    (resultado.registros_detalle || []).forEach((reg: any) =>
+      filas.push({ cliente: cli, planilla: null, reg })
+    );
   }
 
   if (!filas.length) {
@@ -242,49 +252,92 @@ const DetallePlanilla: React.FC<{ resultado: PlanillaResultado }> = ({ resultado
       </div>
     );
   }
-  const totalPiezas = filas.reduce((acc, f) => acc + parseNumeroTolerante(f.reg['Piezas']), 0);
-  const totalPeso = filas.reduce((acc, f) => acc + parseNumeroTolerante(f.reg['Peso Real']), 0);
-  // Columnas de texto antes de Piezas: con columna Planilla = 5, sin ella = 4.
-  const colSpanTotales = esFusionada ? 5 : 4;
-  const numPlanillasOrigen = resultado.fusion_info?.planillas_originales?.length || 0;
+
+  // Agrupar por cliente preservando el orden de aparición (estilo tabla dinámica).
+  const grupos: { cliente: string; filas: typeof filas; piezas: number; peso: number }[] = [];
+  const indiceGrupo: Record<string, number> = {};
+  filas.forEach((f) => {
+    if (!(f.cliente in indiceGrupo)) {
+      indiceGrupo[f.cliente] = grupos.length;
+      grupos.push({ cliente: f.cliente, filas: [], piezas: 0, peso: 0 });
+    }
+    const g = grupos[indiceGrupo[f.cliente]];
+    g.filas.push(f);
+    g.piezas += parseNumeroTolerante(f.reg['Piezas']);
+    g.peso += parseNumeroTolerante(f.reg['Peso Real']);
+  });
+
+  const totalPiezas = grupos.reduce((acc, g) => acc + g.piezas, 0);
+  const totalPeso = grupos.reduce((acc, g) => acc + g.peso, 0);
+  // #(1) [+Planilla(1)] Código Nombre Municipio | Piezas Peso → 2 columnas numéricas al final.
+  const numColumnas = esFusionada ? 7 : 6;
+  const colSpanIzq = numColumnas - 2;
+  let contador = 0; // numeración global de filas de detalle a través de todos los grupos
 
   return (
-    <div style={{ maxHeight: '320px', overflowY: 'auto', padding: '4px 8px' }}>
-      <table className="SV-subTable">
-        <thead>
-          <tr>
-            <th style={{ width: '32px' }}>#</th>
-            {esFusionada && <th>Planilla</th>}
-            <th>Código Pedido / Guía</th>
-            <th>Nombre</th>
-            <th>Municipio</th>
-            <th style={{ textAlign: 'right' }}>Piezas</th>
-            <th style={{ textAlign: 'right' }}>Peso Real</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filas.map((f, i) => (
-            <tr key={i}>
-              <td style={{ color: '#94a3b8' }}>{i + 1}</td>
-              {esFusionada && <td style={{ fontFamily: 'monospace', color: '#475569' }}>{f.origen}</td>}
-              <td style={{ fontFamily: 'monospace' }}>{f.reg['Codigo Pedido'] || f.reg['Guia'] || '-'}</td>
-              <td>{f.reg['Nombre'] || '-'}</td>
-              <td>{f.reg['Municipio Destino'] || '-'}</td>
-              <td style={{ textAlign: 'right' }}>{f.reg['Piezas'] ?? '-'}</td>
-              <td style={{ textAlign: 'right' }}>{f.reg['Peso Real'] ?? '-'}</td>
+    <div style={{ padding: '4px 8px' }}>
+      <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+        <table className="SV-subTable">
+          <thead>
+            <tr>
+              <th style={{ width: '32px' }}>#</th>
+              {esFusionada && <th>Planilla</th>}
+              <th>Código Pedido / Guía</th>
+              <th>Nombre</th>
+              <th>Municipio</th>
+              <th style={{ textAlign: 'right' }}>Piezas</th>
+              <th style={{ textAlign: 'right' }}>Peso Real</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colSpan={colSpanTotales} style={{ textAlign: 'right' }}>
-              Totales ({filas.length} pedidos{esFusionada ? ` · ${numPlanillasOrigen} planillas` : ''})
-            </td>
-            <td style={{ textAlign: 'right' }}>{totalPiezas.toLocaleString('es-CO')}</td>
-            <td style={{ textAlign: 'right' }}>{totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {grupos.map((g) => (
+              <Fragment key={g.cliente}>
+                {/* Cabecera del grupo: nombre del cliente + piezas/peso del grupo */}
+                <tr style={{ background: '#f0fdfa' }}>
+                  <td colSpan={colSpanIzq} style={{ padding: '6px 10px', color: '#004d40', fontWeight: 700 }}>
+                    ▾ {g.cliente}
+                  </td>
+                  <td colSpan={2} style={{ padding: '6px 10px', textAlign: 'right', color: '#005f56', fontWeight: 600, fontSize: '0.8rem' }}>
+                    {g.piezas.toLocaleString('es-CO')} pz · {g.peso.toLocaleString('es-CO', { maximumFractionDigits: 2 })} kg
+                  </td>
+                </tr>
+                {/* Filas de detalle del grupo */}
+                {g.filas.map((f) => {
+                  contador += 1;
+                  return (
+                    <tr key={`${g.cliente}-${contador}`}>
+                      <td style={{ color: '#94a3b8' }}>{contador}</td>
+                      {esFusionada && <td style={{ fontFamily: 'monospace', color: '#475569' }}>{f.planilla || '-'}</td>}
+                      <td style={{ fontFamily: 'monospace' }}>{f.reg['Codigo Pedido'] || f.reg['Guia'] || '-'}</td>
+                      <td>{f.reg['Nombre'] || '-'}</td>
+                      <td>{f.reg['Municipio Destino'] || '-'}</td>
+                      <td style={{ textAlign: 'right' }}>{f.reg['Piezas'] ?? '-'}</td>
+                      <td style={{ textAlign: 'right' }}>{f.reg['Peso Real'] ?? '-'}</td>
+                    </tr>
+                  );
+                })}
+                {/* Subtotal del grupo */}
+                <tr style={{ background: '#f8fafc' }}>
+                  <td colSpan={colSpanIzq} style={{ padding: '4px 10px', textAlign: 'right', color: '#64748b', fontStyle: 'italic', fontSize: '0.8rem' }}>
+                    Subtotal {g.cliente}
+                  </td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, color: '#475569' }}>{g.piezas.toLocaleString('es-CO')}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, color: '#475569' }}>{g.peso.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
+                </tr>
+              </Fragment>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: '2px solid #cbd5e1' }}>
+              <td colSpan={colSpanIzq} style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#004d40' }}>
+                TOTAL
+              </td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: '#004d40' }}>{totalPiezas.toLocaleString('es-CO')}</td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: '#004d40' }}>{totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 };

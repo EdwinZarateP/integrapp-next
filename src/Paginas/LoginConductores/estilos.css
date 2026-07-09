@@ -165,6 +165,26 @@
   color: #1e40af;
 }
 
+/* BOTÓN ACCESO SEGURIDAD */
+.LoginConductores-boton-seguridad {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  border: 1.5px solid #000080;
+  border-radius: 5px;
+  background: white;
+  color: #000080;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.LoginConductores-boton-seguridad:hover {
+  background: #000080;
+  color: white;
+}
+
 /* ERROR */
 .LoginConductores-error {
   margin-top: 15px;

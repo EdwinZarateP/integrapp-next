@@ -128,7 +128,7 @@ export const loginConductor = async (
   usuario: string,
   clave: string
 ): Promise<LoginRespuesta> => {
-  const res = await axios.post<LoginRespuesta>(`${BASE_URL}/loginConductor`, {
+  const res = await axios.post<LoginRespuesta>(`${API_BASE}/conductores/login`, {
     usuario,
     clave,
   });

@@ -9,6 +9,9 @@ import Link from "next/link";
 import logo from '@/Imagenes/albatros.png';
 import "./estilos.css";
 
+// Perfiles que pueden ver el portal de Flota Disponible (coincide con /FlotaDisponible).
+const PERFILES_FLOTA = ["ADMIN", "ANALISTA", "COORDINADOR", "CONTROL"];
+
 const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: string; ruta: string }> = {
   KABI: {
     label: "Fresenius Kabi",
@@ -22,6 +25,12 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
     color: "#006b5e",
     ruta: "/MedicalCare",
   },
+  FLOTA: {
+    label: "Flota Disponible",
+    desc: "Vehículos disponibles hoy — contacto directo a conductores",
+    color: "#e8a000",
+    ruta: "/FlotaDisponible",
+  },
   INDICADORES: {
     label: "Indicadores Integra",
     desc: "Menú principal de dashboards e indicadores",
@@ -29,6 +38,9 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
     ruta: "/indicadores",
   },
 };
+
+// Orden visual de los portales en el selector (Flota va justo después de Medical Care).
+const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES"];
 
 const LoginUsuario: React.FC = () => {
   const [usuario, setUsuario] = useState("");
@@ -65,12 +77,19 @@ const LoginUsuario: React.FC = () => {
       const clientes = res.usuario.clientes || ["KABI"];
       // Guardar la lista completa de clientes para habilitar el cambio de portal en los menús
       document.cookie = `clientesPedidosCookie=${clientes.join(",")}; path=/; ${expires}`;
-      // Siempre agregar INDICADORES como opción disponible
-      const clientesConIndicadores = Array.from(new Set([...clientes, "INDICADORES"]));
-      setDatosUsuario({ ...res.usuario, clientes: clientesConIndicadores });
 
-      if (clientesConIndicadores.length === 1) {
-        seleccionarCliente(clientesConIndicadores[0], expires);
+      // Portales extra en el selector: Indicadores siempre; Flota solo si el perfil puede verla.
+      const perfilUpper = (res.usuario.perfil || "").toUpperCase();
+      const extras = ["INDICADORES"];
+      if (PERFILES_FLOTA.includes(perfilUpper)) extras.push("FLOTA");
+
+      // Reordenar según el orden canónico del selector (Flota después de Medical Care).
+      const keys = Array.from(new Set([...clientes, ...extras]));
+      const keysOrdenadas = ORDEN_PORTALES.filter((k) => keys.includes(k));
+      setDatosUsuario({ ...res.usuario, clientes: keysOrdenadas });
+
+      if (keysOrdenadas.length === 1) {
+        seleccionarCliente(keysOrdenadas[0], expires);
       } else {
         setPaso(2);
       }

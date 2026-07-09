@@ -1,0 +1,76 @@
+.Disp-contenedor { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; font-family: 'Segoe UI', system-ui, sans-serif; }
+.Disp-titulo { font-size: 1.5rem; color: #004d40; margin: 0 0 4px; }
+.Disp-fecha { color: #6b7280; margin: 0 0 20px; font-size: 0.9rem; }
+.Disp-vacio { background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; padding: 28px; text-align: center; color: #6b7280; }
+
+.Disp-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.Disp-card--activa { border-color: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,0.15); }
+.Disp-card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.Disp-placa { font-size: 1.25rem; font-weight: 700; letter-spacing: 1px; color: #111827; }
+.Disp-sub { color: #6b7280; font-size: 0.85rem; }
+
+.Disp-body { margin-top: 16px; }
+.Disp-origen { margin-bottom: 16px; }
+.Disp-origen label, .Disp-destinos > label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; color: #374151; }
+.Disp-origen select { width: 100%; max-width: 320px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; background: #fff; }
+
+.Disp-destinos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.Disp-grupo { margin-bottom: 12px; border: 1px solid #f0f0f0; border-radius: 10px; padding: 10px 12px; background: #fcfcfc; }
+.Disp-grupo-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.Disp-grupo-head span { font-weight: 600; font-size: 0.85rem; color: #065f46; }
+.Disp-grupo-btn { background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; border-radius: 6px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer; }
+.Disp-grupo-btn:hover { background: #d1fae5; }
+
+.Disp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.Disp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 999px; font-size: 0.78rem; cursor: pointer; color: #4b5563; background: #fff; user-select: none; }
+.Disp-chip input { display: none; }
+.Disp-chip--on { background: #10b981; border-color: #10b981; color: #fff; }
+
+.Disp-acciones { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.Disp-btn { padding: 10px 16px; border-radius: 9px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+.Disp-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.Disp-btn--pri { background: #10b981; color: #fff; }
+.Disp-btn--pri:hover:not(:disabled) { background: #059669; }
+.Disp-btn--sec { background: #fee2e2; color: #b91c1c; }
+.Disp-contador { margin-top: 8px; font-size: 0.8rem; color: #6b7280; }
+.Disp-nota { margin-top: 12px; font-size: 0.82rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 8px; }
+
+/* Toggle */
+.Disp-switch { position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; }
+.Disp-switch input { opacity: 0; width: 0; height: 0; }
+.Disp-slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 999px; transition: 0.3s; }
+.Disp-slider:before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+.Disp-switch input:checked + .Disp-slider { background: #10b981; }
+.Disp-switch input:checked + .Disp-slider:before { transform: translateX(24px); }
+
+/* ========================================================================== */
+/* RESPONSIVE                                                                 */
+/* ========================================================================== */
+
+/* Pantallas grandes: las zonas respiran con más separación (las columnas las decide auto-fit) */
+@media (min-width: 1100px) {
+  .Disp-destinos { gap: 16px; }
+}
+
+/* Móvil: compactar todo */
+@media (max-width: 600px) {
+  .Disp-contenedor { padding: 18px 12px 48px; }
+  .Disp-titulo { font-size: 1.25rem; }
+  .Disp-fecha { font-size: 0.82rem; margin-bottom: 14px; }
+  .Disp-card { padding: 14px; border-radius: 12px; }
+  .Disp-placa { font-size: 1.1rem; }
+  .Disp-sub { font-size: 0.78rem; }
+  .Disp-origen select { max-width: 100%; font-size: 0.9rem; }
+  .Disp-btn { flex: 1 1 auto; }
+}
+
+/* Móvil pequeño */
+@media (max-width: 380px) {
+  .Disp-titulo { font-size: 1.1rem; }
+  .Disp-card-head { flex-wrap: wrap; }
+}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import {
   FaCar, FaClipboardList, FaFileUpload, FaCheckCircle,
-  FaUserCircle, FaBars, FaEdit, FaTrashAlt, FaWhatsapp, FaEye, FaExclamationTriangle, FaClock, FaTimesCircle
+  FaUserCircle, FaBars, FaEdit, FaTrashAlt, FaEye, FaExclamationTriangle, FaClock, FaTimesCircle, FaTruck
 } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
 import Datos from '@/Componentes/Datos';
@@ -89,6 +89,105 @@ const getOverallDocumentProgress = (secciones: SeccionDocumentos[]) => {
   return totalItems === 0 ? 0 : Math.round((completed / totalItems) * 100);
 };
 
+/* Construye las secciones de documentos (con progreso/url) a partir de un vehículo.
+   Reutilizada por el flujo de edición (selectedPlate) y por el modal "Ver mis datos". */
+const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => {
+  const limpias: SeccionDocumentos[] = JSON.parse(JSON.stringify(initialSecciones));
+  return limpias.map((sec: SeccionDocumentos) => ({
+    ...sec,
+    items: sec.items.map((item: DocumentoItem) => {
+      const field = tiposMapping[normalizeKey(item.nombre)] || "";
+      if (field && vehiculo[field]) {
+        let valor = vehiculo[field];
+        if (Array.isArray(valor)) {
+          valor = valor.filter((url: any) =>
+            url && url !== "null" && url !== "undefined" &&
+            typeof url === 'string' && url.trim() !== ""
+          );
+          if (valor.length === 0) return { ...item, progreso: 0, url: undefined };
+        }
+        return { ...item, progreso: 100, url: valor };
+      }
+      return { ...item, progreso: 0, url: undefined };
+    })
+  }));
+};
+
+/* Secciones de datos básicos (label + key del documento en BD) que se muestran
+   en el modal "Ver mis datos" de un vehículo aprobado. */
+const SECCIONES_DATOS: { titulo: string; campos: { label: string; key: string }[] }[] = [
+  {
+    titulo: "Vehículo",
+    campos: [
+      { label: "Placa", key: "placa" },
+      { label: "Modelo", key: "vehModelo" },
+      { label: "Marca", key: "vehMarca" },
+      { label: "Línea", key: "vehLinea" },
+      { label: "Color", key: "vehColor" },
+      { label: "Tipo Carrocería", key: "vehTipoCarroceria" },
+      { label: "Repotenciado", key: "vehRepotenciado" },
+      { label: "Año Repotenciación", key: "vehAno" },
+      { label: "Empresa Satelital", key: "vehEmpresaSat" },
+    ],
+  },
+  {
+    titulo: "Conductor",
+    campos: [
+      { label: "Nombres", key: "condNombres" },
+      { label: "Cédula", key: "condCedulaCiudadania" },
+      { label: "Celular", key: "condCelular" },
+      { label: "Correo", key: "condCorreo" },
+      { label: "Dirección", key: "condDireccion" },
+      { label: "Ciudad", key: "condCiudad" },
+      { label: "EPS", key: "condEps" },
+      { label: "ARL", key: "condArl" },
+      { label: "No. Licencia", key: "condNoLicencia" },
+      { label: "Vence Licencia", key: "condFechaVencimientoLic" },
+      { label: "Categoría", key: "condCategoriaLic" },
+      { label: "Grupo Sanguíneo", key: "condGrupoSanguineo" },
+    ],
+  },
+  {
+    titulo: "Propietario",
+    campos: [
+      { label: "Nombre/Razón", key: "propNombre" },
+      { label: "Documento", key: "propDocumento" },
+      { label: "Correo", key: "propCorreo" },
+      { label: "Celular", key: "propCelular" },
+      { label: "Dirección", key: "propDireccion" },
+      { label: "Ciudad", key: "propCiudad" },
+    ],
+  },
+  {
+    titulo: "Tenedor",
+    campos: [
+      { label: "Nombre/Razón", key: "tenedNombre" },
+      { label: "Documento", key: "tenedDocumento" },
+      { label: "Correo", key: "tenedCorreo" },
+      { label: "Celular", key: "tenedCelular" },
+      { label: "Ciudad", key: "tenedCiudad" },
+    ],
+  },
+  {
+    titulo: "Remolque",
+    campos: [
+      { label: "Placa Remolque", key: "RemolPlaca" },
+      { label: "Modelo", key: "RemolModelo" },
+      { label: "Clase/config", key: "RemolClase" },
+      { label: "Tipo Carrocería", key: "RemolTipoCarroceria" },
+      { label: "Alto (m)", key: "RemolAlto" },
+      { label: "Largo (m)", key: "RemolLargo" },
+      { label: "Ancho (m)", key: "RemolAncho" },
+    ],
+  },
+];
+
+const formatoValorDato = (v: any): string => {
+  if (v == null || v === "") return "-";
+  if (Array.isArray(v)) return v.join(", ");
+  return String(v);
+};
+
 /* --- BARRA SUPERIOR --- */
 const BarraConductor: React.FC = () => {
   const router = useRouter();
@@ -118,13 +217,9 @@ const BarraConductor: React.FC = () => {
     <div className="barra-superior" onClick={() => menuAbierto && setMenuAbierto(false)}>
       <div className="barra-izquierda" onClick={irInicio} title="Volver al inicio">
         <img src={logo.src} alt="Logo" className="barra-logo" />
-        <div className="barra-titulos-agrupados">
-          <h2 className="barra-titulo">PANEL CONDUCTOR</h2>
-          <div className="barra-subtitulos-linea">
-            <span className="barra-subtitulo">INTEGR</span>
-            <span className="barra-subsubtitulo"> APP</span>
-          </div>
-        </div>
+        <span className="barra-marca">
+          Integr<span className="barra-marca-acento">App</span>
+        </span>
       </div>
       <div className="barra-derecha">
         <div className="barra-usuario">
@@ -147,9 +242,6 @@ const BarraConductor: React.FC = () => {
 /* --- COMPONENTE PRINCIPAL --- */
 const PanelConductoresVista: React.FC = () => {
   const router = useRouter();
-
-  const numeroSoporte = "573102084306";
-  const mensajeSoporte = encodeURIComponent("Hola, necesito ayuda con la plataforma de conductores.");
 
   const idUsuario = Cookies.get('conductorId') || Cookies.get('tenedorIntegrapp') || '';
   useEffect(() => {
@@ -183,6 +275,12 @@ const PanelConductoresVista: React.FC = () => {
   const [visibleSeccion, setVisibleSeccion] = useState<number | null>(null);
   const [selectedDocumento, setSelectedDocumento] = useState<any>(null);
   const [verDocumentoInfo, setVerDocumentoInfo] = useState<any>(null);
+
+  // Modal "Ver mis datos" (vehículo aprobado, solo lectura)
+  const [verPlaca, setVerPlaca] = useState<string | null>(null);
+  const [verDatos, setVerDatos] = useState<any>(null);
+  const [verSecciones, setVerSecciones] = useState<SeccionDocumentos[]>([]);
+  const [verCargando, setVerCargando] = useState(false);
 
   useEffect(() => { if (idUsuario) cargarDatosIniciales(); }, [idUsuario]);
 
@@ -240,8 +338,8 @@ const PanelConductoresVista: React.FC = () => {
   const handleCreateVehicle = async () => {
     const placaCreada = newPlate.trim().toUpperCase();
     if (!placaCreada) return Swal.fire("Error", "Ingrese una placa válida", "error");
-    if (!/^[A-Z]{3}\d{3,4}$/.test(placaCreada)) {
-      return Swal.fire("Placa inválida", "La placa debe tener 3 letras seguidas de 3 o 4 números (ej: ABC123).", "warning");
+    if (!/^[A-Z0-9]{1,7}$/.test(placaCreada)) {
+      return Swal.fire("Placa inválida", "La placa debe tener máximo 7 caracteres (solo letras y números, en cualquier orden).", "warning");
     }
 
     try {
@@ -277,40 +375,12 @@ const PanelConductoresVista: React.FC = () => {
           return;
       }
 
-      let seccionesLimpias = JSON.parse(JSON.stringify(initialSecciones));
+      const seccionesLimpias = JSON.parse(JSON.stringify(initialSecciones));
 
       try {
         const data = await obtenerVehiculoPorPlaca(selectedPlate);
         if (data && data.data) {
-          const vehiculo = data.data;
-
-          const seccionesActualizadas = seccionesLimpias.map((sec: SeccionDocumentos) => ({
-            ...sec,
-            items: sec.items.map((item: DocumentoItem) => {
-              const field = tiposMapping[normalizeKey(item.nombre)] || "";
-
-              if (field && vehiculo[field]) {
-                 let valor = vehiculo[field];
-                 if (Array.isArray(valor)) {
-                     valor = valor.filter((url: any) =>
-                        url &&
-                        url !== "null" &&
-                        url !== "undefined" &&
-                        typeof url === 'string' &&
-                        url.trim() !== ""
-                      )
-                      if (valor.length === 0) {
-                          return { ...item, progreso: 0, url: undefined };
-                      }
-                 }
-
-                 return { ...item, progreso: 100, url: valor };
-              }
-              return { ...item, progreso: 0, url: undefined };
-            })
-          }));
-
-          setSecciones(seccionesActualizadas);
+          setSecciones(construirSeccionesDesdeVehiculo(data.data));
         } else {
            setSecciones(seccionesLimpias);
         }
@@ -321,6 +391,37 @@ const PanelConductoresVista: React.FC = () => {
     };
     cargarInfo();
   }, [selectedPlate]);
+
+  /* --- Modal "Ver mis datos" (vehículo aprobado, solo lectura) --- */
+  const abrirVer = async (placa: string) => {
+    setVerPlaca(placa);
+    setVerCargando(true);
+    setVerDatos(null);
+    setVerSecciones([]);
+    try {
+      const data = await obtenerVehiculoPorPlaca(placa);
+      if (data && data.data) {
+        setVerDatos(data.data);
+        setVerSecciones(construirSeccionesDesdeVehiculo(data.data));
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setVerCargando(false);
+    }
+  };
+
+  const cerrarVer = () => {
+    setVerPlaca(null);
+    setVerDatos(null);
+    setVerSecciones([]);
+  };
+
+  // Abre el/los documento(s) en pestaña nueva (solo lectura: sin opción de eliminar).
+  const verDocUrl = (url: any) => {
+    const urls = Array.isArray(url) ? url.filter(Boolean) : (url ? [url] : []);
+    urls.forEach((u: string) => window.open(u, "_blank", "noopener"));
+  };
 
   const changeStep = (step: number) => {
     if (step === 4 && vehiculosRechazados.length === 0) return;
@@ -435,6 +536,18 @@ const PanelConductoresVista: React.FC = () => {
   return (
     <div className="bg-conductor">
       <BarraConductor />
+      <button
+        className="banner-disponibilidad"
+        onClick={() => router.push("/Disponibilidad")}
+        title="Ofrecerme como disponible para hoy"
+      >
+        <span className="banner-disponibilidad-icono"><FaTruck /></span>
+        <span className="banner-disponibilidad-texto">
+          <strong>Ofrecer mi disponibilidad para hoy</strong>
+          <small>Avísanos que estás listo para operar</small>
+        </span>
+        <span className="banner-disponibilidad-flecha">▸</span>
+      </button>
       <div className="layout-conductor">
         <div className="sidebar-conductor">
           {[1, 2, 3].map(step => (
@@ -546,6 +659,13 @@ const PanelConductoresVista: React.FC = () => {
                                 >
                                     <FaCheckCircle /> {veh.placa}
                                     <span style={{fontSize: '0.8rem', fontWeight: 'normal', color: '#155724', marginLeft: 'auto'}}>Aprobado para operar</span>
+                                    <button
+                                        className="btn-ver-mis-datos"
+                                        onClick={() => abrirVer(veh.placa)}
+                                        title="Ver los datos que cargaste"
+                                    >
+                                        <FaEye /> Ver mis datos
+                                    </button>
                                 </div>
                                 ))}
                             </div>
@@ -711,16 +831,6 @@ const PanelConductoresVista: React.FC = () => {
         </div>
       </div>
 
-      <a
-        href={`https://wa.me/${numeroSoporte}?text=${mensajeSoporte}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn-whatsapp-flotante"
-      >
-        <FaWhatsapp size={26} />
-        Chat Soporte
-      </a>
-
       {/* MODALES */}
       {selectedDocumento && selectedPlate && (
         <CargaDocumento
@@ -798,6 +908,77 @@ onDeleteSuccess={(urlAEliminar: any) => {
     Swal.fire('Listo', 'Documento eliminado y lista actualizada.', 'success');
 }}
          />
+      )}
+
+      {/* MODAL "VER MIS DATOS" (vehículo aprobado, solo lectura) */}
+      {verPlaca && (
+        <div className="vermisdatos-overlay" onClick={cerrarVer}>
+          <div className="vermisdatos-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="vermisdatos-header">
+              <h3><FaCar /> Datos del vehículo <strong>{verPlaca}</strong></h3>
+              <button className="vermisdatos-cerrar" onClick={cerrarVer} title="Cerrar">✕</button>
+            </div>
+
+            <div className="vermisdatos-body">
+              {verCargando ? (
+                <p className="vermisdatos-cargando">Cargando datos…</p>
+              ) : verDatos ? (
+                <>
+                  {SECCIONES_DATOS.map((sec) => {
+                    const conValor = sec.campos.filter(
+                      (c) => verDatos[c.key] != null && verDatos[c.key] !== ""
+                    );
+                    if (conValor.length === 0) return null;
+                    return (
+                      <div key={sec.titulo} className="vermisdatos-seccion">
+                        <h4>{sec.titulo}</h4>
+                        <div className="vermisdatos-grid">
+                          {conValor.map((c) => (
+                            <div key={c.key} className="vermisdatos-campo">
+                              <span className="vermisdatos-label">{c.label}</span>
+                              <span className="vermisdatos-valor">{formatoValorDato(verDatos[c.key])}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="vermisdatos-seccion">
+                    <h4>Documentos cargados</h4>
+                    <div className="vermisdocs-lista">
+                      {verSecciones.flatMap((sec, sIdx) =>
+                        sec.items.map((item, iIdx) => (
+                          <div key={`${sIdx}-${iIdx}`} className="vermisdocs-item">
+                            <span className="vermisdocs-nombre">
+                              {item.progreso === 100
+                                ? <FaCheckCircle className="text-success" />
+                                : <FaTimesCircle className="vermisdocs-falta-icon" />}
+                              {" "}{item.nombre}
+                            </span>
+                            {item.progreso === 100 ? (
+                              <button
+                                className="btn-doc-action view"
+                                onClick={() => verDocUrl(item.url)}
+                                title="Ver documento en pestaña nueva"
+                              >
+                                <FaEye /> Ver
+                              </button>
+                            ) : (
+                              <span className="vermisdocs-falta">No cargado</span>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="vermisdatos-cargando">No se pudieron cargar los datos del vehículo.</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

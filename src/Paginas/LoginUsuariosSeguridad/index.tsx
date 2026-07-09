@@ -8,7 +8,7 @@ import logo from "@/Imagenes/albatros.png";
 import "./estilos.css";
 
 // Importamos el componente del Header
-import HeaderLogo from "@/Componentes/HeaderLogo";
+import HeaderApp from "@/Componentes/HeaderApp";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 
@@ -88,7 +88,7 @@ const LoginUsuariosSeguridad = () => {
 
       {/* HEADER LOGO */}
       <div style={{ position: "absolute", top: 0, left: 0, width: "100%", zIndex: 10 }}>
-        <HeaderLogo />
+        <HeaderApp />
       </div>
 
       {/* ELEMENTOS FUERA DE LA TARJETA */}

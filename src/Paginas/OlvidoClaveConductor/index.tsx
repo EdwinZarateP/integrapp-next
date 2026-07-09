@@ -38,7 +38,7 @@ const OlvidoClaveConductor = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post<RespuestaVerificacion>(`${API_BASE}/baseusuarios/verificarRecuperacion`, {
+      const response = await axios.post<RespuestaVerificacion>(`${API_BASE}/conductores/recuperar/verificar`, {
         usuario: usuario,
         perfil: "CONDUCTOR"
       });
@@ -69,7 +69,7 @@ const OlvidoClaveConductor = () => {
     setLoading(true);
 
     try {
-        const response = await axios.post<RespuestaCodigo>(`${API_BASE}/baseusuarios/validarCodigoRecuperacion`, {
+        const response = await axios.post<RespuestaCodigo>(`${API_BASE}/conductores/recuperar/validar`, {
             usuario: usuario,
             codigo: codigo,
             perfil: "CONDUCTOR"
@@ -107,7 +107,7 @@ const OlvidoClaveConductor = () => {
     setLoading(true);
 
     try {
-      await axios.post(`${API_BASE}/baseusuarios/cambiarClaveConductor`, {
+      await axios.post(`${API_BASE}/conductores/recuperar/cambiar`, {
         usuario: usuario,
         nuevaClave: nuevaClave,
         codigo: codigo,

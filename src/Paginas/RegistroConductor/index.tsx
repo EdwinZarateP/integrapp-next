@@ -7,10 +7,6 @@ import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 
-const REGIONALES = [
-  'FUNZA', 'BARRANQUILLA', 'BUCARAMANGA', 'GIRARDOTA', 'CALI'
-];
-
 const RegistroConductor: React.FC = () => {
   const router = useRouter();
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -22,7 +18,6 @@ const RegistroConductor: React.FC = () => {
       nombre: '',
       cedula: '',
       telefono: '',
-      regional: '',
       email: '',
       password: ''
   });
@@ -51,11 +46,6 @@ const RegistroConductor: React.FC = () => {
       return;
     }
 
-    if (!formData.regional) {
-      setErrorMensaje('Por favor, selecciona una regional.');
-      return;
-    }
-
     setErrorMensaje('');
     setCargando(true);
 
@@ -64,13 +54,13 @@ const RegistroConductor: React.FC = () => {
         nombre: formData.nombre,
         usuario: formData.email,
         celular: formData.telefono,
-        regional: formData.regional,
+        regional: 'N/A',
         correo: formData.email,
         clave: formData.password,
         perfil: 'CONDUCTOR'
       };
 
-      const response = await fetch(`${API_BASE}/baseusuarios/`, {
+      const response = await fetch(`${API_BASE}/conductores/registrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -137,19 +127,6 @@ const RegistroConductor: React.FC = () => {
                 id="telefono" name="telefono" type="tel" placeholder="Ej: 3001234567" className="RegConductor-Input"
                 value={formData.telefono} onChange={manejarCambio} required disabled={cargando}
             />
-        </div>
-
-        <div className="RegConductor-InputGroup">
-            <label htmlFor="regional">Regional</label>
-            <select
-                id="regional" name="regional" className="RegConductor-Input RegConductor-Select"
-                value={formData.regional} onChange={manejarCambio} required disabled={cargando}
-            >
-                <option value="">Seleccione una regional</option>
-                {REGIONALES.map((reg) => (
-                    <option key={reg} value={reg}>{reg}</option>
-                ))}
-            </select>
         </div>
 
         <div className="RegConductor-InputGroup">
