@@ -342,6 +342,9 @@ const DetallePlanilla: React.FC<{ resultado: PlanillaResultado }> = ({ resultado
   );
 };
 
+// Máximo de planillas permitidas en una sola búsqueda.
+const MAX_PLANILLAS_BUSQUEDA = 4;
+
 const SolicitudVehiculos: React.FC = () => {
 
   // Cargar resultados recientes automáticamente (filtrado por regional para operativos)
@@ -777,6 +780,16 @@ const SolicitudVehiculos: React.FC = () => {
 
     if (planillasProcesadas.length === 0) {
       Swal.fire('Advertencia', 'Por favor ingresa al menos una planilla válida', 'warning');
+      return;
+    }
+
+    // Limitar la cantidad de planillas por búsqueda (también se bloquea al escribir en el input).
+    if (planillasProcesadas.length > MAX_PLANILLAS_BUSQUEDA) {
+      Swal.fire(
+        'Demasiadas planillas',
+        `Solo puedes buscar hasta ${MAX_PLANILLAS_BUSQUEDA} planillas a la vez. Ingresaste ${planillasProcesadas.length}.`,
+        'warning'
+      );
       return;
     }
 
@@ -3098,14 +3111,23 @@ const SolicitudVehiculos: React.FC = () => {
                   </div>
                 )}
                 <div className="SV-inputGroup">
-                  <label htmlFor="planillas">Planillas (separadas por coma):</label>
+                  <label htmlFor="planillas">
+                    Planillas (separadas por coma) — <strong>máximo {MAX_PLANILLAS_BUSQUEDA}</strong>:
+                  </label>
                   <input
                     id="planillas"
                     type="text"
                     className="SV-input"
                     placeholder="Ej: 864582, 864768"
                     value={planillasInput}
-                    onChange={(e) => setPlanillasInput(e.target.value)}
+                    onChange={(e) => {
+                      // Solo se permiten hasta MAX_PLANILLAS_BUSQUEDA planillas: si al seguir
+                      // escribiendo se excede el límite, se ignora el cambio (input controlado)
+                      // y no deja escribir más.
+                      const cantidad = e.target.value.trim().split(/[\n,;\s]+/).filter(Boolean).length;
+                      if (cantidad > MAX_PLANILLAS_BUSQUEDA) return;
+                      setPlanillasInput(e.target.value);
+                    }}
                     onKeyPress={(e) => e.key === 'Enter' && handleBuscar()}
                     disabled={loading}
                   />
