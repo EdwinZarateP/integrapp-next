@@ -3112,7 +3112,7 @@ const SolicitudVehiculos: React.FC = () => {
                 )}
                 <div className="SV-inputGroup">
                   <label htmlFor="planillas">
-                    Planillas (separadas por coma) — <strong>máximo {MAX_PLANILLAS_BUSQUEDA}</strong>:
+                    Planillas (separadas por coma) — <strong>máximo {MAX_PLANILLAS_BUSQUEDA}por carga</strong>:
                   </label>
                   <input
                     id="planillas"
