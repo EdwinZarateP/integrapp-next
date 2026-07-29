@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
-  FaExchangeAlt,
+  FaExchangeAlt, FaBan, FaWallet,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc';
 
 interface Props {
   paginaActual: PaginaMC;
@@ -25,6 +25,9 @@ const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode
   { id: 'tarifas',     label: 'Tarifas Rutas FMC',     ruta: '/GestionTarifasRutas', icono: <FaDollarSign /> },
   { id: 'divipolas',   label: 'Divipolas',             ruta: '/GestionDivipolas',    icono: <FaRoute /> },
   { id: 'historico',   label: 'Historial Pedidos',      ruta: '/HistoricoPedidos',    icono: <FaHistory /> },
+  { id: 'pedidosanulados', label: 'Pedidos Anulados',    ruta: '/PedidosAnulados',     icono: <FaBan /> },
+  { id: 'otroscostos',    label: 'Otros Costos',          ruta: '/OtrosCostos',          icono: <FaWallet /> },
+  { id: 'historicooc',    label: 'Histórico Otros Costos', ruta: '/HistoricoOtrosCostos', icono: <FaHistory /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
@@ -110,12 +113,25 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
               {clientes.includes('KABI') && <div className="NMC-dropDivider" />}
               {ITEMS.map(item => {
                 const esActual = item.id === paginaActual;
+                // FINANCIERO: micro-portal aislado (solo Otros Costos y su histórico)
+                if (perfil === 'FINANCIERO' && !['otroscostos', 'historicooc'].includes(item.id)) {
+                  return null;
+                }
+                // Otros Costos: visible para ADMIN, CONTROL, COORDINADOR, OPERATIVO, FINANCIERO
+                if (['otroscostos', 'historicooc'].includes(item.id)
+                    && !['ADMIN', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'FINANCIERO'].includes(perfil)) {
+                  return null;
+                }
                 // Ocultar elementos de ADMIN si el perfil no es ADMIN ni CONTROL
                 if (['usuarios', 'tarifas', 'divipolas'].includes(item.id) && perfil !== 'ADMIN' && perfil !== 'CONTROL') {
                   return null;
                 }
                 // Historial: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO
                 if (item.id === 'historico' && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfil)) {
+                  return null;
+                }
+                // Pedidos Anulados: visible solo para ADMIN
+                if (item.id === 'pedidosanulados' && perfil !== 'ADMIN') {
                   return null;
                 }
                 return (

@@ -140,6 +140,14 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 - No tiene botón "Actualizar V3"
 - Exportación de Excel limitada a su regional
 
+### FINANCIERO
+- **Micro-portal aislado**: aterriza directo en `/OtrosCostos` tras el login
+- En el menú `NavMedicalCare` solo ve **Otros Costos** e **Histórico Otros Costos**
+- Ve únicamente las solicitudes **aprobadas** y puede **registrar el pago** (y anular si también es ADMIN)
+- No tiene acceso a los demás módulos (Solicitud de Vehículos, Histórico de Pedidos, etc.), salvo que tenga además otro rol autorizado
+- Puede consultar el **histórico de otros costos** y exportarlo a Excel
+- No puede crear ni aprobar solicitudes
+
 ## Filtros de Regional
 
 Los OPERADORES están automáticamente restringidos a ver datos de su regional:
@@ -590,3 +598,16 @@ Indicadores de prioridad en CrucePacientesV3:
 ### Exportación a Excel (cambios en el backend que afectan a este módulo)
 - Las planillas **fusionadas** se exportan como **filas separadas** con el flete repartido proporcionalmente por cajas.
 - Las planillas de **FRESENIUS KABI** generan **filas duplicadas por destinatario** con "Ubicación Descargue" = `FKC_Nombre_Cedula`.
+
+## Actualizaciones Recientes (2026-07-28)
+
+### Nuevo módulo: Otros Costos (`/OtrosCostos` y `/HistoricoOtrosCostos`)
+
+Registro de costos adicionales posteriores al servicio, con buscador de pedidos de Vulcano, formulario por secciones, bandeja con filtros/paginación, trazabilidad (timeline) y exportación a Excel.
+
+- **Páginas**: `Paginas/OtrosCostosP` (formulario + bandeja) y `Paginas/HistoricoOtrosCostosP`; wrappers en `app/OtrosCostos/page.tsx` y `app/HistoricoOtrosCostos/page.tsx`. Capa API `Funciones/ApiPedidos/otrosCostos.tsx`.
+- **Búsqueda de pedidos**: normaliza ceros a la izquierda y separadores; muestra encontrados/no encontrados, totales consolidados y advertencia de servicios diferentes; permite continuar manual si el pedido no existe (`pedido_encontrado: false`).
+- **Flujo**: `borrador → pendiente_aprobacion → aprobado → pagado`; con devolver/rechazar/anular. Acciones por rol/estado. El botón Aprobar se deshabilita para Coordinador cuando el valor supera $160.000.
+- **Perfil nuevo FINANCIERO**: aterriza en `/OtrosCostos` (`LoginUsuarios`) y en `NavMedicalCare` sólo ve Otros Costos e Histórico Otros Costos. Agregado a `PERFILES_FALLBACK` en `GestionUsuariosP`.
+- **Datos bancarios** enmascarados en la UI para perfiles no financieros (coherente con el backend).
+- **Responsive** (móvil/tablet) y estado vacío amigable (tarjeta con CTA en vez de tabla vacía).

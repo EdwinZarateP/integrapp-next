@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo, FaTimes,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo, FaTimes, FaBan,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
@@ -284,6 +284,57 @@ const HistoricoPedidosP: React.FC = () => {
     }
   };
 
+  const handleAnularPlanilla = async (p: HistoricoDoc) => {
+    const result = await Swal.fire({
+      title: '¿Anular planilla?',
+      html: `<div style="text-align:left;font-size:0.9rem;line-height:1.6">
+        <p>Planilla: <b>${p.planilla}</b></p>
+        <p>Consecutivo: <b>${p.consecutivo || '-'}</b></p>
+        <p>Pedido Vulcano actual: <b>${p.pedido_vulcano || '-'}</b></p>
+        <p style="margin-top:10px;color:#b91c1c">La planilla se <b>anulará definitivamente</b> y se moverá a
+        <b> Pedidos Anulados</b>. Esta acción es permanente y queda registrada con el causal y el usuario.</p>
+      </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, anular',
+      cancelButtonText: 'Cancelar',
+      input: 'textarea',
+      inputPlaceholder: 'Causal de la anulación (obligatorio)',
+      inputAttributes: { maxlength: '300' },
+      inputValidator: (v) => (!v || !v.trim()) && 'Debes ingresar un causal para anular la planilla',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      Swal.fire({ title: 'Anulando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const usuario = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || 'admin';
+      const response = await fetch(`${API}/siscore/anular-planilla`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planilla: p.planilla,
+          usuario,
+          causal: (result.value as string).trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setPlanillas(prev => prev.filter(x => x._id !== p._id));
+        Swal.fire('✅ Anulada', data.mensaje || `Planilla ${p.planilla} anulada`, 'success');
+      } else {
+        Swal.fire('Error', data.detail || 'No se pudo anular la planilla', 'error');
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error de conexión al anular la planilla', 'error');
+    }
+  };
+
   const planillasFiltradas = planillas.filter(p =>
     (p.consecutivo || '').toLowerCase().includes(busqueda.toLowerCase()) ||
     (p.planilla || '').toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -510,6 +561,14 @@ const HistoricoPedidosP: React.FC = () => {
                               onClick={() => handleDevolverASolicitud(p)}
                             >
                               <FaUndo />
+                            </button>
+                            <button
+                              className="HP-btnAction"
+                              title="Anular planilla (la mueve a Pedidos Anulados)"
+                              style={{ background: '#dc2626', marginLeft: '4px' }}
+                              onClick={() => handleAnularPlanilla(p)}
+                            >
+                              <FaBan />
                             </button>
                           </td>
                         )}

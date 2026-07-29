@@ -56,6 +56,9 @@ const LoginUsuario: React.FC = () => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     const clienteCookie = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/);
     if (match && clienteCookie) {
+      const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+      // FINANCIERO es un micro-portal aislado: aterriza directo en Otros Costos.
+      if (perfilCookie === 'FINANCIERO') { router.replace('/OtrosCostos'); return; }
       const cliente = clienteCookie[2];
       router.replace(CLIENTES_CONFIG[cliente]?.ruta || "/Pedidos");
     }
@@ -80,6 +83,14 @@ const LoginUsuario: React.FC = () => {
 
       // Portales extra en el selector: Indicadores siempre; Flota solo si el perfil puede verla.
       const perfilUpper = (res.usuario.perfil || "").toUpperCase();
+
+      // FINANCIERO: acceso únicamente al módulo de Otros Costos.
+      if (perfilUpper === 'FINANCIERO') {
+        document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; ${expires}`;
+        setTimeout(() => router.replace('/OtrosCostos'), 200);
+        return;
+      }
+
       const extras = ["INDICADORES"];
       if (PERFILES_FLOTA.includes(perfilUpper)) extras.push("FLOTA");
 
