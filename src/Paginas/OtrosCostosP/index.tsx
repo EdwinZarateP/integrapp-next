@@ -12,14 +12,18 @@ import Swal from 'sweetalert2';
 import {
   listarActivos, obtenerDetalleActivo, buscarPedidos, crearSolicitud, editarSolicitud,
   enviarAprobacion, aprobarSolicitud, devolverSolicitud, rechazarSolicitud,
-  registrarPago, anularSolicitud, exportarExcel,
-  getTiposCosto, getBancos, getTiposCuenta,
+  registrarPago, anularSolicitud, exportarExcel, marcarTramiteVulcano,
+  getTiposCosto, getBancos, getTiposCuenta, getClientes,
   type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado,
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import './estilos.css';
 
-const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'COORDINADOR', 'CONTROL', 'FINANCIERO'];
+const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'COORDINADOR', 'CONTROL', 'FINANCIERO', 'ANALISTA'];
 const LIMITE_COORDINADOR = 500000;
+
+// Una solicitud = una planilla = un solo pedido de Vulcano. Cuenta cuántos vienen en el texto.
+const contarPedidos = (texto: string): number =>
+  (texto || '').split(/[,;\-/]/).map((s) => s.trim()).filter(Boolean).length;
 
 const hoyCol = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -99,6 +103,7 @@ const OtrosCostosP: React.FC = () => {
   const [tiposCosto, setTiposCosto] = useState<string[]>([]);
   const [bancos, setBancos] = useState<string[]>([]);
   const [tiposCuenta, setTiposCuenta] = useState<string[]>([]);
+  const [clientes, setClientes] = useState<string[]>([]);
 
   // Filtros
   const [fEstado, setFEstado] = useState('');
@@ -130,6 +135,7 @@ const OtrosCostosP: React.FC = () => {
     getTiposCosto().then(setTiposCosto).catch(() => {});
     getBancos().then(setBancos).catch(() => {});
     getTiposCuenta().then(setTiposCuenta).catch(() => {});
+    getClientes().then(setClientes).catch(() => {});
     cargarListado(u, p);
   }, [router]);
 
@@ -167,6 +173,7 @@ const OtrosCostosP: React.FC = () => {
   const puedeAprobar = (valor: number) =>
     perfil === 'ADMIN' || perfil === 'CONTROL' || (perfil === 'COORDINADOR' && valor <= LIMITE_COORDINADOR);
   const puedeRevision = perfil === 'ADMIN' || perfil === 'CONTROL' || perfil === 'COORDINADOR';
+  const puedeMarcarTramite = perfil === 'ADMIN' || perfil === 'ANALISTA';
   const puedeEditar = (it: OtroCosto) =>
     (perfil === 'ADMIN' || (perfil === 'OPERATIVO' && it.usuario_registro === usuario))
     && ['borrador', 'devuelto', 'pendiente_aprobacion'].includes(it.estado);
@@ -174,7 +181,11 @@ const OtrosCostosP: React.FC = () => {
   // ── Búsqueda de pedidos ────────────────────────────────────────────────────
   const handleBuscarPedidos = async () => {
     if (!form.pedido_vulcano_original.trim()) {
-      Swal.fire('Atención', 'Ingrese uno o varios pedidos de Vulcano', 'warning');
+      Swal.fire('Atención', 'Ingrese el pedido de Vulcano', 'warning');
+      return;
+    }
+    if (contarPedidos(form.pedido_vulcano_original) > 1) {
+      Swal.fire('Atención', 'Solo se permite un pedido de Vulcano por solicitud (una planilla).', 'warning');
       return;
     }
     setBuscando(true);
@@ -285,6 +296,7 @@ const OtrosCostosP: React.FC = () => {
   // ── Guardar (crear/editar) ──────────────────────────────────────────────────
   const validarForm = (enviar: boolean): string | null => {
     if (!form.pedido_vulcano_original.trim()) return 'El pedido de Vulcano es obligatorio.';
+    if (contarPedidos(form.pedido_vulcano_original) > 1) return 'Solo se permite un pedido de Vulcano por solicitud (una planilla).';
     if (enviar && !form.datos_servicio.manifiesto.trim()) return 'El manifiesto es obligatorio.';
     if (!form.pedido_encontrado && !form.datos_servicio.placa.trim()) return 'La placa es obligatoria cuando el pedido no se encuentra.';
     if (form.costos.length === 0) return 'Agregue al menos un concepto de costo.';
@@ -379,6 +391,17 @@ const OtrosCostosP: React.FC = () => {
   const onDevolver = (it: OtroCosto) => accion(() => devolverSolicitud(it.consecutivo!, usuario), it, '¿Devolver solicitud?', `<b>${it.consecutivo}</b> volverá al creador para corrección.`, 'textarea', 'Motivo de devolución', true);
   const onRechazar = (it: OtroCosto) => accion(() => rechazarSolicitud(it.consecutivo!, usuario), it, '¿Rechazar solicitud?', `<b>${it.consecutivo}</b> será rechazada.`, 'textarea', 'Motivo de rechazo', true);
   const onAnular = (it: OtroCosto) => accion(() => anularSolicitud(it.consecutivo!, usuario), it, '¿Anular solicitud?', `<b>${it.consecutivo}</b> será anulada y movida a anulados.`, 'textarea', 'Motivo de anulación', true);
+
+  const onTramiteVulcano = (it: OtroCosto) => {
+    const marcarOk = it.tramite_vulcano !== 'ok';
+    accion(
+      () => marcarTramiteVulcano(it.consecutivo!, usuario, marcarOk ? 'ok' : 'pendiente'),
+      it,
+      marcarOk ? '¿Marcar trámite Vulcano OK?' : '¿Revertir trámite Vulcano?',
+      `<b>${it.consecutivo}</b> ${marcarOk ? 'quedará con trámite Vulcano OK y Financiero podrá pagarlo.' : 'volverá a pendiente de trámite; Financiero no podrá pagarlo.'}`,
+      'text', 'Observación (opcional)',
+    );
+  };
 
   const onPagar = (it: OtroCosto) => {
     Swal.fire({
@@ -512,7 +535,8 @@ const OtrosCostosP: React.FC = () => {
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="OC-btnAction" title="Detalle" style={{ background: '#334155' }} onClick={() => abrirDetalle(it)}><FaEye /></button>
                       {puedeEditar(it) && <button className="OC-btnAction" title="Editar" style={{ background: '#2563eb' }} onClick={() => abrirEditar(it)}><FaEdit /></button>}
-                      {puedePagar && it.estado === 'aprobado' && <button className="OC-btnAction" title="Registrar pago" style={{ background: '#1d4ed8' }} onClick={() => onPagar(it)}><FaMoneyBillWave /></button>}
+                      {puedeMarcarTramite && it.estado === 'aprobado' && <button className="OC-btnAction" title={it.tramite_vulcano === 'ok' ? 'Revertir trámite Vulcano' : 'Marcar trámite Vulcano OK'} style={{ background: it.tramite_vulcano === 'ok' ? '#6b7280' : '#0d9488' }} onClick={() => onTramiteVulcano(it)}>{it.tramite_vulcano === 'ok' ? <FaUndo /> : <FaCheck />}</button>}
+                      {puedePagar && it.estado === 'aprobado' && it.tramite_vulcano === 'ok' && <button className="OC-btnAction" title="Registrar pago" style={{ background: '#1d4ed8' }} onClick={() => onPagar(it)}><FaMoneyBillWave /></button>}
                     </td>
                   </tr>
                 ))}
@@ -607,6 +631,8 @@ const OtrosCostosP: React.FC = () => {
                   <Campo label="Pagado por" v={detalle.pago?.usuario} />
                   <Campo label="Fecha pago" v={detalle.pago?.fecha_pago ? formatFecha(detalle.pago.fecha_pago) : '-'} />
                   <Campo label="Referencia" v={detalle.pago?.referencia} />
+                  <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
+                  <Campo label="Tramitado por" v={detalle.tramite_vulcano_info?.usuario} />
                 </div>
               </>
             )}
@@ -633,7 +659,8 @@ const OtrosCostosP: React.FC = () => {
               {puedeAprobar(detalle.valor_total) && detalle.estado === 'pendiente_aprobacion' && <button className="OC-btn OC-btnPrimary" style={{ background: '#16a34a' }} onClick={() => onAprobar(detalle)}><FaCheck /> Aprobar</button>}
               {puedeRevision && detalle.estado === 'pendiente_aprobacion' && <button className="OC-btn OC-btnGhost" style={{ color: '#c2410c' }} onClick={() => onDevolver(detalle)}><FaUndo /> Devolver</button>}
               {puedeRevision && ['pendiente_aprobacion', 'devuelto'].includes(detalle.estado) && <button className="OC-btn OC-btnGhost" style={{ color: '#b91c1c' }} onClick={() => onRechazar(detalle)}><FaBan /> Rechazar</button>}
-              {puedePagar && detalle.estado === 'aprobado' && <button className="OC-btn OC-btnNew" onClick={() => onPagar(detalle)}><FaMoneyBillWave /> Registrar pago</button>}
+              {puedeMarcarTramite && detalle.estado === 'aprobado' && <button className="OC-btn OC-btnPrimary" style={{ background: detalle.tramite_vulcano === 'ok' ? '#6b7280' : '#0d9488' }} onClick={() => onTramiteVulcano(detalle)}>{detalle.tramite_vulcano === 'ok' ? <><FaUndo /> Revertir trámite</> : <><FaCheck /> Trámite Vulcano OK</>}</button>}
+              {puedePagar && detalle.estado === 'aprobado' && detalle.tramite_vulcano === 'ok' && <button className="OC-btn OC-btnNew" onClick={() => onPagar(detalle)}><FaMoneyBillWave /> Registrar pago</button>}
               {puedeAnular && detalle.estado !== 'anulado' && detalle.estado !== 'pagado' && <button className="OC-btn OC-btnGhost" style={{ color: '#b91c1c' }} onClick={() => onAnular(detalle)}><FaBan /> Anular</button>}
             </div>
           </div>
@@ -658,9 +685,9 @@ const OtrosCostosP: React.FC = () => {
             {/* Sección 1: pedido y servicio */}
             <div className="OC-modalSection">1. Pedido de Vulcano y servicio</div>
             <div className="OC-field" style={{ marginBottom: '0.5rem' }}>
-              <label className="OC-label">Pedido(s) de Vulcano (separados por coma o guion)</label>
+              <label className="OC-label">Pedido de Vulcano</label>
               <div className="OC-filtroGroup" style={{ paddingLeft: 0 }}>
-                <input className="OC-input" placeholder="Ej: 00120795, 00122784 - 120795" value={form.pedido_vulcano_original} onChange={(e) => setForm({ ...form, pedido_vulcano_original: e.target.value })} />
+                <input className="OC-input" placeholder="Ej: 00120795" value={form.pedido_vulcano_original} onChange={(e) => setForm({ ...form, pedido_vulcano_original: e.target.value })} />
                 <button className="OC-btn OC-btnPrimary" onClick={handleBuscarPedidos} disabled={buscando}><FaSearch /> {buscando ? 'Buscando...' : 'Buscar'}</button>
               </div>
             </div>
@@ -669,7 +696,7 @@ const OtrosCostosP: React.FC = () => {
               <div className="OC-resultBox">
                 {busqueda.pedidos_encontrados.length > 0 ? (
                   <>
-                    <div className="OC-resultFound">✓ {busqueda.pedidos_encontrados.length} pedido(s) encontrado(s)</div>
+                    <div className="OC-resultFound">✓ Pedido encontrado</div>
                     <table className="OC-table" style={{ minWidth: 0, marginTop: '0.4rem' }}>
                       <thead><tr><th></th><th>Pedido</th><th>Cliente</th><th>Destino</th><th>Placa</th><th>Piezas</th><th>Peso</th></tr></thead>
                       <tbody>
@@ -701,7 +728,16 @@ const OtrosCostosP: React.FC = () => {
             )}
 
             <div className="OC-formGrid" style={{ marginTop: '0.5rem' }}>
-              <FieldText label="Cliente" value={form.datos_servicio.cliente} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, cliente: v } })} />
+              <div className="OC-field">
+                <label className="OC-label">Cliente</label>
+                <select className="OC-select" value={form.datos_servicio.cliente} onChange={(e) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, cliente: e.target.value } })}>
+                  <option value="">Seleccione un cliente...</option>
+                  {clientes.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {form.datos_servicio.cliente && !clientes.includes(form.datos_servicio.cliente) && (
+                    <option value={form.datos_servicio.cliente}>{form.datos_servicio.cliente}</option>
+                  )}
+                </select>
+              </div>
               <FieldText label="Centro distribución" value={form.datos_servicio.centro_distribucion} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, centro_distribucion: v } })} />
               <FieldText label="Fecha servicio" type="date" value={form.datos_servicio.fecha_servicio} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, fecha_servicio: v } })} />
               <FieldText label="Piezas" type="number" value={String(form.datos_servicio.piezas)} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, piezas: Number(v) || 0 } })} />

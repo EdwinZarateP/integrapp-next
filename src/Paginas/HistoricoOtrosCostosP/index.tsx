@@ -12,7 +12,7 @@ import {
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import '../OtrosCostosP/estilos.css';
 
-const PERFILES_PERMITIDOS = ['ADMIN', 'CONTROL', 'COORDINADOR', 'FINANCIERO', 'OPERATIVO'];
+const PERFILES_PERMITIDOS = ['ADMIN', 'CONTROL', 'COORDINADOR', 'FINANCIERO', 'OPERATIVO', 'ANALISTA'];
 
 const hoyCol = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -277,6 +277,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
               <Campo label="Aprobado por" v={`${detalle.aprobacion?.usuario || '-'} (${detalle.aprobacion?.rol || ''})`} />
               <Campo label="Pagado por" v={detalle.pago?.usuario} />
               <Campo label="Referencia pago" v={detalle.pago?.referencia} />
+              <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
             </div>
 
             <div className="OC-modalSection">Trazabilidad</div>

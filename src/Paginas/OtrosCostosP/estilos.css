@@ -310,6 +310,11 @@
   margin: auto;
 }
 
+/* SweetAlert debe verse POR ENCIMA del modal (z-index 9999).
+   Sin esto, los Swal de "Guardar y enviar", aprobar, pagar, buscar, etc.
+   quedan detrás del formulario y solo aparecen al cerrarlo. */
+.swal2-container { z-index: 99999 !important; }
+
 .OC-modalHeader {
   display: flex;
   align-items: flex-start;

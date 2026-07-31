@@ -143,10 +143,14 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 ### FINANCIERO
 - **Micro-portal aislado**: aterriza directo en `/OtrosCostos` tras el login
 - En el menú `NavMedicalCare` solo ve **Otros Costos** e **Histórico Otros Costos**
-- Ve únicamente las solicitudes **aprobadas** y puede **registrar el pago** (y anular si también es ADMIN)
+- Ve únicamente las solicitudes **aprobadas con `tramite_vulcano == "ok"`** y puede **registrar el pago** (y anular si también es ADMIN)
 - No tiene acceso a los demás módulos (Solicitud de Vehículos, Histórico de Pedidos, etc.), salvo que tenga además otro rol autorizado
 - Puede consultar el **histórico de otros costos** y exportarlo a Excel
 - No puede crear ni aprobar solicitudes
+
+### ANALISTA (Otros Costos)
+- Rol compartido en MEDICAL_CARE: entra normal y ve Otros Costos + histórico como los demás roles.
+- En Otros Costos marca el **trámite Vulcano** (`tramite_vulcano`: ok/pendiente) sobre solicitudes aprobadas; Financiero no puede pagar hasta que el ANALISTA lo deje en "ok".
 
 ## Filtros de Regional
 
@@ -607,7 +611,17 @@ Registro de costos adicionales posteriores al servicio, con buscador de pedidos 
 
 - **Páginas**: `Paginas/OtrosCostosP` (formulario + bandeja) y `Paginas/HistoricoOtrosCostosP`; wrappers en `app/OtrosCostos/page.tsx` y `app/HistoricoOtrosCostos/page.tsx`. Capa API `Funciones/ApiPedidos/otrosCostos.tsx`.
 - **Búsqueda de pedidos**: normaliza ceros a la izquierda y separadores; muestra encontrados/no encontrados, totales consolidados y advertencia de servicios diferentes; permite continuar manual si el pedido no existe (`pedido_encontrado: false`).
-- **Flujo**: `borrador → pendiente_aprobacion → aprobado → pagado`; con devolver/rechazar/anular. Acciones por rol/estado. El botón Aprobar se deshabilita para Coordinador cuando el valor supera $160.000.
+- **Flujo**: `borrador → pendiente_aprobacion → aprobado → [tramite_vulcano = "ok" por ANALISTA] → pagado`; con devolver/rechazar/anular. Acciones por rol/estado. El botón Aprobar se deshabilita para Coordinador cuando el valor supera $500.000. Paso ANALISTA: botón que marca `tramite_vulcano` (ok/pendiente) sobre aprobadas; el botón Pagar sólo aparece cuando queda en "ok".
 - **Perfil nuevo FINANCIERO**: aterriza en `/OtrosCostos` (`LoginUsuarios`) y en `NavMedicalCare` sólo ve Otros Costos e Histórico Otros Costos. Agregado a `PERFILES_FALLBACK` en `GestionUsuariosP`.
 - **Datos bancarios** enmascarados en la UI para perfiles no financieros (coherente con el backend).
 - **Responsive** (móvil/tablet) y estado vacío amigable (tarjeta con CTA en vez de tabla vacía).
+
+## Actualizaciones Recientes (2026-07-31)
+
+### Otros Costos (`/OtrosCostos`) — paso ANALISTA y formulario de un solo pedido
+- **Paso ANALISTA «trámite Vulcano»**: entre `aprobado` y `pagado`, el ANALISTA marca `tramite_vulcano` (ok/pendiente) con un botón que alterna (tabla + modal). El botón **Pagar** sólo aparece cuando `tramite_vulcano == "ok"`. Umbral del Coordinador corregido a **$500.000** (antes $160.000). Perfil ANALISTA habilitado como rol compartido en MEDICAL_CARE.
+- **Formulario «Nueva solicitud»**: ahora **un solo** pedido de Vulcano por solicitud (una planilla). Label en singular y validación que rechaza varios (separadores `, - ; /`) al Buscar y al Guardar.
+
+### Solicitud de Vehículos (`/SolicitudVehiculos`) — pedido Vulcano por planilla en fusiones
+- Al asignar el pedido Vulcano **manualmente** sobre una **fusión**, se abre un **modal con un campo de pedido por cada planilla original** (precargado si ya tenía). Cada original queda con su propio `pedido_vulcano`; la fusión pasa al histórico sólo cuando todas tienen pedido. Para planilla no fusionada, el Swal simple de un solo pedido.
+- **Histórico** (`/HistoricoPedidos`): la tabla de planillas originales de una fusión ahora muestra la columna **"Pedido Vulcano"** por original, así al filtrar un pedido se ve de qué planilla es.

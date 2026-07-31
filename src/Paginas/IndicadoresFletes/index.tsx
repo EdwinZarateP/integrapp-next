@@ -36,6 +36,7 @@ type ApiResponse = {
     causalesSobrecosto: CausalSobrecosto[];
     anios: number[];
     clientes: string[];
+    kpis?: { ahorro?: number; [k: string]: any };
   };
   error?: string;
 };
@@ -79,6 +80,7 @@ const IndicadoresFletes: React.FC = () => {
   const [porTipoVeh, setPorTipoVeh] = useState<ItemFlete[]>([]);
   const [sobrecostoPorRegional, setSobrecostoPorRegional] = useState<ItemRegionalSobrecosto[]>([]);
   const [causalesSobrecosto, setCausalesSobrecosto] = useState<CausalSobrecosto[]>([]);
+  const [kpis, setKpis] = useState<{ ahorro?: number; [k: string]: any } | null>(null);
 
   // Filtros en pantalla (no disparan fetch hasta "Filtrar")
   const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
@@ -179,6 +181,7 @@ const IndicadoresFletes: React.FC = () => {
         setPorTipoVeh(data.data.porTipoVeh || []);
         setSobrecostoPorRegional(data.data.sobrecostoPorRegional || []);
         setCausalesSobrecosto(data.data.causalesSobrecosto || []);
+        setKpis(data.data.kpis || null);
         if (data.data.anios?.length) setAniosDisponibles(data.data.anios);
         setClientesDisponibles(data.data.clientes || []);
       } else {
@@ -609,6 +612,32 @@ const IndicadoresFletes: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* KPI: Ahorro total operativo registrado por el equipo */}
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
+                  border: '1px solid #a7f3d0',
+                  borderRadius: '12px',
+                  padding: '0.85rem 1.4rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                }}
+                title="Suma del campo 'ahorro' registrado por el operativo al editar planillas"
+              >
+                <span style={{ fontSize: '1.6rem' }}>💰</span>
+                <div>
+                  <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    Ahorro total
+                  </div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#065f46' }}>
+                    {formatearMoneda(kpis?.ahorro || 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Flete facturado: diario/mensual con sobrecosto (rojo) y ahorro (verde) */}
             <div className="IG-graficoContainer">
               {dataChart.length > 0 ? (

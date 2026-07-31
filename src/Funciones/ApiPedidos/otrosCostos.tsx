@@ -75,6 +75,10 @@ export interface OtroCosto {
     fecha_pago: string; fecha_pago_ingresada: string | null;
     referencia: string; observaciones: string;
   };
+  tramite_vulcano?: 'ok' | 'pendiente';
+  tramite_vulcano_info?: {
+    usuario: string; nombre: string; rol: string; fecha: string; observacion: string;
+  };
   historial_movimientos: Movimiento[];
   created_at?: string;
   updated_at?: string;
@@ -133,6 +137,11 @@ export const getTiposCuenta = async (): Promise<string[]> => {
   return res.data;
 };
 
+export const getClientes = async (): Promise<string[]> => {
+  const res = await axios.get<string[]>(`${BASE_URL}/clientes`);
+  return res.data;
+};
+
 // ── Búsqueda de pedidos ──────────────────────────────────────────────────────
 export const buscarPedidos = async (
   usuario: string,
@@ -185,6 +194,16 @@ export const devolverSolicitud = async (consecutivo: string, usuario: string, ob
 
 export const rechazarSolicitud = async (consecutivo: string, usuario: string, observacion = '') => {
   const res = await axios.post(`${BASE_URL}/rechazar`, { consecutivo, usuario, observacion });
+  return res.data;
+};
+
+export const marcarTramiteVulcano = async (
+  consecutivo: string,
+  usuario: string,
+  tramite_vulcano: 'ok' | 'pendiente',
+  observacion = '',
+) => {
+  const res = await axios.post(`${BASE_URL}/marcar-tramite-vulcano`, { consecutivo, usuario, tramite_vulcano, observacion });
   return res.data;
 };
 

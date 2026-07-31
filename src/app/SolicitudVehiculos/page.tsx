@@ -91,6 +91,9 @@ interface PlanillaResultado {
   guardado?: boolean;
   solicitando_id?: string;
   causal?: string;
+  // Ahorro operativo generado y su observación (ingreso manual; máx. $5.000.000)
+  ahorro?: number;
+  observacion?: string;
   // Estado de aprobación
   estado?: 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
   aprobado_por?: string;  // Usuario que aprobó
@@ -609,7 +612,7 @@ const SolicitudVehiculos: React.FC = () => {
   // Trackea si el mousedown empezó en el fondo del overlay, para evitar que
   // seleccionar texto dentro de un input (mousedown dentro, mouseup fuera) cierre el modal.
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
-  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string; municipio_destino?: string } | null>(null);
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string; municipio_destino?: string; ahorro?: number; observacion?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [rutasDisponibles, setRutasDisponibles] = useState<string[]>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
@@ -1365,6 +1368,8 @@ const SolicitudVehiculos: React.FC = () => {
         aprobado_por: (estadoFinal as string) === 'APROBADO' ? resultado.aprobado_por : null,
         fecha_aprobacion: (estadoFinal as string) === 'APROBADO' ? resultado.fecha_aprobacion : null,
         municipio_destino: resultado.municipio_destino || null,  // Municipio principal (editable manualmente)
+        ahorro: resultado.ahorro ?? 0,  // Ahorro operativo (máx. $5.000.000 validado en backend)
+        observacion: resultado.observacion || '',  // Observación del ahorro
         usuario_modificacion: usuarioCookie  // Trazabilidad: quién está editando
       };
 
@@ -2793,7 +2798,9 @@ const SolicitudVehiculos: React.FC = () => {
       placa: resultado.placa || '',
       ruta: resultado.ruta && resultado.ruta !== '-' ? resultado.ruta : '',
       causal: resultado.causal || '',  // Causal existente si la tiene
-      municipio_destino: resultado.municipio_destino || '-'  // Municipio principal (editable; default = el de mayor participación)
+      municipio_destino: resultado.municipio_destino || '-',  // Municipio principal (editable; default = el de mayor participación)
+      ahorro: resultado.ahorro ?? 0,  // Ahorro operativo (si ya fue registrado)
+      observacion: resultado.observacion || ''  // Observación del ahorro (si ya fue registrada)
     };
     setModalDetalle({ abierto: true, resultado, indice });
     setTempEdicion(tempEdicionInit);
@@ -2885,6 +2892,94 @@ const SolicitudVehiculos: React.FC = () => {
   };
 
   const handleAsignarPedidoManual = async (resultado: PlanillaResultado) => {
+    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+    const esFusion = !!resultado.fusion_info?.es_fusionada;
+    const originales = (resultado.fusion_info?.datos_originales || []) as any[];
+
+    // ── Fusión: un campo de pedido por cada planilla original ──────────────
+    if (esFusion && originales.length) {
+      const filasHtml = originales.map((o: any, i: number) => `
+        <div style="display:flex;align-items:center;gap:8px;margin:6px 0">
+          <label style="flex:1;text-align:left;font-family:monospace">
+            ${o.planilla || '-'} <span style="color:#64748b">(${o.consecutivo || '-'})</span>
+          </label>
+          <input id="pv-${i}" class="swal2-input" style="margin:0;max-width:220px"
+            placeholder="Pedido Vulcano" value="${String(o.pedido_vulcano || '').replace(/"/g, '&quot;')}">
+        </div>`).join('');
+
+      const { value: confirmado } = await Swal.fire({
+        title: 'Asignar pedidos Vulcano',
+        html: `<div style="text-align:left">
+                 <div style="margin-bottom:6px;color:#475569">Fusión <b>${resultado.consecutivo}</b> — ${originales.length} planilla(s). Deje vacío las que falten.</div>
+                 ${filasHtml}
+               </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Asignar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#005f56',
+        cancelButtonColor: '#6b7280',
+        preConfirm: () => {
+          const popup = Swal.getPopup();
+          const mapa: Record<string, string> = {};
+          let llenos = 0;
+          originales.forEach((o: any, i: number) => {
+            const input = popup?.querySelector(`#pv-${i}`) as HTMLInputElement | null;
+            const val = (input?.value || '').trim();
+            if (val && o.consecutivo) { mapa[o.consecutivo] = val; llenos++; }
+          });
+          if (llenos === 0) {
+            Swal.showValidationMessage('Digite al menos un pedido');
+            return false;
+          }
+          return mapa;
+        },
+      });
+
+      if (!confirmado) return;
+      const mapa = confirmado as Record<string, string>;
+
+      Swal.fire({ title: 'Asignando pedidos...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      let ok = 0, parciales = 0, completas = 0, errores = 0;
+      const msgs: string[] = [];
+      for (const [consecutivo, pedido] of Object.entries(mapa)) {
+        try {
+          const response = await fetch(`${API}/siscore/asignar-pedido-manual`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ consecutivo, pedido, usuario }),
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Error');
+          }
+          const data = await response.json();
+          ok++;
+          if (data.tipo === 'fusion_parcial') parciales++;
+          else if (data.tipo === 'fusion_completa') completas++;
+        } catch (e: any) {
+          errores++;
+          msgs.push(`${consecutivo}: ${e.message || e}`);
+        }
+      }
+
+      let resumen = `${ok} pedido(s) asignado(s)`;
+      if (completas) resumen += `, ${completas} fusión(es) completada(s) → histórico`;
+      if (parciales) resumen += `, ${parciales} asignación(es) parcial(es) (fusión aún pendiente)`;
+      if (errores) resumen += `, ${errores} error(es)`;
+
+      await Swal.fire(
+        errores ? 'Con errores' : '✅ Listo',
+        `${resumen}${msgs.length ? `<br><br><small>${msgs.join('<br>')}</small>` : ''}`,
+        errores ? 'warning' : 'success'
+      );
+
+      setResultados([]);
+      await cargarResultadosRecientes(perfil, centroDistribucion);
+      return;
+    }
+
+    // ── Planilla NO fusionada: un solo pedido (flujo original) ──────────────
     const consecutivo = resultado.consecutivo;
     if (!consecutivo) {
       Swal.fire('Sin consecutivo', 'Esta planilla no tiene consecutivo para asignar el pedido.', 'warning');
@@ -2916,7 +3011,6 @@ const SolicitudVehiculos: React.FC = () => {
         didOpen: () => Swal.showLoading()
       });
 
-      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
       const response = await fetch(`${API}/siscore/asignar-pedido-manual`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3112,7 +3206,7 @@ const SolicitudVehiculos: React.FC = () => {
                 )}
                 <div className="SV-inputGroup">
                   <label htmlFor="planillas">
-                    Planillas (separadas por coma) — <strong>máximo {MAX_PLANILLAS_BUSQUEDA}por carga</strong>:
+                    Planillas (separadas por coma) — <strong>máximo {MAX_PLANILLAS_BUSQUEDA} por carga</strong>:
                   </label>
                   <input
                     id="planillas"
@@ -3256,6 +3350,8 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Cant. Destinos</th>
                         <th>Código Pedido</th>
                         <th>Observaciones</th>
+                        <th>Ahorro</th>
+                        <th>Obs. Ahorro</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3502,10 +3598,16 @@ const SolicitudVehiculos: React.FC = () => {
                           <td className="SV-truncate" title={resultado.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>
                             {resultado.causal || '-'}
                           </td>
+                          <td style={{ fontWeight: '700', color: resultado.ahorro ? '#047857' : undefined, textAlign: 'right', whiteSpace: 'nowrap' }} title={resultado.observacion ? `${resultado.observacion}` : ''}>
+                            {resultado.encontrada && resultado.ahorro ? `$${resultado.ahorro.toLocaleString('es-CO')}` : '-'}
+                          </td>
+                          <td className="SV-truncate" title={resultado.observacion || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>
+                            {resultado.observacion || '-'}
+                          </td>
                         </tr>
                         {planillasExpandidas[resultado.planilla] && resultado.encontrada && (
                           <tr className="SV-detalleRow">
-                            <td colSpan={28}>
+                            <td colSpan={30}>
                               <DetallePlanilla resultado={resultado} />
                             </td>
                           </tr>
@@ -3798,6 +3900,47 @@ const SolicitudVehiculos: React.FC = () => {
                 </div>
               </div>
 
+              {/* Sección: Ahorro y Observación (ingreso operativo, opcional) */}
+              <div style={{ background: '#ecfdf5', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#047857', fontWeight: '600' }}>💰 AHORRO Y OBSERVACIÓN (opcional)</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem', fontWeight: '600' }}>Ahorro ($)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>$</span>
+                      <input
+                        type="number"
+                        className="SV-inputSmall"
+                        value={tempEdicion?.ahorro ?? 0}
+                        min={0}
+                        max={5000000}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setTempEdicion(prev => prev ? { ...prev, ahorro: isNaN(val) ? 0 : val } : null);
+                        }}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        style={{ width: '100%', padding: '0.5rem', fontWeight: '600', ...(tempEdicion && (tempEdicion.ahorro ?? 0) > 5000000 ? { border: '2px solid #dc2626', backgroundColor: '#fef2f2' } : {}) }}
+                        placeholder="0"
+                      />
+                    </div>
+                    <p style={{ fontSize: '0.78rem', color: '#666', margin: '0.4rem 0 0 0' }}>
+                      Ahorro generado, máximo <strong>$5.000.000</strong>. Ej: evitó un vehículo adicional por una fusión.
+                    </p>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem', fontWeight: '600' }}>Observación del ahorro</label>
+                    <textarea
+                      className="SV-inputSmall"
+                      value={tempEdicion?.observacion || ''}
+                      onChange={(e) => setTempEdicion(prev => prev ? { ...prev, observacion: e.target.value } : null)}
+                      style={{ width: '100%', maxWidth: '520px', padding: '0.5rem', fontSize: '0.9rem', minHeight: '60px', resize: 'vertical', fontFamily: 'inherit' }}
+                      placeholder="Explica brevemente cómo se generó el ahorro (opcional)"
+                      maxLength={500}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Sección: Observaciones / Causal */}
               <div style={{ background: '#f0f9ff', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
                 <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#0369a1', fontWeight: '600' }}>📝 OBSERVACIONES / CAUSAL</h4>
@@ -3907,7 +4050,9 @@ const SolicitudVehiculos: React.FC = () => {
                       aforo: tempEdicion.aforo,
                       placa: tempEdicion.placa,
                       causal: tempEdicion.causal || '',  // Agregar causal
-                      municipio_destino: tempEdicion.municipio_destino || modalDetalle.resultado.municipio_destino  // Municipio principal elegido manualmente
+                      municipio_destino: tempEdicion.municipio_destino || modalDetalle.resultado.municipio_destino,  // Municipio principal elegido manualmente
+                      ahorro: tempEdicion.ahorro ?? 0,  // Ahorro operativo
+                      observacion: tempEdicion.observacion || ''  // Observación del ahorro
                     };
 
                     // Recalcular la tarifa (Flete Teórico) si cambió la ruta O el tipo_veh_sicetac.
@@ -3967,6 +4112,22 @@ const SolicitudVehiculos: React.FC = () => {
                       Swal.fire({
                         title: 'Causal Requerida',
                         text: 'Si hay sobrecosto (valor mayor al teórico), debes seleccionar una causal que justifique el cambio.',
+                        icon: 'warning',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#dc2626',
+                        customClass: {
+                          container: 'swal2-container-sobre-modal',
+                          popup: 'swal2-popup-sobre-modal'
+                        }
+                      });
+                      return;
+                    }
+
+                    // VALIDACIÓN DE AHORRO: no puede superar los $5.000.000
+                    if ((tempEdicion.ahorro ?? 0) > 5000000) {
+                      Swal.fire({
+                        title: 'Ahorro no válido',
+                        html: `El ahorro no puede ser superior a <strong>$5.000.000</strong>.<br>Valor ingresado: <strong>$${(tempEdicion.ahorro ?? 0).toLocaleString('es-CO')}</strong>`,
                         icon: 'warning',
                         confirmButtonText: 'Entendido',
                         confirmButtonColor: '#dc2626',

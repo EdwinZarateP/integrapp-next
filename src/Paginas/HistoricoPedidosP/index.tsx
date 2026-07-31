@@ -41,10 +41,12 @@ interface HistoricoDoc {
   cantidad_pedidos: number;
   cantidad_destinos: number;
   causal: string;
+  ahorro?: number;
+  observacion?: string;
   [key: string]: any;
 }
 
-const COLS = 27;
+const COLS = 29;
 
 // Parseo tolerante a formato es-CO ("$1.234,56" -> 1234.56) y a números puros.
 const parseNumeroTolerante = (v: any): number => {
@@ -479,6 +481,8 @@ const HistoricoPedidosP: React.FC = () => {
                   <th>Cant. Destinos</th>
                   <th>Código Pedido</th>
                   <th>Observaciones</th>
+                  <th>Ahorro</th>
+                  <th>Obs. Ahorro</th>
                   {perfil === 'ADMIN' && <th>Acciones</th>}
                 </tr>
               </thead>
@@ -552,6 +556,10 @@ const HistoricoPedidosP: React.FC = () => {
                         <td style={{ textAlign: 'center', fontWeight: 600, color: '#005f56' }}>{p.cantidad_destinos || '-'}</td>
                         <td className="HP-truncate" title={p.codigo_pedido}>{p.codigo_pedido || '-'}</td>
                         <td className="HP-truncate" title={p.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>{p.causal || '-'}</td>
+                        <td style={{ fontWeight: 700, color: p.ahorro ? '#047857' : undefined, textAlign: 'right', whiteSpace: 'nowrap' }} title={p.observacion || ''}>
+                          {p.ahorro ? `$${fmtVal(p.ahorro).toLocaleString('es-CO')}` : '-'}
+                        </td>
+                        <td className="HP-truncate" title={p.observacion || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>{p.observacion || '-'}</td>
                         {perfil === 'ADMIN' && (
                           <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <button
@@ -653,6 +661,16 @@ const HistoricoPedidosP: React.FC = () => {
               {Campo('Aforo', modalDoc.aforo ? `$${fmtVal(modalDoc.aforo).toLocaleString('es-CO')}` : '$0')}
             </div>
 
+            {/* Ahorro y observación */}
+            <div className="HP-modalSection">Ahorro y observación</div>
+            <div className="HP-modalGrid">
+              {Campo('Ahorro', modalDoc.ahorro ? `$${fmtVal(modalDoc.ahorro).toLocaleString('es-CO')}` : '$0')}
+            </div>
+            <div className="HP-modalField" style={{ marginTop: '0.25rem' }}>
+              <span className="HP-modalLabel">Observación del ahorro</span>
+              <span className="HP-modalValue">{modalDoc.observacion || '-'}</span>
+            </div>
+
             {/* Fechas */}
             <div className="HP-modalSection">Fechas</div>
             <div className="HP-modalGrid">
@@ -675,6 +693,7 @@ const HistoricoPedidosP: React.FC = () => {
                         <th>Municipio</th>
                         <th style={{ textAlign: 'right' }}>Piezas</th>
                         <th style={{ textAlign: 'right' }}>Peso Real</th>
+                        <th>Pedido Vulcano</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -686,6 +705,7 @@ const HistoricoPedidosP: React.FC = () => {
                           <td>{o.municipio_destino || '-'}</td>
                           <td style={{ textAlign: 'right' }}>{o.piezas ?? '-'}</td>
                           <td style={{ textAlign: 'right' }}>{fmtVal(o.peso_real).toLocaleString('es-CO')}</td>
+                          <td style={{ fontFamily: 'monospace', color: '#2563eb' }}>{o.pedido_vulcano || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
