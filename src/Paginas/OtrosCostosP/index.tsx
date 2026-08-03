@@ -21,6 +21,10 @@ import './estilos.css';
 const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'COORDINADOR', 'CONTROL', 'FINANCIERO', 'ANALISTA'];
 const LIMITE_COORDINADOR = 500000;
 
+// Opciones permitidas en el formulario de Otros Costos.
+const TIPOS_VEHICULO_OC = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
+const CENTROS_DISTRIBUCION_OC = ['JUAN MINA', 'YUMBO', 'BUCARAMANGA', 'GIRARDOTA', 'FUNZA'];
+
 // Una solicitud = una planilla = un solo pedido de Vulcano. Cuenta cuántos vienen en el texto.
 const contarPedidos = (texto: string): number =>
   (texto || '').split(/[,;\-/]/).map((s) => s.trim()).filter(Boolean).length;
@@ -461,7 +465,6 @@ const OtrosCostosP: React.FC = () => {
       <main className="OC-main">
         <div className="OC-header">
           <div>
-            <h1 className="OC-title">Otros Costos</h1>
             <span className="OC-subtitle">{total} solicitud{total !== 1 ? 'es' : ''}</span>
           </div>
           {puedeCrear && <button className="OC-btn OC-btnNew" onClick={abrirNuevo}><FaPlus /> Nueva solicitud</button>}
@@ -486,13 +489,11 @@ const OtrosCostosP: React.FC = () => {
               <option value="pagado">Pagado</option>
               <option value="anulado">Anulado</option>
             </select>
-            <button className="OC-btn OC-btnPrimary" onClick={() => { setSkip(0); cargarListado(); }}><FaSearch /> Buscar</button>
-          </div>
-          <div className="OC-filtroGroup">
             <input className="OC-input" style={{ maxWidth: '160px' }} placeholder="Pedido" value={fPedido} onChange={(e) => setFPedido(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '120px' }} placeholder="Placa" value={fPlaca} onChange={(e) => setFPlaca(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '140px' }} placeholder="Manifiesto" value={fManifiesto} onChange={(e) => setFManifiesto(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '180px' }} placeholder="Cliente" value={fCliente} onChange={(e) => setFCliente(e.target.value)} />
+            <button className="OC-btn OC-btnPrimary" onClick={() => { setSkip(0); cargarListado(); }}><FaSearch /> Buscar</button>
             <button className="OC-btn OC-btnExcel" onClick={onExportExcel}><FaFileExcel /> Excel</button>
           </div>
         </div>
@@ -738,16 +739,34 @@ const OtrosCostosP: React.FC = () => {
                   )}
                 </select>
               </div>
-              <FieldText label="Centro distribución" value={form.datos_servicio.centro_distribucion} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, centro_distribucion: v } })} />
+              <div className="OC-field">
+                <label className="OC-label">Centro distribución</label>
+                <select className="OC-select" value={form.datos_servicio.centro_distribucion} onChange={(e) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, centro_distribucion: e.target.value } })}>
+                  <option value="">Seleccione...</option>
+                  {CENTROS_DISTRIBUCION_OC.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {form.datos_servicio.centro_distribucion && !CENTROS_DISTRIBUCION_OC.includes(form.datos_servicio.centro_distribucion) && (
+                    <option value={form.datos_servicio.centro_distribucion}>{form.datos_servicio.centro_distribucion}</option>
+                  )}
+                </select>
+              </div>
               <FieldText label="Fecha servicio" type="date" value={form.datos_servicio.fecha_servicio} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, fecha_servicio: v } })} />
               <FieldText label="Piezas" type="number" value={String(form.datos_servicio.piezas)} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, piezas: Number(v) || 0 } })} />
               <FieldText label="Peso real" type="number" value={String(form.datos_servicio.peso_real)} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, peso_real: Number(v) || 0 } })} />
-              <FieldText label="Tipo vehículo" value={form.datos_servicio.tipo_vehiculo} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, tipo_vehiculo: v } })} />
+              <div className="OC-field">
+                <label className="OC-label">Tipo vehículo</label>
+                <select className="OC-select" value={form.datos_servicio.tipo_vehiculo} onChange={(e) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, tipo_vehiculo: e.target.value } })}>
+                  <option value="">Seleccione...</option>
+                  {TIPOS_VEHICULO_OC.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {form.datos_servicio.tipo_vehiculo && !TIPOS_VEHICULO_OC.includes(form.datos_servicio.tipo_vehiculo) && (
+                    <option value={form.datos_servicio.tipo_vehiculo}>{form.datos_servicio.tipo_vehiculo}</option>
+                  )}
+                </select>
+              </div>
               <FieldText label="Placa" value={form.datos_servicio.placa} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, placa: v } })} />
               <FieldText label="Municipio destino" value={form.datos_servicio.municipio_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, municipio_destino: v } })} />
               <FieldText label="Departamento destino" value={form.datos_servicio.departamento_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, departamento_destino: v } })} />
               <FieldText label="Transportador / proveedor" value={form.datos_servicio.transportador} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, transportador: v } })} />
-              <FieldText label="Manifiesto" value={form.datos_servicio.manifiesto} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, manifiesto: v } })} />
+              <FieldText label="Manifiesto" value={form.datos_servicio.manifiesto} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, manifiesto: v } })} maxLength={15} soloNumeros />
             </div>
 
             {/* Sección 2: costos */}
@@ -830,11 +849,18 @@ const Campo = ({ label, v }: { label: string; v: any }) => (
   </div>
 );
 
-const FieldText = ({ label, value, onChange, type }: { label: string; value: string; onChange: (v: string) => void; type?: string }) => (
-  <div className="OC-field">
-    <label className="OC-label">{label}</label>
-    <input className="OC-input" type={type || 'text'} value={value} onChange={(e) => onChange(e.target.value)} />
-  </div>
-);
+const FieldText = ({ label, value, onChange, type, maxLength, soloNumeros }: { label: string; value: string; onChange: (v: string) => void; type?: string; maxLength?: number; soloNumeros?: boolean }) => {
+  const aplicar = (raw: string) => {
+    let v = soloNumeros ? raw.replace(/\D/g, '') : raw;
+    if (maxLength !== undefined) v = v.slice(0, maxLength);
+    onChange(v);
+  };
+  return (
+    <div className="OC-field">
+      <label className="OC-label">{label}</label>
+      <input className="OC-input" type={type || 'text'} value={value} maxLength={maxLength} onChange={(e) => aplicar(e.target.value)} />
+    </div>
+  );
+};
 
 export default OtrosCostosP;

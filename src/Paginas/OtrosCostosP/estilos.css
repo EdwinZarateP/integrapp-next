@@ -514,6 +514,30 @@
 .OC-emptyState p { margin: 0; font-size: 0.9rem; max-width: 420px; }
 
 /* ── Responsive ── */
+
+/* Pantallas grandes: filtros centrados en una sola fila.
+   Los campos de texto se compactan para que el bloque quepa; si el ancho
+   no alcanza, los grupos se acomodan (wrap) manteniéndose centrados. */
+@media (min-width: 900px) {
+  .OC-filtros {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem 1.25rem;
+  }
+  .OC-filtros .OC-filtroGroup {
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  /* !important para sobreescribir los maxWidth inline de Pedido/Placa/Manifiesto/Cliente */
+  .OC-filtros .OC-filtroGroup .OC-input {
+    max-width: 120px !important;
+  }
+}
+
 @media (max-width: 1024px) {
   .OC-table { min-width: 900px; }
 }

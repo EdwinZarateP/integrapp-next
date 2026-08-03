@@ -625,3 +625,15 @@ Registro de costos adicionales posteriores al servicio, con buscador de pedidos 
 ### Solicitud de Vehículos (`/SolicitudVehiculos`) — pedido Vulcano por planilla en fusiones
 - Al asignar el pedido Vulcano **manualmente** sobre una **fusión**, se abre un **modal con un campo de pedido por cada planilla original** (precargado si ya tenía). Cada original queda con su propio `pedido_vulcano`; la fusión pasa al histórico sólo cuando todas tienen pedido. Para planilla no fusionada, el Swal simple de un solo pedido.
 - **Histórico** (`/HistoricoPedidos`): la tabla de planillas originales de una fusión ahora muestra la columna **"Pedido Vulcano"** por original, así al filtrar un pedido se ve de qué planilla es.
+
+## Actualizaciones Recientes (2026-08-03)
+
+### Otros Costos (`/OtrosCostos`) — header dinámico, filtros y validaciones del formulario
+
+- **Header dinámico (`NavMedicalCare`)**: el badge del encabezado (antes fijo «Fresenius Medical Care») ahora muestra el **nombre de la sección actual** («Otros Costos», «Medical Care», etc.) en todas las páginas que comparten el menú. Se eliminó el `<h1>` «Otros Costos» redundante del cuerpo de la página (queda sólo en el badge). **Archivo**: `Componentes/NavMedicalCare/index.tsx`.
+- **Barra de filtros** rediseñada: un **solo bloque lineal y centrado** en el orden `Desde · Hasta · Estado · Pedido · Placa · Manifiesto · Cliente · Buscar · Excel`. En pantallas grandes (≥900px) se acomoda en **una sola fila** (campos de texto compactados a 120px); si no cabe, se reparte en filas **igual centradas** (`flex-wrap`). El botón **Buscar** quedó al final (aplica a todos los filtros) en vez de junto a las fechas. **Archivos**: `Paginas/OtrosCostosP/index.tsx`, `Paginas/OtrosCostosP/estilos.css`.
+- **Validaciones en «Nueva solicitud»**:
+  - **Manifiesto**: sólo admite **dígitos**, **máx. 15 caracteres**.
+  - **Tipo vehículo**: ahora es un **select** con `CARRY, NHR, TURBO, NIES, SENCILLO, PATINETA, TRACTOMULA`.
+  - **Centro distribución**: ahora es un **select** con `JUAN MINA, YUMBO, BUCARAMANGA, GIRARDOTA, FUNZA`.
+  - Si un valor viene autollenado (desde la búsqueda del pedido o al editar una solicitud existente) y no está en la lista, se muestra como **opción extra** para no perderlo, pero al crear/editar sólo se puede elegir de la lista. **Archivo**: `Paginas/OtrosCostosP/index.tsx` (constantes `TIPOS_VEHICULO_OC`, `CENTROS_DISTRIBUCION_OC`; `FieldText` extendido con `maxLength`/`soloNumeros`).

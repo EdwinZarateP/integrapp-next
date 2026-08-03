@@ -82,6 +82,9 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
     router.push('/Pedidos');
   };
 
+  // Badge dinámico: muestra el nombre de la sección/página actual.
+  const seccionActual = ITEMS.find((i) => i.id === paginaActual);
+
   return (
     <header className="NMC-header">
       <div className="NMC-inner">
@@ -91,7 +94,7 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
           <span className="NMC-brandName">Integr<span className="NMC-brandAccent">App</span></span>
         </button>
 
-        <div className="NMC-badge">Fresenius Medical Care</div>
+        <div className="NMC-badge">{seccionActual ? seccionActual.label : 'Integra'}</div>
 
         <div className="NMC-userZone" ref={menuRef}>
           <button className="NMC-userBtn" onClick={() => setAbierto(o => !o)}>
