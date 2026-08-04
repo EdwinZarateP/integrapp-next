@@ -2138,7 +2138,14 @@ const SolicitudVehiculos: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Error al generar el Excel');
+        // Leer el mensaje de error que envía el backend (p.ej. "No hay planillas
+        // aprobadas para exportar...") y propagarlo al Swal en lugar del genérico.
+        let msg = 'Error al generar el Excel';
+        try {
+          const data = await response.json();
+          if (data?.detail) msg = data.detail;
+        } catch {}
+        throw new Error(msg);
       }
 
       // Descargar el archivo
@@ -2156,9 +2163,9 @@ const SolicitudVehiculos: React.FC = () => {
       document.body.removeChild(a);
 
       Swal.fire('✅ Éxito', 'Excel generado exitosamente', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al descargar Excel:', error);
-      Swal.fire('Error', 'Error al generar el Excel', 'error');
+      Swal.fire('Error', error?.message || 'Error al generar el Excel', 'error');
     }
   };
 
@@ -2199,7 +2206,16 @@ const SolicitudVehiculos: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error('Error al generar el detalle');
+      if (!response.ok) {
+        // Leer el mensaje de error que envía el backend (p.ej. "No hay planillas
+        // aprobadas para exportar...") y propagarlo al Swal en lugar del genérico.
+        let msg = 'Error al generar el detalle';
+        try {
+          const data = await response.json();
+          if (data?.detail) msg = data.detail;
+        } catch {}
+        throw new Error(msg);
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -2215,9 +2231,9 @@ const SolicitudVehiculos: React.FC = () => {
       document.body.removeChild(a);
 
       Swal.fire('✅ Éxito', 'Detalle generado exitosamente', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al descargar detalle:', error);
-      Swal.fire('Error', 'Error al generar el detalle', 'error');
+      Swal.fire('Error', error?.message || 'Error al generar el detalle', 'error');
     }
   };
 

@@ -13,6 +13,8 @@ import {
 import '../OtrosCostosP/estilos.css';
 
 const PERFILES_PERMITIDOS = ['ADMIN', 'CONTROL', 'COORDINADOR', 'FINANCIERO', 'OPERATIVO', 'ANALISTA'];
+const PERFILES_GLOBALES_OC = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL']; // ven todo + dropdown de regional
+const CENTROS_DISTRIBUCION_OC = ['JUAN MINA', 'YUMBO', 'BUCARAMANGA', 'GIRARDOTA', 'FUNZA'];
 
 const hoyCol = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -76,6 +78,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
   const [fPlaca, setFPlaca] = useState('');
   const [fManifiesto, setFManifiesto] = useState('');
   const [fCliente, setFCliente] = useState('');
+  const [fRegional, setFRegional] = useState('');
   const [detalle, setDetalle] = useState<OtroCosto | null>(null);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
 
@@ -102,6 +105,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
         placa: fPlaca || undefined,
         manifiesto: fManifiesto || undefined,
         cliente: fCliente || undefined,
+        regional: PERFILES_GLOBALES_OC.includes(perfil) ? (fRegional || undefined) : undefined,
         skip,
         limit,
       });
@@ -112,7 +116,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
     } finally {
       setCargando(false);
     }
-  }, [usuario, fFechaIni, fFechaFin, fPedido, fPlaca, fManifiesto, fCliente, skip]);
+  }, [usuario, perfil, fFechaIni, fFechaFin, fPedido, fPlaca, fManifiesto, fCliente, fRegional, skip]);
 
   const abrirDetalle = async (it: OtroCosto) => {
     try {
@@ -131,6 +135,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
         fecha_inicio: fFechaIni || undefined, fecha_fin: fFechaFin || undefined,
         pedido: fPedido || undefined, placa: fPlaca || undefined,
         manifiesto: fManifiesto || undefined, cliente: fCliente || undefined,
+        regional: PERFILES_GLOBALES_OC.includes(perfil) ? (fRegional || undefined) : undefined,
         origen: 'historico',
       });
       const url = window.URL.createObjectURL(blob as unknown as Blob);
@@ -173,6 +178,12 @@ const HistoricoOtrosCostosP: React.FC = () => {
             <input className="OC-input" style={{ maxWidth: '120px' }} placeholder="Placa" value={fPlaca} onChange={(e) => setFPlaca(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '140px' }} placeholder="Manifiesto" value={fManifiesto} onChange={(e) => setFManifiesto(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '180px' }} placeholder="Cliente" value={fCliente} onChange={(e) => setFCliente(e.target.value)} />
+            {PERFILES_GLOBALES_OC.includes(perfil) && (
+              <select className="OC-select" style={{ width: 'auto' }} value={fRegional} onChange={(e) => setFRegional(e.target.value)}>
+                <option value="">Todas las regionales</option>
+                {CENTROS_DISTRIBUCION_OC.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
             <button className="OC-btn OC-btnExcel" onClick={onExportExcel}><FaFileExcel /> Excel</button>
           </div>
         </div>
@@ -258,12 +269,12 @@ const HistoricoOtrosCostosP: React.FC = () => {
             <div className="OC-modalSection">Conceptos del costo</div>
             <div className="OC-tableContainer" style={{ boxShadow: 'none' }}>
               <table className="OC-table" style={{ minWidth: 0 }}>
-                <thead><tr><th>Tipo</th><th>Concepto</th><th>Descripción</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
+                <thead><tr><th>Tipo</th><th>Descripción</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
                 <tbody>
                   {(detalle.costos || []).map((c, i) => (
-                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.concepto}</td><td>{c.descripcion}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
+                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
                   ))}
-                  <tr><td colSpan={3} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
+                  <tr><td colSpan={2} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
                 </tbody>
               </table>
             </div>

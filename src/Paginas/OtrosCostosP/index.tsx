@@ -19,7 +19,40 @@ import {
 import './estilos.css';
 
 const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'COORDINADOR', 'CONTROL', 'FINANCIERO', 'ANALISTA'];
+const PERFILES_GLOBALES_OC = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL']; // ven todo + dropdown de regional
 const LIMITE_COORDINADOR = 500000;
+const LIMITE_VALOR_TOTAL = 5000000; // valor total máximo permitido por solicitud
+
+// Bandeja de estados visibles en el dropdown de filtro según el perfil. Se alinea
+// con el scope del backend: cada perfil solo ve/filtra los estados de SU bandeja.
+const BANDEJA_POR_PERFIL: Record<string, string[]> = {
+  ADMIN: ['borrador', 'pendiente_aprobacion', 'devuelto', 'rechazado', 'aprobado', 'pagado', 'anulado'],
+  CONTROL: ['pendiente_aprobacion'],
+  COORDINADOR: ['pendiente_aprobacion'],
+  ANALISTA: ['aprobado'],
+  FINANCIERO: ['aprobado'],
+  OPERATIVO: ['borrador', 'devuelto', 'pendiente_aprobacion', 'aprobado', 'rechazado'],
+};
+const ESTADO_LABEL: Record<string, string> = {
+  borrador: 'Borrador', pendiente_aprobacion: 'Pendiente', devuelto: 'Devuelto',
+  rechazado: 'Rechazado', aprobado: 'Aprobado', pagado: 'Pagado', anulado: 'Anulado',
+};
+
+// Extrae el mensaje de error de una respuesta axios/FastAPI. FastAPI devuelve
+// {detail: "..."} para HTTPException, pero para 422 de validación de pydantic
+// devuelve {detail: [{loc, msg, type}, ...]} (un array). Esto lo formatea legible.
+const extraerErrorApi = (e: any, fallback = 'Ocurrió un error'): string => {
+  const d = e?.response?.data?.detail ?? e?.detail;
+  if (!d) return e?.message || fallback;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) {
+    return d.map((x: any) => {
+      const campo = Array.isArray(x?.loc) ? x.loc.filter((p: any) => p !== 'body').join('.') : '';
+      return campo ? `${campo}: ${x?.msg}` : (x?.msg || JSON.stringify(x));
+    }).join(' • ');
+  }
+  return String(d);
+};
 
 // Opciones permitidas en el formulario de Otros Costos.
 const TIPOS_VEHICULO_OC = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
@@ -79,7 +112,6 @@ interface FormState {
   costos: CostoConcepto[];
   datos_bancarios: { banco: string; tipo_cuenta: string; numero_cuenta: string; cedula_titular: string; nombre_titular: string };
   conductor: { nombre: string; telefono: string };
-  observaciones: string;
 }
 
 const formVacio = (): FormState => ({
@@ -87,10 +119,9 @@ const formVacio = (): FormState => ({
   pedido_encontrado: true,
   motivo_no_encontrado: '',
   datos_servicio: { cliente: '', centro_distribucion: '', fecha_servicio: '', piezas: 0, peso_real: 0, tipo_vehiculo: '', placa: '', municipio_destino: '', departamento_destino: '', transportador: '', manifiesto: '' },
-  costos: [{ tipo_costo: '', concepto: '', descripcion: '', valor: 0 }],
+  costos: [{ tipo_costo: '', descripcion: '', valor: 0 }],
   datos_bancarios: { banco: '', tipo_cuenta: '', numero_cuenta: '', cedula_titular: '', nombre_titular: '' },
   conductor: { nombre: '', telefono: '' },
-  observaciones: '',
 });
 
 const OtrosCostosP: React.FC = () => {
@@ -117,11 +148,13 @@ const OtrosCostosP: React.FC = () => {
   const [fPlaca, setFPlaca] = useState('');
   const [fManifiesto, setFManifiesto] = useState('');
   const [fCliente, setFCliente] = useState('');
+  const [fRegional, setFRegional] = useState('');
 
   // Modal
   const [modalMode, setModalMode] = useState<'detalle' | 'form' | null>(null);
   const [detalle, setDetalle] = useState<OtroCosto | null>(null);
   const [form, setForm] = useState<FormState>(formVacio());
+  const [motivoDevolucion, setMotivoDevolucion] = useState('');  // último motivo de devolución, para mostrarlo al editar
   const [busqueda, setBusqueda] = useState<ResultadoBusquedaPedidos | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
@@ -158,17 +191,18 @@ const OtrosCostosP: React.FC = () => {
         placa: fPlaca || undefined,
         manifiesto: fManifiesto || undefined,
         cliente: fCliente || undefined,
+        regional: PERFILES_GLOBALES_OC.includes(per) ? (fRegional || undefined) : undefined,
         skip,
         limit,
       });
       setItems(data.items);
       setTotal(data.total);
     } catch (e: any) {
-      Swal.fire('Error', e?.detail || 'No se pudo cargar el listado', 'error');
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo cargar el listado'), 'error');
     } finally {
       setCargando(false);
     }
-  }, [usuario, perfil, fEstado, fFechaIni, fFechaFin, fPedido, fPlaca, fManifiesto, fCliente, skip]);
+  }, [usuario, perfil, fEstado, fFechaIni, fFechaFin, fPedido, fPlaca, fManifiesto, fCliente, fRegional, skip]);
 
   // ── Permisos (frontend; el backend vuelve a validar) ─────────────────────
   const puedeCrear = perfil === 'ADMIN' || perfil === 'OPERATIVO';
@@ -178,9 +212,23 @@ const OtrosCostosP: React.FC = () => {
     perfil === 'ADMIN' || perfil === 'CONTROL' || (perfil === 'COORDINADOR' && valor <= LIMITE_COORDINADOR);
   const puedeRevision = perfil === 'ADMIN' || perfil === 'CONTROL' || perfil === 'COORDINADOR';
   const puedeMarcarTramite = perfil === 'ADMIN' || perfil === 'ANALISTA';
+  // Devolver: Control/Coordinador/Admin desde pendiente; Analista/Financiero/Admin desde aprobado.
+  // Devolver: Control/Coordinador desde pendiente; Financiero/Admin desde aprobado;
+  // Analista solo desde aprobado CON trámite pendiente (una vez marca OK, pasa a Financiero).
+  const puedeDevolver = (it: OtroCosto) =>
+    (puedeRevision && it.estado === 'pendiente_aprobacion') ||
+    ((perfil === 'FINANCIERO' || perfil === 'ADMIN') && it.estado === 'aprobado') ||
+    (perfil === 'ANALISTA' && it.estado === 'aprobado' && it.tramite_vulcano !== 'ok');
+  // Rechazar: solo desde pendiente_aprobacion (no en devuelto, que ya es del operativo).
+  const puedeRechazar = (it: OtroCosto) => puedeRevision && it.estado === 'pendiente_aprobacion';
+  // El operativo solo puede editar sus solicitudes en borrador o devueltas.
+  // Una vez enviada a aprobación (pendiente_aprobacion) ya no le corresponde
+  // editarla: el siguiente paso del flujo es el aprobador. El ADMIN sí puede
+  // editar (salvo en estados cerrados aprobado/pagado/anulado).
   const puedeEditar = (it: OtroCosto) =>
-    (perfil === 'ADMIN' || (perfil === 'OPERATIVO' && it.usuario_registro === usuario))
-    && ['borrador', 'devuelto', 'pendiente_aprobacion'].includes(it.estado);
+    perfil === 'ADMIN'
+      ? !['aprobado', 'pagado', 'anulado'].includes(it.estado)
+      : (perfil === 'OPERATIVO' && it.usuario_registro === usuario && ['borrador', 'devuelto'].includes(it.estado));
 
   // ── Búsqueda de pedidos ────────────────────────────────────────────────────
   const handleBuscarPedidos = async () => {
@@ -201,7 +249,7 @@ const OtrosCostosP: React.FC = () => {
       // Reemplaza los datos del servicio: llena si hay encontrados, limpia si no hay (para edición manual.
       aplicarSeleccionados(res.pedidos_encontrados, selInicial, res);
     } catch (e: any) {
-      Swal.fire('Error', e?.detail || 'Error en la búsqueda', 'error');
+      Swal.fire('Error', extraerErrorApi(e, 'Error en la búsqueda'), 'error');
     } finally {
       setBuscando(false);
     }
@@ -252,7 +300,7 @@ const OtrosCostosP: React.FC = () => {
       return { ...f, costos };
     });
   };
-  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', concepto: '', descripcion: '', valor: 0 }] }));
+  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', descripcion: '', valor: 0 }] }));
   const removeCosto = (i: number) => setForm((f) => ({ ...f, costos: f.costos.length > 1 ? f.costos.filter((_, idx) => idx !== i) : f.costos }));
 
   // ── Abrir modales ──────────────────────────────────────────────────────────
@@ -262,7 +310,7 @@ const OtrosCostosP: React.FC = () => {
       setDetalle(d);
       setModalMode('detalle');
     } catch (e: any) {
-      Swal.fire('Error', e?.detail || 'No se pudo cargar el detalle', 'error');
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo cargar el detalle'), 'error');
     }
   };
 
@@ -270,6 +318,7 @@ const OtrosCostosP: React.FC = () => {
     setForm(formVacio());
     setBusqueda(null);
     setSeleccionados(new Set());
+    setMotivoDevolucion('');
     setModalMode('form');
   };
 
@@ -282,20 +331,23 @@ const OtrosCostosP: React.FC = () => {
         pedido_encontrado: d.pedido_encontrado,
         motivo_no_encontrado: d.motivo_no_encontrado,
         datos_servicio: { ...d.datos_servicio, fecha_servicio: d.datos_servicio.fecha_servicio || '' },
-        costos: d.costos.length ? d.costos : [{ tipo_costo: '', concepto: '', descripcion: '', valor: 0 }],
+        costos: d.costos.length ? d.costos : [{ tipo_costo: '', descripcion: '', valor: 0 }],
         datos_bancarios: d.datos_bancarios,
         conductor: d.conductor,
-        observaciones: d.observaciones,
       });
+      // Motivo de la última devolución (para que el operativo vea por qué la devolvieron al editar).
+      const ultDev = (d.historial_movimientos || []).slice().reverse().find((m: any) => m.accion === 'devolucion');
+      setMotivoDevolucion(ultDev?.observacion || '');
+      setDetalle(d);  // disponibiliza el estado actual (ej. 'devuelto') en el modal de edición
       setBusqueda(null);
       setSeleccionados(new Set());
       setModalMode('form');
     } catch (e: any) {
-      Swal.fire('Error', e?.detail || 'No se pudo cargar para editar', 'error');
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo cargar para editar'), 'error');
     }
   };
 
-  const cerrarModal = () => { setModalMode(null); setDetalle(null); };
+  const cerrarModal = () => { setModalMode(null); setDetalle(null); setMotivoDevolucion(''); };
 
   // ── Guardar (crear/editar) ──────────────────────────────────────────────────
   const validarForm = (enviar: boolean): string | null => {
@@ -306,11 +358,11 @@ const OtrosCostosP: React.FC = () => {
     if (form.costos.length === 0) return 'Agregue al menos un concepto de costo.';
     for (const c of form.costos) {
       if (!c.tipo_costo) return 'Cada concepto debe tener tipo de costo.';
-      if (c.tipo_costo === 'Otro' && !c.concepto.trim()) return 'Cuando el tipo es "Otro" debe indicar el concepto.';
-      if (!c.concepto.trim()) return 'El concepto es obligatorio.';
       if (!c.descripcion.trim()) return 'La descripción es obligatoria.';
       if (!(Number(c.valor) > 0)) return 'El valor de cada costo debe ser mayor que cero.';
     }
+    const totalCostos = form.costos.reduce((acc, c) => acc + (Number(c.valor) || 0), 0);
+    if (totalCostos > LIMITE_VALOR_TOTAL) return `El valor total (${formatMoney(totalCostos)}) supera el máximo permitido (${formatMoney(LIMITE_VALOR_TOTAL)}).`;
     if (!form.datos_bancarios.banco) return 'El banco es obligatorio.';
     if (!form.datos_bancarios.numero_cuenta.trim()) return 'El número de cuenta es obligatorio.';
     if (!form.datos_bancarios.cedula_titular.trim()) return 'La cédula del titular es obligatoria.';
@@ -335,11 +387,14 @@ const OtrosCostosP: React.FC = () => {
         costos: form.costos,
         datos_bancarios: form.datos_bancarios,
         conductor: form.conductor,
-        observaciones: form.observaciones,
       };
       if (form.consecutivo) {
         await editarSolicitud({ ...payload, consecutivo: form.consecutivo });
-        Swal.fire('✅ Guardado', 'Solicitud actualizada', 'success');
+        if (enviar) {
+          Swal.fire('✅ Enviada', `Solicitud ${form.consecutivo} enviada a aprobación`, 'success');
+        } else {
+          Swal.fire('✅ Guardado', 'Solicitud actualizada', 'success');
+        }
       } else {
         const res: any = await crearSolicitud(payload);
         if (res.posible_duplicado) {
@@ -355,7 +410,7 @@ const OtrosCostosP: React.FC = () => {
       cerrarModal();
       cargarListado();
     } catch (e: any) {
-      Swal.fire('Error', e?.detail || 'No se pudo guardar', 'error');
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo guardar'), 'error');
     } finally {
       setGuardando(false);
     }
@@ -363,7 +418,7 @@ const OtrosCostosP: React.FC = () => {
 
   // ── Acciones de flujo ──────────────────────────────────────────────────────
   const accion = async (
-    fn: () => Promise<any>, it: OtroCosto, titulo: string, texto: string,
+    fn: (obs: string) => Promise<any>, it: OtroCosto, titulo: string, texto: string,
     input?: 'text' | 'textarea', inputLabel?: string, required?: boolean,
   ) => {
     const cfg: any = {
@@ -381,25 +436,25 @@ const OtrosCostosP: React.FC = () => {
     const obs = typeof r.value === 'string' ? r.value : '';
     Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
-      await fn();
+      await fn(obs);
       Swal.fire('✅ Listo', 'Acción realizada', 'success');
       cerrarModal();
       cargarListado();
     } catch (e: any) {
-      Swal.fire('Error', e?.detail || 'No se pudo realizar la acción', 'error');
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo realizar la acción'), 'error');
     }
   };
 
   const onEnviar = (it: OtroCosto) => accion(() => enviarAprobacion(it.consecutivo!, usuario), it, '¿Enviar a aprobación?', `<b>${it.consecutivo}</b> quedará pendiente de aprobación.`);
-  const onAprobar = (it: OtroCosto) => accion(() => aprobarSolicitud(it.consecutivo!, usuario), it, '¿Aprobar solicitud?', `<b>${it.consecutivo}</b> por ${formatMoney(it.valor_total)}.`, 'text', 'Observación (opcional)');
-  const onDevolver = (it: OtroCosto) => accion(() => devolverSolicitud(it.consecutivo!, usuario), it, '¿Devolver solicitud?', `<b>${it.consecutivo}</b> volverá al creador para corrección.`, 'textarea', 'Motivo de devolución', true);
-  const onRechazar = (it: OtroCosto) => accion(() => rechazarSolicitud(it.consecutivo!, usuario), it, '¿Rechazar solicitud?', `<b>${it.consecutivo}</b> será rechazada.`, 'textarea', 'Motivo de rechazo', true);
-  const onAnular = (it: OtroCosto) => accion(() => anularSolicitud(it.consecutivo!, usuario), it, '¿Anular solicitud?', `<b>${it.consecutivo}</b> será anulada y movida a anulados.`, 'textarea', 'Motivo de anulación', true);
+  const onAprobar = (it: OtroCosto) => accion((obs) => aprobarSolicitud(it.consecutivo!, usuario, obs), it, '¿Aprobar solicitud?', `<b>${it.consecutivo}</b> por ${formatMoney(it.valor_total)}.`, 'text', 'Observación (opcional)');
+  const onDevolver = (it: OtroCosto) => accion((obs) => devolverSolicitud(it.consecutivo!, usuario, obs), it, '¿Devolver solicitud?', `<b>${it.consecutivo}</b> volverá al creador para corrección.`, 'textarea', 'Motivo de devolución', true);
+  const onRechazar = (it: OtroCosto) => accion((obs) => rechazarSolicitud(it.consecutivo!, usuario, obs), it, '¿Rechazar solicitud?', `<b>${it.consecutivo}</b> será rechazada.`, 'textarea', 'Motivo de rechazo', true);
+  const onAnular = (it: OtroCosto) => accion((obs) => anularSolicitud(it.consecutivo!, usuario, obs), it, '¿Anular solicitud?', `<b>${it.consecutivo}</b> será anulada y movida a anulados.`, 'textarea', 'Motivo de anulación', true);
 
   const onTramiteVulcano = (it: OtroCosto) => {
     const marcarOk = it.tramite_vulcano !== 'ok';
     accion(
-      () => marcarTramiteVulcano(it.consecutivo!, usuario, marcarOk ? 'ok' : 'pendiente'),
+      (obs) => marcarTramiteVulcano(it.consecutivo!, usuario, marcarOk ? 'ok' : 'pendiente', obs),
       it,
       marcarOk ? '¿Marcar trámite Vulcano OK?' : '¿Revertir trámite Vulcano?',
       `<b>${it.consecutivo}</b> ${marcarOk ? 'quedará con trámite Vulcano OK y Financiero podrá pagarlo.' : 'volverá a pendiente de trámite; Financiero no podrá pagarlo.'}`,
@@ -424,7 +479,7 @@ const OtrosCostosP: React.FC = () => {
         cerrarModal();
         cargarListado();
       } catch (e: any) {
-        Swal.fire('Error', e?.detail || 'No se pudo registrar el pago', 'error');
+        Swal.fire('Error', extraerErrorApi(e, 'No se pudo registrar el pago'), 'error');
       }
     });
   };
@@ -441,6 +496,7 @@ const OtrosCostosP: React.FC = () => {
         placa: fPlaca || undefined,
         manifiesto: fManifiesto || undefined,
         cliente: fCliente || undefined,
+        regional: PERFILES_GLOBALES_OC.includes(perfil) ? (fRegional || undefined) : undefined,
         origen: 'activos',
       });
       const url = window.URL.createObjectURL(blob as unknown as Blob);
@@ -481,14 +537,16 @@ const OtrosCostosP: React.FC = () => {
             <label>Estado</label>
             <select className="OC-select" style={{ width: 'auto' }} value={fEstado} onChange={(e) => setFEstado(e.target.value)}>
               <option value="">Todos</option>
-              <option value="borrador">Borrador</option>
-              <option value="pendiente_aprobacion">Pendiente</option>
-              <option value="devuelto">Devuelto</option>
-              <option value="rechazado">Rechazado</option>
-              <option value="aprobado">Aprobado</option>
-              <option value="pagado">Pagado</option>
-              <option value="anulado">Anulado</option>
+              {(BANDEJA_POR_PERFIL[perfil] ?? Object.keys(ESTADO_LABEL)).map((e) => (
+                <option key={e} value={e}>{ESTADO_LABEL[e] ?? e}</option>
+              ))}
             </select>
+            {PERFILES_GLOBALES_OC.includes(perfil) && (
+              <select className="OC-select" style={{ width: 'auto' }} value={fRegional} onChange={(e) => setFRegional(e.target.value)}>
+                <option value="">Todas las regionales</option>
+                {CENTROS_DISTRIBUCION_OC.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
             <input className="OC-input" style={{ maxWidth: '160px' }} placeholder="Pedido" value={fPedido} onChange={(e) => setFPedido(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '120px' }} placeholder="Placa" value={fPlaca} onChange={(e) => setFPlaca(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '140px' }} placeholder="Manifiesto" value={fManifiesto} onChange={(e) => setFManifiesto(e.target.value)} />
@@ -536,7 +594,8 @@ const OtrosCostosP: React.FC = () => {
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="OC-btnAction" title="Detalle" style={{ background: '#334155' }} onClick={() => abrirDetalle(it)}><FaEye /></button>
                       {puedeEditar(it) && <button className="OC-btnAction" title="Editar" style={{ background: '#2563eb' }} onClick={() => abrirEditar(it)}><FaEdit /></button>}
-                      {puedeMarcarTramite && it.estado === 'aprobado' && <button className="OC-btnAction" title={it.tramite_vulcano === 'ok' ? 'Revertir trámite Vulcano' : 'Marcar trámite Vulcano OK'} style={{ background: it.tramite_vulcano === 'ok' ? '#6b7280' : '#0d9488' }} onClick={() => onTramiteVulcano(it)}>{it.tramite_vulcano === 'ok' ? <FaUndo /> : <FaCheck />}</button>}
+                      {puedeMarcarTramite && it.estado === 'aprobado' && it.tramite_vulcano !== 'ok' && <button className="OC-btnAction" title="Marcar trámite Vulcano OK" style={{ background: '#0d9488' }} onClick={() => onTramiteVulcano(it)}><FaCheck /></button>}
+                      {perfil === 'ADMIN' && it.estado === 'aprobado' && it.tramite_vulcano === 'ok' && <button className="OC-btnAction" title="Revertir trámite Vulcano" style={{ background: '#6b7280' }} onClick={() => onTramiteVulcano(it)}><FaUndo /></button>}
                       {puedePagar && it.estado === 'aprobado' && it.tramite_vulcano === 'ok' && <button className="OC-btnAction" title="Registrar pago" style={{ background: '#1d4ed8' }} onClick={() => onPagar(it)}><FaMoneyBillWave /></button>}
                     </td>
                   </tr>
@@ -594,18 +653,18 @@ const OtrosCostosP: React.FC = () => {
               <Campo label="Municipio destino" v={detalle.datos_servicio?.municipio_destino} />
               <Campo label="Departamento" v={detalle.datos_servicio?.departamento_destino} />
               <Campo label="Transportador" v={detalle.datos_servicio?.transportador} />
-              <Campo label="Manifiesto" v={detalle.manifiesto || detalle.datos_servicio?.manifiesto} />
+              <Campo label="Manifiesto" destacado v={detalle.manifiesto || detalle.datos_servicio?.manifiesto} />
             </div>
 
             <div className="OC-modalSection">Conceptos del costo</div>
             <div className="OC-tableContainer" style={{ boxShadow: 'none' }}>
               <table className="OC-table" style={{ minWidth: 0 }}>
-                <thead><tr><th>Tipo</th><th>Concepto</th><th>Descripción</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
+                <thead><tr><th>Tipo</th><th>Descripción</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
                 <tbody>
                   {(detalle.costos || []).map((c, i) => (
-                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.concepto}</td><td>{c.descripcion}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
+                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
                   ))}
-                  <tr><td colSpan={3} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
+                  <tr><td colSpan={2} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -658,9 +717,16 @@ const OtrosCostosP: React.FC = () => {
               {puedeEditar(detalle) && <button className="OC-btn OC-btnGhost" onClick={() => { cerrarModal(); abrirEditar(detalle); }}><FaEdit /> Editar</button>}
               {puedeCrear && ['borrador', 'devuelto'].includes(detalle.estado) && <button className="OC-btn OC-btnPrimary" onClick={() => onEnviar(detalle)}><FaPaperPlane /> Enviar a aprobación</button>}
               {puedeAprobar(detalle.valor_total) && detalle.estado === 'pendiente_aprobacion' && <button className="OC-btn OC-btnPrimary" style={{ background: '#16a34a' }} onClick={() => onAprobar(detalle)}><FaCheck /> Aprobar</button>}
-              {puedeRevision && detalle.estado === 'pendiente_aprobacion' && <button className="OC-btn OC-btnGhost" style={{ color: '#c2410c' }} onClick={() => onDevolver(detalle)}><FaUndo /> Devolver</button>}
-              {puedeRevision && ['pendiente_aprobacion', 'devuelto'].includes(detalle.estado) && <button className="OC-btn OC-btnGhost" style={{ color: '#b91c1c' }} onClick={() => onRechazar(detalle)}><FaBan /> Rechazar</button>}
-              {puedeMarcarTramite && detalle.estado === 'aprobado' && <button className="OC-btn OC-btnPrimary" style={{ background: detalle.tramite_vulcano === 'ok' ? '#6b7280' : '#0d9488' }} onClick={() => onTramiteVulcano(detalle)}>{detalle.tramite_vulcano === 'ok' ? <><FaUndo /> Revertir trámite</> : <><FaCheck /> Trámite Vulcano OK</>}</button>}
+              {puedeDevolver(detalle) && <button className="OC-btn OC-btnGhost" style={{ color: '#c2410c' }} onClick={() => onDevolver(detalle)}><FaUndo /> Devolver</button>}
+              {puedeRechazar(detalle) && <button className="OC-btn OC-btnGhost" style={{ color: '#b91c1c' }} onClick={() => onRechazar(detalle)}><FaBan /> Rechazar</button>}
+              {/* Trámite Vulcano: marcar OK lo ve el analista/admin; revertir solo el ADMIN
+                  (una vez OK, la solicitud ya pasó a la bandeja de Financiero y el analista no debe tocarla). */}
+              {puedeMarcarTramite && detalle.estado === 'aprobado' && detalle.tramite_vulcano !== 'ok' && (
+                <button className="OC-btn OC-btnPrimary" style={{ background: '#0d9488' }} onClick={() => onTramiteVulcano(detalle)}><FaCheck /> Trámite Vulcano OK</button>
+              )}
+              {perfil === 'ADMIN' && detalle.estado === 'aprobado' && detalle.tramite_vulcano === 'ok' && (
+                <button className="OC-btn OC-btnGhost" onClick={() => onTramiteVulcano(detalle)}><FaUndo /> Revertir trámite</button>
+              )}
               {puedePagar && detalle.estado === 'aprobado' && detalle.tramite_vulcano === 'ok' && <button className="OC-btn OC-btnNew" onClick={() => onPagar(detalle)}><FaMoneyBillWave /> Registrar pago</button>}
               {puedeAnular && detalle.estado !== 'anulado' && detalle.estado !== 'pagado' && <button className="OC-btn OC-btnGhost" style={{ color: '#b91c1c' }} onClick={() => onAnular(detalle)}><FaBan /> Anular</button>}
             </div>
@@ -682,6 +748,14 @@ const OtrosCostosP: React.FC = () => {
               </div>
               <button className="OC-modalClose" onClick={cerrarModal}><FaTimes /></button>
             </div>
+
+            {/* Motivo de devolución visible para el operativo al corregir */}
+            {motivoDevolucion && detalle?.estado === 'devuelto' && (
+              <div className="OC-warn" style={{ marginBottom: '0.75rem' }}>
+                <b>Devolución:</b> {motivoDevolucion}
+                <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Corrija lo indicado y vuelva a enviar.</div>
+              </div>
+            )}
 
             {/* Sección 1: pedido y servicio */}
             <div className="OC-modalSection">1. Pedido de Vulcano y servicio</div>
@@ -723,7 +797,7 @@ const OtrosCostosP: React.FC = () => {
                   <div className="OC-warn">⚠ Los pedidos encontrados difieren en: {Object.keys(busqueda.diferencias).join(', ')}. Verifique que sean del mismo servicio.</div>
                 )}
                 {!form.pedido_encontrado && (
-                  <input className="OC-input" style={{ marginTop: '0.4rem' }} placeholder="Motivo por el cual se continúa sin el pedido (obligatorio)" value={form.motivo_no_encontrado} onChange={(e) => setForm({ ...form, motivo_no_encontrado: e.target.value })} />
+                  <input className="OC-input" style={{ marginTop: '0.4rem' }} placeholder="Motivo por el cual se continúa sin el pedido (obligatorio)" value={form.motivo_no_encontrado} onChange={(e) => setForm({ ...form, motivo_no_encontrado: e.target.value.toUpperCase() })} />
                 )}
               </div>
             )}
@@ -762,11 +836,11 @@ const OtrosCostosP: React.FC = () => {
                   )}
                 </select>
               </div>
-              <FieldText label="Placa" value={form.datos_servicio.placa} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, placa: v } })} />
-              <FieldText label="Municipio destino" value={form.datos_servicio.municipio_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, municipio_destino: v } })} />
-              <FieldText label="Departamento destino" value={form.datos_servicio.departamento_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, departamento_destino: v } })} />
-              <FieldText label="Transportador / proveedor" value={form.datos_servicio.transportador} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, transportador: v } })} />
-              <FieldText label="Manifiesto" value={form.datos_servicio.manifiesto} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, manifiesto: v } })} maxLength={15} soloNumeros />
+              <FieldText label="Placa" mayusculas value={form.datos_servicio.placa} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, placa: v } })} />
+              <FieldText label="Municipio destino" mayusculas value={form.datos_servicio.municipio_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, municipio_destino: v } })} />
+              <FieldText label="Departamento destino" mayusculas value={form.datos_servicio.departamento_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, departamento_destino: v } })} />
+              <FieldText label="Transportador / proveedor" mayusculas value={form.datos_servicio.transportador} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, transportador: v } })} />
+              <FieldText label="Manifiesto" destacado value={form.datos_servicio.manifiesto} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, manifiesto: v } })} maxLength={15} soloNumeros />
             </div>
 
             {/* Sección 2: costos */}
@@ -781,17 +855,16 @@ const OtrosCostosP: React.FC = () => {
                   </select>
                 </div>
                 <div className="OC-field">
-                  <label className="OC-label">Concepto *</label>
-                  <input className="OC-input" value={c.concepto} onChange={(e) => updateCosto(i, 'concepto', e.target.value)} />
-                </div>
-                <div className="OC-field">
                   <label className="OC-label">Valor *</label>
-                  <input className="OC-input" type="number" value={c.valor || ''} onChange={(e) => updateCosto(i, 'valor', e.target.value)} />
+                  <input className="OC-input" type="number" min={0} max={LIMITE_VALOR_TOTAL} value={c.valor || ''} onChange={(e) => {
+                    const v = e.target.value;
+                    updateCosto(i, 'valor', v === '' ? '' : Math.min(Number(v), LIMITE_VALOR_TOTAL));
+                  }} onWheel={(e) => e.currentTarget.blur()} />
                 </div>
                 <button className="OC-btnAction" title="Quitar" style={{ background: '#dc2626', alignSelf: 'end' }} onClick={() => removeCosto(i)}><FaTrash /></button>
                 <div className="OC-field" style={{ gridColumn: '1 / -1' }}>
                   <label className="OC-label">Descripción *</label>
-                  <textarea className="OC-textarea" rows={2} value={c.descripcion} onChange={(e) => updateCosto(i, 'descripcion', e.target.value)} />
+                  <textarea className="OC-textarea" rows={2} value={c.descripcion} onChange={(e) => updateCosto(i, 'descripcion', e.target.value.toUpperCase())} />
                 </div>
               </div>
             ))}
@@ -800,11 +873,6 @@ const OtrosCostosP: React.FC = () => {
               <span>Valor total</span>
               <span className="OC-resumenTotal">{formatMoney(valorTotal)}</span>
             </div>
-            <div className="OC-field" style={{ marginTop: '0.5rem' }}>
-              <label className="OC-label">Observaciones</label>
-              <textarea className="OC-textarea" rows={2} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
-            </div>
-
             {/* Sección 3: bancario */}
             <div className="OC-modalSection">3. Información bancaria</div>
             <div className="OC-formGrid">
@@ -822,11 +890,11 @@ const OtrosCostosP: React.FC = () => {
                   {tiposCuenta.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
-              <FieldText label="Número de cuenta *" value={form.datos_bancarios.numero_cuenta} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, numero_cuenta: v } })} />
-              <FieldText label="Cédula del titular *" value={form.datos_bancarios.cedula_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, cedula_titular: v } })} />
-              <FieldText label="Nombre del titular *" value={form.datos_bancarios.nombre_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, nombre_titular: v } })} />
-              <FieldText label="Nombre del conductor *" value={form.conductor.nombre} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, nombre: v } })} />
-              <FieldText label="Teléfono del conductor" value={form.conductor.telefono} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, telefono: v } })} />
+              <FieldText label="Número de cuenta *" soloNumeros value={form.datos_bancarios.numero_cuenta} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, numero_cuenta: v } })} />
+              <FieldText label="Cédula del titular *" soloNumeros value={form.datos_bancarios.cedula_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, cedula_titular: v } })} />
+              <FieldText label="Nombre del titular *" mayusculas value={form.datos_bancarios.nombre_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, nombre_titular: v } })} />
+              <FieldText label="Nombre del conductor *" mayusculas value={form.conductor.nombre} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, nombre: v } })} />
+              <FieldText label="Teléfono del conductor" soloNumeros value={form.conductor.telefono} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, telefono: v } })} />
             </div>
 
             <div className="OC-actions">
@@ -842,23 +910,37 @@ const OtrosCostosP: React.FC = () => {
 };
 
 // ── Subcomponentes de formulario ──────────────────────────────────────────────
-const Campo = ({ label, v }: { label: string; v: any }) => (
+const Campo = ({ label, v, destacado }: { label: string; v: any; destacado?: boolean }) => (
   <div className="OC-modalField">
-    <span className="OC-modalLabel">{label}</span>
-    <span className="OC-modalValue">{v === undefined || v === null || v === '' ? '-' : v}</span>
+    <span className="OC-modalLabel" style={destacado ? { fontWeight: 700, color: '#b45309' } : undefined}>{label}</span>
+    <span
+      className="OC-modalValue"
+      style={destacado ? { backgroundColor: '#fff8e1', border: '2px solid #f59e0b', boxShadow: '0 0 0 3px rgba(245,158,11,0.18)', fontWeight: 700, borderRadius: '4px', padding: '0.15rem 0.4rem' } : undefined}
+    >
+      {v === undefined || v === null || v === '' ? '-' : v}
+    </span>
   </div>
 );
 
-const FieldText = ({ label, value, onChange, type, maxLength, soloNumeros }: { label: string; value: string; onChange: (v: string) => void; type?: string; maxLength?: number; soloNumeros?: boolean }) => {
+const FieldText = ({ label, value, onChange, type, maxLength, soloNumeros, mayusculas, destacado }: { label: string; value: string; onChange: (v: string) => void; type?: string; maxLength?: number; soloNumeros?: boolean; mayusculas?: boolean; destacado?: boolean }) => {
   const aplicar = (raw: string) => {
     let v = soloNumeros ? raw.replace(/\D/g, '') : raw;
+    if (mayusculas) v = v.toUpperCase();
     if (maxLength !== undefined) v = v.slice(0, maxLength);
     onChange(v);
   };
   return (
     <div className="OC-field">
-      <label className="OC-label">{label}</label>
-      <input className="OC-input" type={type || 'text'} value={value} maxLength={maxLength} onChange={(e) => aplicar(e.target.value)} />
+      <label className="OC-label" style={destacado ? { fontWeight: 700, color: '#b45309' } : undefined}>{label}</label>
+      <input
+        className="OC-input"
+        type={type || 'text'}
+        value={value}
+        maxLength={maxLength}
+        onChange={(e) => aplicar(e.target.value)}
+        onWheel={(e) => { if (type === 'number') e.currentTarget.blur(); }}
+        style={destacado ? { backgroundColor: '#fff8e1', border: '2px solid #f59e0b', boxShadow: '0 0 0 3px rgba(245,158,11,0.18)', fontWeight: 700 } : undefined}
+      />
     </div>
   );
 };

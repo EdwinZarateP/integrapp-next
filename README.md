@@ -637,3 +637,11 @@ Registro de costos adicionales posteriores al servicio, con buscador de pedidos 
   - **Tipo vehículo**: ahora es un **select** con `CARRY, NHR, TURBO, NIES, SENCILLO, PATINETA, TRACTOMULA`.
   - **Centro distribución**: ahora es un **select** con `JUAN MINA, YUMBO, BUCARAMANGA, GIRARDOTA, FUNZA`.
   - Si un valor viene autollenado (desde la búsqueda del pedido o al editar una solicitud existente) y no está en la lista, se muestra como **opción extra** para no perderlo, pero al crear/editar sólo se puede elegir de la lista. **Archivo**: `Paginas/OtrosCostosP/index.tsx` (constantes `TIPOS_VEHICULO_OC`, `CENTROS_DISTRIBUCION_OC`; `FieldText` extendido con `maxLength`/`soloNumeros`).
+
+## Actualizaciones Recientes (2026-08-04)
+
+### Otros Costos (`/OtrosCostos` y `/HistoricoOtrosCostos`) — filtro por regional y formulario simplificado
+- **Filtro por regional** (como SolicitudVehiculos): **OPERATIVO** ve todas las solicitudes de su regional (la define el backend desde `baseusuarios`); **ADMIN/ANALISTA/COORDINADOR/CONTROL** ven todo y tienen un **dropdown opcional** «Todas las regionales» (aplica al dar Buscar). Dropdown en `OtrosCostosP` e `HistoricoOtrosCostosP`; `regional` añadido a `FiltrosListado`/`aParams`. Archivos: `Paginas/OtrosCostosP/index.tsx`, `Paginas/HistoricoOtrosCostosP/index.tsx`, `Funciones/ApiPedidos/otrosCostos.tsx`.
+- **Causales/tipos de costo** ahora vienen de la colección `causales_otros_costos` (auto-sembrada); editable en Mongo sin deploy.
+- **Eliminado el campo «Concepto»** del formulario y de las tablas de detalle (queda `Tipo · Descripción · Valor`). Eliminado también **«Observaciones»** del formulario de nueva/editar solicitud (todos los perfiles). Las solicitudes viejas siguen mostrando sus observaciones en el detalle.
+- **Tope de $5.000.000** al valor total: el campo Valor limita la entrada y `validarForm` bloquea si la suma supera $5.000.000.

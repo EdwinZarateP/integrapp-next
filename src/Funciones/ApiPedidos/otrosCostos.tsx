@@ -6,7 +6,6 @@ const BASE_URL = `${API_BASE}/otros-costos`;
 // ── Interfaces ───────────────────────────────────────────────────────────────
 export interface CostoConcepto {
   tipo_costo: string;
-  concepto: string;
   descripcion: string;
   valor: number;
 }
@@ -234,13 +233,14 @@ export interface FiltrosListado {
   placa?: string;
   manifiesto?: string;
   cliente?: string;
+  regional?: string;
   skip?: number;
   limit?: number;
 }
 
 const aParams = (f: FiltrosListado): Record<string, string | number> => {
   const p: Record<string, string | number> = { usuario: f.usuario };
-  (['estado', 'fecha_inicio', 'fecha_fin', 'pedido', 'placa', 'manifiesto', 'cliente'] as const).forEach((k) => {
+  (['estado', 'fecha_inicio', 'fecha_fin', 'pedido', 'placa', 'manifiesto', 'cliente', 'regional'] as const).forEach((k) => {
     if (f[k]) p[k] = f[k] as string;
   });
   if (f.skip !== undefined) p.skip = f.skip;
