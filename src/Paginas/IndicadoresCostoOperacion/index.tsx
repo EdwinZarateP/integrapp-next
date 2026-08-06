@@ -273,10 +273,12 @@ const IndicadoresCostoOperacion: React.FC = () => {
   const interval = dataChart.length > 1 ? Math.max(0, Math.ceil(dataChart.length / 12) - 1) : 0;
   const intervalDif = dataDif.length > 1 ? Math.max(0, Math.ceil(dataDif.length / 12) - 1) : 0;
 
-  // Dominio del eje Y del gráfico de sobrecosto/ahorro: anclado en 0 con ~20 % de holgura a
-  // cada lado para que las etiquetas de las barras (arriba y abajo del tip) no se recorten.
+  // Dominio del eje Y del gráfico de sobrecosto/ahorro: anclado en 0. Holgura balanceada
+  // (20 % de la mayor magnitud) a cada lado para que las etiquetas verticales —sobrecosto
+  // arriba, ahorro debajo de la barra— no se recorten ni con datos asimétricos.
   const difMin = dataDif.length ? Math.min(0, ...dataDif.map(d => d.neta)) : 0;
   const difMax = dataDif.length ? Math.max(0, ...dataDif.map(d => d.neta)) : 0;
+  const difPad = Math.max(Math.abs(difMin), Math.abs(difMax)) * 0.2;
 
   return (
     <div className="IG-container">
@@ -546,15 +548,17 @@ const IndicadoresCostoOperacion: React.FC = () => {
                       <BarChart data={dataDif} margin={{ top: 36, right: 20, left: 20, bottom: 28 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="periodo" tickFormatter={(val) => formatoEje(val, vistaDif)} interval={intervalDif} tick={{ fontSize: 11 }} />
-                        <YAxis domain={[difMin * 1.2, difMax * 1.2]} tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
+                        <YAxis domain={[difMin - difPad, difMax + difPad]} tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
                         <ReferenceLine y={0} stroke="#0f1928" strokeWidth={1.5} />
                         <Tooltip content={tooltipDiferencia} cursor={{ fill: 'rgba(15,25,40,0.05)' }} />
                         <Bar dataKey="neta" name="Sobrecosto / ahorro neto" isAnimationActive={false}>
                           {dataDif.map((d, i) => (
                             <Cell key={i} fill={d.neta > 0 ? COLOR_SOBRE : COLOR_AHORRO} />
                           ))}
-                          {/* Etiqueta adaptativa: arriba del tip si la barra es positiva,
-                              abajo del tip si negativa. Posición calculada de forma defensiva. */}
+                          {/* Etiqueta vertical (rotada -90°, lee de abajo hacia arriba):
+                              ahorro (negativa) DEBAJO de la barra, sobrecosto (positiva)
+                              arriba. Los bordes se calculan con min/max de y/y+h para no
+                              depender del signo de height que entrega Recharts. */}
                           <LabelList
                             dataKey="neta"
                             content={(props: any) => {
@@ -564,16 +568,37 @@ const IndicadoresCostoOperacion: React.FC = () => {
                               const v = Number(value) || 0;
                               if (!v) return null;
                               const isPos = v > 0;
+                              const cx = x + w / 2;
+                              const topY = Math.min(y, y + h);
+                              const botY = Math.max(y, y + h);
+                              const gap = 6;
+                              const txt = formatearMonedaCorta(Math.abs(v));
+                              if (isPos) {
+                                return (
+                                  <text
+                                    x={cx}
+                                    y={topY - gap}
+                                    textAnchor="start"
+                                    transform={`rotate(-90 ${cx} ${topY - gap})`}
+                                    fill={COLOR_SOBRE}
+                                    fontSize={11}
+                                    fontWeight={700}
+                                  >
+                                    {txt}
+                                  </text>
+                                );
+                              }
                               return (
                                 <text
-                                  x={x + w / 2}
-                                  y={isPos ? y - 8 : y + h + 12}
-                                  textAnchor="middle"
-                                  fill={isPos ? COLOR_SOBRE : COLOR_AHORRO}
+                                  x={cx}
+                                  y={botY + gap}
+                                  textAnchor="end"
+                                  transform={`rotate(-90 ${cx} ${botY + gap})`}
+                                  fill={COLOR_AHORRO}
                                   fontSize={11}
                                   fontWeight={700}
                                 >
-                                  {formatearMonedaCorta(Math.abs(v))}
+                                  {txt}
                                 </text>
                               );
                             }}

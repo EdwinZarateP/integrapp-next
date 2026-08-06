@@ -661,3 +661,10 @@ Registro de costos adicionales posteriores al servicio, con buscador de pedidos 
 - **Excel reestructurado** (cambio de backend): ahora es **una sola hoja** con **una fila por pedido/planilla** y nombres legibles, con columna **Fecha** en `DD/MM/AAAA`, **Planilla** y **Destinatario (Ubicación Descargue)** visibles (antes era un volcado crudo con nombres técnicos).
 - **Mensaje de error de red** más claro: si el servidor no responde por exceso de datos, sugiere acortar el rango de fechas.
 - **Archivos**: `src/Componentes/PedidosComponentes/TablaPedidosCompletados.tsx`, `src/Componentes/PedidosComponentes/TablaPedidos.tsx`, `src/Funciones/ApiPedidos/apiPedidos.tsx`.
+
+### Solicitud de Vehículos (`/integrapp/SolicitudVehiculos`) — botón «Devolver» planilla al operativo
+- **Problema**: cuando una planilla quedaba en `COORDINADOR`/`CONTROL`, el revisor solo tenía botón **Aprobar**; no podía devolverla indicando qué corregir, así que el operativo la veía «trabada» sin feedback.
+- **Nuevo botón «Devolver»** (rojo, `FaUndo`) visible para **ADMIN/COORDINADOR/CONTROL** sobre planillas en `REQUIERE_APROBACION_COORDINADOR` o `REQUIERE_APROBACION_CONTROL`. Abre un Swal con **textarea obligatorio** (motivo, mín. 5 car.) y devuelve la planilla a **`CREADO`** (`PUT /siscore/actualizar-estado-planilla` con `motivo_devolucion`). Devolver ≠ Aprobar: se permite a los tres roles sobre ambos tiers.
+- **Update optimista**: COORDINADOR/CONTROL dejan de ver la planilla (al volver a `CREADO` solo la ve el operativo creador + ADMIN); ADMIN la sigue viendo en `CREADO`.
+- **Aviso al operativo (in-app)**: cuando una planilla está en `CREADO` con `motivo_devolucion`, bajo el badge aparece una línea roja `⚠️ Devuelta por {devuelto_por}: {motivo}` (truncada, con el texto completo en tooltip) — el operativo la ve al recargar. El WhatsApp al `usuario_registro` lo manda el backend (plantilla `devolucion_planilla`).
+- Se distingue del botón existente **«Volver a CREADO»** (`FaLockOpen`, ADMIN/ANALISTA): ése es una reapertura de edición genérica **sin motivo**; «Devolver» es el rechazo con feedback del revisor.

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen, FaChevronDown, FaChevronRight, FaUndo } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
@@ -100,6 +100,10 @@ interface PlanillaResultado {
   fecha_aprobacion?: string;  // Fecha de aprobación
   fecha_creacion?: string;  // Fecha de creación (para ordenar y mostrar en pantalla)
   fecha_preaprobado?: string;  // Fecha en que quedó PREAPROBADO (visible para todos)
+  // Devolución a CREADO con motivo (rechazo de coordinador/control/admin para que el operativo corrija)
+  motivo_devolucion?: string;
+  devuelto_por?: string;
+  fecha_devolucion?: string;
   // Campo de consecutivo único
   consecutivo?: string;
   consecutivo_base?: string;
@@ -402,6 +406,9 @@ const SolicitudVehiculos: React.FC = () => {
               aprobado_por: p.aprobado_por,
               fecha_aprobacion: p.fecha_aprobacion,
               fecha_preaprobado: p.fecha_preaprobado ?? p.fecha_creacion,
+              motivo_devolucion: p.motivo_devolucion,
+              devuelto_por: p.devuelto_por,
+              fecha_devolucion: p.fecha_devolucion,
               consecutivo: p.consecutivo,
               consecutivo_base: p.consecutivo_base,
               flete_cobrado_fmc: p.flete_cobrado_fmc || 0,
@@ -2006,6 +2013,91 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  // Devolver una planilla en estado COORDINADOR/CONTROL a CREADO con un motivo obligatorio.
+  // Lo usan ADMIN/COORDINADOR/CONTROL para avisarle al operativo qué debe corregir antes de
+  // volver a aprobar. La planilla vuelve al borrador del operativo (único estado donde edita).
+  const handleDevolverPlanilla = async (resultado: PlanillaResultado, index: number) => {
+    const total = calcularTotalSolicitado(resultado);
+    const teorico = resultado.tarifa_calculada || 0;
+    const { esMayor } = calcularDiferenciaPorcentual(resultado);
+    const diferenciaDinero = total - teorico;
+    const diferenciaTexto = esMayor
+      ? `+$${diferenciaDinero.toLocaleString('es-CO')}`
+      : `$${diferenciaDinero.toLocaleString('es-CO')}`;
+
+    const result = await Swal.fire({
+      title: '¿Devolver planilla?',
+      html: `
+        <div style="text-align: left;">
+          <p><strong>Planilla:</strong> ${resultado.planilla}${resultado.consecutivo ? ` (${resultado.consecutivo})` : ''}</p>
+          <p><strong>Flete teórico:</strong> $${teorico.toLocaleString('es-CO')}</p>
+          <p><strong>Total solicitado:</strong> $${total.toLocaleString('es-CO')}</p>
+          <p><strong>Diferencia:</strong> ${diferenciaTexto}</p>
+          <p style="margin-top: 8px;">La planilla vuelve a <strong>CREADO</strong> y el operativo podrá editarla. Indica qué debe corregir:</p>
+        </div>
+      `,
+      input: 'textarea',
+      inputPlaceholder: 'Ej: la placa no corresponde, el tipo de vehículo es incorrecto, ajustar el descargue...',
+      inputAttributes: { maxlength: '500' },
+      inputValidator: (value) => {
+        if (!value || value.trim().length < 5) {
+          return 'Describe el motivo de la devolución (mínimo 5 caracteres).';
+        }
+        return undefined;
+      },
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Devolver',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    const motivo = (result.value as string).trim();
+
+    try {
+      const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+      // Update optimista:
+      // - COORDINADOR/CONTROL dejan de verla (CREADO solo lo ve el operativo creador + ADMIN).
+      // - ADMIN la sigue viendo, ahora en CREADO.
+      if (perfil === 'COORDINADOR' || perfil === 'CONTROL') {
+        setResultados(resultados.filter((_, i) => i !== index));
+      } else {
+        const nuevosResultados = [...resultados];
+        nuevosResultados[index] = {
+          ...resultado,
+          estado: 'CREADO',
+          motivo_devolucion: motivo,
+          devuelto_por: usuario,
+          fecha_devolucion: new Date().toISOString(),
+          fecha_preaprobado: undefined
+        };
+        setResultados(nuevosResultados);
+      }
+
+      const response = await fetch(`${API}/siscore/actualizar-estado-planilla`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planilla: resultado.planilla,
+          estado: 'CREADO',
+          aprobado_por: usuario,
+          motivo_devolucion: motivo
+        })
+      });
+
+      if (response.ok) {
+        Swal.fire('↩️ Devuelta', `Planilla ${resultado.planilla} devuelta al operativo. Se le notificó el motivo.`, 'success');
+      } else {
+        Swal.fire('⚠️ Parcial', 'Devuelta en local pero falló la actualización en BD. Recarga la página.', 'warning');
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error al devolver la planilla', 'error');
+    }
+  };
+
   // Enviar masivamente las planillas CREADO seleccionadas al estado que corresponde a cada una.
   const handleEnviarSeleccionadas = async () => {
     try {
@@ -3543,6 +3635,31 @@ const SolicitudVehiculos: React.FC = () => {
                                    'PREAPROBADO'}
                                 </span>
 
+                                {/* Aviso de devolución: la planilla volvió a CREADO con un motivo
+                                    (rechazo de coordinador/control/admin). Visible para el operativo
+                                    creador y ADMIN, que son quienes ven las planillas en CREADO. */}
+                                {resultado.estado === 'CREADO' && resultado.motivo_devolucion && (
+                                  <div
+                                    title={`Devuelta por ${resultado.devuelto_por || '-'}${resultado.fecha_devolucion ? ` el ${formatearFechaColombia(resultado.fecha_devolucion)}` : ''}:\n${resultado.motivo_devolucion}`}
+                                    style={{
+                                      marginTop: '4px',
+                                      fontSize: '0.7rem',
+                                      lineHeight: '1.2',
+                                      color: '#b91c1c',
+                                      background: '#fef2f2',
+                                      border: '1px solid #fecaca',
+                                      borderRadius: '4px',
+                                      padding: '3px 6px',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      maxWidth: '180px'
+                                    }}
+                                  >
+                                    ⚠️ Devuelta por {resultado.devuelto_por || '-'}: {resultado.motivo_devolucion}
+                                  </div>
+                                )}
+
                                 {/* Botón Enviar - visible para ADMIN y OPERATIVO sobre planillas en CREADO.
                                     Calcula el estado destino (PREAPROBADO o COORDINADOR/CONTROL) según los valores. */}
                                 {resultado.estado === 'CREADO' && ['ADMIN', 'OPERATIVO'].includes(perfil) && (
@@ -3565,6 +3682,22 @@ const SolicitudVehiculos: React.FC = () => {
                                     style={{ marginTop: '5px', width: '100%', fontSize: '0.75rem', padding: '0.25rem' }}
                                   >
                                     <FaCheck /> Aprobar
+                                  </button>
+                                )}
+
+                                {/* Botón Devolver - ADMIN/COORDINADOR/CONTROL sobre planillas en
+                                    COORDINADOR o CONTROL. Devuelve a CREADO con motivo para que el
+                                    operativo corrija. Devolver NO aprueba: se permite a los tres
+                                    roles sobre ambos tiers. */}
+                                {['ADMIN', 'COORDINADOR', 'CONTROL'].includes(perfil) &&
+                                  (resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' || resultado.estado === 'REQUIERE_APROBACION_CONTROL') && (
+                                  <button
+                                    onClick={() => handleDevolverPlanilla(resultado, index)}
+                                    className="SV-btnAction"
+                                    title="Devolver al operativo (con motivo)"
+                                    style={{ marginTop: '5px', width: '100%', fontSize: '0.75rem', padding: '0.25rem', background: '#dc2626', color: '#fff' }}
+                                  >
+                                    <FaUndo /> Devolver
                                   </button>
                                 )}
                               </>
