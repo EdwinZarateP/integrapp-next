@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaMoneyBillWave } from 'react-icons/fa';
+import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaMoneyBillWave, FaWarehouse } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -71,6 +71,13 @@ const IndicadoresMenu: React.FC = () => {
       descripcion: 'Dashboard financiero y operativo de fletes por cliente, ruta y región',
       icono: <FaMoneyBillWave />,
       ruta: '/indicadores/fletes',
+    },
+    {
+      id: 'costo-operacion',
+      titulo: 'Indicadores de Costo de Operación de Transporte',
+      descripcion: 'Costo total de la operación: media milla, última milla, otros costos, sobrecosto y ahorro',
+      icono: <FaWarehouse />,
+      ruta: '/indicadores/costo-operacion',
     },
     // Aquí se agregarán más indicadores en el futuro
   ];
