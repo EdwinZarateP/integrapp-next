@@ -37,6 +37,8 @@ type EditFormState = {
   Observaciones_ajustes: string;
   destino_desde_real: string;
   usr_solicita_ajuste: string;
+  ahorro: string;
+  observacion: string;
 };
 
 type FusionFormState = {
@@ -47,6 +49,7 @@ type FusionFormState = {
   total_punto_adicional: string;
   total_desvio_vehiculo: string;
   observacion_fusion: string;
+  causal_sobrecosto: string;
 };
 
 
@@ -232,6 +235,8 @@ const TablaPedidos: React.FC = () => {
     Observaciones_ajustes: '',
     destino_desde_real: '',
     usr_solicita_ajuste: (Cookies.get('usuarioPedidosCookie') || '').toUpperCase(),
+    ahorro: '',
+    observacion: '',
   });
   const [destinoSeleccion, setDestinoSeleccion] = useState<string>('');
 
@@ -245,7 +250,8 @@ const TablaPedidos: React.FC = () => {
     total_cargue_descargue: '',
     total_punto_adicional: '',
     total_desvio_vehiculo: '',
-    observacion_fusion: ''
+    observacion_fusion: '',
+    causal_sobrecosto: ''
   });
 
   // división
@@ -254,6 +260,7 @@ const TablaPedidos: React.FC = () => {
   const [divisionVehiculo, setDivisionVehiculo] = useState<VehiculoGroup | null>(null);
   const [divisionDestino, setDivisionDestino] = useState('');
   const [divisionObs, setDivisionObs] = useState('');
+  const [divisionCausal, setDivisionCausal] = useState('');
   const [divisionDestB, setDivisionDestB] = useState<Set<string>>(new Set());
   const [divisionDestC, setDivisionDestC] = useState<Set<string>>(new Set());
   const [divisionDestD, setDivisionDestD] = useState<Set<string>>(new Set());
@@ -449,6 +456,8 @@ const TablaPedidos: React.FC = () => {
         (g as any).usr_solicita_ajuste?.toString().toUpperCase()
         || ((g.pedidos as any[])?.map(p => p?.usr_solicita_ajuste).find(Boolean)?.toString().toUpperCase())
         || (usuario || '').toUpperCase(),
+      ahorro: String((g as any).ahorro ?? ''),
+      observacion: (g as any).observacion ?? '',
 
     });
 
@@ -514,6 +523,20 @@ const TablaPedidos: React.FC = () => {
       return;
     }
 
+    // VALIDACIÓN DE AHORRO: no puede superar los $5.000.000
+    const ahorroVal = parseNumberLoose(editForm.ahorro);
+    if (Number.isFinite(ahorroVal!) && (ahorroVal as number) > 5000000) {
+      Swal.fire({
+        title: 'Ahorro no válido',
+        html: `El ahorro no puede ser superior a <strong>$5.000.000</strong>.<br>
+               Valor ingresado: <strong>$${(ahorroVal as number).toLocaleString('es-CO')}</strong>`,
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#dc2626',
+      });
+      return;
+    }
+
     let destino_desde_real: string | undefined;
     let nuevo_destino: string | undefined;
 
@@ -534,7 +557,9 @@ const TablaPedidos: React.FC = () => {
       Observaciones_ajustes: editForm.Observaciones_ajustes?.trim() || undefined,
       ...(destino_desde_real ? { destino_desde_real } : {}),
       ...(nuevo_destino ? { nuevo_destino } : {}),
-      usr_solicita_ajuste: (editForm.usr_solicita_ajuste || usuario || '').toUpperCase()
+      usr_solicita_ajuste: (editForm.usr_solicita_ajuste || usuario || '').toUpperCase(),
+      ahorro: Number.isFinite(ahorroVal!) ? (ahorroVal as number) : 0,
+      observacion: editForm.observacion?.trim() || ''
 
     };
 
@@ -664,6 +689,7 @@ const TablaPedidos: React.FC = () => {
       total_punto_adicional: '',
       total_desvio_vehiculo: '',
       observacion_fusion: '',
+      causal_sobrecosto: '',
     });
     setMostrarModalFusion(true);
   }, [puedeSeleccionar, cantidadSeleccionadosFusionables, seleccionadosInvalidosParaFusion, seleccionadosFusionables]);
@@ -703,6 +729,7 @@ const TablaPedidos: React.FC = () => {
       total_punto_adicional: Number(fusionForm.total_punto_adicional || 0),
       total_desvio_vehiculo: Number(fusionForm.total_desvio_vehiculo || 0),
       observacion_fusion: fusionForm.observacion_fusion?.trim() || undefined,
+      causal_sobrecosto: fusionForm.causal_sobrecosto?.trim() || undefined,
     };
 
     setFusionGuardando(true);
@@ -818,6 +845,7 @@ const TablaPedidos: React.FC = () => {
     setDivisionVehiculo(g);
     setDivisionDestino((g?.destino || '').toString().toUpperCase());
     setDivisionObs('vehiculo dividido');
+    setDivisionCausal('');
     limpiarSeleccionDivision();
     setMostrarModalDividir(true);
   }, [perfil, limpiarSeleccionDivision]);
@@ -903,6 +931,7 @@ const TablaPedidos: React.FC = () => {
       consecutivo_origen: divisionVehiculo.consecutivo_vehiculo,
       destino_unico: divisionDestino.trim().toUpperCase(),
       observacion_division: divisionObs?.trim() || undefined,
+      causal_sobrecosto: divisionCausal?.trim() || undefined,
       campo_destinatario: usaFiltro ? 'ubicacion_descargue' : undefined,
       grupo_B: (arrB.length || validSplitB) ? {
         destinatarios: arrB.length ? arrB : undefined,
@@ -949,6 +978,7 @@ const TablaPedidos: React.FC = () => {
     divisionVehiculo,
     divisionDestino,
     divisionObs,
+    divisionCausal,
     destinatariosUnicos.length,
     divisionDestB,
     divisionDestC,
@@ -1207,7 +1237,15 @@ const TablaPedidos: React.FC = () => {
                       <CellMoney value={g.total_cargue_descargue} />
                       <CellMoney value={g.total_punto_adicional} />
                       <CellMoney value={g.total_desvio_vehiculo || 0} />
-                      <td>{g.Observaciones_ajustes}</td>
+                      <td>
+                        {g.Observaciones_ajustes ? (
+                          g.Observaciones_ajustes
+                        ) : Number(g.diferencia_flete) > 0 ? (
+                          <span style={{ color: '#dc2626', fontWeight: 700 }} title="Sobre costo sin causal — edítalo para asignarla">
+                            ⚠️ Sin causal
+                          </span>
+                        ) : ''}
+                      </td>
                       <CellMoney value={g.costo_real_vehiculo} />
                       <CellMoney value={g.diferencia_flete} highlightPositive />
                       <CellMoney value={g.valor_flete_sistema} />
@@ -1240,53 +1278,24 @@ const TablaPedidos: React.FC = () => {
               <span className="TablaPedidos-modal-editar-consec">{editForm.consecutivo_vehiculo}</span>
             </div>
 
-            <div className="TablaPedidos-form-grupo">
-              <label>Flete solicitado (vehículo)</label>
-              <input
-                type="number"
-                step="1"
-                min={1}
-                onKeyDown={(e) => {
-                  if (e.key === '0' && !editForm.total_flete_solicitado) e.preventDefault();
-                }}
-                name="total_flete_solicitado"
-                value={editForm.total_flete_solicitado}
-                onChange={onChangeEdit}
-                placeholder="Ej: 1200000"
-              />
-            </div>
-
-            {/* Destino final */}
-            <div className="TablaPedidos-form-grupo TablaPedidos-form-grupo--full">
-              <label>
-                Destino final (elige una opción)
-                <small style={{ display: 'block', opacity: 0.7 }}>
-                  Si eliges una ciudad estándar, se agregará una línea adicional con esa ciudad.
-                </small>
-              </label>
-              <select
-                value={destinoSeleccion}
-                onChange={(e) => setDestinoSeleccion(e.target.value)}
-              >
-                <option value="">— Selecciona destino —</option>
-
-                <optgroup label="Destinos reales del vehículo">
-                  {destinosRealesVehiculo.map((d) => (
-                    <option key={d} value={`REAL:${d}`}>{d}</option>
-                  ))}
-                </optgroup>
-
-                <optgroup label="Agregar ciudad estándar">
-                  {EXTRA_DESTINOS
-                    .filter((d) => !destinosRealesVehiculo.includes(d))
-                    .map((d) => (
-                      <option key={d} value={`EXTRA:${d}`}>{d}</option>
-                    ))}
-                </optgroup>
-              </select>
-            </div>
-
+            <h4 className="TablaPedidos-modal-seccion-titulo">Datos del vehículo</h4>
             <div className="TablaPedidos-modal-editar-grid">
+              <div className="TablaPedidos-form-grupo">
+                <label>Flete solicitado (vehículo)</label>
+                <input
+                  type="number"
+                  step="1"
+                  min={1}
+                  onKeyDown={(e) => {
+                    if (e.key === '0' && !editForm.total_flete_solicitado) e.preventDefault();
+                  }}
+                  name="total_flete_solicitado"
+                  value={editForm.total_flete_solicitado}
+                  onChange={onChangeEdit}
+                  placeholder="Ej: 1200000"
+                />
+              </div>
+
               <div className="TablaPedidos-form-grupo">
                 <label>Tipo vehículo (RUNT)</label>
                 <select name="tipo_vehiculo_sicetac" value={editForm.tipo_vehiculo_sicetac} onChange={onChangeEdit}>
@@ -1316,6 +1325,56 @@ const TablaPedidos: React.FC = () => {
               </div>
 
               <div className="TablaPedidos-form-grupo">
+                <label>Despachador</label>
+                <select
+                  name="usr_solicita_ajuste"
+                  value={editForm.usr_solicita_ajuste}
+                  onChange={onChangeEdit}
+                >
+                  {despachadores.map(d => {
+                    const label = `${d.usuario}-${d.nombre}`.toUpperCase();
+                    return (
+                      <option key={`${d.id}-${d.usuario}`} value={d.usuario}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            <h4 className="TablaPedidos-modal-seccion-titulo">Destino y costos del transporte</h4>
+            <div className="TablaPedidos-modal-editar-grid">
+              <div className="TablaPedidos-form-grupo TablaPedidos-form-grupo--full">
+                <label>
+                  Destino final (elige una opción)
+                  <small style={{ display: 'block', opacity: 0.7, textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
+                    Si eliges una ciudad estándar, se agregará una línea adicional con esa ciudad.
+                  </small>
+                </label>
+                <select
+                  value={destinoSeleccion}
+                  onChange={(e) => setDestinoSeleccion(e.target.value)}
+                >
+                  <option value="">— Selecciona destino —</option>
+
+                  <optgroup label="Destinos reales del vehículo">
+                    {destinosRealesVehiculo.map((d) => (
+                      <option key={d} value={`REAL:${d}`}>{d}</option>
+                    ))}
+                  </optgroup>
+
+                  <optgroup label="Agregar ciudad estándar">
+                    {EXTRA_DESTINOS
+                      .filter((d) => !destinosRealesVehiculo.includes(d))
+                      .map((d) => (
+                        <option key={d} value={`EXTRA:${d}`}>{d}</option>
+                      ))}
+                  </optgroup>
+                </select>
+              </div>
+
+              <div className="TablaPedidos-form-grupo">
                 <label>Total desvío transp</label>
                 <input
                   type="number"
@@ -1341,8 +1400,8 @@ const TablaPedidos: React.FC = () => {
                 />
               </div>
 
-              <div className="TablaPedidos-form-grupo">
-                <label>Desc transp</label>
+              <div className="TablaPedidos-form-grupo TablaPedidos-form-grupo--full">
+                <label>Descargue transp (cargue/descargue)</label>
                 <input
                   type="number"
                   step="1"
@@ -1353,25 +1412,10 @@ const TablaPedidos: React.FC = () => {
                   placeholder="Ej: 80000"
                 />
               </div>
+            </div>
 
-              <div className="TablaPedidos-form-grupo">
-                <label>Despachador</label>
-                <select
-                  name="usr_solicita_ajuste"
-                  value={editForm.usr_solicita_ajuste}
-                  onChange={onChangeEdit}
-                >
-                  {despachadores.map(d => {
-                    const label = `${d.usuario}-${d.nombre}`.toUpperCase();
-                    return (
-                      <option key={`${d.id}-${d.usuario}`} value={d.usuario}>
-                        {label}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
+            <h4 className="TablaPedidos-modal-seccion-titulo">Causal del ajuste</h4>
+            <div className="TablaPedidos-modal-editar-grid">
               <div className="TablaPedidos-form-grupo TablaPedidos-form-grupo--full">
                 <label>Observaciones del ajuste</label>
                 <select
@@ -1387,7 +1431,45 @@ const TablaPedidos: React.FC = () => {
                   ))}
                 </select>
               </div>
+            </div>
 
+            {/* 💰 AHORRO Y OBSERVACIÓN (opcional) */}
+            <div className="TablaPedidos-ahorro-box">
+              <h4 className="TablaPedidos-modal-seccion-titulo">💰 Ahorro y observación (opcional)</h4>
+              <div className="TablaPedidos-modal-editar-grid">
+                <div className="TablaPedidos-form-grupo">
+                  <label>Ahorro ($)</label>
+                  <input
+                    type="number"
+                    name="ahorro"
+                    value={editForm.ahorro}
+                    onChange={onChangeEdit}
+                    min={0}
+                    max={5000000}
+                    placeholder="0"
+                    style={{
+                      fontWeight: 600,
+                      ...(Number(editForm.ahorro) > 5000000
+                        ? { border: '2px solid #dc2626', backgroundColor: '#fef2f2' }
+                        : {})
+                    }}
+                  />
+                  <p className="TablaPedidos-ahorro-ayuda">
+                    Máximo <strong>$5.000.000</strong>. Ej: evitó un vehículo adicional por una fusión.
+                  </p>
+                </div>
+                <div className="TablaPedidos-form-grupo TablaPedidos-form-grupo--full">
+                  <label>Observación del ahorro</label>
+                  <textarea
+                    name="observacion"
+                    value={editForm.observacion}
+                    onChange={onChangeEdit}
+                    placeholder="Explica brevemente cómo se generó el ahorro (opcional)"
+                    maxLength={500}
+                    style={{ width: '100%', minHeight: '60px', resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="TablaPedidos-modal-editar-actions">
@@ -1484,6 +1566,22 @@ const TablaPedidos: React.FC = () => {
                   onChange={onChangeFusion}
                   placeholder="Motivo de la fusión…"
                 />
+              </div>
+
+              <div className="TablaPedidos-form-grupo TablaPedidos-form-grupo--full">
+                <label>Causal del sobre costo (obligatorio si la fusión genera sobre costo)</label>
+                <select
+                  name="causal_sobrecosto"
+                  value={fusionForm.causal_sobrecosto}
+                  onChange={onChangeFusion}
+                >
+                  <option value="">— Sin valor —</option>
+                  {opcionesObservacionesAjuste.map(op => (
+                    <option key={op} value={op}>
+                      {op}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -1737,6 +1835,22 @@ const TablaPedidos: React.FC = () => {
               >
                 <option value="">— Sin valor —</option>
                 {opcionesObservacionesAjusteDivision.map(op => (
+                  <option key={op} value={op}>
+                    {op}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Causal del sobre costo (obligatorio si la división genera sobre costo) */}
+            <div className="TablaPedidos-form-grupo TablaPedidos-form-grupo--full">
+              <label>Causal del sobre costo (obligatorio si la división genera sobre costo)</label>
+              <select
+                value={divisionCausal}
+                onChange={(e) => setDivisionCausal(e.target.value)}
+              >
+                <option value="">— Sin valor —</option>
+                {opcionesObservacionesAjuste.map(op => (
                   <option key={op} value={op}>
                     {op}
                   </option>

@@ -423,6 +423,42 @@
 }
 .TablaPedidos-form-grupo--full { grid-column: 1 / -1; }
 
+/* Títulos de sección dentro de los modales de edición */
+.TablaPedidos-modal-seccion-titulo {
+  margin: 6px 0 -2px 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--tp-navy);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--tp-border);
+}
+
+/* Caja "Ahorro y observación" */
+.TablaPedidos-ahorro-box {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.TablaPedidos-ahorro-box .TablaPedidos-modal-seccion-titulo {
+  color: #047857;
+  border-bottom-color: #a7f3d0;
+  margin: 0;
+}
+.TablaPedidos-ahorro-box .TablaPedidos-form-grupo label { color: #047857; }
+.TablaPedidos-ahorro-ayuda {
+  font-size: 0.76rem;
+  color: #666;
+  margin: 4px 0 0 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .TablaPedidos-divisionGrupo {
   padding-top: 20px;
   border-top: 2px dashed var(--tp-border);

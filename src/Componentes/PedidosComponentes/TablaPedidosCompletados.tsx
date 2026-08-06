@@ -5,9 +5,28 @@ import Swal from 'sweetalert2';
 import {
   listarVehiculosCompletados,
   exportarCompletados,
+  asignarCausalCompletado,
   ListarCompletadosResponse
 } from '@/Funciones/ApiPedidos/apiPedidos';
 import './TablaPedidosCompletados.css';
+
+// Causales válidas de sobre costo (espejo de opcionesObservacionesAjuste en TablaPedidos)
+const OPCIONES_CAUSAL = [
+  'tarifa sicetac',
+  'desvio ruta',
+  'volumen de entregas',
+  'vehiculo contratado por dia',
+  'dificultad consecucion de vehiculos',
+  'por festivo, dificultad consecucion de vehiculos',
+  'se envia a bodega para cross docking',
+  'lleva paqueteo',
+  'Flete errado de base',
+  'si aplica descargue',
+  'problemas con sicetact',
+  'vehiculo de socio',
+  'pagar aforo',
+  'negociacion del flete',
+];
 
 const formatoMoneda = (v?: number | string | null) => {
   const n = Number(v ?? 0);
@@ -102,6 +121,14 @@ const TablaPedidosCompletados: React.FC = () => {
 
       if (status === 404 && /No se encontraron vehículos COMPLETADOS/i.test(detail || '')) {
         Swal.fire('Sin resultados', 'No se encontraron vehículos COMPLETADOS en ese rango.', 'info');
+      } else if (!err.response) {
+        // Sin respuesta = caída/timeout del servidor (típico en rangos muy amplios)
+        Swal.fire(
+          'Error de conexión',
+          'No se pudo obtener la respuesta del servidor (probable timeout por exceso de datos). ' +
+          'Intenta con un rango de fechas más corto.',
+          'error'
+        );
       } else {
         Swal.fire('Error', detail, 'error');
       }
@@ -152,6 +179,36 @@ const TablaPedidosCompletados: React.FC = () => {
       copy.has(id) ? copy.delete(id) : copy.add(id);
       return copy;
     });
+  };
+
+  const asignarCausal = async (g: ListarCompletadosResponse) => {
+    const opcionesHtml = OPCIONES_CAUSAL
+      .map(op => `<option value="${op}">${op}</option>`).join('');
+    const { value: causal, isConfirmed } = await Swal.fire({
+      title: 'Asignar causal del sobre costo',
+      html: `<p style="font-size:0.85rem;margin-bottom:0.5rem">Vehículo <b>${g.consecutivo_vehiculo}</b> · Sobre costo <b>${formatoMoneda(g.diferencia_flete)}</b></p>
+             <select id="swal-causal" class="swal2-select" style="width:100%">
+               <option value="">Selecciona una causal…</option>${opcionesHtml}
+             </select>`,
+      confirmButtonText: 'Asignar',
+      confirmButtonColor: '#047857',
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const v = (document.getElementById('swal-causal') as HTMLSelectElement)?.value?.trim();
+        if (!v) { Swal.showValidationMessage('Selecciona una causal'); return false; }
+        return v;
+      },
+    });
+    if (!isConfirmed || !causal) return;
+    try {
+      await asignarCausalCompletado(usuario, g.consecutivo_vehiculo, causal);
+      Swal.fire('Listo', 'Causal asignada', 'success');
+      await fetchData();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || 'No se pudo asignar';
+      Swal.fire('Error', String(detail), 'error');
+    }
   };
 
   return (
@@ -272,12 +329,13 @@ const TablaPedidosCompletados: React.FC = () => {
                   <th>Pto Adic Solicitado</th>
                   <th>Desvío</th>
                   <th>Total Solicitado</th>
-                  <th>Diferencia</th>
-                  <th>Flete Teorico</th>
-                  <th>Car/desc Teorico Teorico</th>
+                  <th>Sobre costo</th>
+                  <th>Flete Teórico</th>
+                  <th>Car/desc Teórico</th>
                   <th>Pto Adic Teórico</th>
                   <th>Total Teórico</th>
-                  <th>Observaciones</th>
+                  <th>Causal</th>
+                  <th>Ahorro</th>
                   <th>Estados</th>
                 </tr>
               </thead>
@@ -316,13 +374,36 @@ const TablaPedidosCompletados: React.FC = () => {
                       <td>{formatoMoneda(g.total_cargue_descargue_teorico)}</td>
                       <td>{formatoMoneda(g.total_punto_adicional_teorico)}</td>
                       <td>{formatoMoneda(g.costo_teorico_vehiculo)}</td>
+                      {/* Causal del sobre costo */}
+                      <td>
+                        {Number(g.diferencia_flete) > 0 ? (
+                          g.Observaciones_ajustes ? (
+                            <span title="Causal del sobre costo">{g.Observaciones_ajustes}</span>
+                          ) : (
+                            <button
+                              onClick={() => asignarCausal(g)}
+                              style={{ color: '#dc2626', fontWeight: 700, background: '#fef2f2', border: '1px solid #dc2626', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontSize: '0.78rem' }}
+                              title="Sin causal de sobre costo — clic para asignar"
+                            >
+                              ⚠️ Sin causal
+                            </button>
+                          )
+                        ) : '—'}
+                      </td>
+                      {/* Ahorro */}
+                      <td
+                        style={{ textAlign: 'right', fontWeight: 700, color: g.ahorro ? '#047857' : undefined, whiteSpace: 'nowrap' }}
+                        title={g.observacion || ''}
+                      >
+                        {g.ahorro ? formatoMoneda(g.ahorro) : '—'}
+                      </td>
                       <td>{g.estados.join(', ')}</td>
 
                     </tr>
 
                     {expanded.has(g.consecutivo_vehiculo) && (
                       <tr className="TablaPedidosCompletados-details">
-                        <td colSpan={19}>
+                        <td colSpan={21}>
                           <table className="TablaPedidosCompletados-subtable">
                             <thead>
                               <tr>

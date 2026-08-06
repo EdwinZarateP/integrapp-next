@@ -645,3 +645,19 @@ Registro de costos adicionales posteriores al servicio, con buscador de pedidos 
 - **Causales/tipos de costo** ahora vienen de la colección `causales_otros_costos` (auto-sembrada); editable en Mongo sin deploy.
 - **Eliminado el campo «Concepto»** del formulario y de las tablas de detalle (queda `Tipo · Descripción · Valor`). Eliminado también **«Observaciones»** del formulario de nueva/editar solicitud (todos los perfiles). Las solicitudes viejas siguen mostrando sus observaciones en el detalle.
 - **Tope de $5.000.000** al valor total: el campo Valor limita la entrada y `validarForm` bloquea si la suma supera $5.000.000.
+
+## Actualizaciones Recientes (2026-08-06)
+
+### Pedidos (`/integrapp/Pedidos`) — modal «Editar vehículo»: ahorro/observación y secciones
+- **Ahorro + observación**: el modal de edición de un vehículo ahora incluye la sección «💰 Ahorro y observación (opcional)» con `ahorro` (numérico, máx $5.000.000, valida con Swal) y `observación` (texto, 500 car.). Se envían en el `AjusteVehiculo` al backend (`PUT /pedidos/ajustar-totales-vehiculo`) y se precargan al reabrir el modal.
+- **Modal reestructurado en 4 secciones** (Datos del vehículo / Destino y costos del transporte / Causal del ajuste / Ahorro) con grid de 2 columnas y títulos; antes «Flete» y «Destino» quedaban fuera del grid. Etiqueta «Desc transp» → «Descargue transp (cargue/descargue)».
+- **Fusión y División**: ambos modales suman un select «Causal del sobre costo» (obligatorio si la operación genera sobre costo).
+- **Tabla principal**: resaltado **«⚠️ Sin causal»** en rojo cuando un vehículo tiene sobre costo sin causal.
+- **Archivo**: `src/Componentes/PedidosComponentes/TablaPedidos.tsx`.
+
+### Pedidos Completados (`/integrapp/PedidosCompletados`) — causal, ahorro, Excel y fixes
+- **Columna Causal** con botón **«⚠️ Sin causal»** que abre un Swal para asignar la causal (vía `PUT /pedidos/asignar-causal-completado`) a los históricos que quedaron sin ella; al asignar, desaparece el aviso. Nueva columna **Ahorro**.
+- **Fix de columnas**: el header «Observaciones» no tenía celda (los estados se mostraban en la columna equivocada) → reemplazado por columnas Causal + Ahorro alineadas (`colSpan` 19→21). Typo «Car/desc Teorico Teorico» → «Car/desc Teórico».
+- **Excel reestructurado** (cambio de backend): ahora es **una sola hoja** con **una fila por pedido/planilla** y nombres legibles, con columna **Fecha** en `DD/MM/AAAA`, **Planilla** y **Destinatario (Ubicación Descargue)** visibles (antes era un volcado crudo con nombres técnicos).
+- **Mensaje de error de red** más claro: si el servidor no responde por exceso de datos, sugiere acortar el rango de fechas.
+- **Archivos**: `src/Componentes/PedidosComponentes/TablaPedidosCompletados.tsx`, `src/Componentes/PedidosComponentes/TablaPedidos.tsx`, `src/Funciones/ApiPedidos/apiPedidos.tsx`.

@@ -108,6 +108,8 @@ export interface ListarCompletadosResponse {
   total_desvio_vehiculo: number;
   diferencia_flete: number;
   Observaciones_ajustes?: string;
+  ahorro?: number;
+  observacion?: string;
   pedidos: Pedido[];
 }
 
@@ -124,6 +126,9 @@ export interface AjusteVehiculo {
   nuevo_destino?: string;
   destino_desde_real?: string;
   usr_solicita_ajuste?: string;
+  // Ahorro operativo (metadata, máx $5.000.000) y su observación
+  ahorro?: number;
+  observacion?: string;
 
 }
 
@@ -305,6 +310,19 @@ export const exportarCompletados = async (
   return data;
 };
 
+// 7.b) Asignar causal de sobre costo a un vehículo completado (arreglo de históricos)
+export const asignarCausalCompletado = async (
+  usuario: string,
+  consecutivo_vehiculo: string,
+  causal: string
+): Promise<{ mensaje: string; docs_actualizados: number }> => {
+  const { data } = await axios.put(
+    `${API_BASE}/pedidos/asignar-causal-completado`,
+    { usuario, consecutivo_vehiculo, causal }
+  );
+  return data;
+};
+
 // 8) Listar sólo vehículos completados
 export const listarVehiculosCompletados = async (
   usuario: string,
@@ -362,6 +380,7 @@ export type FusionVehiculosPayload = {
   total_punto_adicional: number;
   total_desvio_vehiculo: number;
   observacion_fusion?: string;
+  causal_sobrecosto?: string; // requerido si la fusión genera sobre costo
 };
 
 export async function fusionarVehiculos(
@@ -400,6 +419,7 @@ export type DividirHastaTresPayload = {
   consecutivo_origen: string;
   destino_unico: string;
   observacion_division?: string;
+  causal_sobrecosto?: string; // requerido si la división genera sobre costo
   /** Campo por el cual se agrupan/mueven destinatarios cuando se usa Opción 1 */
   campo_destinatario?: 'ubicacion_descargue' | 'destino_real' | string;
   grupo_B?: GrupoDivision;
