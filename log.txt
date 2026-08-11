@@ -1,91 +1,78 @@
-ASUS@DESKTOP-JIQ34KO MINGW64 ~/OneDrive - Integra Logistica/Desarrollos/integra/integrappi (main)
-$ uvicorn main:app --reload
-INFO:     Will watch for changes in these directories: ['C:\\Users\\ASUS\\OneDrive - Integra Logistica\\Desarrollos\\integra\\integrappi']
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [26268] using WatchFiles
-🔌 Intentando conectar a MongoDB (intento 1/3)...
-✅ Conexión exitosa a MongoDB
-INFO:     Started server process [23692]
-INFO:     Waiting for application startup.
-[LIFESPAN] Iniciando aplicación...
-INFO:main:[LIFESPAN] Iniciando aplicación...
-[LIFESPAN] Tarea de sync creada: <Task pending name='Task-3' coro=<_loop_sync_v3() running at C:\Users\ASUS\OneDrive - Integra Logistica\Desarrollos\integra\integrappi\main.py:38>>
-INFO:main:[LIFESPAN] Tarea de sync creada: <Task pending name='Task-3' coro=<_loop_sync_v3() running at C:\Users\ASUS\OneDrive - Integra Logistica\Desarrollos\integra\integrappi\main.py:38>>
-[sync_v3] Tarea de fondo iniciada
-INFO:main:[sync_v3] Tarea de fondo iniciada
-INFO:     Application startup complete.
-INFO:     127.0.0.1:50210 - "GET /pacientes-medical-care/ocupacion-rutas HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57533 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49926 - "GET /pacientes-medical-care/ocupacion-rutas HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57533 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 16:54
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:54
-[sync_v3] Tick - Hora Bogotá: 16:55
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:55
-INFO:     127.0.0.1:62337 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 16:55
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:55
-[sync_v3] Tick - Hora Bogotá: 16:56
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:56
-INFO:     127.0.0.1:52349 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 16:56
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:56
-[sync_v3] Tick - Hora Bogotá: 16:57
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:57
-INFO:     127.0.0.1:59777 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 16:57
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:57
-[sync_v3] Tick - Hora Bogotá: 16:58
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:58
-INFO:     127.0.0.1:60491 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 16:58
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:58
-[sync_v3] Tick - Hora Bogotá: 16:59
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:59
-INFO:     127.0.0.1:56125 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 16:59
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 16:59
-[sync_v3] Tick - Hora Bogotá: 17:00
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:00
-INFO:     127.0.0.1:63400 - "GET /pacientes-medical-care/ocupacion-rutas HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57343 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54358 - "GET /pacientes-medical-care/ocupacion-rutas HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61561 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 17:00
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:00
-[sync_v3] Tick - Hora Bogotá: 17:01
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:01
-INFO:     127.0.0.1:53381 - "GET /pacientes-medical-care/ocupacion-rutas HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52850 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54939 - "GET /pacientes-medical-care/ocupacion-rutas HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55197 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 17:01
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:01
-INFO:rutas.pacientes_medical_care:[/recalcular-cruce] usuario=EZARATE, enviar_correo=True
-INFO:     127.0.0.1:54186 - "POST /pacientes-medical-care/recalcular-cruce?usuario=EZARATE&enviar_correo=true HTTP/1.1" 200 OK
-INFO:rutas.pacientes_medical_care:[recalcular-cruce] Completado. fecha=2026-05-05 17:01:53, pacientes=6209, total_v3=4210, sin_paciente=310, zona_gris=0, llave_vacia=0
-INFO:rutas.pacientes_medical_care:[whatsapp_cruce] Enviando notificaciones a 2 usuarios
-INFO:rutas.pacientes_medical_care:[cruce_email] Retraso-op enviado a edwin.zarate@integralogistica.com (CEDI=FUNZA, admin=True, 167 registros)
-INFO:rutas.pacientes_medical_care:[whatsapp_cruce] Stats para EDWIN ZARATE (regional=None, es_admin=True): sin_cruce=1148, retraso=0
-INFO:rutas.pacientes_medical_care:[whatsapp_cruce] Stats para EDWIN PRUEBA (regional=FUNZA, es_admin=False): sin_cruce=317, retraso=0
-INFO:rutas.pacientes_medical_care:[cruce_email] DEBUG INTEGRAPPLOGISTICA@GMAIL.COM: CEDI=FUNZA, admin=False | Correo: sin_cruce=271, v3_sp=62 | Función compartida: sin_cruce=317
-INFO:rutas.pacientes_medical_care:[cruce_email] Sin-cruce enviado a INTEGRAPPLOGISTICA@GMAIL.COM (CEDI=FUNZA, admin=False, 271 sin cruce, 62 v3 sin paciente)
+
+[sync_v3] Horarios configurados: ['07:00', '14:00'], hora actual: 15:30
+INFO:     173.252.107.42:0 - "POST /whatsapp HTTP/1.1" 200 OK
+INFO:     69.171.230.23:0 - "POST /whatsapp HTTP/1.1" 200 OK
+INFO:     173.252.107.42:0 - "POST /whatsapp HTTP/1.1" 200 OK
+INFO:     173.252.95.60:0 - "POST /whatsapp HTTP/1.1" 200 OK
 INFO:httpx:HTTP Request: POST https://graph.facebook.com/v22.0/962664760261316/messages "HTTP/1.1 200 OK"
-INFO:rutas.pacientes_medical_care:[whatsapp_cruce] WS enviado a 573218695196 (EDWIN PRUEBA) - sin_cruce
-[sync_v3] Tick - Hora Bogotá: 17:02
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:02
-INFO:     127.0.0.1:50261 - "GET /sync-v3/estado HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 17:02
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:02
-INFO:     127.0.0.1:55678 - "GET /baseusuarios/ HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56402 - "GET /baseusuarios/perfiles-disponibles HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55678 - "GET /baseusuarios/perfiles-disponibles HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54699 - "GET /baseusuarios/ HTTP/1.1" 200 OK
-[sync_v3] Tick - Hora Bogotá: 17:03
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:03
-[sync_v3] Tick - Hora Bogotá: 17:03
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:03
-[sync_v3] Tick - Hora Bogotá: 17:04
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:04
-[sync_v3] Tick - Hora Bogotá: 17:04
-[sync_v3] Horarios configurados: ['08:00', '14:00', '16:06'], hora actual: 17:04
+INFO:     173.252.95.48:0 - "POST /whatsapp HTTP/1.1" 200 OK
+➡️ SOAP request guia: 801222070
+➡️ ENDPOINT: https://integra.appsiscore.com/app/ws/trazabilidad.php
+➡️ SOAP_ACTION: ConsultarGuiaImagen
+➡️ TOKEN_LEN: 64
+➡️ PROXY_ENABLED: True
+➡️ PROXY: 138.68.36.69:3128
+➡️ DEST_HOST: integra.appsiscore.com:443
+➡️ DEST_IPS: 148.72.158.199
+❌ PROXY_TEST ERROR: ProxyError('407 Proxy Authentication Required')
+❌ SISCORE PROXY ERROR: ProxyError intento 1/3: ProxyError('407 Proxy Authentication Required')
+INFO:     69.171.230.3:0 - "POST /whatsapp HTTP/1.1" 200 OK
+INFO:     173.252.107.29:0 - "POST /whatsapp HTTP/1.1" 200 OK
+INFO:     173.252.107.114:0 - "POST /whatsapp HTTP/1.1" 200 OK
+❌ SISCORE PROXY ERROR: ProxyError intento 2/3: ProxyError('407 Proxy Authentication Required')
+INFO:     173.252.95.42:0 - "POST /whatsapp HTTP/1.1" 200 OK
+❌ SISCORE PROXY ERROR: ProxyError intento 3/3: ProxyError('407 Proxy Authentication Required')
+ERROR:integra:Siscore SOAP ERROR (bg): 407 Proxy Authentication Required
+ERROR:integra:Traceback Siscore (bg):
+Traceback (most recent call last):
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpcore/_async/http_proxy.py", line 297, in handle_async_request
+    raise ProxyError(msg)
+httpcore.ProxyError: 407 Proxy Authentication Required
+The above exception was the direct cause of the following exception:
+Traceback (most recent call last):
+  File "/opt/render/project/src/rutas/whatsapp_integra.py", line 375, in _procesar_siscore_y_responder
+    payload = await consultar_guia_ws(guia, timeout_seconds=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/Funciones/siscore_ws_tracking.py", line 210, in consultar_guia_ws
+    resp = await client.post(
+           ^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
+    return await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/opt/render/project/python/Python-3.11.11/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/opt/render/project/src/.venv/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ProxyError: 407 Proxy Authentication Required
+INFO:httpx:HTTP Request: POST https://graph.facebook.com/v22.0/962664760261316/messages "HTTP/1.1 200 OK"
+INFO:     173.252.127.10:0 - "POST /whatsapp HTTP/1.1" 200 OK
+INFO:     173.252.107.24:0 - "POST /whatsapp HTTP/1.1" 200 OK
+INFO:     173.252.107.8:0 - "POST /whatsapp HTTP/1.1" 200 OK
+[sync_v3] Tick - Hora Bogotá: 15:31

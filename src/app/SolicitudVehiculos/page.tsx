@@ -94,6 +94,8 @@ interface PlanillaResultado {
   // Ahorro operativo generado y su observación (ingreso manual; máx. $5.000.000)
   ahorro?: number;
   observacion?: string;
+  // Texto libre que explica/amplía la causal elegida (opcional, máx. 1000 chars)
+  observacion_causal?: string;
   // Estado de aprobación
   estado?: 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
   aprobado_por?: string;  // Usuario que aprobó
@@ -400,6 +402,7 @@ const SolicitudVehiculos: React.FC = () => {
               placa: p.placa || '',
               tipo_veh_sicetac: p.tipo_veh_sicetac,
               causal: p.causal || '',  // Causal de la modificación
+              observacion_causal: p.observacion_causal || '',  // Observación de la causal
               guardado: true,
               solicitando_id: undefined,
               estado: p.estado || 'PREAPROBADO',
@@ -619,7 +622,7 @@ const SolicitudVehiculos: React.FC = () => {
   // Trackea si el mousedown empezó en el fondo del overlay, para evitar que
   // seleccionar texto dentro de un input (mousedown dentro, mouseup fuera) cierre el modal.
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
-  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string; municipio_destino?: string; ahorro?: number; observacion?: string } | null>(null);
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string; municipio_destino?: string; ahorro?: number; observacion?: string; observacion_causal?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [rutasDisponibles, setRutasDisponibles] = useState<string[]>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
@@ -1377,6 +1380,7 @@ const SolicitudVehiculos: React.FC = () => {
         municipio_destino: resultado.municipio_destino || null,  // Municipio principal (editable manualmente)
         ahorro: resultado.ahorro ?? 0,  // Ahorro operativo (máx. $5.000.000 validado en backend)
         observacion: resultado.observacion || '',  // Observación del ahorro
+        observacion_causal: resultado.observacion_causal || '',  // Observación de la causal
         usuario_modificacion: usuarioCookie  // Trazabilidad: quién está editando
       };
 
@@ -2908,7 +2912,8 @@ const SolicitudVehiculos: React.FC = () => {
       causal: resultado.causal || '',  // Causal existente si la tiene
       municipio_destino: resultado.municipio_destino || '-',  // Municipio principal (editable; default = el de mayor participación)
       ahorro: resultado.ahorro ?? 0,  // Ahorro operativo (si ya fue registrado)
-      observacion: resultado.observacion || ''  // Observación del ahorro (si ya fue registrada)
+      observacion: resultado.observacion || '',  // Observación del ahorro (si ya fue registrada)
+      observacion_causal: resultado.observacion_causal || ''  // Texto que explica la causal (si ya fue registrado)
     };
     setModalDetalle({ abierto: true, resultado, indice });
     setTempEdicion(tempEdicionInit);
@@ -3458,6 +3463,7 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Cant. Destinos</th>
                         <th>Código Pedido</th>
                         <th>Observaciones</th>
+                        <th>Obs. Causal</th>
                         <th>Ahorro</th>
                         <th>Obs. Ahorro</th>
                       </tr>
@@ -3746,6 +3752,9 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td className="SV-truncate" title={resultado.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>
                             {resultado.causal || '-'}
+                          </td>
+                          <td className="SV-truncate" title={resultado.observacion_causal || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>
+                            {resultado.observacion_causal || '-'}
                           </td>
                           <td style={{ fontWeight: '700', color: resultado.ahorro ? '#047857' : undefined, textAlign: 'right', whiteSpace: 'nowrap' }} title={resultado.observacion ? `${resultado.observacion}` : ''}>
                             {resultado.encontrada && resultado.ahorro ? `$${resultado.ahorro.toLocaleString('es-CO')}` : '-'}
@@ -4152,6 +4161,25 @@ const SolicitudVehiculos: React.FC = () => {
                             ? 'El valor solicitado ($' + totalActual.toLocaleString('es-CO') + ') es mayor al teórico ($' + teorico.toLocaleString('es-CO') + '). Debes seleccionar una causal que justifique el sobrecosto.'
                             : 'El valor solicitado está por debajo o igual al teórico. La causal es opcional.'}
                         </p>
+
+                        {/* Observación de la causal (texto libre, opcional, máx. 1000 chars) */}
+                        <div style={{ marginTop: '1rem' }}>
+                          <label style={{ display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '0.3rem', fontWeight: '600' }}>
+                            Observación de la causal
+                            <span style={{ color: '#059669', marginLeft: '0.5rem', fontSize: '0.8rem' }}>(Opcional)</span>
+                          </label>
+                          <textarea
+                            className="SV-inputSmall"
+                            value={tempEdicion?.observacion_causal || ''}
+                            onChange={(e) => setTempEdicion(prev => prev ? { ...prev, observacion_causal: e.target.value } : null)}
+                            style={{ width: '100%', maxWidth: '520px', padding: '0.5rem', fontSize: '0.9rem', minHeight: '70px', resize: 'vertical', fontFamily: 'inherit' }}
+                            placeholder="Describe o amplía la causal seleccionada (opcional, máx. 1000 caracteres)"
+                            maxLength={1000}
+                          />
+                          <p style={{ fontSize: '0.75rem', color: '#999', margin: '0.25rem 0 0 0', textAlign: 'right', maxWidth: '520px' }}>
+                            {(tempEdicion?.observacion_causal || '').length}/1000
+                          </p>
+                        </div>
                       </>
                     );
                   })()}
@@ -4201,7 +4229,8 @@ const SolicitudVehiculos: React.FC = () => {
                       causal: tempEdicion.causal || '',  // Agregar causal
                       municipio_destino: tempEdicion.municipio_destino || modalDetalle.resultado.municipio_destino,  // Municipio principal elegido manualmente
                       ahorro: tempEdicion.ahorro ?? 0,  // Ahorro operativo
-                      observacion: tempEdicion.observacion || ''  // Observación del ahorro
+                      observacion: tempEdicion.observacion || '',  // Observación del ahorro
+                      observacion_causal: tempEdicion.observacion_causal || ''  // Observación de la causal
                     };
 
                     // Recalcular la tarifa (Flete Teórico) si cambió la ruta O el tipo_veh_sicetac.
