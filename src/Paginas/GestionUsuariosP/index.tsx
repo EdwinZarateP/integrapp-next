@@ -18,6 +18,7 @@ const CLIENTES_DISPONIBLES = [
 
 const REGIONALES = [
   'FUNZA',
+  'CELTA',
   'CALI',
   'MEDELLIN',
   'BUCARAMANGA',

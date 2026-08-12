@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaDownload, FaFilter } from 'react-icons/fa';
@@ -20,6 +20,21 @@ type SerieItem = {
   total: number;
   sobrecosto: number;  // >= 0 (diferencia positiva media + última milla)
   ahorro: number;      // <= 0 (diferencia negativa media + última milla)
+  cajas_media: number;    // total_cajas_vehiculo (media milla)
+  cajas_ultima: number;   // piezas (última milla)
+  cajas_otros: number;    // datos_servicio.piezas (otros costos)
+  total_cajas: number;
+};
+
+// Costo por caja por período (reglas por cliente: Kabi usa cajas de media milla +
+// costo de 3 etapas; otros usan cajas de última milla + costo de última+otros).
+type CostoCajaItem = {
+  periodo: string;
+  costo_por_caja: number;
+  costo_kabi: number;
+  costo_otros: number;
+  cajas_kabi: number;
+  cajas_otros: number;
 };
 
 type ApiResponse = {
@@ -29,8 +44,18 @@ type ApiResponse = {
     serieDiaria: SerieItem[];
     anios: number[];
     clientes: string[];
+    etiquetas?: Record<string, string>; // nombres visibles de las etapas (vienen del backend)
   };
   error?: string;
+};
+
+// Etiquetas por defecto (fallback). El backend envía las vigentes en data.etiquetas,
+// que es donde se cambian los nombres visibles sin tocar el frontend. Las claves son
+// técnicas y fijas (contrato backend↔frontend).
+const ETIQUETAS_DEFAULT: Record<string, string> = {
+  media_milla: 'Media milla',
+  ultima_milla: 'Última milla',
+  otros_costos: 'Otros costos',
 };
 
 const MESES = [
@@ -61,10 +86,17 @@ const IndicadoresCostoOperacion: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [serieMensual, setSerieMensual] = useState<SerieItem[]>([]);
   const [serieDiaria, setSerieDiaria] = useState<SerieItem[]>([]);
+  const [costoCajaMensual, setCostoCajaMensual] = useState<CostoCajaItem[]>([]);
+  const [costoCajaDiaria, setCostoCajaDiaria] = useState<CostoCajaItem[]>([]);
+  // Etiquetas vigentes de las etapas (vienen del backend; fallback por si faltan).
+  const [etiquetas, setEtiquetas] = useState<Record<string, string>>(ETIQUETAS_DEFAULT);
+  const lbl = useMemo(() => ({ ...ETIQUETAS_DEFAULT, ...etiquetas }), [etiquetas]);
 
   // Vista de cada gráfico (toggle independiente): mensual (default) o diaria.
   const [vista, setVista] = useState<'mensual' | 'diaria'>('mensual');
   const [vistaDif, setVistaDif] = useState<'mensual' | 'diaria'>('mensual');
+  const [vistaCajas, setVistaCajas] = useState<'mensual' | 'diaria'>('mensual');
+  const [vistaCaja, setVistaCaja] = useState<'mensual' | 'diaria'>('mensual');
 
   // Filtros en pantalla (no disparan fetch hasta "Filtrar")
   const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
@@ -94,6 +126,17 @@ const IndicadoresCostoOperacion: React.FC = () => {
     if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
     if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
     return formatearMoneda(n);
+  };
+  // Formateador de enteros (cajas/piezas, sin decimales ni símbolo).
+  const formatearEntero = (num: number): string =>
+    new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(num || 0);
+  // Formateador de enteros corto para etiquetas sobre los puntos de la línea
+  // (1.2k / 12k / 1.2M) — evita amontonar cifras grandes en el eje.
+  const formatearEnteroCorto = (num: number): string => {
+    const n = num || 0;
+    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+    return String(Math.round(n));
   };
 
   // Usuario + cerrar menús al click fuera
@@ -130,6 +173,7 @@ const IndicadoresCostoOperacion: React.FC = () => {
       if (data.success && data.data) {
         setSerieMensual(data.data.serieMensual || []);
         setSerieDiaria(data.data.serieDiaria || []);
+        if (data.data.etiquetas) setEtiquetas(data.data.etiquetas);
         if (data.data.anios?.length) setAniosDisponibles(data.data.anios);
         setClientesDisponibles(data.data.clientes || []);
       } else {
@@ -150,7 +194,25 @@ const IndicadoresCostoOperacion: React.FC = () => {
     });
   };
 
-  useEffect(() => { obtenerDatos(); /* eslint-disable-next-line */ }, [filtrosAplicados]);
+  // Costo por caja (endpoint dedicado, reglas por cliente). Fallo silencioso: si no
+  // carga, simplemente no se muestra el gráfico.
+  const obtenerCostoCaja = async () => {
+    try {
+      const params = new URLSearchParams();
+      filtrosAplicados.anios.forEach(a => params.append('anio', String(a)));
+      filtrosAplicados.meses.forEach(m => params.append('mes', String(m)));
+      filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-costo-operacion/costo-por-caja?${params.toString()}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success) {
+        setCostoCajaMensual(json.data?.mensual ?? []);
+        setCostoCajaDiaria(json.data?.diario ?? []);
+      }
+    } catch { /* gráfico opcional: fallo silencioso */ }
+  };
+
+  useEffect(() => { obtenerDatos(); obtenerCostoCaja(); /* eslint-disable-next-line */ }, [filtrosAplicados]);
 
   // Datos del gráfico de costo según su vista (mensual/diaria).
   const dataChart = useMemo<SerieItem[]>(
@@ -169,6 +231,19 @@ const IndicadoresCostoOperacion: React.FC = () => {
     })),
     [vistaDif, serieDiaria, serieMensual],
   );
+
+  // Datos del gráfico de cajas por etapa (3 líneas), según su propia vista.
+  const dataCajas = useMemo<SerieItem[]>(
+    () => (vistaCajas === 'diaria' ? serieDiaria : serieMensual),
+    [vistaCajas, serieDiaria, serieMensual],
+  );
+
+  // Datos del gráfico de costo por caja, según su propia vista.
+  const dataCaja = useMemo<CostoCajaItem[]>(
+    () => (vistaCaja === 'diaria' ? costoCajaDiaria : costoCajaMensual),
+    [vistaCaja, costoCajaDiaria, costoCajaMensual],
+  );
+  const intervalCaja = dataCaja.length > 1 ? Math.max(0, Math.ceil(dataCaja.length / 12) - 1) : 0;
 
   // Clientes filtrados por búsqueda en el dropdown.
   const clientesFiltradosDropdown = useMemo(() => {
@@ -190,7 +265,7 @@ const IndicadoresCostoOperacion: React.FC = () => {
       vista === 'diaria'
         ? format(parseISO(f), 'dd/MM/yyyy')
         : format(parseISO(f + '-01'), 'MM/yyyy');
-    const cabeceras = [colFecha, 'Media milla', 'Última milla', 'Otros costos', 'Total', 'Sobrecosto', 'Ahorro'];
+    const cabeceras = [colFecha, lbl.media_milla, lbl.ultima_milla, lbl.otros_costos, 'Total', 'Sobrecosto', 'Ahorro'];
     const filas = dataChart.map(d => [
       fmtFecha(d.periodo),
       Math.round(d.media_milla || 0),
@@ -240,9 +315,9 @@ const IndicadoresCostoOperacion: React.FC = () => {
     return (
       <div className="IG-tooltipSerie">
         <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
-        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_MEDIA }} />Media milla: <b>{formatearMoneda(d.media_milla)}</b></p>
-        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_ULTIMA }} />Última milla: <b>{formatearMoneda(d.ultima_milla)}</b></p>
-        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_OTROS }} />Otros costos: <b>{formatearMoneda(d.otros_costos)}</b></p>
+        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_MEDIA }} />{lbl.media_milla}: <b>{formatearMoneda(d.media_milla)}</b></p>
+        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_ULTIMA }} />{lbl.ultima_milla}: <b>{formatearMoneda(d.ultima_milla)}</b></p>
+        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_OTROS }} />{lbl.otros_costos}: <b>{formatearMoneda(d.otros_costos)}</b></p>
         <p className="IG-tooltipSerieTotal">Total operación: {formatearMoneda(d.total)}</p>
       </div>
     );
@@ -269,9 +344,48 @@ const IndicadoresCostoOperacion: React.FC = () => {
     );
   };
 
+  // Tooltip del gráfico de cajas: desglose por etapa + total de cajas del período.
+  const tooltipCajas = (props: any) => {
+    if (!props.active || !props.payload || !props.payload.length) return null;
+    const d = props.payload[0].payload as SerieItem;
+    const fechaTxt = vistaCajas === 'diaria'
+      ? format(parseISO(d.periodo), "d 'de' MMMM yyyy", { locale: es })
+      : format(parseISO(d.periodo + '-01'), 'MMMM yyyy', { locale: es });
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
+        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_MEDIA }} />{lbl.media_milla}: <b>{formatearEntero(d.cajas_media)}</b></p>
+        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_ULTIMA }} />{lbl.ultima_milla}: <b>{formatearEntero(d.cajas_ultima)}</b></p>
+        <p><span className="IG-tooltipEtapa" style={{ background: COLOR_OTROS }} />{lbl.otros_costos}: <b>{formatearEntero(d.cajas_otros)}</b></p>
+        <p className="IG-tooltipSerieTotal">Total cajas: {formatearEntero(d.total_cajas)}</p>
+      </div>
+    );
+  };
+
+  // Tooltip del costo por caja: total de dinero y cajas del período (sin segregación).
+  const tooltipCostoCaja = (props: any) => {
+    if (!props.active || !props.payload || !props.payload.length) return null;
+    const d = props.payload[0].payload as CostoCajaItem;
+    const fechaTxt = vistaCaja === 'diaria'
+      ? format(parseISO(d.periodo), "d 'de' MMMM yyyy", { locale: es })
+      : format(parseISO(d.periodo + '-01'), 'MMMM yyyy', { locale: es });
+    const totalCosto = (d.costo_kabi || 0) + (d.costo_otros || 0);
+    const totalCajas = (d.cajas_kabi || 0) + (d.cajas_otros || 0);
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
+        <p className="IG-tooltipSerieTotal">Costo por caja: {formatearMoneda(d.costo_por_caja)}</p>
+        <p className="IG-tooltipSerieSub">
+          Costo total: {formatearMoneda(totalCosto)} · {formatearEntero(totalCajas)} cajas
+        </p>
+      </div>
+    );
+  };
+
   // Intervalo del eje X para no amontonar etiquetas (uno por gráfico, según su vista).
   const interval = dataChart.length > 1 ? Math.max(0, Math.ceil(dataChart.length / 12) - 1) : 0;
   const intervalDif = dataDif.length > 1 ? Math.max(0, Math.ceil(dataDif.length / 12) - 1) : 0;
+  const intervalCajas = dataCajas.length > 1 ? Math.max(0, Math.ceil(dataCajas.length / 12) - 1) : 0;
 
   // Dominio del eje Y del gráfico de sobrecosto/ahorro: anclado en 0. Holgura balanceada
   // (20 % de la mayor magnitud) a cada lado para que las etiquetas verticales —sobrecosto
@@ -481,9 +595,9 @@ const IndicadoresCostoOperacion: React.FC = () => {
                     </div>
                   </div>
                   <p className="IG-graficoSub">
-                    <span style={{ color: COLOR_MEDIA }}>●</span> <b>Media milla</b>
-                    {'  '}<span style={{ color: COLOR_ULTIMA }}>●</span> <b>Última milla</b>
-                    {'  '}<span style={{ color: COLOR_OTROS }}>●</span> <b>Otros costos</b>
+                    <span style={{ color: COLOR_MEDIA }}>●</span> <b>{lbl.media_milla}</b>
+                    {'  '}<span style={{ color: COLOR_ULTIMA }}>●</span> <b>{lbl.ultima_milla}</b>
+                    {'  '}<span style={{ color: COLOR_OTROS }}>●</span> <b>{lbl.otros_costos}</b>
                   </p>
                   <div style={{ width: '100%', height: 380 }}>
                     <ResponsiveContainer width="100%" height={380}>
@@ -493,11 +607,11 @@ const IndicadoresCostoOperacion: React.FC = () => {
                         <YAxis tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
                         <Tooltip content={tooltipContenido} cursor={{ fill: 'rgba(15,25,40,0.05)' }} />
                         <Legend />
-                        <Bar dataKey="media_milla" stackId="a" fill={COLOR_MEDIA} name="Media milla" isAnimationActive={false} />
-                        <Bar dataKey="ultima_milla" stackId="a" fill={COLOR_ULTIMA} name="Última milla" isAnimationActive={false} />
+                        <Bar dataKey="media_milla" stackId="a" fill={COLOR_MEDIA} name={lbl.media_milla} isAnimationActive={false} />
+                        <Bar dataKey="ultima_milla" stackId="a" fill={COLOR_ULTIMA} name={lbl.ultima_milla} isAnimationActive={false} />
                         {/* Última barra del stack: su cima siempre corona la pila, así que un
                             LabelList position="top" cae en la cima real y dataKey="total" la etiqueta. */}
-                        <Bar dataKey="otros_costos" stackId="a" fill={COLOR_OTROS} name="Otros costos" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                        <Bar dataKey="otros_costos" stackId="a" fill={COLOR_OTROS} name={lbl.otros_costos} radius={[3, 3, 0, 0]} isAnimationActive={false}>
                           <LabelList
                             dataKey="total"
                             position="top"
@@ -610,6 +724,104 @@ const IndicadoresCostoOperacion: React.FC = () => {
                 </>
               ) : (
                 <div className="IG-sinDatos"><p>No hay datos de sobrecosto/ahorro para el período seleccionado</p></div>
+              )}
+            </div>
+
+            {/* Cantidad de cajas/piezas por etapa — 3 líneas (una por etapa) con toggle
+                Mensual/Diario propio. Muestra el volumen de cada etapa del viaje.
+                Nota: media milla suma cajas (total_cajas_vehiculo); las otras dos suman piezas. */}
+            <div className="IG-graficoContainer">
+              {dataCajas.some(d => (d.cajas_media || d.cajas_ultima || d.cajas_otros) > 0) ? (
+                <>
+                  <div className="IG-graficoHeader">
+                    <div className="IG-graficoTituloWrap">
+                      <h2 className="IG-graficoTitulo">
+                        📦 Cantidad de cajas por etapa
+                        <span className="IG-graficoBadge">{vistaCajas === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                      </h2>
+                    </div>
+                    <div className="IG-graficoAcciones">
+                      <div className="IG-toggleGrupo" role="group" aria-label="Vista del gráfico">
+                        <button className={`IG-toggleBtn ${vistaCajas === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaCajas('mensual')}>Mensual</button>
+                        <button className={`IG-toggleBtn ${vistaCajas === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaCajas('diaria')}>Diario</button>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="IG-graficoSub">
+                    <span style={{ color: COLOR_MEDIA }}>●</span> <b>{lbl.media_milla}</b>
+                    {'  '}<span style={{ color: COLOR_ULTIMA }}>●</span> <b>{lbl.ultima_milla}</b>
+                    {'  '}<span style={{ color: COLOR_OTROS }}>●</span> <b>{lbl.otros_costos}</b>
+                  </p>
+                  <div style={{ width: '100%', height: 380 }}>
+                    <ResponsiveContainer width="100%" height={380}>
+                      <LineChart data={dataCajas} margin={{ top: 20, right: 20, left: 20, bottom: 28 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="periodo" tickFormatter={(val) => formatoEje(val, vistaCajas)} interval={intervalCajas} tick={{ fontSize: 11 }} />
+                        <YAxis tickFormatter={(v) => formatearEntero(v)} width={70} />
+                        <Tooltip content={tooltipCajas} cursor={{ stroke: '#0f1928', strokeDasharray: '3 3' }} />
+                        <Line type="monotone" dataKey="cajas_media" stroke={COLOR_MEDIA} strokeWidth={2} name={lbl.media_milla} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false}>
+                          <LabelList dataKey="cajas_media" position="top" offset={6} formatter={(value: number) => (value > 0 ? formatearEnteroCorto(value) : '')} style={{ fill: COLOR_MEDIA, fontSize: 10, fontWeight: 700 }} />
+                        </Line>
+                        <Line type="monotone" dataKey="cajas_ultima" stroke={COLOR_ULTIMA} strokeWidth={2} name={lbl.ultima_milla} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false}>
+                          <LabelList dataKey="cajas_ultima" position="top" offset={6} formatter={(value: number) => (value > 0 ? formatearEnteroCorto(value) : '')} style={{ fill: COLOR_ULTIMA, fontSize: 10, fontWeight: 700 }} />
+                        </Line>
+                        <Line type="monotone" dataKey="cajas_otros" stroke={COLOR_OTROS} strokeWidth={2} name={lbl.otros_costos} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false}>
+                          <LabelList dataKey="cajas_otros" position="top" offset={6} formatter={(value: number) => (value > 0 ? formatearEnteroCorto(value) : '')} style={{ fill: COLOR_OTROS, fontSize: 10, fontWeight: 700 }} />
+                        </Line>
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              ) : (
+                <div className="IG-sinDatos"><p>No hay datos de cajas para el período seleccionado</p></div>
+              )}
+            </div>
+
+            {/* Costo por caja: promedio ponderado por período (Σ costo / Σ cajas) con
+                reglas por cliente (Fresenius Kabi usa cajas+costo de las 3 etapas;
+                otros, cajas de última milla + costo de última+otros). Toggle propio. */}
+            <div className="IG-graficoContainer">
+              {dataCaja.some(d => d.costo_por_caja > 0) ? (
+                <>
+                  <div className="IG-graficoHeader">
+                    <div className="IG-graficoTituloWrap">
+                      <h2 className="IG-graficoTitulo">
+                        💲 Costo por caja
+                        <span className="IG-graficoBadge">{vistaCaja === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                      </h2>
+                    </div>
+                    <div className="IG-graficoAcciones">
+                      <div className="IG-toggleGrupo" role="group" aria-label="Vista del gráfico">
+                        <button className={`IG-toggleBtn ${vistaCaja === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaCaja('mensual')}>Mensual</button>
+                        <button className={`IG-toggleBtn ${vistaCaja === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaCaja('diaria')}>Diario</button>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="IG-graficoSub">
+                    Costo por caja promedio del período. Fresenius Kabi toma cajas de {lbl.media_milla.toLowerCase()} y costo de las 3 etapas; los demás, cajas de {lbl.ultima_milla.toLowerCase()} y costo de {lbl.ultima_milla.toLowerCase()} + {lbl.otros_costos.toLowerCase()}.
+                  </p>
+                  <div style={{ width: '100%', height: 380 }}>
+                    <ResponsiveContainer width="100%" height={380}>
+                      <BarChart data={dataCaja} margin={{ top: 28, right: 20, left: 20, bottom: 28 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="periodo" tickFormatter={(val) => formatoEje(val, vistaCaja)} interval={intervalCaja} tick={{ fontSize: 11 }} />
+                        <YAxis tickFormatter={(v) => formatearMonedaCorta(v)} width={70} />
+                        <Tooltip content={tooltipCostoCaja} cursor={{ fill: 'rgba(15,25,40,0.05)' }} />
+                        <Bar dataKey="costo_por_caja" name="Costo por caja" fill={COLOR_MEDIA} radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                          <LabelList
+                            dataKey="costo_por_caja"
+                            position="top"
+                            offset={8}
+                            formatter={(value: number) => (value > 0 ? formatearMoneda(value) : '')}
+                            style={{ fill: '#0f1928', fontWeight: 700, fontSize: 11 }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              ) : (
+                <div className="IG-sinDatos"><p>No hay datos de costo por caja para el período seleccionado</p></div>
               )}
             </div>
           </>
