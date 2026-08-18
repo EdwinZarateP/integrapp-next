@@ -26,8 +26,10 @@ export interface DatosServicio {
 
 export interface DatosBancarios {
   banco: string;
+  codigo_banco?: string;
   tipo_cuenta: string;
   numero_cuenta: string;
+  tipo_id_titular?: string;
   cedula_titular: string;
   nombre_titular: string;
 }
@@ -126,8 +128,13 @@ export const getTiposCosto = async (): Promise<string[]> => {
   return res.data;
 };
 
-export const getBancos = async (): Promise<string[]> => {
-  const res = await axios.get<string[]>(`${BASE_URL}/bancos`);
+export interface BancoCatalogo {
+  nombre: string;
+  codigo: string;
+}
+
+export const getBancos = async (): Promise<BancoCatalogo[]> => {
+  const res = await axios.get<BancoCatalogo[]>(`${BASE_URL}/bancos`);
   return res.data;
 };
 

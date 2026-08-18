@@ -14,7 +14,7 @@ import {
   enviarAprobacion, aprobarSolicitud, devolverSolicitud, rechazarSolicitud,
   registrarPago, anularSolicitud, exportarExcel, marcarTramiteVulcano,
   getTiposCosto, getBancos, getTiposCuenta, getClientes,
-  type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado,
+  type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado, type BancoCatalogo,
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import './estilos.css';
 
@@ -110,7 +110,7 @@ interface FormState {
     municipio_destino: string; departamento_destino: string; transportador: string; manifiesto: string;
   };
   costos: CostoConcepto[];
-  datos_bancarios: { banco: string; tipo_cuenta: string; numero_cuenta: string; cedula_titular: string; nombre_titular: string };
+  datos_bancarios: { banco: string; tipo_cuenta: string; numero_cuenta: string; tipo_id_titular: string; cedula_titular: string; nombre_titular: string };
   conductor: { nombre: string; telefono: string };
 }
 
@@ -120,7 +120,7 @@ const formVacio = (): FormState => ({
   motivo_no_encontrado: '',
   datos_servicio: { cliente: '', centro_distribucion: '', fecha_servicio: '', piezas: 0, peso_real: 0, tipo_vehiculo: '', placa: '', municipio_destino: '', departamento_destino: '', transportador: '', manifiesto: '' },
   costos: [{ tipo_costo: '', descripcion: '', valor: 0 }],
-  datos_bancarios: { banco: '', tipo_cuenta: '', numero_cuenta: '', cedula_titular: '', nombre_titular: '' },
+  datos_bancarios: { banco: '', tipo_cuenta: '', numero_cuenta: '', tipo_id_titular: 'CC', cedula_titular: '', nombre_titular: '' },
   conductor: { nombre: '', telefono: '' },
 });
 
@@ -136,7 +136,7 @@ const OtrosCostosP: React.FC = () => {
 
   // Enums
   const [tiposCosto, setTiposCosto] = useState<string[]>([]);
-  const [bancos, setBancos] = useState<string[]>([]);
+  const [bancos, setBancos] = useState<BancoCatalogo[]>([]);
   const [tiposCuenta, setTiposCuenta] = useState<string[]>([]);
   const [clientes, setClientes] = useState<string[]>([]);
 
@@ -332,7 +332,7 @@ const OtrosCostosP: React.FC = () => {
         motivo_no_encontrado: d.motivo_no_encontrado,
         datos_servicio: { ...d.datos_servicio, fecha_servicio: d.datos_servicio.fecha_servicio || '' },
         costos: d.costos.length ? d.costos : [{ tipo_costo: '', descripcion: '', valor: 0 }],
-        datos_bancarios: d.datos_bancarios,
+        datos_bancarios: { ...d.datos_bancarios, tipo_id_titular: d.datos_bancarios?.tipo_id_titular || 'CC' },
         conductor: d.conductor,
       });
       // Motivo de la última devolución (para que el operativo vea por qué la devolvieron al editar).
@@ -365,6 +365,7 @@ const OtrosCostosP: React.FC = () => {
     if (totalCostos > LIMITE_VALOR_TOTAL) return `El valor total (${formatMoney(totalCostos)}) supera el máximo permitido (${formatMoney(LIMITE_VALOR_TOTAL)}).`;
     if (!form.datos_bancarios.banco) return 'El banco es obligatorio.';
     if (!form.datos_bancarios.numero_cuenta.trim()) return 'El número de cuenta es obligatorio.';
+    if (!['CC', 'NIT'].includes(form.datos_bancarios.tipo_id_titular)) return 'El tipo de identificación del titular debe ser CC o NIT.';
     if (!form.datos_bancarios.cedula_titular.trim()) return 'La cédula del titular es obligatoria.';
     if (!form.datos_bancarios.nombre_titular.trim()) return 'El nombre del titular es obligatorio.';
     if (!form.conductor.nombre.trim()) return 'El nombre del conductor es obligatorio.';
@@ -675,7 +676,8 @@ const OtrosCostosP: React.FC = () => {
               <Campo label="Banco" v={detalle.datos_bancarios?.banco} />
               <Campo label="Tipo cuenta" v={detalle.datos_bancarios?.tipo_cuenta} />
               <Campo label="Número cuenta" v={detalle.datos_bancarios?.numero_cuenta} />
-              <Campo label="Cédula titular" v={detalle.datos_bancarios?.cedula_titular} />
+              <Campo label="Tipo ID titular" v={detalle.datos_bancarios?.tipo_id_titular} />
+              <Campo label={detalle.datos_bancarios?.tipo_id_titular === 'NIT' ? 'NIT titular' : 'Cédula titular'} v={detalle.datos_bancarios?.cedula_titular} />
               <Campo label="Nombre titular" v={detalle.datos_bancarios?.nombre_titular} />
               <Campo label="Conductor" v={detalle.conductor?.nombre} />
               <Campo label="Teléfono conductor" v={detalle.conductor?.telefono} />
@@ -880,7 +882,10 @@ const OtrosCostosP: React.FC = () => {
                 <label className="OC-label">Banco *</label>
                 <select className="OC-select" value={form.datos_bancarios.banco} onChange={(e) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, banco: e.target.value } })}>
                   <option value="">Seleccione...</option>
-                  {bancos.map((b) => <option key={b} value={b}>{b}</option>)}
+                  {bancos.map((b) => <option key={b.nombre} value={b.nombre}>{b.nombre}</option>)}
+                  {form.datos_bancarios.banco && !bancos.some((b) => b.nombre === form.datos_bancarios.banco) && (
+                    <option value={form.datos_bancarios.banco}>{form.datos_bancarios.banco}</option>
+                  )}
                 </select>
               </div>
               <div className="OC-field">
@@ -891,7 +896,15 @@ const OtrosCostosP: React.FC = () => {
                 </select>
               </div>
               <FieldText label="Número de cuenta *" soloNumeros value={form.datos_bancarios.numero_cuenta} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, numero_cuenta: v } })} />
-              <FieldText label="Cédula del titular *" soloNumeros value={form.datos_bancarios.cedula_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, cedula_titular: v } })} />
+              <div className="OC-field">
+                <label className="OC-label">Tipo de identificación del titular *</label>
+                <select className="OC-select" value={form.datos_bancarios.tipo_id_titular} onChange={(e) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, tipo_id_titular: e.target.value } })}>
+                  <option value="">Seleccione...</option>
+                  <option value="CC">CC</option>
+                  <option value="NIT">NIT</option>
+                </select>
+              </div>
+              <FieldText label={form.datos_bancarios.tipo_id_titular === 'NIT' ? 'NIT del titular *' : 'Cédula del titular *'} soloNumeros value={form.datos_bancarios.cedula_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, cedula_titular: v } })} />
               <FieldText label="Nombre del titular *" mayusculas value={form.datos_bancarios.nombre_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, nombre_titular: v } })} />
               <FieldText label="Nombre del conductor *" mayusculas value={form.conductor.nombre} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, nombre: v } })} />
               <FieldText label="Teléfono del conductor" soloNumeros value={form.conductor.telefono} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, telefono: v } })} />
