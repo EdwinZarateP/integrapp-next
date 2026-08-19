@@ -234,7 +234,7 @@ const HistoricoPedidosP: React.FC = () => {
     }
   };
 
-  // Solo ADMIN: devuelve una planilla del histórico a SolicitudVehiculos.
+  // ADMIN y ANALISTA: devuelve una planilla del histórico a SolicitudVehiculos.
   // Quita el pedido Vulcano y la deja en APROBADO (operación inversa a asignar pedido).
   const handleDevolverASolicitud = async (p: HistoricoDoc) => {
     const result = await Swal.fire({
@@ -483,13 +483,13 @@ const HistoricoPedidosP: React.FC = () => {
                   <th>Observaciones</th>
                   <th>Ahorro</th>
                   <th>Obs. Ahorro</th>
-                  {perfil === 'ADMIN' && <th>Acciones</th>}
+                  {['ADMIN', 'ANALISTA'].includes(perfil) && <th>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {planillasFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={COLS + (perfil === 'ADMIN' ? 1 : 0)} className="HP-empty">No se encontraron registros</td>
+                    <td colSpan={COLS + (['ADMIN', 'ANALISTA'].includes(perfil) ? 1 : 0)} className="HP-empty">No se encontraron registros</td>
                   </tr>
                 ) : (
                   planillasFiltradas.map(p => {
@@ -560,7 +560,7 @@ const HistoricoPedidosP: React.FC = () => {
                           {p.ahorro ? `$${fmtVal(p.ahorro).toLocaleString('es-CO')}` : '-'}
                         </td>
                         <td className="HP-truncate" title={p.observacion || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>{p.observacion || '-'}</td>
-                        {perfil === 'ADMIN' && (
+                        {['ADMIN', 'ANALISTA'].includes(perfil) && (
                           <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <button
                               className="HP-btnAction"
@@ -570,14 +570,16 @@ const HistoricoPedidosP: React.FC = () => {
                             >
                               <FaUndo />
                             </button>
-                            <button
-                              className="HP-btnAction"
-                              title="Anular planilla (la mueve a Pedidos Anulados)"
-                              style={{ background: '#dc2626', marginLeft: '4px' }}
-                              onClick={() => handleAnularPlanilla(p)}
-                            >
-                              <FaBan />
-                            </button>
+                            {perfil === 'ADMIN' && (
+                              <button
+                                className="HP-btnAction"
+                                title="Anular planilla (la mueve a Pedidos Anulados)"
+                                style={{ background: '#dc2626', marginLeft: '4px' }}
+                                onClick={() => handleAnularPlanilla(p)}
+                              >
+                                <FaBan />
+                              </button>
+                            )}
                           </td>
                         )}
                       </tr>
