@@ -12,7 +12,7 @@ import {
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import '../OtrosCostosP/estilos.css';
 
-const PERFILES_PERMITIDOS = ['ADMIN', 'CONTROL', 'COORDINADOR', 'FINANCIERO', 'OPERATIVO', 'ANALISTA'];
+const PERFILES_PERMITIDOS = ['ADMIN', 'CONTROL', 'COORDINADOR', 'FINANCIERO', 'OPERATIVO', 'DESPACHADOR', 'ANALISTA'];
 const PERFILES_GLOBALES_OC = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL']; // ven todo + dropdown de regional
 const CENTROS_DISTRIBUCION_OC = ['JUAN MINA', 'YUMBO', 'BUCARAMANGA', 'GIRARDOTA', 'FUNZA'];
 

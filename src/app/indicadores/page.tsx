@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaMoneyBillWave, FaWarehouse } from 'react-icons/fa';
+import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -59,18 +59,11 @@ const IndicadoresMenu: React.FC = () => {
 
   const indicadores = [
     {
-      id: 'transporte',
-      titulo: 'Indicadores de Transporte',
-      descripcion: 'Dashboard de guías de transporte y métricas logísticas',
+      id: 'clientes',
+      titulo: 'Indicadores por Cliente',
+      descripcion: 'Dashboards por cliente: pedidos y cajas según su fuente de datos',
       icono: <FaTruck />,
-      ruta: '/indicadores/transporte',
-    },
-    {
-      id: 'fletes',
-      titulo: 'Indicadores de Fletes',
-      descripcion: 'Dashboard financiero y operativo de fletes por cliente, ruta y región',
-      icono: <FaMoneyBillWave />,
-      ruta: '/indicadores/fletes',
+      ruta: '/indicadores/clientes',
     },
     {
       id: 'costo-operacion',
@@ -135,7 +128,7 @@ const IndicadoresMenu: React.FC = () => {
                 <span className="IM-indicadorIcon">{indicador.icono}</span>
               </div>
               <span className="IM-indicadorTitulo">{indicador.titulo}</span>
-              <span className="IM-indicadorDescripcion">{indicador.descripcion}</span>
+              {/* <span className="IM-indicadorDescripcion">{indicador.descripcion}</span> */}
               <span className="IM-indicadorBtn">Ingresar →</span>
             </button>
           ))}

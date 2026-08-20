@@ -18,7 +18,7 @@ import {
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import './estilos.css';
 
-const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'COORDINADOR', 'CONTROL', 'FINANCIERO', 'ANALISTA'];
+const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'DESPACHADOR', 'COORDINADOR', 'CONTROL', 'FINANCIERO', 'ANALISTA'];
 const PERFILES_GLOBALES_OC = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL']; // ven todo + dropdown de regional
 const LIMITE_COORDINADOR = 500000;
 const LIMITE_VALOR_TOTAL = 5000000; // valor total máximo permitido por solicitud
@@ -32,6 +32,7 @@ const BANDEJA_POR_PERFIL: Record<string, string[]> = {
   ANALISTA: ['aprobado'],
   FINANCIERO: ['aprobado'],
   OPERATIVO: ['borrador', 'devuelto', 'pendiente_aprobacion', 'aprobado', 'rechazado'],
+  DESPACHADOR: ['borrador', 'devuelto', 'pendiente_aprobacion', 'aprobado', 'rechazado'],
 };
 const ESTADO_LABEL: Record<string, string> = {
   borrador: 'Borrador', pendiente_aprobacion: 'Pendiente', devuelto: 'Devuelto',
@@ -205,7 +206,7 @@ const OtrosCostosP: React.FC = () => {
   }, [usuario, perfil, fEstado, fFechaIni, fFechaFin, fPedido, fPlaca, fManifiesto, fCliente, fRegional, skip]);
 
   // ── Permisos (frontend; el backend vuelve a validar) ─────────────────────
-  const puedeCrear = perfil === 'ADMIN' || perfil === 'OPERATIVO';
+  const puedeCrear = perfil === 'ADMIN' || perfil === 'OPERATIVO' || perfil === 'DESPACHADOR';
   const puedePagar = perfil === 'ADMIN' || perfil === 'FINANCIERO';
   const puedeAnular = perfil === 'ADMIN';
   const puedeAprobar = (valor: number) =>
@@ -228,7 +229,7 @@ const OtrosCostosP: React.FC = () => {
   const puedeEditar = (it: OtroCosto) =>
     perfil === 'ADMIN'
       ? !['aprobado', 'pagado', 'anulado'].includes(it.estado)
-      : (perfil === 'OPERATIVO' && it.usuario_registro === usuario && ['borrador', 'devuelto'].includes(it.estado));
+      : ((perfil === 'OPERATIVO' || perfil === 'DESPACHADOR') && it.usuario_registro === usuario && ['borrador', 'devuelto'].includes(it.estado));
 
   // ── Búsqueda de pedidos ────────────────────────────────────────────────────
   const handleBuscarPedidos = async () => {

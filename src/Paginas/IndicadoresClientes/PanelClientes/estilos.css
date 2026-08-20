@@ -1,0 +1,262 @@
+/* Panel de clientes de indicadores (/indicadores/clientes).
+   Mismo look & feel del chrome IG-* (colores, header, tarjetas del menú),
+   prefijado PC- para no depender de las clases compartidas. */
+
+/* Layout general */
+.PC-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f4f6f9;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.PC-header {
+  background: #0f1928;
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 12px rgba(15, 25, 40, 0.35);
+}
+
+.PC-headerInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.6rem 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.PC-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.PC-brand:hover { background: rgba(255, 255, 255, 0.08); }
+
+.PC-brandName {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #fff;
+}
+.PC-brandAccent { color: #e8a000; }
+
+.PC-titulo {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  flex: 1;
+}
+
+/* Usuario */
+.PC-userZone { position: relative; }
+
+.PC-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.15s;
+}
+.PC-userBtn:hover { background: rgba(255, 255, 255, 0.12); }
+
+.PC-userIcon { font-size: 1.4rem; color: #e8a000; }
+
+.PC-userInfo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.PC-userName { font-size: 0.82rem; font-weight: 700; }
+.PC-userPerfil { font-size: 0.68rem; color: #b9c2d0; }
+
+.PC-chevron { font-size: 0.7rem; color: #b9c2d0; transition: transform 0.2s; }
+.PC-chevronOpen { transform: rotate(180deg); }
+
+.PC-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 25, 40, 0.25);
+  min-width: 210px;
+  overflow: hidden;
+  z-index: 60;
+}
+
+.PC-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f1928;
+  text-align: left;
+}
+.PC-dropItem:hover { background: #f1f4f8; }
+.PC-dropItem svg { color: #64748b; }
+
+.PC-dropDivider { height: 1px; background: #e5e9f0; }
+
+.PC-dropItemDanger { color: #dc2626; }
+.PC-dropItemDanger svg { color: #dc2626; }
+.PC-dropItemDanger:hover { background: #fef2f2; }
+
+/* ── Main: grid de clientes ─────────────────────────────── */
+.PC-main {
+  flex: 1;
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.PC-subtitulo {
+  text-align: center;
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-bottom: 1.6rem;
+}
+
+.PC-clientesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.4rem;
+}
+
+.PC-clienteCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 16px;
+  padding: 2rem 1.4rem 1.6rem;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+  box-shadow: 0 2px 8px rgba(15, 25, 40, 0.05);
+}
+.PC-clienteCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(15, 25, 40, 0.14);
+  border-color: #e8a000;
+}
+
+.PC-clienteLogoWrap {
+  width: 100%;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.PC-clienteBtn {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e8a000;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.PC-footer {
+  background: #0f1928;
+  color: #b9c2d0;
+  text-align: center;
+  padding: 0.9rem 1rem;
+  font-size: 0.78rem;
+}
+
+/* ── Dashboard de un cliente (shell) ────────────────────── */
+.PC-dashHeader {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 16px;
+  padding: 1.6rem 2rem;
+  margin-bottom: 1.6rem;
+  box-shadow: 0 2px 8px rgba(15, 25, 40, 0.05);
+}
+
+.PC-dashLogoWrap {
+  flex-shrink: 0;
+  width: 240px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.PC-dashInfo { flex: 1; }
+.PC-dashTitulo { font-size: 1.4rem; font-weight: 800; color: #0f1928; margin: 0; }
+
+.PC-enConstruccion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: #fff;
+  border: 2px dashed #d7dde8;
+  border-radius: 16px;
+  padding: 3rem 1.5rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.PC-enConstruccionIcono { font-size: 2.2rem; color: #e8a000; margin-bottom: 0.4rem; }
+.PC-enConstruccionTexto { font-size: 1.05rem; font-weight: 700; color: #475569; margin: 0; }
+.PC-enConstruccionSub { font-size: 0.82rem; color: #94a3b8; margin: 0; }
+
+.PC-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border-radius: 16px;
+  padding: 3rem 1.5rem;
+  color: #475569;
+}
+
+.PC-botonVolver {
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.PC-botonVolver:hover { background: #1e3a5f; }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .PC-headerInner { flex-wrap: wrap; }
+  .PC-titulo { order: -1; width: 100%; font-size: 0.95rem; }
+  .PC-userInfo { display: none; }
+  .PC-main { width: 94%; padding-top: 1.4rem; }
+  .PC-clientesGrid { grid-template-columns: 1fr; }
+  .PC-dashHeader { flex-direction: column; text-align: center; padding: 1.4rem 1rem; }
+  .PC-dashLogoWrap { width: 100%; height: 80px; }
+}

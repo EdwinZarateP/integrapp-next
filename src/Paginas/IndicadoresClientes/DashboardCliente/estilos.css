@@ -1,0 +1,273 @@
+/* Dashboard de indicadores de un cliente. Reutiliza el chrome IG-*
+   (IndicadoresChrome/estilos.css) para gráficos/toggle/tooltip; aquí solo el
+   shell propio: header con logo del cliente, filtros y footer (prefijo DC-). */
+
+.DC-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f4f6f9;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.DC-header {
+  background: #0f1928;
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 12px rgba(15, 25, 40, 0.35);
+}
+
+.DC-headerInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.6rem 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.DC-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.DC-brand:hover { background: rgba(255, 255, 255, 0.08); }
+
+.DC-brandName { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; color: #fff; }
+.DC-brandAccent { color: #e8a000; }
+
+/* Logo del cliente, centrado en el header */
+.DC-logoCliente {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  padding: 0.25rem 1.1rem;
+}
+
+/* Usuario */
+.DC-userZone { position: relative; }
+
+.DC-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.15s;
+}
+.DC-userBtn:hover { background: rgba(255, 255, 255, 0.12); }
+
+.DC-userIcon { font-size: 1.4rem; color: #e8a000; }
+.DC-userInfo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.DC-userName { font-size: 0.82rem; font-weight: 700; }
+.DC-userPerfil { font-size: 0.68rem; color: #b9c2d0; }
+
+.DC-chevron { font-size: 0.7rem; color: #b9c2d0; transition: transform 0.2s; }
+.DC-chevronOpen { transform: rotate(180deg); }
+
+.DC-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 25, 40, 0.25);
+  min-width: 210px;
+  overflow: hidden;
+  z-index: 60;
+}
+
+.DC-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f1928;
+  text-align: left;
+}
+.DC-dropItem:hover { background: #f1f4f8; }
+.DC-dropItem svg { color: #64748b; }
+
+.DC-dropDivider { height: 1px; background: #e5e9f0; }
+
+.DC-dropItemDanger { color: #dc2626; }
+.DC-dropItemDanger svg { color: #dc2626; }
+.DC-dropItemDanger:hover { background: #fef2f2; }
+
+/* ── Filtros (Año / Mes, estilo Power BI) ───────────────── */
+.DC-filtrosSection {
+  background: #fff;
+  border-bottom: 1px solid #e5e9f0;
+  position: sticky;
+  top: 64px;
+  z-index: 40;
+}
+
+.DC-filtrosPanel {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.7rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.DC-filtroGrupo { display: flex; align-items: center; gap: 0.45rem; }
+.DC-filtroGrupo > label { font-size: 0.82rem; font-weight: 700; color: #475569; }
+
+.DC-dropdownFiltro { position: relative; }
+
+.DC-dropdownFiltroBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f1f4f8;
+  border: 1px solid #d7dde8;
+  border-radius: 8px;
+  padding: 0.38rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f1928;
+  cursor: pointer;
+  min-width: 120px;
+  justify-content: space-between;
+}
+.DC-dropdownFiltroBtn:hover { border-color: #e8a000; }
+
+.DC-dropdownFiltroTexto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.DC-dropdownFiltroFlecha { color: #94a3b8; font-size: 0.7rem; }
+
+.DC-dropdownFiltroLista {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  background: #fff;
+  border: 1px solid #d7dde8;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 25, 40, 0.18);
+  min-width: 150px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 70;
+  padding: 0.3rem;
+}
+
+.DC-dropdownFiltroItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.DC-dropdownFiltroItem:hover { background: #f1f4f8; }
+.DC-dropdownFiltroItem.seleccionado { background: #fff7e0; color: #92600a; }
+
+.DC-botonActualizar {
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.DC-botonActualizar:hover { background: #1e3a5f; }
+
+/* ── Main / estados ─────────────────────────────────────── */
+.DC-main {
+  flex: 1;
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.6rem 0 3rem;
+}
+
+.DC-cargando, .DC-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  background: #fff;
+  border-radius: 14px;
+  padding: 3rem 1.5rem;
+  color: #475569;
+}
+
+.DC-reintentar {
+  background: #e8a000;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.DC-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border-radius: 16px;
+  padding: 3rem 1.5rem;
+  color: #475569;
+}
+
+.DC-botonVolver {
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.DC-footer {
+  background: #0f1928;
+  color: #b9c2d0;
+  text-align: center;
+  padding: 0.9rem 1rem;
+  font-size: 0.78rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .DC-headerInner { flex-wrap: wrap; }
+  .DC-logoCliente { order: -1; width: 100%; }
+  .DC-userInfo { display: none; }
+  .DC-filtrosSection { position: static; }
+  .DC-main { width: 94%; padding-top: 1.2rem; }
+}

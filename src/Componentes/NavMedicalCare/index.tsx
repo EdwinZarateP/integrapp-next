@@ -120,9 +120,9 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 if (perfil === 'FINANCIERO' && !['otroscostos', 'historicooc'].includes(item.id)) {
                   return null;
                 }
-                // Otros Costos: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO, FINANCIERO
+                // Otros Costos: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO, DESPACHADOR, FINANCIERO
                 if (['otroscostos', 'historicooc'].includes(item.id)
-                    && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'FINANCIERO'].includes(perfil)) {
+                    && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'DESPACHADOR', 'FINANCIERO'].includes(perfil)) {
                   return null;
                 }
                 // Ocultar elementos de ADMIN si el perfil no es ADMIN ni CONTROL

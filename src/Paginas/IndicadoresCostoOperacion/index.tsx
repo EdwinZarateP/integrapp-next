@@ -8,7 +8,7 @@ import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaDownload, FaFilter } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 // Chrome compartido con Transporte + extras propios
-import '../IndicadoresTransporte/estilos.css';
+import '../../Componentes/IndicadoresChrome/estilos.css';
 import './estilos.css';
 
 // Cada bucket combina las 3 etapas del viaje (todas se suman; son piernas distintas).
