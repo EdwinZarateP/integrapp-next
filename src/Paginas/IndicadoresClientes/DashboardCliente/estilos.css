@@ -263,6 +263,149 @@
   font-size: 0.78rem;
 }
 
+/* ── Informe de guías TMS (colapsable) ──────────────────── */
+.DC-guiaSeccion {
+  background: #fff;
+  border-radius: 12px;
+  margin-top: 1.6rem;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.DC-guiaToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.DC-guiaToggle:hover { background: #f8fafc; }
+
+.DC-guiaTitulo {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f1928;
+  flex: 1;
+}
+
+.DC-guiaChevron { color: #64748b; }
+
+.DC-guiaTiles {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.DC-guiaTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f0f4f8;
+  border-radius: 8px;
+  padding: 0.35rem 0.8rem;
+  min-width: 74px;
+}
+
+.DC-guiaTileValor { font-size: 1rem; font-weight: 800; color: #0f1928; }
+.DC-guiaTileLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.DC-guiaTileExito { background: #ecfdf5; }
+.DC-guiaTileExito .DC-guiaTileValor { color: #15803d; }
+.DC-guiaTileProceso { background: #fffbeb; }
+.DC-guiaTileProceso .DC-guiaTileValor { color: #b45309; }
+.DC-guiaTileMuta { background: #f1f5f9; }
+.DC-guiaTileMuta .DC-guiaTileValor { color: #64748b; }
+
+.DC-guiaCuerpo {
+  padding: 0.6rem 1.4rem 1.4rem;
+  border-top: 1px solid #e5e9f0;
+}
+
+.DC-guiaCargando {
+  padding: 1.5rem;
+  text-align: center;
+  color: #6b7a8d;
+  font-size: 0.9rem;
+}
+
+.DC-guiaAdvertencia {
+  margin: 0.4rem 0;
+  font-size: 0.8rem;
+  color: #92600a;
+  background: #fff7e0;
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+}
+
+/* Scroll interno (~15 filas) con thead fijo. IG-tablaWrapper solo tiene
+   overflow-x; aquí hace falta scroll vertical con encabezado sticky. */
+.DC-guiaTablaWrapper {
+  max-height: 44rem;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.DC-guiaTablaWrapper .IG-tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.DC-guiaCeldaNum {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.DC-guiaCeldaVeh {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.DC-guiaChip {
+  display: inline-block;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.DC-guiaChipEntregada { background: #ecfdf5; color: #15803d; }
+.DC-guiaChipProceso { background: #fff7e0; color: #92600a; }
+
+.DC-guiaAcciones {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+}
+
+.DC-guiaBotonExportar {
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.DC-guiaBotonExportar:hover { background: #1e3a5f; }
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .DC-headerInner { flex-wrap: wrap; }
@@ -270,4 +413,6 @@
   .DC-userInfo { display: none; }
   .DC-filtrosSection { position: static; }
   .DC-main { width: 94%; padding-top: 1.2rem; }
+  .DC-guiaTiles { display: none; }
+  .DC-guiaCeldaVeh { max-width: 150px; }
 }
