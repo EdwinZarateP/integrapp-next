@@ -2,12 +2,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaSearch, FaFileExcel, FaCalendarAlt, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaFileExcel, FaCalendarAlt, FaTimes, FaUndo } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
 import {
-  listarHistorico, obtenerDetalleHistorico, exportarExcel,
+  listarHistorico, obtenerDetalleHistorico, exportarExcel, devolverDelHistorico,
   type OtroCosto,
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import '../OtrosCostosP/estilos.css';
@@ -125,6 +125,33 @@ const HistoricoOtrosCostosP: React.FC = () => {
     } catch (e: any) {
       Swal.fire('Error', e?.detail || 'No se pudo cargar el detalle', 'error');
     }
+  };
+
+  // Solo ADMIN/FINANCIERO pueden devolver una pagada del histórico al operativo.
+  const puedeDevolverHist = perfil === 'ADMIN' || perfil === 'FINANCIERO';
+
+  const onDevolverDelHistorico = (it: OtroCosto) => {
+    Swal.fire({
+      title: '¿Devolver al operativo?',
+      html: `<b>${it.consecutivo}</b> volverá a Otros Costos en estado <b>devuelto</b> para que el operativo la corrija. Queda registro de esta devolución.`,
+      icon: 'warning', showCancelButton: true,
+      confirmButtonColor: '#c2410c', cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, devolver', cancelButtonText: 'Cancelar',
+      input: 'textarea', inputPlaceholder: 'Motivo de la devolución (obligatorio)',
+      inputValidator: (v: string) => (!v || !v.trim()) && 'El motivo es obligatorio',
+    }).then(async (r) => {
+      if (!r.isConfirmed) return;
+      Swal.fire({ title: 'Devolviendo...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      try {
+        await devolverDelHistorico(it.consecutivo!, usuario, typeof r.value === 'string' ? r.value : '');
+        Swal.fire('✅ Devuelta', `La solicitud ${it.consecutivo} volvió a Otros Costos (estado devuelto)`, 'success');
+        setDetalle(null);
+        cargar();
+      } catch (e: any) {
+        const d = e?.response?.data?.detail ?? e?.detail;
+        Swal.fire('Error', (typeof d === 'string' ? d : null) || 'No se pudo devolver la solicitud', 'error');
+      }
+    });
   };
 
   const onExportExcel = async () => {
@@ -287,9 +314,26 @@ const HistoricoOtrosCostosP: React.FC = () => {
               <Campo label="Conductor" v={detalle.conductor?.nombre} />
               <Campo label="Aprobado por" v={`${detalle.aprobacion?.usuario || '-'} (${detalle.aprobacion?.rol || ''})`} />
               <Campo label="Pagado por" v={detalle.pago?.usuario} />
-              <Campo label="Referencia pago" v={detalle.pago?.referencia} />
+              <Campo label="Referencia bancaria" v={detalle.Referencia_bancaria || detalle.pago?.referencia} />
               <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
             </div>
+
+            {detalle.devuelta_del_historico && (
+              <div className="OC-warn" style={{ marginTop: '0.5rem' }}>
+                <b>Devuelta del histórico:</b> {detalle.devuelta_del_historico.motivo}
+                <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                  {detalle.devuelta_del_historico.nombre || detalle.devuelta_del_historico.usuario} ({detalle.devuelta_del_historico.rol}) · {formatFecha(detalle.devuelta_del_historico.fecha)}
+                </div>
+              </div>
+            )}
+
+            {puedeDevolverHist && detalle.estado === 'pagado' && (
+              <div className="OC-actions">
+                <button className="OC-btn OC-btnGhost" style={{ color: '#c2410c' }} onClick={() => onDevolverDelHistorico(detalle)}>
+                  <FaUndo /> Devolver al operativo
+                </button>
+              </div>
+            )}
 
             <div className="OC-modalSection">Trazabilidad</div>
             <div className="OC-timeline">

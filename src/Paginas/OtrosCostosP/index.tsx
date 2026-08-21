@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaSearch, FaFileExcel, FaCalendarAlt, FaTimes, FaPlus, FaTrash, FaSave,
   FaPaperPlane, FaCheck, FaUndo, FaBan, FaMoneyBillWave, FaEdit, FaEye, FaWallet,
+  FaFileUpload, FaUniversity,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
@@ -14,6 +15,7 @@ import {
   enviarAprobacion, aprobarSolicitud, devolverSolicitud, rechazarSolicitud,
   registrarPago, anularSolicitud, exportarExcel, marcarTramiteVulcano,
   getTiposCosto, getBancos, getTiposCuenta, getClientes,
+  exportarPago, importarPago, verificarManifiesto,
   type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado, type BancoCatalogo,
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import './estilos.css';
@@ -162,6 +164,11 @@ const OtrosCostosP: React.FC = () => {
   const [guardando, setGuardando] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
 
+  // Selección de consecutivos para el archivo bancario (FINANCIERO/ADMIN)
+  const [selPago, setSelPago] = useState<Set<string>>(new Set());
+  const [importando, setImportando] = useState(false);
+  const inputArchivoRef = useRef<HTMLInputElement | null>(null);
+
   // ── Acceso ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
@@ -291,6 +298,29 @@ const OtrosCostosP: React.FC = () => {
     });
   };
 
+  // ── Advertencia de manifiesto ya usado (contra histórico/anulados) ─────────
+  // Consulta el histórico al salir del campo Manifiesto: un manifiesto pagado no
+  // debe volver a usarse en una nueva solicitud (avisa, no bloquea).
+  const advertirManifiesto = async (manifiesto: string) => {
+    const m = (manifiesto || '').trim();
+    if (!m) return;
+    try {
+      const res = await verificarManifiesto(usuario, m);
+      if (res.ya_usado) {
+        const detalle = res.usos.map((u) =>
+          `<li><b>${u.consecutivo}</b> (${u.origen === 'historico' ? 'pagada' : u.origen}, ${u.fecha_pago ? `pago ${u.fecha_pago.slice(0, 10)}` : 'sin fecha de pago'})</li>`,
+        ).join('');
+        Swal.fire({
+          title: '⚠️ Manifiesto ya utilizado',
+          html: `El manifiesto <b>${m}</b> ya tiene solicitudes en el histórico. Un manifiesto no debe reutilizarse:<ul style="text-align:left;margin-top:0.5rem">${detalle}</ul>Verifique el número o cancele si es un duplicado.`,
+          icon: 'warning',
+          confirmButtonColor: '#005f56',
+          confirmButtonText: 'Entendido',
+        });
+      }
+    } catch { /* silencioso: la advertencia no bloquea la edición */ }
+  };
+
   // ── Costos ─────────────────────────────────────────────────────────────────
   const valorTotal = form.costos.reduce((a, c) => a + (Number(c.valor) || 0), 0);
 
@@ -399,7 +429,16 @@ const OtrosCostosP: React.FC = () => {
         }
       } else {
         const res: any = await crearSolicitud(payload);
-        if (res.posible_duplicado) {
+        if (res.manifiesto_ya_usado) {
+          const usos = (res.usos_manifiesto || []).map((u: any) =>
+            `<li><b>${u.consecutivo}</b> (${u.origen === 'historico' ? 'pagada' : u.origen})</li>`,
+          ).join('');
+          Swal.fire({
+            title: '⚠️ Manifiesto ya utilizado',
+            html: `Se guardó como <b>${res.consecutivo}</b>, pero el manifiesto <b>${form.datos_servicio.manifiesto}</b> ya fue usado en:<ul style="text-align:left;margin-top:0.5rem">${usos}</ul>Un manifiesto no debe reutilizarse; verifique o anule esta solicitud.`,
+            icon: 'warning',
+          });
+        } else if (res.posible_duplicado) {
           Swal.fire({
             title: '⚠️ Posible duplicado',
             html: `Se guardó como <b>${res.consecutivo}</b>, pero existen solicitudes similares recientes. Verifique.`,
@@ -512,6 +551,62 @@ const OtrosCostosP: React.FC = () => {
     }
   };
 
+  // ── Archivo plano bancario (FINANCIERO/ADMIN) ─────────────────────────────
+  const puedeArchivoBancario = perfil === 'ADMIN' || perfil === 'FINANCIERO';
+
+  const toggleSelPago = (consecutivo: string) => {
+    setSelPago((prev) => {
+      const next = new Set(prev);
+      if (next.has(consecutivo)) next.delete(consecutivo); else next.add(consecutivo);
+      return next;
+    });
+  };
+
+  const onExportPago = async () => {
+    if (selPago.size === 0) {
+      Swal.fire('Atención', 'Seleccione al menos un consecutivo con el checkbox para generar el archivo de pago.', 'warning');
+      return;
+    }
+    Swal.fire({ title: 'Generando archivo de pago...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const blob = await exportarPago(usuario, Array.from(selPago));
+      const url = window.URL.createObjectURL(blob as unknown as Blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `pago_otros_costos_${hoyCol()}.xlsx`;
+      document.body.appendChild(a); a.click();
+      window.URL.revokeObjectURL(url); document.body.removeChild(a);
+      Swal.fire('✅ Listo', 'Archivo de pago generado. La columna "Referencia" va en blanco; el banco la diligencia y luego se sube el mismo archivo.', 'success');
+    } catch (e: any) {
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo generar el archivo de pago'), 'error');
+    }
+  };
+
+  const onImportarPago = async (file: File) => {
+    setImportando(true);
+    Swal.fire({ title: 'Procesando archivo bancario...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const res = await importarPago(usuario, file);
+      const okHtml = (res.procesadas || []).map((p) =>
+        `<li>✅ <b>${p.consecutivo}</b> → pagada (${p.referencia_bancaria || 'sin referencia'})</li>`,
+      ).join('');
+      const errHtml = (res.errores || []).map((p) =>
+        `<li>❌ <b>${p.consecutivo}</b>: ${p.detalle}</li>`,
+      ).join('');
+      Swal.fire({
+        title: 'Archivo procesado',
+        html: `<div style="text-align:left">${okHtml ? `<b>Pagadas:</b><ul>${okHtml}</ul>` : ''}${errHtml ? `<b style="color:#b91c1c">Con error:</b><ul style="color:#b91c1c">${errHtml}</ul>` : ''}`,
+        icon: (res.errores || []).length ? 'warning' : 'success',
+      });
+      setSelPago(new Set());
+      cargarListado();
+    } catch (e: any) {
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo procesar el archivo'), 'error');
+    } finally {
+      setImportando(false);
+      if (inputArchivoRef.current) inputArchivoRef.current.value = '';
+    }
+  };
+
   const paginas = Math.ceil(total / limit) || 1;
   const paginaActual = Math.floor(skip / limit) + 1;
 
@@ -555,6 +650,25 @@ const OtrosCostosP: React.FC = () => {
             <input className="OC-input" style={{ maxWidth: '180px' }} placeholder="Cliente" value={fCliente} onChange={(e) => setFCliente(e.target.value)} />
             <button className="OC-btn OC-btnPrimary" onClick={() => { setSkip(0); cargarListado(); }}><FaSearch /> Buscar</button>
             <button className="OC-btn OC-btnExcel" onClick={onExportExcel}><FaFileExcel /> Excel</button>
+            {puedeArchivoBancario && (
+              <>
+                <button className="OC-btn OC-btnExcel" style={{ background: '#1d4ed8' }} onClick={onExportPago} title="Genera el archivo plano bancario de los consecutivos seleccionados (aprobados + trámite OK)">
+                  <FaUniversity /> Archivo pago {selPago.size > 0 ? `(${selPago.size})` : ''}
+                </button>
+                <button
+                  className="OC-btn OC-btnExcel" style={{ background: '#0d9488' }}
+                  onClick={() => inputArchivoRef.current?.click()}
+                  disabled={importando}
+                  title="Sube el archivo bancario con la Referencia diligenciada: registra los pagos y pasa las solicitudes al histórico"
+                >
+                  <FaFileUpload /> Subir pago
+                </button>
+                <input
+                  ref={inputArchivoRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportarPago(f); }}
+                />
+              </>
+            )}
           </div>
         </div>
 
@@ -571,6 +685,7 @@ const OtrosCostosP: React.FC = () => {
             <table className="OC-table">
               <thead>
                 <tr>
+                  {puedeArchivoBancario && <th style={{ width: '34px' }}></th>}
                   <th>Consecutivo</th><th>Fecha</th><th>Pedido Vulcano</th><th>Cliente</th>
                   <th>Placa</th><th>Manifiesto</th><th>Tipo Costo</th><th>Valor Total</th>
                   <th>Estado</th><th>Creado por</th><th>Acciones</th>
@@ -578,9 +693,22 @@ const OtrosCostosP: React.FC = () => {
               </thead>
               <tbody>
                 {items.length === 0 ? (
-                  <tr><td colSpan={11} className="OC-empty">No se encontraron solicitudes</td></tr>
-                ) : items.map((it) => (
+                  <tr><td colSpan={puedeArchivoBancario ? 12 : 11} className="OC-empty">No se encontraron solicitudes</td></tr>
+                ) : items.map((it) => {
+                  const pagable = it.estado === 'aprobado' && it.tramite_vulcano === 'ok';
+                  return (
                   <tr key={it._id}>
+                    {puedeArchivoBancario && (
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          disabled={!pagable}
+                          checked={!!it.consecutivo && selPago.has(it.consecutivo)}
+                          onChange={() => it.consecutivo && toggleSelPago(it.consecutivo)}
+                          title={pagable ? 'Seleccionar para el archivo de pago' : 'Solo aprobadas con trámite Vulcano OK'}
+                        />
+                      </td>
+                    )}
                     <td className="OC-cellMono"><button className="OC-consecutivoLink" onClick={() => abrirDetalle(it)}>{it.consecutivo}</button></td>
                     <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>{formatFecha(it.created_at)}</td>
                     <td className="OC-truncate" style={{ color: '#2563eb', fontWeight: 600 }} title={it.pedido_vulcano_original}>{it.pedido_vulcano_original || '-'}</td>
@@ -601,7 +729,8 @@ const OtrosCostosP: React.FC = () => {
                       {puedePagar && it.estado === 'aprobado' && it.tramite_vulcano === 'ok' && <button className="OC-btnAction" title="Registrar pago" style={{ background: '#1d4ed8' }} onClick={() => onPagar(it)}><FaMoneyBillWave /></button>}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
 
@@ -843,7 +972,7 @@ const OtrosCostosP: React.FC = () => {
               <FieldText label="Municipio destino" mayusculas value={form.datos_servicio.municipio_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, municipio_destino: v } })} />
               <FieldText label="Departamento destino" mayusculas value={form.datos_servicio.departamento_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, departamento_destino: v } })} />
               <FieldText label="Transportador / proveedor" mayusculas value={form.datos_servicio.transportador} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, transportador: v } })} />
-              <FieldText label="Manifiesto" destacado value={form.datos_servicio.manifiesto} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, manifiesto: v } })} maxLength={15} soloNumeros />
+              <FieldText label="Manifiesto" destacado value={form.datos_servicio.manifiesto} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, manifiesto: v } })} onBlur={() => advertirManifiesto(form.datos_servicio.manifiesto)} maxLength={15} soloNumeros />
             </div>
 
             {/* Sección 2: costos */}
@@ -936,7 +1065,7 @@ const Campo = ({ label, v, destacado }: { label: string; v: any; destacado?: boo
   </div>
 );
 
-const FieldText = ({ label, value, onChange, type, maxLength, soloNumeros, mayusculas, destacado }: { label: string; value: string; onChange: (v: string) => void; type?: string; maxLength?: number; soloNumeros?: boolean; mayusculas?: boolean; destacado?: boolean }) => {
+const FieldText = ({ label, value, onChange, onBlur, type, maxLength, soloNumeros, mayusculas, destacado }: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; type?: string; maxLength?: number; soloNumeros?: boolean; mayusculas?: boolean; destacado?: boolean }) => {
   const aplicar = (raw: string) => {
     let v = soloNumeros ? raw.replace(/\D/g, '') : raw;
     if (mayusculas) v = v.toUpperCase();
@@ -952,6 +1081,7 @@ const FieldText = ({ label, value, onChange, type, maxLength, soloNumeros, mayus
         value={value}
         maxLength={maxLength}
         onChange={(e) => aplicar(e.target.value)}
+        onBlur={onBlur}
         onWheel={(e) => { if (type === 'number') e.currentTarget.blur(); }}
         style={destacado ? { backgroundColor: '#fff8e1', border: '2px solid #f59e0b', boxShadow: '0 0 0 3px rgba(245,158,11,0.18)', fontWeight: 700 } : undefined}
       />

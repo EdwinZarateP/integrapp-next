@@ -80,6 +80,10 @@ export interface OtroCosto {
   tramite_vulcano_info?: {
     usuario: string; nombre: string; rol: string; fecha: string; observacion: string;
   };
+  Referencia_bancaria?: string;
+  devuelta_del_historico?: {
+    usuario: string; nombre: string; rol: string; fecha: string; motivo: string;
+  };
   historial_movimientos: Movimiento[];
   created_at?: string;
   updated_at?: string;
@@ -168,6 +172,24 @@ export const verificarDuplicado = async (payload: {
   valor: number;
 }): Promise<{ posible_duplicado: boolean; coincidencias: any[] }> => {
   const res = await axios.post(`${BASE_URL}/verificar-duplicado`, payload);
+  return res.data;
+};
+
+export interface UsoManifiesto {
+  manifiesto: string;
+  consecutivo: string;
+  estado: string;
+  origen: string;
+  fecha_pago: string | null;
+  creado_por: string;
+}
+
+export const verificarManifiesto = async (usuario: string, manifiesto: string): Promise<{
+  manifiesto: string;
+  ya_usado: boolean;
+  usos: UsoManifiesto[];
+}> => {
+  const res = await axios.post(`${BASE_URL}/verificar-manifiesto`, { usuario, manifiesto });
   return res.data;
 };
 
@@ -278,5 +300,31 @@ export const obtenerDetalleHistorico = async (consecutivo: string, usuario: stri
 // ── Exportar Excel ───────────────────────────────────────────────────────────
 export const exportarExcel = async (payload: any): Promise<Blob> => {
   const res = await axios.post(`${BASE_URL}/exportar-excel`, payload, { responseType: 'blob' });
+  return res.data;
+};
+
+// ── Archivo plano bancario (FINANCIERO/ADMIN) ────────────────────────────────
+export const exportarPago = async (usuario: string, consecutivos: string[]): Promise<Blob> => {
+  const res = await axios.post(`${BASE_URL}/exportar-pago`, { usuario, consecutivos }, { responseType: 'blob' });
+  return res.data;
+};
+
+export interface ResultadoImportarPago {
+  mensaje: string;
+  procesadas: { consecutivo: string; estado: string; referencia_bancaria?: string }[];
+  errores: { consecutivo: string; detalle: string }[];
+}
+
+export const importarPago = async (usuario: string, archivo: File): Promise<ResultadoImportarPago> => {
+  const form = new FormData();
+  form.append('archivo', archivo);
+  const res = await axios.post(`${BASE_URL}/importar-pago?usuario=${encodeURIComponent(usuario)}`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
+export const devolverDelHistorico = async (consecutivo: string, usuario: string, motivo: string) => {
+  const res = await axios.post(`${BASE_URL}/devolver-del-historico`, { consecutivo, usuario, motivo });
   return res.data;
 };
