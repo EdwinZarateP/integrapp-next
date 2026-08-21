@@ -2,14 +2,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Customized } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Customized, BarChart, Bar } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar } from 'react-icons/fa';
+import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaUpload } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import { obtenerCliente } from '../clientes';
 import '@/Componentes/IndicadoresChrome/estilos.css';
 import './estilos.css';
+
+// Perfiles que pueden cargar el Excel de citas (plan B del OT). Espejo de
+// PERFILES_CARGA_CITAS del backend (indicadores_cliente.py).
+const PERFILES_CARGA_CITAS = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL'];
 
 type SerieCajas = { periodo: string; cajas: number; vehiculos: number };
 
@@ -50,6 +54,7 @@ type ResumenGuias = {
   entregadas: number;
   en_proceso: number;
   sin_info: number;
+  anuladas: number;
   por_estado: Record<string, number>;
   ot_cumplen: number;
   ot_no_cumplen: number;
@@ -102,6 +107,50 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   const [advertenciaGuias, setAdvertenciaGuias] = useState<string | null>(null);
   // Tras abrir el informe una vez, re-consulta junto con /cajas en cada Filtrar.
   const informeYaConsultado = useRef(false);
+
+  // Carga del Excel de citas (plan B del OT): solo ADMIN/ANALISTA/COORDINADOR/CONTROL.
+  const puedeCargarCitas = PERFILES_CARGA_CITAS.includes((datosUsuario?.perfil || '').toUpperCase());
+  const [cargandoCitas, setCargandoCitas] = useState(false);
+
+  const handleCargarCitas = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+    if (!window.confirm(
+      'Se cargarán las fechas de cita del Excel (GUIA + FECHA_CITA) a la colección citas_kabi.\n\n' +
+      'Si una guía ya tiene cita cargada, se REEMPLAZA por la del Excel.\n\n¿Continuar?'
+    )) {
+      if (e.target) e.target.value = '';
+      return;
+    }
+    setCargandoCitas(true);
+    try {
+      const params = new URLSearchParams({ perfil: datosUsuario?.perfil || '' });
+      const fd = new FormData();
+      fd.append('archivo', archivo);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/citas?${params.toString()}`,
+        { method: 'POST', body: fd },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || 'Error al cargar las citas.');
+      }
+      const { cargadas, invalidas, errores } = data.data;
+      let msg = `✅ ${cargadas} citas cargadas.`;
+      if (invalidas > 0) {
+        msg += `\n⚠ ${invalidas} filas con fecha inválida fueron ignoradas`;
+        if (errores?.length) msg += `:\n${errores.join('\n')}`;
+      }
+      alert(msg);
+      // Recalcular el informe con las citas nuevas.
+      if (informeYaConsultado.current) obtenerInformeGuias();
+    } catch (err) {
+      alert(`❌ ${err instanceof Error ? err.message : 'Error al cargar las citas.'}`);
+    } finally {
+      setCargandoCitas(false);
+      if (e.target) e.target.value = '';
+    }
+  };
 
   // Vista del gráfico de cajas: mensual (default) o diaria.
   const [vistaCajas, setVistaCajas] = useState<'mensual' | 'diaria'>('mensual');
@@ -211,6 +260,67 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     setFiltrosAplicados({ anios: aniosSeleccionados, meses: mesesSeleccionados });
   };
 
+  // ── Serie OT por período (para el gráfico sobre el informe de guías) ──
+  // Bucket = fecha de ENTREGA (cuándo se cerró la promesa); fallback a la de
+  // creación. Solo cuentan guías evaluables (ot 1/0).
+  const [vistaOT, setVistaOT] = useState<'mensual' | 'diaria'>('mensual');
+  const serieOTMensual = useMemo(() => {
+    const buckets = new Map<string, { cumplieron: number; noCumplieron: number }>();
+    for (const f of filasGuias) {
+      if (f.ot === null || f.ot === undefined) continue;
+      const clave = (f.fecha_entrega || f.fecha_creacion || '').slice(0, 7); // YYYY-MM
+      if (!clave) continue;
+      const b = buckets.get(clave) || { cumplieron: 0, noCumplieron: 0 };
+      if (f.ot === 1) b.cumplieron += 1; else b.noCumplieron += 1;
+      buckets.set(clave, b);
+    }
+    return [...buckets.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([periodo, v]) => ({ periodo, ...v, total: v.cumplieron + v.noCumplieron }));
+  }, [filasGuias]);
+
+  const serieOTDiaria = useMemo(() => {
+    const buckets = new Map<string, { cumplieron: number; noCumplieron: number }>();
+    for (const f of filasGuias) {
+      if (f.ot === null || f.ot === undefined) continue;
+      const clave = (f.fecha_entrega || f.fecha_creacion || '').slice(0, 10); // YYYY-MM-DD
+      if (!clave) continue;
+      const b = buckets.get(clave) || { cumplieron: 0, noCumplieron: 0 };
+      if (f.ot === 1) b.cumplieron += 1; else b.noCumplieron += 1;
+      buckets.set(clave, b);
+    }
+    return [...buckets.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([periodo, v]) => ({ periodo, ...v, total: v.cumplieron + v.noCumplieron }));
+  }, [filasGuias]);
+
+  const dataOT = useMemo(
+    () => (vistaOT === 'diaria' ? serieOTDiaria : serieOTMensual),
+    [vistaOT, serieOTDiaria, serieOTMensual],
+  );
+
+  // % OT por período para etiqueta y tooltip.
+  const pctOT = (d: { cumplieron: number; total: number }) =>
+    d.total > 0 ? Math.round((d.cumplieron / d.total) * 100) : null;
+
+  // Tooltip del gráfico OT: período, cumplidas/no cumplidas, total y %.
+  const tooltipOT = (props: any) => {
+    if (!props.active || !props.payload || !props.payload.length) return null;
+    const d = props.payload[0].payload as { periodo: string; cumplieron: number; noCumplieron: number; total: number };
+    const fechaTxt = vistaOT === 'diaria'
+      ? format(parseISO(d.periodo), "d 'de' MMMM yyyy", { locale: es })
+      : format(parseISO(d.periodo + '-01'), 'MMMM yyyy', { locale: es });
+    const pct = pctOT(d);
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
+        <p><span className="IG-tooltipEtapa" style={{ background: '#15803d' }} />Cumplieron: <b>{formatearEntero(d.cumplieron)}</b></p>
+        <p><span className="IG-tooltipEtapa" style={{ background: '#b91c1c' }} />No cumplieron: <b>{formatearEntero(d.noCumplieron)}</b></p>
+        <p className="IG-tooltipSerieSub">Total: {formatearEntero(d.total)}{pct != null ? ` · ${pct}% OT` : ''}</p>
+      </div>
+    );
+  };
+
   // Datos visibles según la vista del gráfico. En vista diaria cada punto lleva
   // `ts` (ms de su fecha) para el eje de tiempo numérico, en orden ascendente.
   const dataCajas = useMemo<(SerieCajas & { ts?: number })[]>(
@@ -303,9 +413,13 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   };
 
   // Chip de estado del TMS: ENTREGADO (exacto, valor real de la BD) → verde;
-  // cualquier otro estado (PENDIENTE, En distribucion, CON NOVEDAD, …) → ámbar.
-  const claseChipEstado = (estado: string) =>
-    estado.toUpperCase() === 'ENTREGADO' ? 'DC-guiaChipEntregada' : 'DC-guiaChipProceso';
+  // ANULADA (sin registro TMS y antigua) → gris; el resto → ámbar.
+  const claseChipEstado = (estado: string) => {
+    const e = estado.toUpperCase();
+    if (e === 'ENTREGADO') return 'DC-guiaChipEntregada';
+    if (e === 'ANULADA') return 'DC-guiaChipAnulada';
+    return 'DC-guiaChipProceso';
+  };
 
   // '2026-08-14' → '14-08-2026' (día primero, como lo lee el usuario). Solo
   // reformattea si calza exacto con ISO; fecha_cita puede traer basura y se
@@ -750,6 +864,79 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
               )}
             </div>
 
+            {/* 🎯 On Time por período — mismo chrome/toggle que el gráfico de
+                cajas. Solo aparece cuando el informe de guías ya consultó
+                (usa sus filas). Barras apiladas: verdes cumplieron (ot=1),
+                rojas no cumplieron (ot=0), etiqueta con el % OT del período. */}
+            {informeYaConsultado.current && (
+              <div className="IG-graficoContainer">
+                {dataOT.length > 0 ? (
+                  <>
+                    <div className="IG-graficoHeader">
+                      <div className="IG-graficoTituloWrap">
+                        <h2 className="IG-graficoTitulo">
+                          🎯 On Time por período
+                          <span className="IG-graficoBadge">{vistaOT === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                          {resumenGuias?.ot_pct != null && (
+                            <span className="DC-badgeSobreMedia" title="Guías entregadas dentro de la fecha promesa (total del período filtrado)">
+                              {resumenGuias.ot_pct}% OT total
+                            </span>
+                          )}
+                        </h2>
+                      </div>
+                      <div className="IG-graficoAcciones">
+                        <div className="IG-toggleGrupo" role="group" aria-label="Vista On Time">
+                          <button className={`IG-toggleBtn ${vistaOT === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaOT('mensual')}>Mensual</button>
+                          <button className={`IG-toggleBtn ${vistaOT === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaOT('diaria')}>Diario</button>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="IG-graficoSub">
+                      <span style={{ color: '#15803d' }}>●</span> <b>Cumplieron</b> (entrega ≤ fecha promesa) &nbsp;&nbsp;
+                      <span style={{ color: '#b91c1c' }}>●</span> <b>No cumplieron</b> (entrega tarde)
+                    </p>
+                    <div style={{ width: '100%', height: 320 }}>
+                      <ResponsiveContainer width="100%" height={320}>
+                        <BarChart data={dataOT} margin={{ top: 24, right: 20, left: 20, bottom: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            dataKey="periodo"
+                            tickFormatter={(v: string) => {
+                              try {
+                                return vistaOT === 'diaria'
+                                  ? format(parseISO(v), 'd MMM', { locale: es })
+                                  : format(parseISO(v + '-01'), 'MMM yy', { locale: es });
+                              } catch { return v; }
+                            }}
+                            tick={{ fontSize: 11 }}
+                            angle={vistaOT === 'diaria' ? -90 : 0}
+                            textAnchor={vistaOT === 'diaria' ? 'end' : 'middle'}
+                            height={vistaOT === 'diaria' ? 60 : 30}
+                          />
+                          <YAxis tickFormatter={(v: number) => formatearEntero(v)} width={60} allowDecimals={false} />
+                          <Tooltip content={tooltipOT} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
+                          <Bar dataKey="cumplieron" name="Cumplieron" stackId="ot" fill="#15803d" isAnimationActive={false} />
+                          <Bar dataKey="noCumplieron" name="No cumplieron" stackId="ot" fill="#b91c1c" isAnimationActive={false}>
+                            <LabelList
+                              dataKey="total"
+                              position="top"
+                              offset={10}
+                              formatter={(v: number) => (v > 0 ? `${v}` : '')}
+                              style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                ) : (
+                  <div className="IG-sinDatos">
+                    <p>No hay guías evaluables On Time para el período seleccionado</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Informe de guías TMS — colapsable. planilla_siscore (Mongo, media
                 milla) == guia (PostgreSQL informe_guias_tms); puede traer varias
                 guías por coma → una fila por guía. Fetch perezoso al abrir. */}
@@ -815,6 +1002,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                             <tr>
                               <th>Guía</th>
                               <th>Vehículo</th>
+                              <th>Destino</th>
                               <th>Destinatario</th>
                               <th>Fecha</th>
                               <th>Cajas</th>
@@ -833,6 +1021,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                               <tr key={f.guia}>
                                 <td className="DC-guiaCeldaNum">{f.guia}</td>
                                 <td className="DC-guiaCeldaVeh">{f.consecutivo_vehiculo}</td>
+                                <td className="DC-guiaCeldaDest">{f.destino || '—'}</td>
                                 <td className="DC-guiaCeldaDest">{f.destinatario ?? '—'}</td>
                                 <td>{formatearFecha(f.fecha_creacion)}</td>
                                 <td className="DC-guiaCeldaNum">{formatearEntero(f.cajas_vehiculo)}</td>
@@ -843,7 +1032,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                                   {f.fecha_promesa
                                     ? <span title={f.origen_promesa === 'CITA' ? 'Promesa: fecha de cita' : 'Promesa: inicial + días del destino (hábiles)'}>
                                         {formatearFecha(f.fecha_promesa)}
-                                        <span className={`DC-guiaOrigPromesa ${f.origen_promesa === 'CITA' ? 'DC-guiaOrigPromesaCita' : ''}`}>{f.origen_promesa === 'CITA' ? ' cita' : ' prom'}</span>
+                                        {f.origen_promesa === 'CITA' && <span className="DC-guiaOrigPromesa DC-guiaOrigPromesaCita"> cita</span>}
                                       </span>
                                     : '—'}
                                 </td>
@@ -861,6 +1050,18 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                         </table>
                       </div>
                       <div className="DC-guiaAcciones">
+                        {puedeCargarCitas && (
+                          <label className="DC-guiaBotonCargar" title="Carga fechas de cita (GUIA + FECHA_CITA) que reemplazan las del TMS para el cálculo On Time">
+                            <FaUpload /> {cargandoCitas ? 'Cargando…' : '⬆ Cargar Citas'}
+                            <input
+                              type="file"
+                              accept=".xlsx,.xls"
+                              onChange={handleCargarCitas}
+                              disabled={cargandoCitas}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                        )}
                         <button className="DC-guiaBotonExportar" onClick={exportarGuiasCSV}>⬇ Exportar CSV</button>
                       </div>
                     </>

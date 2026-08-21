@@ -13,7 +13,7 @@ import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
 const FLETE_VACIO: Flete = {
-  origen: 'FUNZA', destino: '', ruta: 'ANACIONAL', tipo: 'NACIONAL', pago_cargue_desc: '', equivalencia_centro_costo: 'FUNZA', tarifas: {}, promesa_entrega_dias: 0,
+  origen: '', destino: '', ruta: 'ANACIONAL', tipo: 'NACIONAL', pago_cargue_desc: '', equivalencia_centro_costo: '', tarifas: {}, promesa_entrega_dias: 0,
 };
 
 const TarifasP: React.FC = () => {
@@ -204,12 +204,13 @@ const TarifasP: React.FC = () => {
     [tarifas]
   );
 
-  // Solo FUNZA + filtro por destino
+  // Filtro por origen o destino
   const tarifasFiltradas = useMemo(() => {
     const q = busqueda.toUpperCase().trim();
-    const soloFunza = tarifas.filter(t => t.origen.toUpperCase() === 'FUNZA');
-    const resultado = soloFunza.filter(t => q === '' || t.destino.toUpperCase().startsWith(q));
-    console.log('[TarifasP] useMemo recalculado — busqueda:', JSON.stringify(busqueda), '| resultado:', resultado.map(t => t.destino));
+    const resultado = tarifas.filter(t =>
+      q === '' || t.destino.toUpperCase().startsWith(q) || t.origen.toUpperCase().startsWith(q)
+    );
+    console.log('[TarifasP] useMemo recalculado — busqueda:', JSON.stringify(busqueda), '| resultado:', resultado.map(t => `${t.origen}→${t.destino}`));
     return resultado;
   }, [tarifas, busqueda]);
 
@@ -263,7 +264,7 @@ const TarifasP: React.FC = () => {
             <input
               className="TAR-busquedaInput"
               type="text"
-              placeholder="Buscar por destino…"
+              placeholder="Buscar por origen o destino…"
               value={inputBusqueda}
               onChange={e => setInputBusqueda(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && aplicarBusqueda()}
@@ -275,7 +276,7 @@ const TarifasP: React.FC = () => {
 
           {/* Miga de navegación / filtro activo */}
           <div className="TAR-miga">
-            <span className="TAR-migaItem">Tarifas FUNZA</span>
+            <span className="TAR-migaItem">Tarifas</span>
             {busqueda && (
               <>
                 <span className="TAR-migaSep">›</span>
@@ -388,7 +389,13 @@ const TarifasP: React.FC = () => {
 
             <form className="TAR-modalForm" onSubmit={guardar}>
               <div className="TAR-formGrid">
-                <div className="TAR-formGrupo TAR-formGrupo--full">
+                <div className="TAR-formGrupo">
+                  <label className="TAR-formLabel">Origen *</label>
+                  <input className="TAR-formInput TAR-upper" type="text" placeholder="FUNZA / BOGOTA D.C." required
+                    readOnly={!!tarifaOrigen} value={form.origen}
+                    onChange={e => setForm(f => ({ ...f, origen: e.target.value }))} />
+                </div>
+                <div className="TAR-formGrupo">
                   <label className="TAR-formLabel">Destino *</label>
                   <input className="TAR-formInput TAR-upper" type="text" placeholder="BOGOTÁ" required
                     readOnly={!!tarifaOrigen} value={form.destino}
@@ -402,6 +409,24 @@ const TarifasP: React.FC = () => {
                     <option value="SI">SI</option>
                     <option value="NO">NO</option>
                   </select>
+                </div>
+                <div className="TAR-formGrupo">
+                  <label className="TAR-formLabel">Ruta *</label>
+                  <input className="TAR-formInput TAR-upper" type="text" placeholder="ANACIONAL / AURBANA" required
+                    value={form.ruta}
+                    onChange={e => setForm(f => ({ ...f, ruta: e.target.value }))} />
+                </div>
+                <div className="TAR-formGrupo">
+                  <label className="TAR-formLabel">Tipo *</label>
+                  <input className="TAR-formInput TAR-upper" type="text" placeholder="NACIONAL / URBANA" required
+                    value={form.tipo}
+                    onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))} />
+                </div>
+                <div className="TAR-formGrupo">
+                  <label className="TAR-formLabel">Eq. Centro de Costo *</label>
+                  <input className="TAR-formInput TAR-upper" type="text" placeholder="FUNZA / BOGOTA" required
+                    value={form.equivalencia_centro_costo}
+                    onChange={e => setForm(f => ({ ...f, equivalencia_centro_costo: e.target.value }))} />
                 </div>
                 <div className="TAR-formGrupo">
                   <label className="TAR-formLabel">Promesa de Entrega (días)</label>
