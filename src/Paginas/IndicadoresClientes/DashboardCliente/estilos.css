@@ -438,6 +438,7 @@
 
 .DC-guiaChipEntregada { background: #ecfdf5; color: #15803d; }
 .DC-guiaChipProceso { background: #fff7e0; color: #92600a; }
+.DC-guiaChipAnulada { background: #f1f5f9; color: #64748b; }
 
 /* ── On Time ── */
 .DC-guiaTileOT { background: #eef2ff; }
@@ -473,6 +474,22 @@
 }
 
 .DC-guiaBotonExportar:hover { background: #1e3a5f; }
+
+/* Botón "Cargar Citas" (plan B del OT) — mismo look del exportar, azul */
+.DC-guiaBotonCargar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #1e5f8a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.DC-guiaBotonCargar:hover { background: #174a6d; }
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
