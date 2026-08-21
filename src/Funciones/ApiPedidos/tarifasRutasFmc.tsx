@@ -15,6 +15,9 @@ export interface TarifaRutaFmc {
   patineta: number;
   tractomula: number;
   requiere_descargue: string;
+  // Promesa de entrega en días (ej. GUACHETA = 1). Default 0 para las
+  // tarifas creadas antes de 2026-08-21.
+  promesa_entrega_dias: number;
 }
 
 // Obtener todas las tarifas de rutas

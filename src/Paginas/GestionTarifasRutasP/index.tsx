@@ -30,6 +30,7 @@ const TARIFA_VACIA: TarifaRutaFmc = {
   patineta: 0,
   tractomula: 0,
   requiere_descargue: 'NO',
+  promesa_entrega_dias: 0,
 };
 
 const GestionTarifasRutasP: React.FC = () => {
@@ -304,6 +305,7 @@ const GestionTarifasRutasP: React.FC = () => {
                     <th>Patineta</th>
                     <th>Tractomula</th>
                     <th>Req. Descargue</th>
+                    <th>Promesa</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -324,6 +326,7 @@ const GestionTarifasRutasP: React.FC = () => {
                           {tarifa.requiere_descargue}
                         </span>
                       </td>
+                      <td className="GTR-td-numero">{tarifa.promesa_entrega_dias > 0 ? `${tarifa.promesa_entrega_dias} ${tarifa.promesa_entrega_dias === 1 ? 'día' : 'días'}` : '—'}</td>
                       <td className="GTR-td-acciones">
                         <button
                           className="GTR-btn-editar"
@@ -344,14 +347,14 @@ const GestionTarifasRutasP: React.FC = () => {
                   ))}
                   {tarifasFiltradas.length === 0 && !filtroRuta && !filtroCentroCosto && (
                     <tr>
-                      <td colSpan={11} className="GTR-sinDatos">
+                      <td colSpan={12} className="GTR-sinDatos">
                         No hay tarifas registradas.
                       </td>
                     </tr>
                   )}
                   {tarifasFiltradas.length === 0 && (filtroRuta || filtroCentroCosto) && (
                     <tr>
-                      <td colSpan={11} className="GTR-sinDatos">
+                      <td colSpan={12} className="GTR-sinDatos">
                         No se encontraron tarifas con los filtros aplicados.
                       </td>
                     </tr>
@@ -511,6 +514,18 @@ const GestionTarifasRutasP: React.FC = () => {
                     <option value="SI">SI</option>
                   </select>
                 </div>
+                <div className="GTR-formGrupo">
+                  <label className="GTR-formLabel">Promesa de Entrega (días)</label>
+                  <input
+                    className="GTR-formInput"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="EJ: 1"
+                    value={form.promesa_entrega_dias}
+                    onChange={e => setForm(f => ({ ...f, promesa_entrega_dias: parseInt(e.target.value, 10) || 0 }))}
+                  />
+                </div>
               </div>
 
               {error && <p className="GTR-formError">{error}</p>}
@@ -658,6 +673,18 @@ const GestionTarifasRutasP: React.FC = () => {
                     <option value="NO">NO</option>
                     <option value="SI">SI</option>
                   </select>
+                </div>
+                <div className="GTR-formGrupo">
+                  <label className="GTR-formLabel">Promesa de Entrega (días)</label>
+                  <input
+                    className="GTR-formInput"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="EJ: 1"
+                    value={formEditar.promesa_entrega_dias}
+                    onChange={e => setFormEditar(f => ({ ...f, promesa_entrega_dias: parseInt(e.target.value, 10) || 0 }))}
+                  />
                 </div>
               </div>
 

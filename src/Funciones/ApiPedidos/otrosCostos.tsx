@@ -66,6 +66,7 @@ export interface OtroCosto {
   conductor: Conductor;
   observaciones: string;
   manifiesto: string;
+  valor_despues_retenciones?: number | null;
   estado: string;
   usuario_registro: string;
   perfil_registro: string;
@@ -75,6 +76,7 @@ export interface OtroCosto {
     usuario: string; nombre: string; rol: string; estado_pago: string;
     fecha_pago: string; fecha_pago_ingresada: string | null;
     referencia: string; observaciones: string;
+    valor_despues_retenciones?: number | null;
   };
   tramite_vulcano?: 'ok' | 'pendiente';
   tramite_vulcano_info?: {
@@ -309,9 +311,20 @@ export const exportarPago = async (usuario: string, consecutivos: string[]): Pro
   return res.data;
 };
 
+// Todos los consecutivos listos para el archivo bancario según los filtros
+// (aprobados + trámite Vulcano OK), sin paginar. Botón "Seleccionar todos".
+export const listarPagables = async (usuario: string, filtros?: Partial<FiltrosListado>): Promise<{
+  total: number;
+  consecutivos: string[];
+  valor_total: number;
+}> => {
+  const res = await axios.get(`${BASE_URL}/pagables`, { params: aParams({ ...filtros, usuario } as FiltrosListado) });
+  return res.data;
+};
+
 export interface ResultadoImportarPago {
   mensaje: string;
-  procesadas: { consecutivo: string; estado: string; referencia_bancaria?: string }[];
+  procesadas: { consecutivo: string; estado: string; referencia_bancaria?: string; valor_despues_retenciones?: number | null }[];
   errores: { consecutivo: string; detalle: string }[];
 }
 

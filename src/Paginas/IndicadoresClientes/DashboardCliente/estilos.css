@@ -1,6 +1,6 @@
 /* Dashboard de indicadores de un cliente. Reutiliza el chrome IG-*
    (IndicadoresChrome/estilos.css) para gráficos/toggle/tooltip; aquí solo el
-   shell propio: header con logo del cliente, filtros y footer (prefijo DC-). */
+   shell propio: header con nombre del cliente, filtros y footer (prefijo DC-). */
 
 .DC-container {
   min-height: 100vh;
@@ -46,16 +46,24 @@
 .DC-brandName { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; color: #fff; }
 .DC-brandAccent { color: #e8a000; }
 
-/* Logo del cliente, centrado en el header */
+/* Nombre del cliente, centrado en el header (sin logo) */
 .DC-logoCliente {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 52px;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 10px;
   padding: 0.25rem 1.1rem;
+}
+
+.DC-nombreCliente {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Usuario */
@@ -263,6 +271,33 @@
   font-size: 0.78rem;
 }
 
+/* Badge de proporción de días sobre la media (junto al título, vista diaria) */
+.DC-badgeSobreMedia {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.12rem 0.6rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Etiqueta vertical de valor del gráfico de cajas: halo blanco para que se
+   lea aunque cruce la línea o el área de la media. */
+.DC-etiquetaCajas {
+  fill: #606060;
+  font-size: 10px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
 /* ── Informe de guías TMS (colapsable) ──────────────────── */
 .DC-guiaSeccion {
   background: #fff;
@@ -350,17 +385,27 @@
 }
 
 /* Scroll interno (~15 filas) con thead fijo. IG-tablaWrapper solo tiene
-   overflow-x; aquí hace falta scroll vertical con encabezado sticky. */
+   overflow-x; aquí hace falta scroll vertical con encabezado sticky.
+   OJO: el fondo del encabezado NO puede vivir en thead (se va con el scroll);
+   debe estar en cada th, que es el elemento que se pega. */
 .DC-guiaTablaWrapper {
   max-height: 44rem;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
+.DC-guiaTablaWrapper .IG-tabla thead {
+  background: none;
+  border-bottom: none;
+}
+
 .DC-guiaTablaWrapper .IG-tabla thead th {
   position: sticky;
   top: 0;
   z-index: 1;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  /* Replica el borde ámbar del chrome (el del thead se anuló arriba) */
+  border-bottom: 2px solid #e8a000;
 }
 
 .DC-guiaCeldaNum {
@@ -370,6 +415,13 @@
 
 .DC-guiaCeldaVeh {
   max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.DC-guiaCeldaDest {
+  max-width: 210px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -386,6 +438,22 @@
 
 .DC-guiaChipEntregada { background: #ecfdf5; color: #15803d; }
 .DC-guiaChipProceso { background: #fff7e0; color: #92600a; }
+
+/* ── On Time ── */
+.DC-guiaTileOT { background: #eef2ff; }
+.DC-guiaTileOT .DC-guiaTileValor { color: #3730a3; }
+
+.DC-guiaChipOTSi { background: #ecfdf5; color: #15803d; }
+.DC-guiaChipOTNo { background: #fef2f2; color: #b91c1c; }
+
+/* Sufijo ' cita'/' prom' junto a la fecha promesa */
+.DC-guiaOrigPromesa {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-left: 2px;
+}
+.DC-guiaOrigPromesaCita { color: #3730a3; }
 
 .DC-guiaAcciones {
   display: flex;
@@ -409,7 +477,8 @@
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .DC-headerInner { flex-wrap: wrap; }
-  .DC-logoCliente { order: -1; width: 100%; }
+  .DC-logoCliente { order: -1; width: 100%; min-height: auto; }
+  .DC-nombreCliente { font-size: 1.1rem; }
   .DC-userInfo { display: none; }
   .DC-filtrosSection { position: static; }
   .DC-main { width: 94%; padding-top: 1.2rem; }

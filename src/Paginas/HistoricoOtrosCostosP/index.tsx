@@ -223,13 +223,13 @@ const HistoricoOtrosCostosP: React.FC = () => {
               <thead>
                 <tr>
                   <th>Consecutivo</th><th>Creación</th><th>Pedido Vulcano</th><th>Cliente</th>
-                  <th>Placa</th><th>Manifiesto</th><th>Tipo Costo</th><th>Valor Total</th>
+                  <th>Placa</th><th>Manifiesto</th><th>Tipo Costo</th><th>Valor Total</th><th>Tras Retenciones</th>
                   <th>Creado por</th><th>Aprobado por</th><th>Pagado por</th><th>Pago</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
-                  <tr><td colSpan={12} className="OC-empty">No hay registros en el histórico</td></tr>
+                  <tr><td colSpan={13} className="OC-empty">No hay registros en el histórico</td></tr>
                 ) : items.map((it) => (
                   <tr key={it._id}>
                     <td className="OC-cellMono"><button className="OC-consecutivoLink" onClick={() => abrirDetalle(it)}>{it.consecutivo}</button></td>
@@ -240,6 +240,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
                     <td>{it.manifiesto || '-'}</td>
                     <td className="OC-truncate">{(it.costos || []).map((c) => c.tipo_costo).join(', ') || '-'}</td>
                     <td style={{ fontWeight: 700, color: '#005f56' }}>{formatMoney(it.valor_total)}</td>
+                    <td style={{ color: '#0d9488' }}>{it.valor_despues_retenciones != null ? formatMoney(it.valor_despues_retenciones) : '-'}</td>
                     <td>{it.creado_por?.usuario || it.usuario_registro || '-'}</td>
                     <td>{it.aprobacion?.usuario || '-'}</td>
                     <td>{it.pago?.usuario || '-'}</td>
@@ -315,6 +316,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
               <Campo label="Aprobado por" v={`${detalle.aprobacion?.usuario || '-'} (${detalle.aprobacion?.rol || ''})`} />
               <Campo label="Pagado por" v={detalle.pago?.usuario} />
               <Campo label="Referencia bancaria" v={detalle.Referencia_bancaria || detalle.pago?.referencia} />
+              <Campo label="Valor tras retenciones" v={detalle.valor_despues_retenciones != null ? formatMoney(detalle.valor_despues_retenciones) : (detalle.pago?.valor_despues_retenciones != null ? formatMoney(detalle.pago.valor_despues_retenciones) : '-')} />
               <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
             </div>
 

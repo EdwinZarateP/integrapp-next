@@ -6,14 +6,14 @@ import * as XLSX from 'xlsx';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft,
   FaPlus, FaEdit, FaTrash, FaTimes, FaSave, FaSearch,
-  FaFileExcel,
+  FaFileExcel, FaUpload,
 } from 'react-icons/fa';
-import { obtenerFletes, crearFlete, actualizarFlete, eliminarFlete, Flete } from '@/Funciones/ApiPedidos/fletes';
+import { obtenerFletes, crearFlete, actualizarFlete, eliminarFlete, cargarFletesMasivo, Flete } from '@/Funciones/ApiPedidos/fletes';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
 const FLETE_VACIO: Flete = {
-  origen: 'FUNZA', destino: '', ruta: 'ANACIONAL', tipo: 'NACIONAL', pago_cargue_desc: '', equivalencia_centro_costo: 'FUNZA', tarifas: {},
+  origen: 'FUNZA', destino: '', ruta: 'ANACIONAL', tipo: 'NACIONAL', pago_cargue_desc: '', equivalencia_centro_costo: 'FUNZA', tarifas: {}, promesa_entrega_dias: 0,
 };
 
 const TarifasP: React.FC = () => {
@@ -30,6 +30,7 @@ const TarifasP: React.FC = () => {
   const [eliminando, setEliminando] = useState<string | null>(null);
   const [inputBusqueda, setInputBusqueda] = useState('');
   const [busqueda, setBusqueda] = useState('');
+  const [cargandoArchivo, setCargandoArchivo] = useState(false);
 
   // Auth guard
   useEffect(() => {
@@ -137,15 +138,46 @@ const TarifasP: React.FC = () => {
     setBusqueda('');
   };
 
+  // Carga masiva: REEMPLAZA TODA la colección (así funciona el endpoint).
+  // Se pide confirmación y se advierte subir el Excel COMPLETO (p. ej. el
+  // mismo que baja el Export con la columna PromesaEntregaDias llenada).
+  const handleCargarArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+    if (!window.confirm(
+      '⚠ La carga masiva REEMPLAZA TODAS las tarifas por el contenido del Excel.\n\n' +
+      'Sube el Excel COMPLETO (p. ej. el del Export con PromesaEntregaDias llenada), no solo algunas filas.\n\n¿Continuar?'
+    )) {
+      if (e.target) e.target.value = '';
+      return;
+    }
+    setCargandoArchivo(true);
+    try {
+      const res = await cargarFletesMasivo(archivo);
+      alert(`✅ ${res?.mensaje || 'Carga completada'}`);
+      cargar();
+    } catch (err: any) {
+      const msg = err?.detail || 'Error al cargar el archivo.';
+      alert(`❌ ${msg}`);
+    } finally {
+      setCargandoArchivo(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   const exportarExcel = () => {
     const datos = tarifasFiltradas.map(t => {
       const fila: Record<string, any> = {
-        Origen: t.origen,
-        Destino: t.destino,
-        Ruta: t.ruta,
-        Tipo: t.tipo,
-        PagoCargueDesc: t.pago_cargue_desc,
-        EqCentroCosto: t.equivalencia_centro_costo,
+        // Encabezados = nombres de columna que exige /cargar-masivo
+        // (ORIGEN, DESTINO, RUTA, TIPO, PAGO_CARGUE_DESC, EQUIVALENCIA_CENTRO_COSTO,
+        // PROMESA_ENTREGA_DIAS) → el ciclo Export→editar→Cargar funciona tal cual.
+        ORIGEN: t.origen,
+        DESTINO: t.destino,
+        RUTA: t.ruta,
+        TIPO: t.tipo,
+        PAGO_CARGUE_DESC: t.pago_cargue_desc,
+        EQUIVALENCIA_CENTRO_COSTO: t.equivalencia_centro_costo,
+        PROMESA_ENTREGA_DIAS: t.promesa_entrega_dias > 0 ? t.promesa_entrega_dias : '',
       };
       for (const col of colsVehiculo) {
         fila[col] = t.tarifas[col] ?? '';
@@ -157,7 +189,7 @@ const TarifasP: React.FC = () => {
     const ws = XLSX.utils.json_to_sheet(datos);
 
     ws['!cols'] = [
-      { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 },
+      { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 12 },
       ...colsVehiculo.map(() => ({ wch: 12 })),
     ];
 
@@ -210,6 +242,16 @@ const TarifasP: React.FC = () => {
               <button className="TAR-btnExportar" onClick={exportarExcel} disabled={cargando || tarifasFiltradas.length === 0}>
                 <FaFileExcel /> Exportar
               </button>
+              <label className={`TAR-btnCargar ${cargandoArchivo ? 'cargando' : ''}`} title="Reemplaza TODAS las tarifas por el contenido del Excel">
+                <FaUpload /> {cargandoArchivo ? 'Cargando…' : 'Cargar Archivo'}
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleCargarArchivo}
+                  disabled={cargandoArchivo}
+                  style={{ display: 'none' }}
+                />
+              </label>
               <button className="TAR-btnNuevo" onClick={abrirNueva}>
                 <FaPlus /> Nueva tarifa
               </button>
@@ -256,6 +298,7 @@ const TarifasP: React.FC = () => {
                   <tr>
                     <th>Origen</th>
                     <th>Destino</th>
+                    <th>Promesa</th>
                     <th>Ruta</th>
                     <th>Tipo</th>
                     <th>Pago Cargue/Desc.</th>
@@ -273,6 +316,7 @@ const TarifasP: React.FC = () => {
                       <tr key={key} className="TAR-fila">
                         <td className="TAR-td-bold">{t.origen}</td>
                         <td className="TAR-td-bold">{t.destino}</td>
+                        <td>{t.promesa_entrega_dias > 0 ? `${t.promesa_entrega_dias} ${t.promesa_entrega_dias === 1 ? 'día' : 'días'}` : <span className="TAR-nd">—</span>}</td>
                         <td>{t.ruta}</td>
                         <td><span className="TAR-badge">{t.tipo}</span></td>
                         <td>{t.pago_cargue_desc}</td>
@@ -303,7 +347,7 @@ const TarifasP: React.FC = () => {
                   })}
                   {tarifasFiltradas.length === 0 && (
                     <tr>
-                      <td colSpan={7 + colsVehiculo.length} className="TAR-td-vacio">
+                      <td colSpan={8 + colsVehiculo.length} className="TAR-td-vacio">
                         {busqueda ? 'Sin resultados para la búsqueda.' : 'No hay tarifas registradas.'}
                       </td>
                     </tr>
@@ -358,6 +402,12 @@ const TarifasP: React.FC = () => {
                     <option value="SI">SI</option>
                     <option value="NO">NO</option>
                   </select>
+                </div>
+                <div className="TAR-formGrupo">
+                  <label className="TAR-formLabel">Promesa de Entrega (días)</label>
+                  <input className="TAR-formInput" type="number" min="0" step="1"
+                    placeholder="EJ: 1" value={form.promesa_entrega_dias || ''}
+                    onChange={e => setForm(f => ({ ...f, promesa_entrega_dias: parseInt(e.target.value, 10) || 0 }))} />
                 </div>
               </div>
 

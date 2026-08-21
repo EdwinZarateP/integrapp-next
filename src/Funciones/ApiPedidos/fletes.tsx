@@ -11,6 +11,9 @@ export interface Flete {
   pago_cargue_desc: string;
   equivalencia_centro_costo: string;
   tarifas: Record<string, number>;
+  // Promesa de entrega en días (ej. GUACHETA = 1). Default 0 para los
+  // fletes creados antes de 2026-08-21.
+  promesa_entrega_dias: number;
 }
 
 // Alias tipado de listarFletes

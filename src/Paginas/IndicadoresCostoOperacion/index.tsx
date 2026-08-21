@@ -37,6 +37,22 @@ type CostoCajaItem = {
   cajas_otros: number;
 };
 
+// Pedidos atendidos por analista (serie por período). Cada bucket lleva una
+// columna por usuario + total; la clave de cada columna es el CÓDIGO de
+// usuario (o "Sin asignar") — el backend la manda como `columna` y coincide
+// exactamente con la clave del bucket. `nombre` es solo el rótulo visible.
+type AnalistaSerieItem = {
+  periodo: string;
+  total: number;
+  [columna: string]: number | string;
+};
+type AnalistaUsuario = {
+  usuario: string | null;
+  nombre: string;   // rótulo visible (leyenda/CSV)
+  columna: string;  // clave exacta en los buckets de las series (dataKey)
+  perfil?: string | null;
+};
+
 type ApiResponse = {
   success: boolean;
   data?: {
@@ -88,6 +104,9 @@ const IndicadoresCostoOperacion: React.FC = () => {
   const [serieDiaria, setSerieDiaria] = useState<SerieItem[]>([]);
   const [costoCajaMensual, setCostoCajaMensual] = useState<CostoCajaItem[]>([]);
   const [costoCajaDiaria, setCostoCajaDiaria] = useState<CostoCajaItem[]>([]);
+  const [analistaUsuarios, setAnalistaUsuarios] = useState<AnalistaUsuario[]>([]);
+  const [analistaMensual, setAnalistaMensual] = useState<AnalistaSerieItem[]>([]);
+  const [analistaDiaria, setAnalistaDiaria] = useState<AnalistaSerieItem[]>([]);
   // Etiquetas vigentes de las etapas (vienen del backend; fallback por si faltan).
   const [etiquetas, setEtiquetas] = useState<Record<string, string>>(ETIQUETAS_DEFAULT);
   const lbl = useMemo(() => ({ ...ETIQUETAS_DEFAULT, ...etiquetas }), [etiquetas]);
@@ -97,6 +116,7 @@ const IndicadoresCostoOperacion: React.FC = () => {
   const [vistaDif, setVistaDif] = useState<'mensual' | 'diaria'>('mensual');
   const [vistaCajas, setVistaCajas] = useState<'mensual' | 'diaria'>('mensual');
   const [vistaCaja, setVistaCaja] = useState<'mensual' | 'diaria'>('mensual');
+  const [vistaAnalista, setVistaAnalista] = useState<'mensual' | 'diaria'>('mensual');
 
   // Filtros en pantalla (no disparan fetch hasta "Filtrar")
   const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
@@ -212,7 +232,26 @@ const IndicadoresCostoOperacion: React.FC = () => {
     } catch { /* gráfico opcional: fallo silencioso */ }
   };
 
-  useEffect(() => { obtenerDatos(); obtenerCostoCaja(); /* eslint-disable-next-line */ }, [filtrosAplicados]);
+  // Pedidos atendidos por analista (mismos filtros). Fallo silencioso igual que
+  // el costo por caja: si no carga, no se muestra la sección.
+  const obtenerPedidosPorAnalista = async () => {
+    try {
+      const params = new URLSearchParams();
+      filtrosAplicados.anios.forEach(a => params.append('anio', String(a)));
+      filtrosAplicados.meses.forEach(m => params.append('mes', String(m)));
+      filtrosAplicados.clientes.forEach(c => params.append('cliente', c));
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-costo-operacion/pedidos-por-analista?${params.toString()}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success) {
+        setAnalistaUsuarios(json.data?.usuarios ?? []);
+        setAnalistaMensual(json.data?.serieMensual ?? []);
+        setAnalistaDiaria(json.data?.serieDiaria ?? []);
+      }
+    } catch { /* sección opcional: fallo silencioso */ }
+  };
+
+  useEffect(() => { obtenerDatos(); obtenerCostoCaja(); obtenerPedidosPorAnalista(); /* eslint-disable-next-line */ }, [filtrosAplicados]);
 
   // Datos del gráfico de costo según su vista (mensual/diaria).
   const dataChart = useMemo<SerieItem[]>(
@@ -244,6 +283,23 @@ const IndicadoresCostoOperacion: React.FC = () => {
     [vistaCaja, costoCajaDiaria, costoCajaMensual],
   );
   const intervalCaja = dataCaja.length > 1 ? Math.max(0, Math.ceil(dataCaja.length / 12) - 1) : 0;
+
+  // Datos del gráfico por analista, según su propia vista (toggle independiente).
+  const dataAnalista = useMemo<AnalistaSerieItem[]>(
+    () => (vistaAnalista === 'diaria' ? analistaDiaria : analistaMensual),
+    [vistaAnalista, analistaDiaria, analistaMensual],
+  );
+  const intervalAnalista = dataAnalista.length > 1 ? Math.max(0, Math.ceil(dataAnalista.length / 12) - 1) : 0;
+
+  // Paleta categórica (misma fuente que los colores de etapa, orden validado
+  // CVD): el color identifica al USUARIO, no a la etapa. Color sigue a la
+  // entidad con orden fijo (total descendente que trae el backend); el slot 9+
+  // no existe — por diseño hay máx. 8 series (aquí en la práctica: ~3 analistas
+  // + "Sin asignar").
+  const COLOR_SERIES_ANALISTA = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+  const COLOR_SIN_ASIGNAR = '#64748b'; // gris neutro: no es una serie "real"
+  const colorAnalista = (i: number, usuario: string | null) =>
+    usuario === null ? COLOR_SIN_ASIGNAR : COLOR_SERIES_ANALISTA[i % COLOR_SERIES_ANALISTA.length];
 
   // Clientes filtrados por búsqueda en el dropdown.
   const clientesFiltradosDropdown = useMemo(() => {
@@ -295,6 +351,32 @@ const IndicadoresCostoOperacion: React.FC = () => {
         document.cookie = `${cn}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });
     router.push('/LoginUsuario');
+  };
+
+  // Exportar la serie por analista de la vista activa a CSV (Excel-ES).
+  const exportarAnalistas = () => {
+    if (!dataAnalista.length) return;
+    const colFecha = vistaAnalista === 'diaria' ? 'Día' : 'Mes';
+    const fmtFecha = (f: string) =>
+      vistaAnalista === 'diaria'
+        ? format(parseISO(f), 'dd/MM/yyyy')
+        : format(parseISO(f + '-01'), 'MM/yyyy');
+    const cabeceras = [colFecha, ...analistaUsuarios.map(u => u.nombre), 'Total'];
+    const filas = dataAnalista.map(d => [
+      fmtFecha(String(d.periodo)),
+      ...analistaUsuarios.map(u => Number(d[u.columna] ?? 0)),
+      Number(d.total ?? 0),
+    ]);
+    const csv = [cabeceras, ...filas].map(r => r.join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pedidos_por_analista_${vistaAnalista === 'diaria' ? 'diario' : 'mensual'}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Etiqueta del eje X según la vista (cada gráfico pasa la suya).
@@ -378,6 +460,27 @@ const IndicadoresCostoOperacion: React.FC = () => {
         <p className="IG-tooltipSerieSub">
           Costo total: {formatearMoneda(totalCosto)} · {formatearEntero(totalCajas)} cajas
         </p>
+      </div>
+    );
+  };
+
+  // Tooltip del gráfico por analista: pedidos del período por usuario + total.
+  const tooltipAnalista = (props: any) => {
+    if (!props.active || !props.payload || !props.payload.length) return null;
+    const d = props.payload[0].payload as AnalistaSerieItem;
+    const fechaTxt = vistaAnalista === 'diaria'
+      ? format(parseISO(String(d.periodo)), "d 'de' MMMM yyyy", { locale: es })
+      : format(parseISO(String(d.periodo) + '-01'), 'MMMM yyyy', { locale: es });
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
+        {analistaUsuarios.map((u, i) => (
+          <p key={u.columna}>
+            <span className="IG-tooltipEtapa" style={{ background: colorAnalista(i, u.usuario) }} />
+            {u.nombre}: <b>{formatearEntero(Number(d[u.columna] ?? 0))}</b>
+          </p>
+        ))}
+        <p className="IG-tooltipSerieTotal">Total pedidos: {formatearEntero(Number(d.total ?? 0))}</p>
       </div>
     );
   };
@@ -822,6 +925,75 @@ const IndicadoresCostoOperacion: React.FC = () => {
                 </>
               ) : (
                 <div className="IG-sinDatos"><p>No hay datos de costo por caja para el período seleccionado</p></div>
+              )}
+            </div>
+
+            {/* Pedidos atendidos por analista — barras APILADAS por período (una
+                pila por mes/día), un segmento por analista; la leyenda es el
+                usuario. Toggle Mensual/Diario propio, igual que el de costo total.
+                "Sin asignar" agrupa docs sin tramitador registrado o tramitados
+                por otro perfil (gris neutro, siempre al final). */}
+            <div className="IG-graficoContainer">
+              {dataAnalista.some(d => d.total > 0) ? (
+                <>
+                  <div className="IG-graficoHeader">
+                    <div className="IG-graficoTituloWrap">
+                      <h2 className="IG-graficoTitulo">
+                        👥 Pedidos atendidos por analista
+                        <span className="IG-graficoBadge">{vistaAnalista === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                      </h2>
+                    </div>
+                    <div className="IG-graficoAcciones">
+                      <div className="IG-toggleGrupo" role="group" aria-label="Vista del gráfico">
+                        <button className={`IG-toggleBtn ${vistaAnalista === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaAnalista('mensual')}>Mensual</button>
+                        <button className={`IG-toggleBtn ${vistaAnalista === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaAnalista('diaria')}>Diario</button>
+                      </div>
+                      <button className="IG-botonExportar" onClick={exportarAnalistas} title="Exportar serie a Excel">
+                        <FaDownload /> Exportar
+                      </button>
+                    </div>
+                  </div>
+                  <p className="IG-graficoSub">Pedidos tramitados por cada analista (etapas {lbl.media_milla.toLowerCase()} + {lbl.ultima_milla.toLowerCase()} + {lbl.otros_costos.toLowerCase()} sumadas).</p>
+                  <div style={{ width: '100%', height: 380 }}>
+                    <ResponsiveContainer width="100%" height={380}>
+                      <BarChart data={dataAnalista} margin={{ top: 36, right: 20, left: 20, bottom: 28 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="periodo" tickFormatter={(val) => formatoEje(val, vistaAnalista)} interval={intervalAnalista} tick={{ fontSize: 11 }} />
+                        <YAxis tickFormatter={(v) => formatearEntero(v)} width={70} />
+                        <Tooltip content={tooltipAnalista} cursor={{ fill: 'rgba(15,25,40,0.05)' }} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        {analistaUsuarios.map((u, i) => {
+                          // La última serie visible lleva la etiqueta del total
+                          // (position="top" sobre la cima de la pila).
+                          const esUltima = i === analistaUsuarios.length - 1;
+                          return (
+                            <Bar
+                              key={u.columna}
+                              dataKey={u.columna}
+                              stackId="a"
+                              name={u.nombre}
+                              fill={colorAnalista(i, u.usuario)}
+                              isAnimationActive={false}
+                              radius={esUltima ? [3, 3, 0, 0] : undefined}
+                            >
+                              {esUltima && (
+                                <LabelList
+                                  dataKey="total"
+                                  position="top"
+                                  offset={8}
+                                  formatter={(value: number) => (value > 0 ? formatearEnteroCorto(value) : '')}
+                                  style={{ fill: '#0f1928', fontWeight: 700, fontSize: 11 }}
+                                />
+                              )}
+                            </Bar>
+                          );
+                        })}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              ) : (
+                <div className="IG-sinDatos"><p>No hay pedidos atendidos por analista para el período seleccionado</p></div>
               )}
             </div>
           </>

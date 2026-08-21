@@ -15,7 +15,7 @@ import {
   enviarAprobacion, aprobarSolicitud, devolverSolicitud, rechazarSolicitud,
   registrarPago, anularSolicitud, exportarExcel, marcarTramiteVulcano,
   getTiposCosto, getBancos, getTiposCuenta, getClientes,
-  exportarPago, importarPago, verificarManifiesto,
+  exportarPago, importarPago, verificarManifiesto, listarPagables,
   type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado, type BancoCatalogo,
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import './estilos.css';
@@ -562,6 +562,69 @@ const OtrosCostosP: React.FC = () => {
     });
   };
 
+  // Marca/desmarca los pagables de la página visible (el checkbox de la cabecera).
+  const pagablesPagina = items.filter((it) => it.estado === 'aprobado' && it.tramite_vulcano === 'ok' && it.consecutivo);
+  const todosPaginaSeleccionados = pagablesPagina.length > 0
+    && pagablesPagina.every((it) => it.consecutivo && selPago.has(it.consecutivo));
+  const togglePagina = () => {
+    setSelPago((prev) => {
+      const next = new Set(prev);
+      if (todosPaginaSeleccionados) {
+        pagablesPagina.forEach((it) => it.consecutivo && next.delete(it.consecutivo));
+      } else {
+        pagablesPagina.forEach((it) => it.consecutivo && next.add(it.consecutivo));
+      }
+      return next;
+    });
+  };
+
+  // "Seleccionar todos": trae del backend TODOS los pagables que cumplen los
+  // filtros (aunque estén en otras páginas) y los marca de una vez.
+  const [seleccionandoTodos, setSeleccionandoTodos] = useState(false);
+  const onSeleccionarTodos = async () => {
+    if (selPago.size > 0) {
+      Swal.fire({
+        title: '¿Limpiar selección?',
+        text: `Ya hay ${selPago.size} consecutivo(s) seleccionado(s). ¿Reemplazar la selección actual con todos los pagables?`,
+        icon: 'question', showCancelButton: true,
+        confirmButtonColor: '#005f56', cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, seleccionar todos', cancelButtonText: 'Cancelar',
+      }).then(async (r) => {
+        if (r.isConfirmed) await cargarSeleccionTodos();
+      });
+      return;
+    }
+    await cargarSeleccionTodos();
+  };
+  const cargarSeleccionTodos = async () => {
+    setSeleccionandoTodos(true);
+    try {
+      const res = await listarPagables(usuario, {
+        fecha_inicio: fFechaIni || undefined,
+        fecha_fin: fFechaFin || undefined,
+        pedido: fPedido || undefined,
+        placa: fPlaca || undefined,
+        manifiesto: fManifiesto || undefined,
+        cliente: fCliente || undefined,
+        regional: PERFILES_GLOBALES_OC.includes(perfil) ? (fRegional || undefined) : undefined,
+      });
+      if (res.total === 0) {
+        Swal.fire('Atención', 'No hay solicitudes aprobadas con trámite Vulcano OK con los filtros actuales.', 'warning');
+        return;
+      }
+      setSelPago(new Set(res.consecutivos));
+      Swal.fire(
+        '✅ Seleccionados',
+        `${res.total} solicitudes listas para pago (${formatMoney(res.valor_total)}). Puede revisar otras páginas: la selección se mantiene.`,
+        'success',
+      );
+    } catch (e: any) {
+      Swal.fire('Error', extraerErrorApi(e, 'No se pudo cargar la lista de pagables'), 'error');
+    } finally {
+      setSeleccionandoTodos(false);
+    }
+  };
+
   const onExportPago = async () => {
     if (selPago.size === 0) {
       Swal.fire('Atención', 'Seleccione al menos un consecutivo con el checkbox para generar el archivo de pago.', 'warning');
@@ -575,7 +638,7 @@ const OtrosCostosP: React.FC = () => {
       a.href = url; a.download = `pago_otros_costos_${hoyCol()}.xlsx`;
       document.body.appendChild(a); a.click();
       window.URL.revokeObjectURL(url); document.body.removeChild(a);
-      Swal.fire('✅ Listo', 'Archivo de pago generado. La columna "Referencia" va en blanco; el banco la diligencia y luego se sube el mismo archivo.', 'success');
+      Swal.fire('✅ Listo', 'Archivo de pago generado. Las columnas "Valor Despues Retenciones" y "Referencia" van en blanco; se diligencian y luego se sube el mismo archivo para registrar los pagos.', 'success');
     } catch (e: any) {
       Swal.fire('Error', extraerErrorApi(e, 'No se pudo generar el archivo de pago'), 'error');
     }
@@ -587,7 +650,7 @@ const OtrosCostosP: React.FC = () => {
     try {
       const res = await importarPago(usuario, file);
       const okHtml = (res.procesadas || []).map((p) =>
-        `<li>✅ <b>${p.consecutivo}</b> → pagada (${p.referencia_bancaria || 'sin referencia'})</li>`,
+        `<li>✅ <b>${p.consecutivo}</b> → pagada (${p.referencia_bancaria || 'sin referencia'}${p.valor_despues_retenciones != null ? ` · tras retenciones: ${formatMoney(p.valor_despues_retenciones)}` : ''})</li>`,
       ).join('');
       const errHtml = (res.errores || []).map((p) =>
         `<li>❌ <b>${p.consecutivo}</b>: ${p.detalle}</li>`,
@@ -652,6 +715,23 @@ const OtrosCostosP: React.FC = () => {
             <button className="OC-btn OC-btnExcel" onClick={onExportExcel}><FaFileExcel /> Excel</button>
             {puedeArchivoBancario && (
               <>
+                <button
+                  className="OC-btn OC-btnExcel" style={{ background: '#1d4ed8' }}
+                  onClick={onSeleccionarTodos}
+                  disabled={seleccionandoTodos}
+                  title="Marca TODAS las solicitudes listas para pago que cumplen los filtros (incluye las de otras páginas)"
+                >
+                  <FaCheck /> {seleccionandoTodos ? 'Seleccionando...' : 'Seleccionar todos'}
+                </button>
+                {selPago.size > 0 && (
+                  <button
+                    className="OC-btn OC-btnExcel" style={{ background: '#6b7280' }}
+                    onClick={() => setSelPago(new Set())}
+                    title="Limpia la selección de consecutivos"
+                  >
+                    <FaTimes /> Limpiar ({selPago.size})
+                  </button>
+                )}
                 <button className="OC-btn OC-btnExcel" style={{ background: '#1d4ed8' }} onClick={onExportPago} title="Genera el archivo plano bancario de los consecutivos seleccionados (aprobados + trámite OK)">
                   <FaUniversity /> Archivo pago {selPago.size > 0 ? `(${selPago.size})` : ''}
                 </button>
@@ -659,7 +739,7 @@ const OtrosCostosP: React.FC = () => {
                   className="OC-btn OC-btnExcel" style={{ background: '#0d9488' }}
                   onClick={() => inputArchivoRef.current?.click()}
                   disabled={importando}
-                  title="Sube el archivo bancario con la Referencia diligenciada: registra los pagos y pasa las solicitudes al histórico"
+                  title="Sube el archivo bancario con Valor Despues Retenciones y Referencia diligenciados: registra los pagos y pasa las solicitudes al histórico"
                 >
                   <FaFileUpload /> Subir pago
                 </button>
@@ -685,7 +765,16 @@ const OtrosCostosP: React.FC = () => {
             <table className="OC-table">
               <thead>
                 <tr>
-                  {puedeArchivoBancario && <th style={{ width: '34px' }}></th>}
+                  {puedeArchivoBancario && (
+                    <th style={{ width: '34px' }} title="Seleccionar los pagables de esta página">
+                      <input
+                        type="checkbox"
+                        checked={todosPaginaSeleccionados}
+                        onChange={togglePagina}
+                        disabled={pagablesPagina.length === 0}
+                      />
+                    </th>
+                  )}
                   <th>Consecutivo</th><th>Fecha</th><th>Pedido Vulcano</th><th>Cliente</th>
                   <th>Placa</th><th>Manifiesto</th><th>Tipo Costo</th><th>Valor Total</th>
                   <th>Estado</th><th>Creado por</th><th>Acciones</th>
@@ -823,6 +912,7 @@ const OtrosCostosP: React.FC = () => {
                   <Campo label="Pagado por" v={detalle.pago?.usuario} />
                   <Campo label="Fecha pago" v={detalle.pago?.fecha_pago ? formatFecha(detalle.pago.fecha_pago) : '-'} />
                   <Campo label="Referencia" v={detalle.pago?.referencia} />
+                  <Campo label="Valor tras retenciones" v={detalle.valor_despues_retenciones != null ? formatMoney(detalle.valor_despues_retenciones) : (detalle.pago?.valor_despues_retenciones != null ? formatMoney(detalle.pago.valor_despues_retenciones) : '-')} />
                   <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
                   <Campo label="Tramitado por" v={detalle.tramite_vulcano_info?.usuario} />
                 </div>

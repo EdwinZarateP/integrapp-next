@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Customized } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar } from 'react-icons/fa';
@@ -26,9 +26,22 @@ type FilaGuia = {
   consecutivo_vehiculo: string | number;
   fecha_creacion: string | null;
   cajas_vehiculo: number;
+  destino?: string;
   estado: string | null;
+  fecha_emision: string | null;
   fecha_entrega: string | null;
   fecha_digitalizacion: string | null;
+  // TEXT crudo del TMS: histórico con basura (zonas, teléfonos); llegará
+  // YYYY-MM-DD cuando la operación digite fechas reales.
+  fecha_cita: string | null;
+  destinatario: string | null;
+  // On Time: fecha inicial (emision ?? creacion) vs fecha promesa (CITA si es
+  // servible, si no inicial + promesa_entrega_dias hábiles del destino en
+  // Tarifas). ot=1 cumplió, 0 no, null no evaluable.
+  fecha_promesa: string | null;
+  origen_promesa: 'CITA' | 'PROMESA' | null;
+  dias_habiles: number | null;
+  ot: number | null;
 };
 
 type ResumenGuias = {
@@ -38,6 +51,10 @@ type ResumenGuias = {
   en_proceso: number;
   sin_info: number;
   por_estado: Record<string, number>;
+  ot_cumplen: number;
+  ot_no_cumplen: number;
+  ot_no_evaluables: number;
+  ot_pct: number | null;
   truncada: boolean;
 };
 
@@ -194,12 +211,64 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     setFiltrosAplicados({ anios: aniosSeleccionados, meses: mesesSeleccionados });
   };
 
-  // Datos visibles según la vista del gráfico.
-  const dataCajas = useMemo<SerieCajas[]>(
-    () => (vistaCajas === 'diaria' ? serieDiaria : serieMensual),
+  // Datos visibles según la vista del gráfico. En vista diaria cada punto lleva
+  // `ts` (ms de su fecha) para el eje de tiempo numérico, en orden ascendente.
+  const dataCajas = useMemo<(SerieCajas & { ts?: number })[]>(
+    () => vistaCajas === 'diaria'
+      ? serieDiaria
+          .map(d => ({ ...d, ts: parseISO(d.periodo).getTime() }))
+          .sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0))
+      : serieMensual,
     [vistaCajas, serieDiaria, serieMensual],
   );
-  const intervalCajas = dataCajas.length > 1 ? Math.max(0, Math.ceil(dataCajas.length / 12) - 1) : 0;
+
+  // Eje de tiempo estilo Excel (solo vista diaria): fila 1 = día del mes,
+  // fila 2 = mes, fila 3 = año. Cada mes/año es una CELDA con bordes que
+  // encierra exactamente los días que cubre (como la tabla dinámica de Excel:
+  // se ve de un golpe qué días pertenecen a qué mes/año).
+  const ejeDiario = useMemo(() => {
+    const DIA = 86_400_000;
+    const puntos = dataCajas.filter((d): d is SerieCajas & { ts: number } => d.ts !== undefined);
+    if (vistaCajas !== 'diaria' || puntos.length === 0) return null;
+    const minTs = puntos[0].ts;
+    const maxTs = puntos[puntos.length - 1].ts;
+
+    // Días continuos min→max; en rangos largos se salta de a `paso` para que
+    // los números no se solapen (Excel también espacia las etiquetas al alejarse).
+    const totalDias = Math.round((maxTs - minTs) / DIA) + 1;
+    const paso = totalDias <= 62 ? 1 : Math.ceil(totalDias / 45);
+    const ticksDias: number[] = [];
+    for (let t = minTs; t <= maxTs; t += paso * DIA) ticksDias.push(t);
+
+    // Celdas de mes (YYYY-MM): [inicio, fin] en ms. La celda va del primer día
+    // del bloque hasta el inicio del siguiente mes (o el último día con datos
+    // si es la última celda) — así encierra visualmente a sus días.
+    const celdasMes: { clave: string; inicio: number; fin: number; nombre: string }[] = [];
+    puntos.forEach(p => {
+      const clave = p.periodo.slice(0, 7);
+      const ult = celdasMes[celdasMes.length - 1];
+      if (ult && ult.clave === clave) ult.fin = p.ts;
+      else celdasMes.push({ clave, inicio: p.ts, fin: p.ts, nombre: format(p.ts, 'MMM', { locale: es }) });
+    });
+
+    // Celdas de año agrupando las de mes.
+    const celdasAnio: { anio: string; inicio: number; fin: number }[] = [];
+    celdasMes.forEach(c => {
+      const anio = c.clave.slice(0, 4);
+      const ult = celdasAnio[celdasAnio.length - 1];
+      if (ult && ult.anio === anio) ult.fin = c.fin;
+      else celdasAnio.push({ anio, inicio: c.inicio, fin: c.fin });
+    });
+
+    return {
+      // Dominio degenerado (un solo día) se ensancha para que la escala exista.
+      dominio: [minTs === maxTs ? minTs - DIA / 2 : minTs, minTs === maxTs ? maxTs + DIA / 2 : maxTs] as [number, number],
+      ticksDias,
+      celdasMes,
+      celdasAnio,
+      formatoDia: (v: number) => format(v, 'd'),
+    };
+  }, [vistaCajas, dataCajas]);
 
   // Media de cajas de los períodos visibles — referencia punteada y área
   // roja/azul según cada punto quede por encima/debajo de ella (vista diaria).
@@ -215,6 +284,15 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     return { media, corte };
   }, [dataCajas]);
 
+  // Proporción de días POR ENCIMA de la media (solo vista diaria, junto a la
+  // línea de referencia): "45% días > media (14/31)".
+  const diasSobreMedia = useMemo(() => {
+    if (vistaCajas !== 'diaria' || !mediaDiaria || dataCajas.length === 0) return null;
+    const total = dataCajas.length;
+    const encima = dataCajas.filter(d => (d.cajas || 0) > mediaDiaria.media).length;
+    return { total, encima, pct: Math.round((encima / total) * 100) };
+  }, [vistaCajas, dataCajas, mediaDiaria]);
+
   const formatearEntero = (num: number): string =>
     new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(num || 0);
   const formatearEnteroCorto = (num: number): string => {
@@ -229,16 +307,25 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   const claseChipEstado = (estado: string) =>
     estado.toUpperCase() === 'ENTREGADO' ? 'DC-guiaChipEntregada' : 'DC-guiaChipProceso';
 
+  // '2026-08-14' → '14-08-2026' (día primero, como lo lee el usuario). Solo
+  // reformattea si calza exacto con ISO; fecha_cita puede traer basura y se
+  // muestra tal cual.
+  const formatearFecha = (v: string | null): string => {
+    if (!v) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : v;
+  };
+
   // Export CSV del informe (separador ; + BOM, patrón de los otros indicadores).
   const exportarGuiasCSV = () => {
-    const cabeceras = ['Guía', 'Vehículo', 'Fecha', 'Cajas', 'Estado', 'F. Entrega', 'F. Digitalización'];
+    const cabeceras = ['Guía', 'Vehículo', 'Destinatario', 'Destino', 'Fecha', 'Cajas', 'Estado', 'F. Emisión', 'F. Entrega', 'F. Promesa', 'Origen Promesa', 'Días Hábiles', 'OT', 'F. Digitalización', 'F. Cita'];
     const csvCell = (v: unknown) => {
       const s = v === null || v === undefined ? '' : String(v);
       return s.includes(';') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const lineas = [
       cabeceras.join(';'),
-      ...filasGuias.map(f => [f.guia, f.consecutivo_vehiculo, f.fecha_creacion, f.cajas_vehiculo, f.estado, f.fecha_entrega, f.fecha_digitalizacion].map(csvCell).join(';')),
+      ...filasGuias.map(f => [f.guia, f.consecutivo_vehiculo, f.destinatario, f.destino, f.fecha_creacion, f.cajas_vehiculo, f.estado, f.fecha_emision, f.fecha_entrega, f.fecha_promesa, f.origen_promesa, f.dias_habiles, f.ot, f.fecha_digitalizacion, f.fecha_cita].map(csvCell).join(';')),
     ];
     const blob = new Blob(['﻿' + lineas.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -249,11 +336,121 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     URL.revokeObjectURL(url);
   };
 
+  // Etiquetas de valor VERTICALES adaptativas: sobre un pico suben desde justo
+  // encima del punto; en valle/ladera bajan desde justo debajo — nunca tapan el
+  // punto ni cruzan la línea. Halo blanco (CSS) para leerse sobre el área.
+  const renderEtiquetaCajas = (props: any) => {
+    const { x, y, value, index } = props;
+    const valor = Number(value);
+    if (!valor || valor <= 0) return null;
+    const prev = index > 0 ? (dataCajas[index - 1]?.cajas ?? null) : null;
+    const next = index < dataCajas.length - 1 ? (dataCajas[index + 1]?.cajas ?? null) : null;
+    const esPico = (prev === null || valor >= prev) && (next === null || valor >= next);
+    const cx = Number(x) + 4; // la baseline queda en cx; los glifos se centran sobre el punto
+    const cy = Number(y);
+    const OFFSET = 8;
+    return esPico ? (
+      <text x={cx} y={cy - OFFSET} transform={`rotate(-90 ${cx} ${cy - OFFSET})`} textAnchor="start" className="DC-etiquetaCajas">
+        {formatearEnteroCorto(valor)}
+      </text>
+    ) : (
+      <text x={cx} y={cy + OFFSET} transform={`rotate(-90 ${cx} ${cy + OFFSET})`} textAnchor="end" className="DC-etiquetaCajas">
+        {formatearEnteroCorto(valor)}
+      </text>
+    );
+  };
+
   const formatoEje = (val: string) => {
     try {
       if (vistaCajas === 'diaria') return format(parseISO(val), 'd MMM', { locale: es });
       return format(parseISO(val + '-01'), 'MMM yy', { locale: es });
     } catch { return val; }
+  };
+
+  // Banda inferior del eje diario (mes + año) dibujada como celdas con bordes,
+  // estilo tabla dinámica de Excel: cada mes encierra a sus días y el año
+  // agrupa a sus meses. Recharts inyecta a Customized el `offset` (espacio
+  // reservado alrededor del plot) y el `xAxisMap` (escalas). El borde inferior
+  // del plot está en svgHeight - offset.bottom; de ahí hacia abajo: fila de
+  // días (XAxis) y las bandas de mes/año de este componente.
+  const renderBandaMeses = (props: any) => {
+    if (!ejeDiario) return null;
+    const escala = props?.xAxisMap?.[0]?.scale;
+    const offset = props?.offset;
+    if (!escala || !offset) return null;
+    const x = (ts: number) => escala(ts);
+    const ALTO_MES = 20;
+    const ALTO_ANIO = 18;
+    // Fin del eje de días (svgHeight - margen inferior) → ahí arrancan las bandas.
+    const yTop = props.height - (props.margin?.bottom ?? 0);
+    const BORDE = '#94a3b8';
+    const TEXTO_MES = '#334155';
+    const TEXTO_ANIO = '#64748b';
+    const FONDO = '#f1f5f9';
+    return (
+      <g className="DC-bandaMeses">
+        {/* Banda de meses: una celda por mes */}
+        {ejeDiario.celdasMes.map((c, i) => {
+          // La celda cubre hasta la mitad del hueco que la separa del siguiente
+          // mes (o hasta su último día si es la última): encierra a SUS días.
+          const esUltima = i === ejeDiario.celdasMes.length - 1;
+          const x0 = x(c.inicio);
+          const x1 = esUltima ? x(c.fin) : (x(c.fin) + x(ejeDiario.celdasMes[i + 1].inicio)) / 2;
+          return (
+            <g key={c.clave}>
+              <rect
+                x={x0}
+                y={yTop}
+                width={Math.max(x1 - x0, 0)}
+                height={ALTO_MES}
+                fill={FONDO}
+                stroke={BORDE}
+                strokeWidth={1}
+              />
+              <text
+                x={(x0 + x1) / 2}
+                y={yTop + ALTO_MES / 2}
+                dominantBaseline="central"
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight={600}
+                fill={TEXTO_MES}
+              >
+                {c.nombre}
+              </text>
+            </g>
+          );
+        })}
+        {/* Banda de años: una celda por año, debajo de los meses */}
+        {ejeDiario.celdasAnio.map(c => {
+          const x0 = x(c.inicio);
+          const x1 = x(c.fin);
+          return (
+            <g key={c.anio}>
+              <rect
+                x={x0}
+                y={yTop + ALTO_MES + 1}
+                width={Math.max(x1 - x0, 0)}
+                height={ALTO_ANIO}
+                fill="#ffffff"
+                stroke={BORDE}
+                strokeWidth={1}
+              />
+              <text
+                x={(x0 + x1) / 2}
+                y={yTop + ALTO_MES + 1 + ALTO_ANIO / 2}
+                dominantBaseline="central"
+                textAnchor="middle"
+                fontSize={11}
+                fill={TEXTO_ANIO}
+              >
+                {c.anio}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    );
   };
 
   // Tooltip: cajas + vehículos del período.
@@ -305,7 +502,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
           </button>
 
           <div className="DC-logoCliente">
-            <Image src={cliente.logo} alt={cliente.nombre} width={170} height={52} style={{ objectFit: 'contain' }} unoptimized />
+            <span className="DC-nombreCliente">{cliente.nombre}</span>
           </div>
 
           <div className="DC-userZone" ref={menuRef}>
@@ -441,6 +638,11 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                       <h2 className="IG-graficoTitulo">
                         📦 Cantidad de cajas
                         <span className="IG-graficoBadge">{vistaCajas === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                        {diasSobreMedia && (
+                          <span className="DC-badgeSobreMedia" title="Días con cajas por encima de la media del período visible">
+                            {diasSobreMedia.pct}% días &gt; media ({diasSobreMedia.encima}/{diasSobreMedia.total})
+                          </span>
+                        )}
                       </h2>
                     </div>
                     <div className="IG-graficoAcciones">
@@ -453,9 +655,9 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                   {/* <p className="IG-graficoSub">
                     <span style={{ color: COLOR_CAJAS }}>●</span> <b>Cajas despachadas</b> (media milla)
                   </p> */}
-                  <div style={{ width: '100%', height: 380 }}>
-                    <ResponsiveContainer width="100%" height={380}>
-                      <ComposedChart data={dataCajas} margin={{ top: 20, right: 20, left: 20, bottom: 28 }}>
+                  <div style={{ width: '100%', height: 420 }}>
+                    <ResponsiveContainer width="100%" height={420}>
+                      <ComposedChart data={dataCajas} margin={{ top: 20, right: 20, left: 20, bottom: 46 }}>
                         <defs>
                           {/* Gradiente del área: rojo por encima de la media, azul por debajo */}
                           <linearGradient id="gradCajasMedia" x1="0" y1="0" x2="0" y2="1">
@@ -466,8 +668,44 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" />
-                        {/* padding: el primer/último punto no quedan pegados al eje Y */}
-                        <XAxis dataKey="periodo" tickFormatter={formatoEje} interval={intervalCajas} tick={{ fontSize: 11 }} padding={{ left: 30, right: 30 }} />
+                        {/* padding: el primer/último punto no quedan pegados al eje Y.
+                            Ticks verticales: los meses/días ya no se solapan ni se
+            ahorra el interval que saltaba etiquetas. */}
+                        {/* Eje X jerárquico estilo Excel (vista diaria): días arriba,
+                            mes centrado bajo sus días y año abajo. La vista mensual
+                            conserva su eje de categorías original. */}
+                        {ejeDiario ? (
+                          <>
+                            <XAxis
+                              type="number"
+                              dataKey="ts"
+                              domain={ejeDiario.dominio}
+                              ticks={ejeDiario.ticksDias}
+                              tickFormatter={ejeDiario.formatoDia}
+                              interval={0}
+                              height={24}
+                              tick={{ fontSize: 11 }}
+                              axisLine={{ stroke: '#94a3b8' }}
+                              tickLine={false}
+                              padding={{ left: 30, right: 30 }}
+                              allowDecimals={false}
+                            />
+                            {/* Bandas de mes/año con bordes de celda (estilo tabla
+                                dinámica de Excel) bajo la fila de días */}
+                            <Customized component={renderBandaMeses} />
+                          </>
+                        ) : (
+                          <XAxis
+                            dataKey="periodo"
+                            tickFormatter={formatoEje}
+                            interval={0}
+                            angle={-90}
+                            textAnchor="end"
+                            height={70}
+                            tick={{ fontSize: 11 }}
+                            padding={{ left: 30, right: 30 }}
+                          />
+                        )}
                         <YAxis tickFormatter={(v) => formatearEntero(v)} width={70} />
                         <Tooltip content={tooltipCajas} cursor={{ stroke: '#0f1928', strokeDasharray: '3 3' }} />
                         {/* Área entre la curva y la media — roja por encima, azul por debajo */}
@@ -500,7 +738,8 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                           />
                         )}
                         <Line type="monotone" dataKey="cajas" stroke={COLOR_CAJAS} strokeWidth={2} name="Cajas" dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false}>
-                          <LabelList dataKey="cajas" position="top" offset={6} formatter={(value: number) => (value > 0 ? formatearEnteroCorto(value) : '')} style={{ fill: COLOR_CAJAS, fontSize: 10, fontWeight: 700 }} />
+                          {/* Etiquetas verticales adaptativas (pico→arriba, valle→abajo) */}
+                          <LabelList dataKey="cajas" content={renderEtiquetaCajas} />
                         </Line>
                       </ComposedChart>
                     </ResponsiveContainer>
@@ -530,6 +769,15 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                     <div className="DC-guiaTile DC-guiaTileExito">
                       <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.entregadas)}</span>
                       <span className="DC-guiaTileLabel">Entregadas</span>
+                    </div>
+                    <div
+                      className="DC-guiaTile DC-guiaTileOT"
+                      title={`On Time: ${resumenGuias.ot_cumplen}/${resumenGuias.ot_cumplen + resumenGuias.ot_no_cumplen} guías entregadas dentro de la fecha promesa (días hábiles, sin sáb/dom/festivos)`}
+                    >
+                      <span className="DC-guiaTileValor">
+                        {resumenGuias.ot_pct != null ? `${resumenGuias.ot_pct}%` : '—'}
+                      </span>
+                      <span className="DC-guiaTileLabel">On Time</span>
                     </div>
                     <div className="DC-guiaTile DC-guiaTileProceso">
                       <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.en_proceso)}</span>
@@ -567,11 +815,17 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                             <tr>
                               <th>Guía</th>
                               <th>Vehículo</th>
+                              <th>Destinatario</th>
                               <th>Fecha</th>
                               <th>Cajas</th>
                               <th>Estado</th>
+                              <th>F. Emisión</th>
                               <th>F. Entrega</th>
+                              <th title="Fecha límite: la de CITA si es válida; si no, inicial + promesa del destino (días hábiles)">F. Promesa</th>
+                              <th title="Días hábiles transcurridos (sin sáb/dom/festivos)">Días háb.</th>
+                              <th title="1 = entregada dentro de la fecha promesa; 0 = tarde; — = no evaluable">OT</th>
                               <th>F. Digitalización</th>
+                              <th>F. Cita</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -579,11 +833,28 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                               <tr key={f.guia}>
                                 <td className="DC-guiaCeldaNum">{f.guia}</td>
                                 <td className="DC-guiaCeldaVeh">{f.consecutivo_vehiculo}</td>
-                                <td>{f.fecha_creacion ?? '—'}</td>
+                                <td className="DC-guiaCeldaDest">{f.destinatario ?? '—'}</td>
+                                <td>{formatearFecha(f.fecha_creacion)}</td>
                                 <td className="DC-guiaCeldaNum">{formatearEntero(f.cajas_vehiculo)}</td>
                                 <td>{f.estado ? <span className={`DC-guiaChip ${claseChipEstado(f.estado)}`}>{f.estado}</span> : '—'}</td>
-                                <td>{f.fecha_entrega ?? '—'}</td>
-                                <td>{f.fecha_digitalizacion ?? '—'}</td>
+                                <td>{formatearFecha(f.fecha_emision)}</td>
+                                <td>{formatearFecha(f.fecha_entrega)}</td>
+                                <td>
+                                  {f.fecha_promesa
+                                    ? <span title={f.origen_promesa === 'CITA' ? 'Promesa: fecha de cita' : 'Promesa: inicial + días del destino (hábiles)'}>
+                                        {formatearFecha(f.fecha_promesa)}
+                                        <span className={`DC-guiaOrigPromesa ${f.origen_promesa === 'CITA' ? 'DC-guiaOrigPromesaCita' : ''}`}>{f.origen_promesa === 'CITA' ? ' cita' : ' prom'}</span>
+                                      </span>
+                                    : '—'}
+                                </td>
+                                <td className="DC-guiaCeldaNum">{f.dias_habiles ?? '—'}</td>
+                                <td>
+                                  {f.ot === null
+                                    ? '—'
+                                    : <span className={`DC-guiaChip ${f.ot === 1 ? 'DC-guiaChipOTSi' : 'DC-guiaChipOTNo'}`}>{f.ot === 1 ? '✓ 1' : '✗ 0'}</span>}
+                                </td>
+                                <td>{formatearFecha(f.fecha_digitalizacion)}</td>
+                                <td>{formatearFecha(f.fecha_cita)}</td>
                               </tr>
                             ))}
                           </tbody>
