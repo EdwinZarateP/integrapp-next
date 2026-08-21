@@ -105,6 +105,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   const [cargandoGuias, setCargandoGuias] = useState(false);
   const [errorGuias, setErrorGuias] = useState<string | null>(null);
   const [advertenciaGuias, setAdvertenciaGuias] = useState<string | null>(null);
+  // Trazabilidad: búsqueda por guía o consecutivo de vehículo (va al backend
+  // como ?q= y reemplaza el filtro de fechas).
+  const [inputTraza, setInputTraza] = useState('');
+  const [trazaActiva, setTrazaActiva] = useState<string | null>(null);
   // Tras abrir el informe una vez, re-consulta junto con /cajas en cada Filtrar.
   const informeYaConsultado = useRef(false);
 
@@ -194,6 +198,13 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     return params;
   };
 
+  // Params del informe de guías: los del período + la trazabilidad activa (q).
+  const construirParamsGuias = () => {
+    const params = construirParams();
+    if (trazaActiva) params.set('q', trazaActiva);
+    return params;
+  };
+
   const obtenerDatos = async () => {
     setCargando(true);
     setError(null);
@@ -219,7 +230,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     setCargandoGuias(true);
     setErrorGuias(null);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/guias?${construirParams().toString()}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/guias?${construirParamsGuias().toString()}`);
       if (!response.ok) throw new Error('Error al obtener el informe de guías');
       const data: InformeGuiasResponse = await response.json();
       if (data.success && data.data) {
@@ -255,6 +266,24 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     }
     setInformeAbierto(o => !o);
   };
+
+  // Trazabilidad: aplicar la búsqueda (Enter o botón) y limpiarla.
+  const aplicarTraza = () => {
+    const v = inputTraza.trim();
+    setTrazaActiva(v || null);
+  };
+  const limpiarTraza = () => {
+    setInputTraza('');
+    setTrazaActiva(null);
+  };
+
+  // Al cambiar la trazabilidad (o los filtros), re-consultar el informe si ya
+  // se abrió alguna vez. La trazabilidad reemplaza el filtro de fechas en el
+  // backend (busca en TODO el histórico del cliente).
+  useEffect(() => {
+    if (cliente && informeYaConsultado.current) obtenerInformeGuias();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trazaActiva]);
 
   const aplicarFiltros = () => {
     setFiltrosAplicados({ anios: aniosSeleccionados, meses: mesesSeleccionados });
@@ -941,6 +970,30 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                 milla) == guia (PostgreSQL informe_guias_tms); puede traer varias
                 guías por coma → una fila por guía. Fetch perezoso al abrir. */}
             <section className="DC-guiaSeccion">
+              {/* Trazabilidad: guía o consecutivo → el backend busca en TODO el
+                  histórico (ignora año/mes) y muestra el vehículo con sus guías. */}
+              <div className="DC-trazaBarra">
+                <input
+                  className="DC-trazaInput"
+                  type="text"
+                  placeholder="Trazabilidad: número de guía o consecutivo del vehículo…"
+                  value={inputTraza}
+                  onChange={e => setInputTraza(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && aplicarTraza()}
+                  disabled={cargandoGuias}
+                />
+                <button className="DC-trazaBtn" onClick={aplicarTraza} disabled={cargandoGuias}>Buscar</button>
+                {trazaActiva && (
+                  <button className="DC-trazaBtn DC-trazaBtnLimpiar" onClick={limpiarTraza} title="Quitar filtro de trazabilidad">
+                    ✕ Limpiar
+                  </button>
+                )}
+              </div>
+              {trazaActiva && (
+                <p className="DC-trazaInfo">
+                  🔎 Trazabilidad por <strong>{trazaActiva}</strong> — buscando en todo el histórico (los filtros de Año/Mes no aplican ahora).
+                </p>
+              )}
               <button className="DC-guiaToggle" onClick={alternarInforme} aria-expanded={informeAbierto}>
                 <h2 className="DC-guiaTitulo">🚚 Informe de guías TMS</h2>
                 {resumenGuias && !cargandoGuias && (
