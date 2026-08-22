@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Customized, BarChart, Bar } from 'recharts';
+import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaUpload } from 'react-icons/fa';
@@ -171,6 +172,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   // Vista del gráfico de cajas: mensual (default) o diaria.
   const [vistaCajas, setVistaCajas] = useState<'mensual' | 'diaria'>('mensual');
 
+  // Nivel 1 arcade: el trazo se dibuja solo SOLO en la carga inicial de la
+  // página (en cada "Filtrar" ya no sorprende, solo demora).
+  const [primeraCarga, setPrimeraCarga] = useState(true);
+
   // Filtros en pantalla (no disparan fetch hasta "Filtrar")
   const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
   const [aniosSeleccionados, setAniosSeleccionados] = useState<number[]>([new Date().getFullYear()]);
@@ -228,6 +233,9 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
         setSerieMensual(data.data.mensual || []);
         setSerieDiaria(data.data.diario || []);
         if (data.data.anios?.length) setAniosDisponibles(data.data.anios);
+        // NOTA: primeraCarga NO se apaga acá — lo hace el onAnimationEnd de la
+        // Line. Un timeout era frágil: si el fetch corre 2 veces (StrictMode)
+        // o tarda, cambiaba la duración a mitad del trazo y la línea saltaba.
       } else {
         throw new Error(data.error || 'Error desconocido');
       }
@@ -481,24 +489,36 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     return m ? `${m[3]}-${m[2]}-${m[1]}` : v;
   };
 
-  // Export CSV del informe (separador ; + BOM, patrón de los otros indicadores).
-  const exportarGuiasCSV = () => {
-    const cabeceras = ['Guía', 'Vehículo', 'Destinatario', 'Destino', 'Fecha', 'Cajas', 'Estado', 'F. Emisión', 'F. Entrega', 'F. Promesa', 'Origen Promesa', 'Días Hábiles', 'OT', 'F. Digitalización', 'F. Cita'];
-    const csvCell = (v: unknown) => {
-      const s = v === null || v === undefined ? '' : String(v);
-      return s.includes(';') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const lineas = [
-      cabeceras.join(';'),
-      ...filasGuias.map(f => [f.guia, f.consecutivo_vehiculo, f.destinatario, f.destino, f.fecha_creacion, f.cajas_vehiculo, f.estado, f.fecha_emision, f.fecha_entrega, f.fecha_promesa, f.origen_promesa, f.dias_habiles, f.ot, f.fecha_digitalizacion, f.fecha_cita].map(csvCell).join(';')),
+  // Export Excel (.xlsx) del informe — SheetJS, mismo patrón que el Export de
+  // Tarifas. Fechas ya en DD-MM-AAAA (formatearFecha) para que Excel-ES las lea.
+  const exportarGuiasExcel = () => {
+    const datos = filasGuias.map(f => ({
+      'Guía': f.guia,
+      'Vehículo': f.consecutivo_vehiculo,
+      'Destinatario': f.destinatario ?? '',
+      'Destino': f.destino ?? '',
+      'Fecha': f.fecha_creacion ? formatearFecha(f.fecha_creacion) : '',
+      'Cajas': f.cajas_vehiculo,
+      'Estado': f.estado ?? '',
+      'F. Emisión': f.fecha_emision ? formatearFecha(f.fecha_emision) : '',
+      'F. Entrega': f.fecha_entrega ? formatearFecha(f.fecha_entrega) : '',
+      'F. Promesa': f.fecha_promesa ? formatearFecha(f.fecha_promesa) : '',
+      'Origen Promesa': f.origen_promesa ?? '',
+      'Días Hábiles': f.dias_habiles ?? '',
+      'OT': f.ot ?? '',
+      'F. Digitalización': f.fecha_digitalizacion ? formatearFecha(f.fecha_digitalizacion) : '',
+      'F. Cita': f.fecha_cita ? formatearFecha(f.fecha_cita) : '',
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(datos);
+    ws['!cols'] = [
+      { wch: 12 }, { wch: 34 }, { wch: 24 }, { wch: 18 }, { wch: 12 }, { wch: 8 },
+      { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 10 },
+      { wch: 6 }, { wch: 14 }, { wch: 12 },
     ];
-    const blob = new Blob(['﻿' + lineas.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `guias_tms_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    XLSX.utils.book_append_sheet(wb, ws, 'Guías TMS');
+    XLSX.writeFile(wb, `guias_tms_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
   // Etiquetas de valor VERTICALES adaptativas: sobre un pico suben desde justo
@@ -823,7 +843,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                   {/* <p className="IG-graficoSub">
                     <span style={{ color: COLOR_CAJAS }}>●</span> <b>Cajas despachadas</b> (media milla)
                   </p> */}
-                  <div style={{ width: '100%', height: 420 }}>
+                  <div className={`DC-chartWrap ${primeraCarga ? 'DC-chartWrapPrimera' : ''}`} style={{ width: '100%', height: 420 }}>
                     <ResponsiveContainer width="100%" height={420}>
                       <ComposedChart data={dataCajas} margin={{ top: 20, right: 20, left: 20, bottom: 46 }}>
                         <defs>
@@ -834,8 +854,16 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                             <stop offset={`${(mediaDiaria?.corte ?? 0.5) * 100}%`} stopColor="#3b82f6" stopOpacity={0.95} />
                             <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.95} />
                           </linearGradient>
+                          {/* Neón: filtro glow reutilizable por la línea y el activeDot */}
+                          <filter id="glowNeon" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="3" result="blur" />
+                            <feMerge>
+                              <feMergeNode in="blur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" />
+                        <CartesianGrid strokeDasharray="3 3" className="DC-gridArcade" />
                         {/* padding: el primer/último punto no quedan pegados al eje Y.
                             Ticks verticales: los meses/días ya no se solapan ni se
             ahorra el interval que saltaba etiquetas. */}
@@ -875,7 +903,8 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                           />
                         )}
                         <YAxis tickFormatter={(v) => formatearEntero(v)} width={70} />
-                        <Tooltip content={tooltipCajas} cursor={{ stroke: '#0f1928', strokeDasharray: '3 3' }} />
+                        {/* Crosshair neón: la vertical glow sigue el mouse */}
+                        <Tooltip content={tooltipCajas} cursor={{ stroke: '#6366f1', strokeWidth: 1.5, strokeDasharray: '4 4', className: 'DC-crosshairArcade' }} />
                         {/* Área entre la curva y la media — roja por encima, azul por debajo */}
                         {vistaCajas === 'diaria' && mediaDiaria !== null && (
                           <Area
@@ -905,8 +934,27 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                             }}
                           />
                         )}
-                        <Line type="monotone" dataKey="cajas" stroke={COLOR_CAJAS} strokeWidth={2} name="Cajas" dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false}>
-                          {/* Etiquetas verticales adaptativas (pico→arriba, valle→abajo) */}
+                        <Line
+                          type="monotone"
+                          dataKey="cajas"
+                          stroke={COLOR_CAJAS}
+                          strokeWidth={2.5}
+                          name="Cajas"
+                          dot={{ r: 3, fill: '#fff', stroke: COLOR_CAJAS, strokeWidth: 2 }}
+                          activeDot={{ r: 6, fill: COLOR_CAJAS, stroke: '#fff', strokeWidth: 2, filter: 'url(#glowNeon)', className: 'DC-activeDotArcade' }}
+                          /* El trazo se anima SOLO la primera vez. Después de eso
+                             NO se desactiva la animación (el flip de la prop
+                             remueve el path y produce un salto brusco a mitad
+                             del trazo): se deja activa con duración ~0, así los
+                             "Filtrar" posteriores aparecen directos. */
+                          isAnimationActive
+                          animationDuration={primeraCarga ? 1600 : 1}
+                          animationEasing="ease-out"
+                          filter="url(#glowNeon)"
+                          onAnimationEnd={() => setPrimeraCarga(false)}
+                        >
+                          {/* Etiquetas verticales adaptativas (pico→arriba, valle→abajo).
+                              Sin animación propia: la Line anima y estas la siguen. */}
                           <LabelList dataKey="cajas" content={renderEtiquetaCajas} />
                         </Line>
                       </ComposedChart>
@@ -1143,6 +1191,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                         </table>
                       </div>
                       <div className="DC-guiaAcciones">
+                        <button className="DC-guiaBotonExportar" onClick={exportarGuiasExcel}>⬇ Exportar Excel</button>
                         {puedeCargarCitas && (
                           <label className="DC-guiaBotonCargar" title="Carga fechas de cita (GUIA + FECHA_CITA) que reemplazan las del TMS para el cálculo On Time">
                             <FaUpload /> {cargandoCitas ? 'Cargando…' : '⬆ Cargar Citas'}
@@ -1155,7 +1204,6 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                             />
                           </label>
                         )}
-                        <button className="DC-guiaBotonExportar" onClick={exportarGuiasCSV}>⬇ Exportar CSV</button>
                       </div>
                     </>
                   )}
