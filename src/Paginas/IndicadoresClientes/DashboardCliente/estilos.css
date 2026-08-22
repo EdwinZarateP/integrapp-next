@@ -286,6 +286,13 @@
   vertical-align: middle;
 }
 
+/* Badge neutro del rango de fechas aplicado (título del gráfico OT) */
+.DC-badgeRango {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
 /* Etiqueta vertical de valor del gráfico de cajas: halo blanco para que se
    lea aunque cruce la línea o el área de la media. */
 .DC-etiquetaCajas {

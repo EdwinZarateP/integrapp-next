@@ -109,8 +109,6 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   // como ?q= y reemplaza el filtro de fechas).
   const [inputTraza, setInputTraza] = useState('');
   const [trazaActiva, setTrazaActiva] = useState<string | null>(null);
-  // Tras abrir el informe una vez, re-consulta junto con /cajas en cada Filtrar.
-  const informeYaConsultado = useRef(false);
 
   // Carga del Excel de citas (plan B del OT): solo ADMIN/ANALISTA/COORDINADOR/CONTROL.
   const puedeCargarCitas = PERFILES_CARGA_CITAS.includes((datosUsuario?.perfil || '').toUpperCase());
@@ -147,7 +145,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
       }
       alert(msg);
       // Recalcular el informe con las citas nuevas.
-      if (informeYaConsultado.current) obtenerInformeGuias();
+      obtenerInformeGuias();
     } catch (err) {
       alert(`❌ ${err instanceof Error ? err.message : 'Error al cargar las citas.'}`);
     } finally {
@@ -252,18 +250,15 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtrosAplicados, clienteId]);
 
-  // El informe de guías viaja junto con /cajas SOLO si ya se abrió alguna vez
-  // (fetch perezoso: la carga inicial de la página no paga el costo Postgres).
+  // El informe de guías viaja junto con /cajas desde la CARGA INICIAL (el
+  // gráfico On Time lo necesita) — salvo cuando hay trazabilidad activa, que
+  // es una consulta aparte del usuario.
   useEffect(() => {
-    if (cliente && informeYaConsultado.current) obtenerInformeGuias();
+    if (cliente && !trazaActiva) obtenerInformeGuias();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtrosAplicados, clienteId]);
 
   const alternarInforme = () => {
-    if (!informeAbierto && !informeYaConsultado.current) {
-      informeYaConsultado.current = true;
-      obtenerInformeGuias();
-    }
     setInformeAbierto(o => !o);
   };
 
@@ -277,11 +272,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     setTrazaActiva(null);
   };
 
-  // Al cambiar la trazabilidad (o los filtros), re-consultar el informe si ya
-  // se abrió alguna vez. La trazabilidad reemplaza el filtro de fechas en el
-  // backend (busca en TODO el histórico del cliente).
+  // Al cambiar la trazabilidad, re-consultar el informe (la trazabilidad
+  // reemplaza el filtro de fechas en el backend: busca en TODO el histórico).
   useEffect(() => {
-    if (cliente && informeYaConsultado.current) obtenerInformeGuias();
+    if (cliente) obtenerInformeGuias();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trazaActiva]);
 
@@ -291,36 +285,33 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
 
   // ── Serie OT por período (para el gráfico sobre el informe de guías) ──
   // Bucket = fecha de ENTREGA (cuándo se cerró la promesa); fallback a la de
-  // creación. Solo cuentan guías evaluables (ot 1/0).
+  // creación. Tres segmentos: cumplieron (ot=1), no cumplieron (ot=0) y
+  // PENDIENTES (sin fecha de entrega aún — en proceso/con novedad/sin cargar;
+  // las ANULADAS quedan fuera). El % OT se calcula solo sobre las evaluables.
   const [vistaOT, setVistaOT] = useState<'mensual' | 'diaria'>('mensual');
+  const acumularOT = (buckets: Map<string, { cumplieron: number; noCumplieron: number; pendientes: number }>, f: FilaGuia, largo: number) => {
+    const clave = (f.fecha_entrega || f.fecha_creacion || '').slice(0, largo);
+    if (!clave) return;
+    const b = buckets.get(clave) || { cumplieron: 0, noCumplieron: 0, pendientes: 0 };
+    if (f.ot === 1) b.cumplieron += 1;
+    else if (f.ot === 0) b.noCumplieron += 1;
+    else if ((f.estado || '').toUpperCase() !== 'ANULADA') b.pendientes += 1;
+    buckets.set(clave, b);
+  };
   const serieOTMensual = useMemo(() => {
-    const buckets = new Map<string, { cumplieron: number; noCumplieron: number }>();
-    for (const f of filasGuias) {
-      if (f.ot === null || f.ot === undefined) continue;
-      const clave = (f.fecha_entrega || f.fecha_creacion || '').slice(0, 7); // YYYY-MM
-      if (!clave) continue;
-      const b = buckets.get(clave) || { cumplieron: 0, noCumplieron: 0 };
-      if (f.ot === 1) b.cumplieron += 1; else b.noCumplieron += 1;
-      buckets.set(clave, b);
-    }
+    const buckets = new Map<string, { cumplieron: number; noCumplieron: number; pendientes: number }>();
+    for (const f of filasGuias) acumularOT(buckets, f, 7);
     return [...buckets.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([periodo, v]) => ({ periodo, ...v, total: v.cumplieron + v.noCumplieron }));
+      .map(([periodo, v]) => ({ periodo, ...v, evaluables: v.cumplieron + v.noCumplieron, total: v.cumplieron + v.noCumplieron + v.pendientes }));
   }, [filasGuias]);
 
   const serieOTDiaria = useMemo(() => {
-    const buckets = new Map<string, { cumplieron: number; noCumplieron: number }>();
-    for (const f of filasGuias) {
-      if (f.ot === null || f.ot === undefined) continue;
-      const clave = (f.fecha_entrega || f.fecha_creacion || '').slice(0, 10); // YYYY-MM-DD
-      if (!clave) continue;
-      const b = buckets.get(clave) || { cumplieron: 0, noCumplieron: 0 };
-      if (f.ot === 1) b.cumplieron += 1; else b.noCumplieron += 1;
-      buckets.set(clave, b);
-    }
+    const buckets = new Map<string, { cumplieron: number; noCumplieron: number; pendientes: number }>();
+    for (const f of filasGuias) acumularOT(buckets, f, 10);
     return [...buckets.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([periodo, v]) => ({ periodo, ...v, total: v.cumplieron + v.noCumplieron }));
+      .map(([periodo, v]) => ({ periodo, ...v, evaluables: v.cumplieron + v.noCumplieron, total: v.cumplieron + v.noCumplieron + v.pendientes }));
   }, [filasGuias]);
 
   const dataOT = useMemo(
@@ -332,10 +323,24 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   const pctOT = (d: { cumplieron: number; total: number }) =>
     d.total > 0 ? Math.round((d.cumplieron / d.total) * 100) : null;
 
-  // Tooltip del gráfico OT: período, cumplidas/no cumplidas, total y %.
+  // Rango de fechas aplicado (para el título del gráfico OT): "2026" o
+  // "ene–mar 2026" según los filtros de Año/Mes activos.
+  const rangoFiltros = useMemo(() => {
+    const anios = filtrosAplicados.anios;
+    const meses = filtrosAplicados.meses;
+    if (anios.length === 0) return 'Todo el histórico';
+    if (meses.length === 0) return anios.length === 1 ? String(anios[0]) : anios.join(', ');
+    const nombres = meses
+      .slice().sort((a, b) => a - b)
+      .map(m => MESES.find(x => x.valor === m)?.nombre.slice(0, 3).toLowerCase())
+      .join('–');
+    return `${nombres} ${anios.length === 1 ? anios[0] : '(' + anios.join(', ') + ')'}`;
+  }, [filtrosAplicados]);
+
+  // Tooltip del gráfico OT: período, cumplidas/no cumplidas/pendientes y %.
   const tooltipOT = (props: any) => {
     if (!props.active || !props.payload || !props.payload.length) return null;
-    const d = props.payload[0].payload as { periodo: string; cumplieron: number; noCumplieron: number; total: number };
+    const d = props.payload[0].payload as { periodo: string; cumplieron: number; noCumplieron: number; pendientes: number; evaluables: number; total: number };
     const fechaTxt = vistaOT === 'diaria'
       ? format(parseISO(d.periodo), "d 'de' MMMM yyyy", { locale: es })
       : format(parseISO(d.periodo + '-01'), 'MMMM yyyy', { locale: es });
@@ -345,7 +350,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
         <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
         <p><span className="IG-tooltipEtapa" style={{ background: '#15803d' }} />Cumplieron: <b>{formatearEntero(d.cumplieron)}</b></p>
         <p><span className="IG-tooltipEtapa" style={{ background: '#b91c1c' }} />No cumplieron: <b>{formatearEntero(d.noCumplieron)}</b></p>
-        <p className="IG-tooltipSerieSub">Total: {formatearEntero(d.total)}{pct != null ? ` · ${pct}% OT` : ''}</p>
+        <p><span className="IG-tooltipEtapa" style={{ background: '#94a3b8' }} />Pendientes: <b>{formatearEntero(d.pendientes)}</b></p>
+        <p className="IG-tooltipSerieSub">
+          Evaluables: {formatearEntero(d.evaluables)}{pct != null ? ` · ${pct}% OT` : ''} · Total: {formatearEntero(d.total)}
+        </p>
       </div>
     );
   };
@@ -894,10 +902,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
             </div>
 
             {/* 🎯 On Time por período — mismo chrome/toggle que el gráfico de
-                cajas. Solo aparece cuando el informe de guías ya consultó
-                (usa sus filas). Barras apiladas: verdes cumplieron (ot=1),
-                rojas no cumplieron (ot=0), etiqueta con el % OT del período. */}
-            {informeYaConsultado.current && (
+                cajas. Carga junto con la data (mismo fetch del informe de
+                guías). Barras apiladas: verdes cumplieron (ot=1), rojas no
+                cumplieron (ot=0), grises pendientes (sin entrega aún). */}
+            {(
               <div className="IG-graficoContainer">
                 {dataOT.length > 0 ? (
                   <>
@@ -906,6 +914,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                         <h2 className="IG-graficoTitulo">
                           🎯 On Time por período
                           <span className="IG-graficoBadge">{vistaOT === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                          <span className="IG-graficoBadge DC-badgeRango">{rangoFiltros}</span>
                           {resumenGuias?.ot_pct != null && (
                             <span className="DC-badgeSobreMedia" title="Guías entregadas dentro de la fecha promesa (total del período filtrado)">
                               {resumenGuias.ot_pct}% OT total
@@ -922,7 +931,8 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                     </div>
                     <p className="IG-graficoSub">
                       <span style={{ color: '#15803d' }}>●</span> <b>Cumplieron</b> (entrega ≤ fecha promesa) &nbsp;&nbsp;
-                      <span style={{ color: '#b91c1c' }}>●</span> <b>No cumplieron</b> (entrega tarde)
+                      <span style={{ color: '#b91c1c' }}>●</span> <b>No cumplieron</b> (entrega tarde) &nbsp;&nbsp;
+                      <span style={{ color: '#94a3b8' }}>●</span> <b>Pendientes</b> (sin fecha de entrega aún)
                     </p>
                     <div style={{ width: '100%', height: 320 }}>
                       <ResponsiveContainer width="100%" height={320}>
@@ -945,7 +955,8 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                           <YAxis tickFormatter={(v: number) => formatearEntero(v)} width={60} allowDecimals={false} />
                           <Tooltip content={tooltipOT} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
                           <Bar dataKey="cumplieron" name="Cumplieron" stackId="ot" fill="#15803d" isAnimationActive={false} />
-                          <Bar dataKey="noCumplieron" name="No cumplieron" stackId="ot" fill="#b91c1c" isAnimationActive={false}>
+                          <Bar dataKey="noCumplieron" name="No cumplieron" stackId="ot" fill="#b91c1c" isAnimationActive={false} />
+                          <Bar dataKey="pendientes" name="Pendientes" stackId="ot" fill="#94a3b8" isAnimationActive={false}>
                             <LabelList
                               dataKey="total"
                               position="top"
