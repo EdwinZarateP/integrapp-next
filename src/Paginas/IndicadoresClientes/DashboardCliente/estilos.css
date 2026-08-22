@@ -305,6 +305,76 @@
   stroke-linejoin: round;
 }
 
+/* ── Skeletons de carga (shimmer) ───────────────────────────── */
+/* Bloque con brillo que se desplaza: mismo alto que el contenido real
+   para que la página no salte cuando llegan los datos. */
+@keyframes DC-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.DC-skel {
+  background: #e9edf3;
+  background-image: linear-gradient(90deg, #e9edf3 0%, #f5f7fa 40%, #e9edf3 80%);
+  background-size: 400px 100%;
+  background-repeat: no-repeat;
+  border-radius: 6px;
+  animation: DC-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Card contenedora del skeleton (mismo chrome que IG-graficoContainer) */
+.DC-skelCard {
+  background: #fff;
+  border-radius: 12px;
+  margin-top: 1.6rem;
+  padding: 1.2rem 1.4rem 1.4rem;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.DC-skelTitulo { height: 1.1rem; width: 40%; margin: 0.2rem 0 1rem; }
+.DC-skelSub { height: 0.75rem; width: 55%; margin-bottom: 1.1rem; }
+
+/* Área del gráfico: la misma altura que el render real (380/320px) */
+.DC-skelGrafico {
+  height: 380px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5%;
+  padding: 0 0.5rem;
+}
+
+/* Barras de ejemplo con alturas variadas — anticipan un gráfico */
+.DC-skelBarra {
+  flex: 1;
+  border-radius: 6px 6px 0 0;
+  background: #e9edf3;
+  background-image: linear-gradient(180deg, #eef1f6 0%, #e2e7ee 100%);
+}
+.DC-skelBarra:nth-child(3n+1) { height: 45%; }
+.DC-skelBarra:nth-child(3n+2) { height: 70%; }
+.DC-skelBarra:nth-child(3n)   { height: 55%; }
+
+/* Variante compacta para el gráfico OT (320px) */
+.DC-skelGraficoBajo { height: 320px; }
+
+/* Skeleton de la tabla del informe (encabezado + filas) */
+.DC-skelTabla { margin-top: 0.8rem; }
+.DC-skelFila {
+  height: 2.1rem;
+  margin-bottom: 0.55rem;
+  display: flex;
+  gap: 0.8rem;
+}
+.DC-skelCelda { flex: 1; height: 100%; }
+.DC-skelCelda:first-child { flex: 0.8; }
+.DC-skelCelda:last-child { flex: 1.4; }
+
+@media (prefers-reduced-motion: reduce) {
+  .DC-skel { animation: none; }
+}
+
 /* ── Trazabilidad (búsqueda guía/consecutivo) sobre el informe ── */
 .DC-trazaBarra {
   display: flex;

@@ -15,6 +15,20 @@ import './estilos.css';
 // PERFILES_CARGA_CITAS del backend (indicadores_cliente.py).
 const PERFILES_CARGA_CITAS = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL'];
 
+/** Skeleton de un gráfico: título + subtítulo + barras shimmer con alturas
+ *  variadas que anticipan el contenido. `bajo` para el gráfico OT (320px). */
+const SkeletonGrafico: React.FC<{ bajo?: boolean }> = ({ bajo }) => (
+  <div className="DC-skelCard">
+    <div className="DC-skel DC-skelTitulo" />
+    <div className="DC-skel DC-skelSub" />
+    <div className={`DC-skelGrafico ${bajo ? 'DC-skelGraficoBajo' : ''}`}>
+      {Array.from({ length: bajo ? 9 : 12 }, (_, i) => (
+        <div key={i} className="DC-skelBarra" />
+      ))}
+    </div>
+  </div>
+);
+
 type SerieCajas = { periodo: string; cajas: number; vehiculos: number };
 
 type ApiResponse = {
@@ -770,7 +784,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
       {/* Contenido */}
       <main className="DC-main">
         {cargando ? (
-          <div className="DC-cargando"><p>Cargando indicadores de {cliente.nombre}...</p></div>
+          <>
+            <SkeletonGrafico />
+            <SkeletonGrafico bajo />
+          </>
         ) : error ? (
           <div className="DC-error">
             <p>{error}</p>
@@ -903,9 +920,12 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
 
             {/* 🎯 On Time por período — mismo chrome/toggle que el gráfico de
                 cajas. Carga junto con la data (mismo fetch del informe de
-                guías). Barras apiladas: verdes cumplieron (ot=1), rojas no
-                cumplieron (ot=0), grises pendientes (sin entrega aún). */}
-            {(
+                guías); mientras consulta muestra su skeleton. Barras apiladas:
+                verdes cumplieron (ot=1), rojas no cumplieron (ot=0), grises
+                pendientes (sin entrega aún). */}
+            {cargandoGuias ? (
+              <SkeletonGrafico bajo />
+            ) : (
               <div className="IG-graficoContainer">
                 {dataOT.length > 0 ? (
                   <>
@@ -1046,7 +1066,16 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
               {informeAbierto && (
                 <div className="DC-guiaCuerpo">
                   {cargandoGuias ? (
-                    <div className="DC-guiaCargando">Cargando informe de guías...</div>
+                    <div className="DC-skelTabla">
+                      {Array.from({ length: 8 }, (_, i) => (
+                        <div key={i} className="DC-skelFila">
+                          <div className="DC-skel DC-skelCelda" />
+                          <div className="DC-skel DC-skelCelda" />
+                          <div className="DC-skel DC-skelCelda" />
+                          <div className="DC-skel DC-skelCelda" />
+                        </div>
+                      ))}
+                    </div>
                   ) : errorGuias ? (
                     <div className="IG-sinDatos">
                       <p>{errorGuias}</p>
