@@ -14,6 +14,8 @@ export interface BaseUsuario {
 
 export interface LoginRespuesta {
   mensaje: string;
+  access_token: string;
+  token_type: string;
   usuario: {
     id: string;
     usuario: string;

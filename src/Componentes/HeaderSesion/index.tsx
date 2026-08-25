@@ -36,6 +36,8 @@ const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
         .forEach((c) => Cookies.remove(c));
       router.replace("/LoginConductores");
     } else {
+      window.localStorage.removeItem("baseUsuarioAccessToken");
+      window.localStorage.removeItem("sicetacJobId");
       ["usuarioPedidosCookie", "perfilPedidosCookie", "regionalPedidosCookie",
        "clientePedidosCookie", "clientesPedidosCookie"]
         .forEach((c) => Cookies.remove(c));

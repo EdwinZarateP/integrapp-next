@@ -37,10 +37,16 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
     color: "#2563eb",
     ruta: "/indicadores",
   },
+  SICETAC: {
+    label: "SICE-TAC",
+    desc: "Consulta masiva de costos eficientes de transporte",
+    color: "#00796b",
+    ruta: "/Sicetac",
+  },
 };
 
 // Orden visual de los portales en el selector (Flota va justo después de Medical Care).
-const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES"];
+const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES", "SICETAC"];
 
 const LoginUsuario: React.FC = () => {
   const [usuario, setUsuario] = useState("");
@@ -55,7 +61,8 @@ const LoginUsuario: React.FC = () => {
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     const clienteCookie = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/);
-    if (match && clienteCookie) {
+    const token = window.localStorage.getItem('baseUsuarioAccessToken');
+    if (match && clienteCookie && token) {
       const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
       // FINANCIERO es un micro-portal aislado: aterriza directo en Otros Costos.
       if (perfilCookie === 'FINANCIERO') { router.replace('/OtrosCostos'); return; }
@@ -70,6 +77,7 @@ const LoginUsuario: React.FC = () => {
     setCargando(true);
     try {
       const res = await loginUsuario(usuario, clave);
+      window.localStorage.setItem('baseUsuarioAccessToken', res.access_token);
       const expiracion = new Date();
       expiracion.setDate(expiracion.getDate() + 14);
       const expires = `expires=${expiracion.toUTCString()}`;
@@ -93,6 +101,7 @@ const LoginUsuario: React.FC = () => {
 
       const extras = ["INDICADORES"];
       if (PERFILES_FLOTA.includes(perfilUpper)) extras.push("FLOTA");
+      if (["ADMIN", "ADMINISTRADOR"].includes(perfilUpper)) extras.push("SICETAC");
 
       // Reordenar según el orden canónico del selector (Flota después de Medical Care).
       const keys = Array.from(new Set([...clientes, ...extras]));
