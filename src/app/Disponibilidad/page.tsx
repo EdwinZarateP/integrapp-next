@@ -44,7 +44,7 @@ const Disponibilidad: React.FC = () => {
   useEffect(() => {
     const id = Cookies.get('conductorId');
     const perfil = (Cookies.get('conductorPerfil') || '').toUpperCase();
-    if (!id || (perfil !== 'CONDUCTOR' && perfil !== 'ADMIN')) {
+    if (!id || (perfil !== 'CONDUCTOR' && perfil !== 'TENEDOR' && perfil !== 'ADMIN')) {
       router.replace('/LoginConductores');
       return;
     }

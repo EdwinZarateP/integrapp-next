@@ -43,10 +43,19 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
     color: "#00796b",
     ruta: "/Sicetac",
   },
+  SEGURIDAD: {
+    label: "Seguridad",
+    desc: "Revisión y aprobación de vehículos",
+    color: "#dc2626",
+    ruta: "/revision",
+  },
 };
 
+// Perfiles que pueden ver el portal de Seguridad (/revision).
+const PERFILES_SEGURIDAD = ["ADMIN", "SEGURIDAD"];
+
 // Orden visual de los portales en el selector (Flota va justo después de Medical Care).
-const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES", "SICETAC"];
+const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES", "SICETAC", "SEGURIDAD"];
 
 const LoginUsuario: React.FC = () => {
   const [usuario, setUsuario] = useState("");
@@ -55,7 +64,7 @@ const LoginUsuario: React.FC = () => {
   const [mensajeError, setMensajeError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [paso, setPaso] = useState<1 | 2>(1);
-  const [datosUsuario, setDatosUsuario] = useState<{ id: string; usuario: string; perfil: string; regional: string; clientes: string[] } | null>(null);
+  const [datosUsuario, setDatosUsuario] = useState<{ id: string; usuario: string; nombre?: string; correo?: string; perfil: string; regional: string; clientes: string[] } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -67,6 +76,8 @@ const LoginUsuario: React.FC = () => {
       // FINANCIERO es un micro-portal aislado: aterriza directo en Otros Costos.
       if (perfilCookie === 'FINANCIERO') { router.replace('/OtrosCostos'); return; }
       const cliente = clienteCookie[2];
+      // Seguridad entró desde la Torre de Control: vuelve a /revision.
+      if (cliente === 'SEGURIDAD') { router.replace('/revision'); return; }
       router.replace(CLIENTES_CONFIG[cliente]?.ruta || "/Pedidos");
     }
   }, [router]);
@@ -102,6 +113,7 @@ const LoginUsuario: React.FC = () => {
       const extras = ["INDICADORES"];
       if (PERFILES_FLOTA.includes(perfilUpper)) extras.push("FLOTA");
       if (["ADMIN", "ADMINISTRADOR"].includes(perfilUpper)) extras.push("SICETAC");
+      if (PERFILES_SEGURIDAD.includes(perfilUpper)) extras.push("SEGURIDAD");
 
       // Reordenar según el orden canónico del selector (Flota después de Medical Care).
       const keys = Array.from(new Set([...clientes, ...extras]));
@@ -124,6 +136,22 @@ const LoginUsuario: React.FC = () => {
     const expiracion = new Date();
     expiracion.setDate(expiracion.getDate() + 14);
     const expires = expiresStr || `expires=${expiracion.toUTCString()}`;
+
+    // Portal de Seguridad: setea las cookies que /revision gatea y entra directo.
+    if (clienteKey === "SEGURIDAD") {
+      document.cookie = `clientePedidosCookie=SEGURIDAD; path=/; ${expires}`;
+      if (datosUsuario) {
+        document.cookie = `seguridadId=${datosUsuario.id}; path=/; ${expires}`;
+        document.cookie = `seguridadNombre=${encodeURIComponent(datosUsuario.nombre || datosUsuario.usuario)}; path=/; ${expires}`;
+        document.cookie = `seguridadPerfil=${datosUsuario.perfil}; path=/; ${expires}`;
+        if (datosUsuario.correo) {
+          document.cookie = `seguridadCorreo=${encodeURIComponent(datosUsuario.correo)}; path=/; ${expires}`;
+        }
+      }
+      router.replace("/revision");
+      return;
+    }
+
     document.cookie = `clientePedidosCookie=${clienteKey}; path=/; ${expires}`;
     confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
     const ruta = CLIENTES_CONFIG[clienteKey]?.ruta || "/Pedidos";
@@ -159,15 +187,15 @@ const LoginUsuario: React.FC = () => {
 
             <form className="LU-formulario" onSubmit={manejarLogin}>
               <div className="LU-grupo">
-                <label className="LU-label">Usuario</label>
+                <label className="LU-label">Correo Electrónico</label>
                 <input
                   className="LU-input"
-                  type="text"
-                  placeholder="Nombre de usuario"
+                  type="email"
+                  placeholder="nombre@integralogistica.com"
                   value={usuario}
                   onChange={(e) => setUsuario(e.target.value)}
                   required
-                  autoComplete="username"
+                  autoComplete="email"
                 />
               </div>
 
@@ -212,7 +240,7 @@ const LoginUsuario: React.FC = () => {
           <div className="LU-card LU-cardClientes">
             <div className="LU-cardHeader">
               <Image src={logo} alt="Logo Integra" height={64} />
-              <h2 className="LU-titulo">Bienvenido, {datosUsuario.usuario}</h2>
+              <h2 className="LU-titulo">Bienvenido, {datosUsuario.nombre || datosUsuario.usuario}</h2>
               <p className="LU-subtitulo">Selecciona el portal al que deseas ingresar</p>
             </div>
 

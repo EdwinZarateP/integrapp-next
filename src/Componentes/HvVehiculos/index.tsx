@@ -156,11 +156,16 @@ const DocuPDF = ({ veh, huellas, firmaBlob }: { veh: Vehiculo, huellas: (string 
                         <View style={[styles.col, styles.w25]}><Text style={styles.label}>CIUDAD</Text><Text style={styles.value}>{upper(veh.condCiudad)}</Text></View>
                         <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>CELULAR</Text><Text style={styles.value}>{upper(veh.condCelular)}</Text></View>
                     </View>
-                    <View style={[styles.row, { borderBottom: 'none' }]}>
+                    <View style={styles.row}>
                          <View style={[styles.col, styles.w25]}><Text style={styles.label}>EPS</Text><Text style={styles.value}>{upper(veh.condEps)}</Text></View>
                          <View style={[styles.col, styles.w25]}><Text style={styles.label}>ARL</Text><Text style={styles.value}>{upper(veh.condArl)}</Text></View>
                          <View style={[styles.col, styles.w25]}><Text style={styles.label}>LICENCIA No.</Text><Text style={styles.value}>{upper(veh.condNoLicencia)}</Text></View>
                          <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>VENCE</Text><Text style={styles.value}>{upper(veh.condFechaVencimientoLic)}</Text></View>
+                    </View>
+                    <View style={[styles.row, { borderBottom: 'none' }]}>
+                         <View style={[styles.col, styles.w33]}><Text style={styles.label}>BANCO</Text><Text style={styles.value}>{upper(veh.condBanco)}</Text></View>
+                         <View style={[styles.col, styles.w33]}><Text style={styles.label}>TIPO CUENTA</Text><Text style={styles.value}>{upper(veh.condTipoCuenta)}</Text></View>
+                         <View style={[styles.col, styles.w33, { borderRight: 'none' }]}><Text style={styles.label}>No. CUENTA</Text><Text style={styles.value}>{upper(veh.condNumeroCuenta)}</Text></View>
                     </View>
                 </View>
 
@@ -187,10 +192,15 @@ const DocuPDF = ({ veh, huellas, firmaBlob }: { veh: Vehiculo, huellas: (string 
                          <View style={[styles.col, styles.w25]}><Text style={styles.label}>DOCUMENTO</Text><Text style={styles.value}>{upper(veh.propDocumento)}</Text></View>
                          <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>CELULAR</Text><Text style={styles.value}>{upper(veh.propCelular)}</Text></View>
                     </View>
-                    <View style={[styles.row, { borderBottom: 'none' }]}>
+                    <View style={styles.row}>
                         <View style={[styles.col, styles.w50]}><Text style={styles.label}>TENEDOR - NOMBRE</Text><Text style={styles.value}>{upper(veh.tenedNombre)}</Text></View>
                         <View style={[styles.col, styles.w25]}><Text style={styles.label}>DOCUMENTO</Text><Text style={styles.value}>{upper(veh.tenedDocumento)}</Text></View>
                         <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>CELULAR</Text><Text style={styles.value}>{upper(veh.tenedCelular)}</Text></View>
+                    </View>
+                    <View style={[styles.row, { borderBottom: 'none' }]}>
+                        <View style={[styles.col, styles.w25]}><Text style={styles.label}>TENEDOR - BANCO</Text><Text style={styles.value}>{upper(veh.tenedBanco)}</Text></View>
+                        <View style={[styles.col, styles.w25]}><Text style={styles.label}>TIPO CUENTA</Text><Text style={styles.value}>{upper(veh.tenedTipoCuenta)}</Text></View>
+                        <View style={[styles.col, styles.w50, { borderRight: 'none' }]}><Text style={styles.label}>No. CUENTA</Text><Text style={styles.value}>{upper(veh.tenedNumeroCuenta)}</Text></View>
                     </View>
                 </View>
 
@@ -203,11 +213,16 @@ const DocuPDF = ({ veh, huellas, firmaBlob }: { veh: Vehiculo, huellas: (string 
                         <View style={[styles.col, styles.w25]}><Text style={styles.label}>MARCA</Text><Text style={styles.value}>{upper(veh.vehMarca)}</Text></View>
                         <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>COLOR</Text><Text style={styles.value}>{upper(veh.vehColor)}</Text></View>
                     </View>
-                    <View style={[styles.row, { borderBottom: 'none' }]}>
+                    <View style={styles.row}>
                         <View style={[styles.col, styles.w25]}><Text style={styles.label}>CARROCERÍA</Text><Text style={styles.value}>{upper(veh.vehTipoCarroceria)}</Text></View>
                         <View style={[styles.col, styles.w25]}><Text style={styles.label}>SATELITAL</Text><Text style={styles.value}>{upper(veh.vehEmpresaSat)}</Text></View>
                         <View style={[styles.col, styles.w25]}><Text style={styles.label}>USUARIO</Text><Text style={styles.value}>{upper(veh.vehUsuarioSat)}</Text></View>
                         <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>CLAVE</Text><Text style={styles.value}>{upper(veh.vehClaveSat)}</Text></View>
+                    </View>
+                    <View style={[styles.row, { borderBottom: 'none' }]}>
+                        <View style={[styles.col, styles.w33]}><Text style={styles.label}>ASEGURADORA SOAT</Text><Text style={styles.value}>{upper(veh.vehAseguradoraSoat)}</Text></View>
+                        <View style={[styles.col, styles.w33]}><Text style={styles.label}>PÓLIZA SOAT</Text><Text style={styles.value}>{upper(veh.vehPolizaSoat)}</Text></View>
+                        <View style={[styles.col, styles.w33, { borderRight: 'none' }]}><Text style={styles.label}>VENCE SOAT</Text><Text style={styles.value}>{upper(veh.vehVencimientoSoat)}</Text></View>
                     </View>
                 </View>
 

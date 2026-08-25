@@ -20,11 +20,15 @@ const BarraSeguridad: React.FC = () => {
     Cookies.remove("seguridadNombre");
     Cookies.remove("seguridadCorreo");
     Cookies.remove("seguridadUsuario");
-    Cookies.remove("seguridadClave");
+    Cookies.remove("seguridadClave"); // legacy en claro; se purga si quedara
     Cookies.remove("seguridadId");
     Cookies.remove("seguridadPerfil");
+    // Cookies de la Torre de Control para volver limpio al login.
+    Cookies.remove("clientePedidosCookie");
+    Cookies.remove("usuarioPedidosCookie");
+    Cookies.remove("perfilPedidosCookie");
 
-    router.replace("/LoginUsuariosSeguridad");
+    router.replace("/LoginUsuario");
   };
 
   const handleClickOutside = () => {

@@ -1,0 +1,58 @@
+/* Estilos propios de la aceptación de invitación.
+   La base (VC-*) se importa desde ../VerificarCorreo/estilos.css. */
+
+.AI-formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+}
+
+.AI-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.AI-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.AI-input {
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.AI-input:focus {
+    border-color: #0f1928;
+}
+
+.AI-claveWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.AI-claveWrap .AI-input {
+    width: 100%;
+    padding-right: 42px;
+}
+
+.AI-ojito {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+}

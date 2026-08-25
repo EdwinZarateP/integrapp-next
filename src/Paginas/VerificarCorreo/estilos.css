@@ -1,0 +1,270 @@
+/* ── Layout raíz ── */
+.VC-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.VC-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.VC-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+}
+
+.VC-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.VC-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.VC-brandAccent { color: #e8a000; }
+
+/* ── MAIN ── */
+.VC-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.VC-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(15,25,40,.12);
+  padding: 44px 36px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.VC-estado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.VC-titulo {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0f1928;
+  margin: 0;
+}
+
+.VC-subtitulo {
+  font-size: 0.9rem;
+  color: #6b7a8d;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.VC-spinner {
+  font-size: 2.4rem;
+  color: #6b7a8d;
+  animation: VC-girar 1s linear infinite;
+}
+
+@keyframes VC-girar {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.VC-iconoExito {
+  font-size: 3rem;
+  color: #16a34a;
+}
+
+.VC-iconoError {
+  font-size: 3rem;
+  color: #dc2626;
+}
+
+.VC-boton {
+  padding: 12px 28px;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  font-family: inherit;
+}
+.VC-boton:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.VC-boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.VC-reenvioMensaje {
+  font-size: 0.82rem;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.VC-linkVolver {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7a8d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+  transition: color 0.2s;
+  font-family: inherit;
+}
+.VC-linkVolver:hover { color: #0f1928; }
+
+/* ── Aceptación de política de datos ── */
+.VC-politicaCaja {
+  width: 100%;
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.VC-politicaTitulo {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f1928;
+  margin: 0;
+}
+
+.VC-politicaVersion {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7a8d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.VC-politicaTexto {
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.55;
+  padding-right: 8px;
+}
+
+/* Scrollbar sutil dentro del texto de la política */
+.VC-politicaTexto::-webkit-scrollbar { width: 6px; }
+.VC-politicaTexto::-webkit-scrollbar-track { background: transparent; }
+.VC-politicaTexto::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.VC-politicaTexto h4 {
+  font-size: 0.85rem;
+  color: #0f1928;
+  margin: 10px 0 4px;
+}
+
+.VC-politicaTexto p { margin: 0 0 8px; }
+.VC-politicaTexto ul { margin: 0 0 8px; padding-left: 18px; }
+
+.VC-checkboxFila {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.VC-checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #0f1928;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.VC-checkboxLabel {
+  font-size: 0.83rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.VC-errorAceptacion {
+  font-size: 0.82rem;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.VC-progresoDeclaraciones {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 4px 0 0;
+}
+
+/* ── FOOTER ── */
+.VC-footer {
+  background: #0f1928;
+  border-top: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+}
+
+.VC-footerCopy {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,.25);
+  padding: 14px 28px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .VC-card { padding: 28px 20px; }
+  .VC-headerInner { padding: 0 16px; }
+  .VC-politicaTexto { max-height: 180px; }
+}

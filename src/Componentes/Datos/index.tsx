@@ -79,6 +79,17 @@ const epsColombia = ["Sura", "Sanitas", "Compensar", "Coomeva", "Salud Total"];
 const arlColombia = ["Positiva", "Sura", "Colpatria", "Bolívar", "Axa Colpatria"];
 const parentescos = ["Padre", "Madre", "Hijo(a)", "Hermano(a)", "Esposo(a)", "Abuelo(a)", "Tio(a)", "Otro"];
 const tiposCarroceria = ["S.R.S.","FURGON","ESTACAS","TANQUE","VOLCO","TOLVA","RECOLECTOR COMPARTADOR","PANEL","CAMABAJA","VAN","PLANCHON","PORTACONTENEDORES","PLATAFORMA","HOMIGONERO","BOTELLERO",];
+const tiposCuenta = ["AHORROS", "CORRIENTE"];
+const bancosColombia = [
+  "Bancolombia", "Banco de Bogotá", "Davivienda", "BBVA", "Banco de Occidente",
+  "Scotiabank Colpatria", "Banco Agrario", "Banco AV Villas", "Banco Caja Social",
+  "Itaú", "Nu", "Daviplata", "Nequi", "Lulo Bank", "Banco Pichincha", "Falabella",
+  "Santander", "Poppy Bank", "RappiPay",
+];
+const aseguradorasSoat = [
+  "Sura", "Bolívar", "Solidaria", "Equidad", "Mapfre", "Axa Colpatria", "Allianz",
+  "HDI Seguros", "General de Seguros", "Previsora", "Liberty", "Estado (Fasecolda)",
+];
 
 const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, handleChange, disabled = false, requiredFields }) => (
   <div className="Datos-form-section">
@@ -102,19 +113,143 @@ const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, hand
   </div>
 );
 
+/* ==========================================================================
+ * LECTURA IA DE DOCUMENTOS — mapeos respuesta LLM → campos del formulario.
+ * Cada entrada convierte los datos crudos del LLM a claves del formData.
+ * ========================================================================== */
+
+// Helper: mapear los campos de una persona (propietario/tenedor) desde un RUT.
+const mapearRutAPersona = (prefijo: 'prop' | 'tened', d: Record<string, any>): Record<string, string> => {
+  const nuevos: Record<string, string> = {};
+  const esJuridica = (d.tipo_persona || '').toUpperCase().includes('JURID');
+  if (esJuridica && d.razon_social) {
+    nuevos[`${prefijo}Nombre`] = d.razon_social.toUpperCase();
+  } else if (d.nombres || d.apellidos) {
+    nuevos[`${prefijo}Nombre`] = [d.apellidos, d.nombres].filter(Boolean).join(' ').toUpperCase();
+  }
+  const doc = [d.numero_documento, d.digito_verificacion].filter(Boolean).join('-');
+  if (d.numero_documento) nuevos[`${prefijo}Documento`] = doc;
+  if (d.direccion) nuevos[`${prefijo}Direccion`] = d.direccion.toUpperCase();
+  if (d.ciudad) {
+    const ciudad = d.ciudad.toUpperCase();
+    nuevos[`${prefijo}Ciudad`] = ciudad;
+    nuevos[`${prefijo}DeptoCiudad`] = buscarDepartamentoPorCiudad(ciudad);
+  }
+  if (d.correo) nuevos[`${prefijo}Correo`] = d.correo.toUpperCase();
+  if (d.telefono) nuevos[`${prefijo}Celular`] = d.telefono.replace(/\D/g, '').slice(0, 10);
+  return nuevos;
+};
+
+// Helper: certificado bancario → campos de cuenta según prefijo.
+const mapearBancario = (prefijo: 'cond' | 'prop' | 'tened', d: Record<string, any>): Record<string, string> => {
+  const nuevos: Record<string, string> = {};
+  if (d.banco) nuevos[`${prefijo}Banco`] = d.banco;
+  if (d.tipo_cuenta) nuevos[`${prefijo}TipoCuenta`] = d.tipo_cuenta.toUpperCase().includes('AHO') ? 'AHORROS' : 'CORRIENTE';
+  if (d.numero_cuenta) nuevos[`${prefijo}NumeroCuenta`] = String(d.numero_cuenta).replace(/\D/g, '');
+  return nuevos;
+};
+
+const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, string>> = {
+  cedula: (d) => {
+    const nuevos: Record<string, string> = {};
+    const apellidos = (d.apellidos || '').trim();
+    if (apellidos) {
+      const partes = apellidos.split(/\s+/);
+      nuevos.condPrimerApellido = partes[0] || '';
+      nuevos.condSegundoApellido = partes.slice(1).join(' ') || '';
+    }
+    if (d.nombres) nuevos.condNombres = d.nombres;
+    if (d.numero) nuevos.condCedulaCiudadania = d.numero;
+    if (d.rh) nuevos.condGrupoSanguineo = d.rh;
+    if (d.fecha_nacimiento) nuevos.condFechaNacimiento = d.fecha_nacimiento;
+    if (d.lugar_nacimiento) nuevos.condLugarNacimiento = d.lugar_nacimiento.toUpperCase();
+    if (d.fecha_expedicion) nuevos.condFechaExpedicion = d.fecha_expedicion;
+    if (d.sexo) nuevos.condSexo = d.sexo.toUpperCase().startsWith('H') ? 'H' : 'M';
+    if (d.estatura) nuevos.condEstatura = d.estatura;
+    if (d.lugar_expedicion) nuevos.condExpedidaEn = d.lugar_expedicion.toUpperCase();
+    return nuevos;
+  },
+  licencia: (d) => {
+    const nuevos: Record<string, string> = {};
+    if (d.numero) nuevos.condNoLicencia = d.numero;
+    if (d.categoria) nuevos.condCategoriaLic = d.categoria.toUpperCase();
+    if (d.fecha_vencimiento) nuevos.condFechaVencimientoLic = d.fecha_vencimiento;
+    if (d.cedula) nuevos.condCedulaCiudadania = d.cedula;
+    return nuevos;
+  },
+  rut_tenedor: (d) => mapearRutAPersona('tened', d),
+  rut_propietario: (d) => mapearRutAPersona('prop', d),
+  certificado_bancario_cond: (d) => mapearBancario('cond', d),
+  certificado_bancario_tened: (d) => mapearBancario('tened', d),
+  certificado_bancario_prop: (d) => mapearBancario('prop', d),
+  tarjeta_propiedad: (d) => {
+    const nuevos: Record<string, string> = {};
+    if (d.marca) nuevos.vehMarca = d.marca.toUpperCase();
+    if (d.linea) nuevos.vehLinea = d.linea.toUpperCase();
+    if (d.modelo) nuevos.vehModelo = String(d.modelo).slice(0, 4);
+    if (d.color) nuevos.vehColor = d.color.toUpperCase();
+    return nuevos;
+  },
+  soat: (d) => {
+    const nuevos: Record<string, string> = {};
+    if (d.aseguradora) nuevos.vehAseguradoraSoat = d.aseguradora;
+    if (d.numero_poliza) nuevos.vehPolizaSoat = d.numero_poliza;
+    if (d.fecha_vencimiento) nuevos.vehVencimientoSoat = d.fecha_vencimiento;
+    return nuevos;
+  },
+};
+
+// Traducción: tipo de SUBIDA (clave con que el backend guarda lecturasIA)
+// → clave de MAPEOS_IA (para autollenar el formulario al montar).
+const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
+  rutTenedor: 'rut_tenedor',
+  rutPropietario: 'rut_propietario',
+  condCertificacionBancaria: 'certificado_bancario_cond',
+  tenedCertificacionBancaria: 'certificado_bancario_tened',
+  propCertificacionBancaria: 'certificado_bancario_prop',
+  licencia: 'licencia',
+  tarjetaPropiedad: 'tarjeta_propiedad',
+  soat: 'soat',
+};
+
+// Botones de la tarjeta "Ahorra tiempo": tipo lectura → etiqueta y esquema backend.
+const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string }> = [
+  { tipo: 'cedula', esquema: 'cedula', etiqueta: '🪪 Cédula del conductor' },
+  { tipo: 'licencia', esquema: 'licencia', etiqueta: '🎫 Licencia de conducción' },
+  { tipo: 'tarjeta_propiedad', esquema: 'tarjeta_propiedad', etiqueta: '📄 Tarjeta de propiedad' },
+  { tipo: 'soat', esquema: 'soat', etiqueta: '🛡️ SOAT' },
+  { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor' },
+  { tipo: 'rut_propietario', esquema: 'rut', etiqueta: '📊 RUT del propietario' },
+  { tipo: 'certificado_bancario_cond', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario conductor' },
+  { tipo: 'certificado_bancario_tened', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario tenedor' },
+  { tipo: 'certificado_bancario_prop', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario propietario' },
+];
+
 interface DatosProps {
   placa: string;
+  idUsuario?: string;
+  /** True cuando se edita un vehículo aprobado: enviar editado_por al guardar. */
+  editarAprobado?: boolean;
   onValidChange?: (isValid: boolean) => void;
   onCedulaConductorChange?: (cedula: string) => void;
   onSavedSuccess: () => void;
 }
 
-const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
+const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [tenedorSame, setTenedorSame] = useState<boolean>(false);
   const [editandoFirma, setEditandoFirma] = useState(false);
   const sigCanvas = useRef<any>(null);
+
+  // --- Lectura de documentos con IA (cédula, RUT, bancario, licencia, etc.) ---
+  const [leyendoCedula, setLeyendoCedula] = useState(false);
+  const [camposLecturaIA, setCamposLecturaIA] = useState<string[]>([]);
+  const inputAnversoRef = useRef<HTMLInputElement>(null);
+  const inputReversoRef = useRef<HTMLInputElement>(null);
+  // Input file genérico para el resto de tipos de documento.
+  const [tipoLecturaPendiente, setTipoLecturaPendiente] = useState<string | null>(null);
+  const inputDocumentoRef = useRef<HTMLInputElement>(null);
 
   const phoneFields = ['condCelular', 'condCelularEmergencia', 'condCelularRef', 'propCelular', 'tenedCelular'];
 
@@ -164,6 +299,28 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
              }
           });
           setFormData((prevData) => ({ ...prevData, ...loadedData, ...departamentosCalculados }));
+
+          // Datos extraídos por IA al subir documentos (paso 3): autollenar los
+          // campos aún vacíos con la misma regla de no pisar lo escrito a mano.
+          const lecturas = loadedData.lecturasIA || {};
+          const aplicados: string[] = [];
+          Object.entries(lecturas).forEach(([tipoSubida, lectura]: [string, any]) => {
+            if (!lectura || !lectura.datos) return;
+            const claveMapeo = LECTURA_SUBIDA_A_MAPEO[tipoSubida];
+            if (!claveMapeo || !MAPEOS_IA[claveMapeo]) return;
+            const nuevos = MAPEOS_IA[claveMapeo](lectura.datos);
+            setFormData(prev => {
+              const merged = { ...prev };
+              Object.entries(nuevos).forEach(([k, v]) => {
+                if (!merged[k] || merged[k] === "") merged[k] = v;
+              });
+              return merged;
+            });
+            aplicados.push(...Object.keys(nuevos));
+          });
+          if (aplicados.length > 0) {
+            setCamposLecturaIA(prev => Array.from(new Set([...prev, ...aplicados])));
+          }
         }
       } catch (error) { console.error("Error cargando la información del vehículo:", error); }
     };
@@ -207,6 +364,105 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
       tenedDireccion: prevData.propDireccion || "", tenedDeptoCiudad: prevData.propDeptoCiudad || "",
       tenedCiudad: prevData.propCiudad || ""
     }));
+  };
+
+  // Aplica los datos de una lectura IA al formData respetiendo lo escrito a mano:
+  // solo llena campos vacíos o previamente llenados por IA.
+  const aplicarLecturaIA = (nuevos: Record<string, string>) => {
+    setFormData(prev => {
+      const merged = { ...prev };
+      Object.entries(nuevos).forEach(([k, v]) => {
+        if (!merged[k] || camposLecturaIA.includes(k)) merged[k] = v;
+      });
+      // Depto. de expedición derivado de la ciudad leída en la cédula.
+      if (nuevos.condExpedidaEn) {
+        const depto = buscarDepartamentoPorCiudad(nuevos.condExpedidaEn);
+        if (depto && (!merged.condDeptoExpedida || camposLecturaIA.includes('condDeptoExpedida'))) {
+          merged.condDeptoExpedida = depto;
+        }
+      }
+      return merged;
+    });
+    setCamposLecturaIA(prev => Array.from(new Set([...prev, ...Object.keys(nuevos)])));
+  };
+
+  /**
+   * Lee un documento con IA y autollena el formulario.
+   * `tipoLectura` es la clave de MAPEOS_IA; `esquema` el tipo del backend.
+   * Manda contexto (placa/cédula) para que el backend genere avisos de consistencia.
+   */
+  const leerDocumentoConIA = async (
+    tipoLectura: string,
+    esquema: string,
+    archivos: File[],
+    etiqueta: string
+  ) => {
+    const mapear = MAPEOS_IA[tipoLectura];
+    if (!mapear) return;
+    setLeyendoCedula(true);
+    try {
+      const body = new FormData();
+      body.append('tipo', esquema);
+      archivos.forEach((f, i) => body.append(i === 0 ? 'anverso' : 'reverso', f));
+      if (placa) body.append('placa_vehiculo', placa);
+      if (formData['condCedulaCiudadania']) body.append('cedula_conductor', formData['condCedulaCiudadania']);
+
+      const resp = await fetch(`${API_BASE}/vehiculos/extraer-datos-documento`, { method: 'POST', body });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || `No se pudo leer ${etiqueta.toLowerCase()}.`);
+
+      const nuevos = mapear(data.datos || {});
+      aplicarLecturaIA(nuevos);
+
+      const leidos = Object.keys(nuevos).length;
+      const avisos: string[] = Array.isArray(data.avisos) ? data.avisos : [];
+      const htmlAvisos = avisos.length
+        ? `<div style="text-align:left; margin-top:10px; font-size:0.9em;">${avisos.map(a => `<div>${a}</div>`).join('')}</div>`
+        : '';
+      await Swal.fire({
+        icon: leidos > 0 ? 'success' : 'warning',
+        title: leidos > 0 ? `${etiqueta} leído` : 'No pudimos leer datos',
+        html: leidos > 0
+          ? `Llenamos <b>${leidos}</b> campo(s). Revísalos y corrige lo que falte.${htmlAvisos}`
+          : 'Intenta con una foto/PDF más nítido, o diligencia los campos a mano.',
+        confirmButtonColor: '#27ae60',
+      });
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No pudimos leer el documento',
+        text: error.message || 'Intenta con una foto más nítida, o diligencia el formulario manualmente.',
+        confirmButtonColor: '#e67e22',
+      });
+    } finally {
+      setLeyendoCedula(false);
+      if (inputAnversoRef.current) inputAnversoRef.current.value = '';
+      if (inputReversoRef.current) inputReversoRef.current.value = '';
+      if (inputDocumentoRef.current) inputDocumentoRef.current.value = '';
+      setTipoLecturaPendiente(null);
+    }
+  };
+
+  const manejarSeleccionCedula = () => {
+    const anverso = inputAnversoRef.current?.files?.[0];
+    const reverso = inputReversoRef.current?.files?.[0] || null;
+    if (!anverso) return;
+    leerDocumentoConIA('cedula', 'cedula', [anverso, reverso || undefined].filter(Boolean) as File[], 'Cédula');
+  };
+
+  // Input file genérico: el usuario eligió un tipo de OPCIONES_LECTURA_IA y luego el archivo.
+  const manejarSeleccionDocumento = () => {
+    const archivo = inputDocumentoRef.current?.files?.[0];
+    if (!archivo || !tipoLecturaPendiente) return;
+    const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipoLecturaPendiente);
+    if (!opcion) return;
+    leerDocumentoConIA(opcion.tipo, opcion.esquema, [archivo], opcion.etiqueta.replace(/^[^\s]+\s/, ''));
+  };
+
+  const solicitarLecturaDocumento = (tipo: string) => {
+    setTipoLecturaPendiente(tipo);
+    // Abrir el file picker en el siguiente tick (el input ya existe oculto).
+    setTimeout(() => inputDocumentoRef.current?.click(), 0);
   };
 
   const toggleTenedorSame = () => {
@@ -257,6 +513,7 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
           const formDataFirma = new FormData();
           formDataFirma.append("archivo", fileFirma);
           formDataFirma.append("placa", placa);
+          if (editarAprobado && idUsuario) formDataFirma.append("editado_por", idUsuario);
           const resFirma = await fetch(`${API_BASE}/vehiculos/subir-firma`, { method: 'PUT', body: formDataFirma });
           if (!resFirma.ok) throw new Error("Fallo al subir la imagen de la firma");
           const dataRespuesta = await resFirma.json();
@@ -271,7 +528,10 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
       if (nuevaUrlFirma) cleanedFormData['firmaUrl'] = nuevaUrlFirma;
       else cleanedFormData['firmaUrl'] = formData['firmaUrl'] || "";
 
-      const response = await fetch(`${API_BASE}/vehiculos/actualizar-informacion/${placa}`, {
+      const urlGuardado = new URL(`${API_BASE}/vehiculos/actualizar-informacion/${placa}`);
+      if (editarAprobado && idUsuario) urlGuardado.searchParams.set('editado_por', idUsuario);
+
+      const response = await fetch(urlGuardado.toString(), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cleanedFormData),
@@ -308,8 +568,13 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
         { label: 'Segundo Apellido', name: 'condSegundoApellido' },
         { label: 'Nombres', name: 'condNombres' },
         { label: 'Cédula de Ciudadanía', name: 'condCedulaCiudadania' },
+        { label: 'Fecha de Nacimiento', name: 'condFechaNacimiento', type: 'date' },
+        { label: 'Lugar de Nacimiento', name: 'condLugarNacimiento' },
+        { label: 'Sexo', name: 'condSexo', options: ['H', 'M'] },
+        { label: 'Estatura (m)', name: 'condEstatura', type: 'text', inputProps: { placeholder: 'Ej: 1.75' } },
         { label: 'Departamento (Expedida)', name: 'condDeptoExpedida', options: departamentosUnicos },
         { label: 'Expedida en (Ciudad)', name: 'condExpedidaEn', options: getCiudadesPorDepto(formData['condDeptoExpedida']) },
+        { label: 'Fecha de Expedición Cédula', name: 'condFechaExpedicion', type: 'date' },
         { label: 'Dirección', name: 'condDireccion' },
         { label: 'Departamento (Residencia)', name: 'condDeptoCiudad', options: departamentosUnicos },
         { label: 'Ciudad', name: 'condCiudad', options: getCiudadesPorDepto(formData['condDeptoCiudad']) },
@@ -321,6 +586,9 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
         { label: 'Fecha de Vencimiento', name: 'condFechaVencimientoLic', type: 'date' },
         { label: 'Categoría', name: 'condCategoriaLic', options: categoriasLicencia },
         { label: 'Grupo Sanguíneo RH', name: 'condGrupoSanguineo', options: gruposSanguineos },
+        { label: 'Banco', name: 'condBanco', options: bancosColombia },
+        { label: 'Tipo de Cuenta', name: 'condTipoCuenta', options: tiposCuenta },
+        { label: 'No. de Cuenta', name: 'condNumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
       ],
     },
     {
@@ -355,6 +623,9 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
         { label: 'Dirección', name: 'propDireccion' },
         { label: 'Departamento', name: 'propDeptoCiudad', options: departamentosUnicos },
         { label: 'Ciudad', name: 'propCiudad', options: getCiudadesPorDepto(formData['propDeptoCiudad']) },
+        { label: 'Banco', name: 'propBanco', options: bancosColombia },
+        { label: 'Tipo de Cuenta', name: 'propTipoCuenta', options: tiposCuenta },
+        { label: 'No. de Cuenta', name: 'propNumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
       ],
     },
     {
@@ -373,6 +644,9 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
         { label: 'Dirección', name: 'tenedDireccion' },
         { label: 'Departamento', name: 'tenedDeptoCiudad', options: departamentosUnicos },
         { label: 'Ciudad', name: 'tenedCiudad', options: getCiudadesPorDepto(formData['tenedDeptoCiudad']) },
+        { label: 'Banco', name: 'tenedBanco', options: bancosColombia },
+        { label: 'Tipo de Cuenta', name: 'tenedTipoCuenta', options: tiposCuenta },
+        { label: 'No. de Cuenta', name: 'tenedNumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
       ],
     },
     {
@@ -388,6 +662,9 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
         { label: 'Empresa Satelital', name: 'vehEmpresaSat' },
         { label: 'Usuario Satelital', name: 'vehUsuarioSat' },
         { label: 'Clave Satelital', name: 'vehClaveSat' },
+        { label: 'Aseguradora SOAT', name: 'vehAseguradoraSoat', options: aseguradorasSoat },
+        { label: 'Póliza SOAT', name: 'vehPolizaSoat', type: 'text', inputProps: { inputMode: 'numeric' as const } },
+        { label: 'Vence SOAT', name: 'vehVencimientoSoat', type: 'date' },
       ],
     },
     {
@@ -415,6 +692,71 @@ const Datos: React.FC<DatosProps> = ({ placa, onValidChange, onCedulaConductorCh
           <span className="Datos-avance-faltan" style={{ display: 'block', fontSize: '0.85rem', color: '#e67e22', marginTop: '6px' }}>
             Faltan {requiredFields.filter(f => !formData[f] || formData[f].trim() === '').length} campos obligatorios (*)
           </span>
+        )}
+      </div>
+
+      {/* --- LECTURA DE DOCUMENTOS CON IA (opcional, atajo para pre-llenar) --- */}
+      <div className="Datos-iaCedula">
+        <div className="Datos-iaCedula-header">
+          <span className="Datos-iaCedula-titulo">⚡ Ahorra tiempo</span>
+          <span className="Datos-iaCedula-sub">
+            Toma una foto (o sube el PDF) de un documento y llenamos los campos por ti con IA.
+            Igual podrás revisar y editar todo. La cédula <b>azul</b> basta el frente;
+            la <b>amarilla</b> antigua aporta más datos con su reverso.
+          </span>
+        </div>
+        <div className="Datos-iaCedula-acciones">
+          <label className="Datos-iaCedula-file">
+            🪪 Cédula — frente *
+            <input
+              ref={inputAnversoRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={manejarSeleccionCedula}
+              disabled={leyendoCedula}
+            />
+          </label>
+          <label className="Datos-iaCedula-file Datos-iaCedula-file--reverso">
+            Cédula — reverso (solo amarilla)
+            <input
+              ref={inputReversoRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              disabled={leyendoCedula}
+            />
+          </label>
+          {OPCIONES_LECTURA_IA.filter(o => o.tipo !== 'cedula').map(opcion => (
+            <button
+              key={opcion.tipo}
+              type="button"
+              className="Datos-iaDoc-boton"
+              onClick={() => solicitarLecturaDocumento(opcion.tipo)}
+              disabled={leyendoCedula}
+            >
+              {opcion.etiqueta}
+            </button>
+          ))}
+          {/* Input oculto para el resto de tipos de documento (foto o PDF). */}
+          <input
+            ref={inputDocumentoRef}
+            type="file"
+            accept="image/*,application/pdf"
+            capture="environment"
+            onChange={manejarSeleccionDocumento}
+            style={{ display: 'none' }}
+          />
+        </div>
+        {leyendoCedula && (
+          <div className="Datos-iaCedula-estado">
+            <span className="Datos-iaCedula-spinner" /> Leyendo el documento con IA…
+          </div>
+        )}
+        {camposLecturaIA.length > 0 && !leyendoCedula && (
+          <div className="Datos-iaCedula-ok">
+            ✓ {camposLecturaIA.length} campos llenados con IA — revísalos en el formulario antes de continuar.
+          </div>
         )}
       </div>
 

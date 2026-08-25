@@ -1,268 +1,284 @@
-/* CONTENEDOR PRINCIPAL (Ajustado para centrar verticalmente como Propietarios) */
-.LoginConductores-contenedor {
+/* ── Layout raíz ── */
+.LC-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* ── HEADER ── */
+.LC-header {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+}
+
+.LC-headerInner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 28px;
+}
+
+.LC-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.LC-brandName {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.LC-brandAccent { color: #e8a000; }
+
+/* ── MAIN ── */
+.LC-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+/* Tarjeta de login */
+.LC-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(15,25,40,.12);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.LC-cardHeader {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Centrado vertical solo si hay espacio suficiente */
-  justify-content: center; 
-  min-height: 100vh;
-  background-color: #ffffff;
-  padding: 0 20px; 
-  font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif;
-  box-sizing: border-box; 
-  /* SOLUCIÓN: Evita el movimiento lateral al desbordar el contenido */
-  overflow-x: hidden; 
-}
-
-/* LOGO  */
-.LoginConductores-Logo {
-  width: 100px; 
-  height: auto;
-  margin-bottom: 5px; /* Reducido para acercar al título */
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-  margin-top: 90px;
-}
-
-/* TITULO */
-.LoginConductores-titulo-app {
-  display: flex;
-  justify-content: center;
-  gap: 0px;
-  /* Reducido para compactar el espacio vertical del bloque de título */
-  margin: 5px 0 15px 0; 
-}
-
-.LoginConductores-titulo-app h1:first-child {
-  font-size: 2rem; 
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0;
-  margin-top: 6px;
-}
-
-.LoginConductores-titulo-app h1:last-child {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #8dc73f;
-  margin: 3px;
-  margin-top: 6px;
-}
-
-/* SUBTÍTULO */
-.LoginConductores-subtitulo {
-  margin-top: 0; 
-  margin-bottom: 20px; 
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #333;
+  gap: 12px;
   text-align: center;
 }
 
-/* TARJETA DEL FORMULARIO */
-.LoginConductores-formulario {
-  width: 90%;
-  max-width: 400px; 
-  background: #ffffff;
-  padding: 30px 20px; 
-  border-radius: 10px; 
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-  border: 1px solid #f3f3f3;
-  box-sizing: border-box;
+.LC-titulo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f1928;
+  margin: 0;
 }
 
-/* INPUTS */
-.LoginConductores-grupo-input {
+.LC-subtitulo {
+  font-size: 0.88rem;
+  color: #6b7a8d;
+  margin: 0;
+}
+
+/* Formulario */
+.LC-formulario {
   display: flex;
   flex-direction: column;
-  margin-bottom: 12px; /* Reducido de 15px a 12px */
+  gap: 16px;
 }
 
-.LoginConductores-grupo-input label {
-  margin-bottom: 3px; /* Reducido de 5px a 3px */
-  font-weight: 600;
-  color: #374151;
-  font-size: 14px; 
-}
-
-.LoginConductores-input {
-  width: 100%;
-  padding: 10px; 
-  border: 1px solid #e5e7eb;
-  border-radius: 5px; 
-  font-size: 16px;
-  outline: none;
-  transition: 0.2s;
-  box-sizing: border-box;
-}
-
-.LoginConductores-input:focus {
-  border-color: #8dc73f;
-  box-shadow: 0 0 0 3px rgba(141,199,63,0.2);
-}
-
-/* OJITO */
-.LoginConductores-password-wrapper {
-  position: relative;
+.LC-grupo {
   display: flex;
-  align-items: center;
-  width: 100%;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.LoginConductores-ojito {
+.LC-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6b7a8d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.LC-input {
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #1e2f45;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.LC-input:focus {
+  border-color: #0f1928;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(15,25,40,.08);
+}
+
+.LC-inputPassword { padding-right: 44px; }
+
+.LC-passwordWrap {
+  position: relative;
+}
+
+.LC-ojito {
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
-  transform: translateY(-50%); 
-  border: none;
+  transform: translateY(-50%);
   background: none;
-  font-size: 1.2rem;
+  border: none;
   cursor: pointer;
-  color: #666;
+  color: #6b7a8d;
+  font-size: 1rem;
   padding: 0;
   display: flex;
   align-items: center;
-  z-index: 10;
+  transition: color 0.2s;
 }
+.LC-ojito:hover { color: #0f1928; }
 
-/* BOTÓN */
-.LoginConductores-boton {
-  width: 100%;
-  padding: 12px; 
+.LC-boton {
+  padding: 12px;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  color: #fff;
   border: none;
-  border-radius: 5px;
-  background: black;
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
   cursor: pointer;
-  margin-top: 10px;
-  transition: background 0.3s ease;
+  transition: opacity 0.2s, transform 0.1s;
+  margin-top: 4px;
+  font-family: inherit;
+}
+.LC-boton:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.LC-boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.LoginConductores-boton:hover {
-  background: #1f1f1f;
-}
-
-/* LINKS */
-.LoginConductores-links {
-  margin-top: 15px; /* Reducido */
-  text-align: center;
+/* Fila de links: Registrarse + ¿Olvidaste tu contraseña? */
+.LC-linksFila {
   display: flex;
-  flex-direction: column;
-  gap: 8px; /* Reducido */
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: -4px;
 }
 
-.LoginConductores-link {
-  color: #000080;
+.LC-linksFila .LC-link {
+  font-size: 0.85rem;
+  color: #6b7a8d;
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.9rem;
-  transition: color 0.3s ease;
+  transition: color 0.2s;
+}
+.LC-linksFila .LC-link:hover { color: #0f1928; }
+
+.LC-linksFila .LC-separador {
+  color: #cbd5e1;
+  font-size: 0.85rem;
 }
 
-.LoginConductores-link:hover {
-  text-decoration: underline;
-  color: #1e40af;
-}
-
-/* BOTÓN ACCESO SEGURIDAD */
-.LoginConductores-boton-seguridad {
-  width: 100%;
-  padding: 10px;
-  margin-top: 12px;
-  border: 1.5px solid #000080;
-  border-radius: 5px;
-  background: white;
-  color: #000080;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-.LoginConductores-boton-seguridad:hover {
-  background: #000080;
-  color: white;
-}
-
-/* ERROR */
-.LoginConductores-error {
-  margin-top: 15px;
-  padding: 10px;
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fee2e2;
-  border-radius: 5px;
+.LC-error {
+  color: #dc3545;
+  font-size: 0.85rem;
   text-align: center;
-  width: 100%;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+/* ── FOOTER ── */
+.LC-footer {
+  background: #0f1928;
+  border-top: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+}
+
+.LC-footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 28px;
+}
+
+.LC-footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
   font-weight: 600;
-  font-size: 0.9rem;
-  box-sizing: border-box;
+  color: rgba(255,255,255,.75);
 }
 
-/* =========================================
-   MEDIA QUERIES (RESPONSIVE MÓVIL) - AJUSTADO AL MÁXIMO
-   ========================================= */
+.LC-footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.LC-footerLink {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,.4);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.LC-footerLink:hover { color: #e8a000; }
+
+.LC-footerCopy {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,.25);
+}
+
+/* ── Responsive ── */
 @media (max-width: 600px) {
-  
-  /* 1. Contenedor Principal: 
-     Alineación al inicio (arriba) para evitar desbordamiento en móviles. */
-  .LoginConductores-contenedor {
-    justify-content: flex-start; 
-    padding: 10px; /* Reducido de 15px 10px a solo 10px */
-    min-height: 100dvh; 
-  }
-
-  /* 2. Logo: 
-     MÁS PEQUEÑO y menos margen. */
-  .LoginConductores-Logo {
-    width: 60px; 
-    margin-top: 80px; 
-    margin-bottom: 2px;
-  }
-
-  /* 3. Títulos: Reducir tamaño de fuente y márgenes. */
-  .LoginConductores-titulo-app h1:first-child,
-  .LoginConductores-titulo-app h1:last-child {
-    font-size: 1.2rem;
-    margin-top: 0; 
-  }
-  
-  .LoginConductores-titulo-app {
-      margin: 3px 0 0; 
-  }
-
-  .LoginConductores-subtitulo {
-    font-size: 0.8rem; 
-    margin-bottom: 10px; 
-
-  /* 4. Formulario: 
-     Mantener compacto. */
-  .LoginConductores-formulario {
-    padding: 18px 15px; 
-    width: 100%;
-    max-width: 350px; 
-  }
-
-  /* 5. Inputs y Botones: Ajustar tamaño de padding y fuente. */
-  .LoginConductores-grupo-input label {
-    font-size: 12px; 
-  }
-
-  .LoginConductores-input {
-    padding: 7px; /* MÁS PEQUEÑO: de 8px a 7px */
-    font-size: 14px; 
-  }
-
-  .LoginConductores-boton {
-    padding: 8px; /* MÁS PEQUEÑO: de 10px a 8px */
-    font-size: 14px; /* Reducido */
-  }
-
-  .LoginConductores-links {
-    margin-top: 10px; /* Reducido */
-    gap: 5px;
-    margin-bottom: 10px; 
-  }
+  .LC-card { padding: 28px 20px; }
+  .LC-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
+  .LC-footerLinks { display: none; }
+  .LC-headerInner { padding: 0 16px; }
 }
-  }
+
+/* Botón de reenvío de verificación (mismo ancho, estilo ámbar) */
+.LC-botonReenvio {
+  background: #e8a000;
+}
+.LC-botonReenvio:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.LC-reenvioMensaje {
+  color: #16a34a;
+  font-size: 0.82rem;
+  text-align: center;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}

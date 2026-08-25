@@ -14,6 +14,8 @@ interface CargaDocumentoProps {
   documentName: string;
   endpoint: string;
   placa: string;
+  /** idUsuario cuando se edita un vehículo aprobado (baja a re-revisión). */
+  editadoPor?: string;
   onClose: () => void;
   onUploadSuccess?: (result: string | string[]) => void;
 }
@@ -21,6 +23,7 @@ interface CargaDocumentoProps {
 interface UploadResponse {
   urls?: string[];
   url?: string;
+  lectura_ia?: { datos?: Record<string, any>; avisos?: string[] } | null;
 }
 
 
@@ -28,6 +31,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   documentName,
   endpoint,
   placa,
+  editadoPor,
   onClose,
   onUploadSuccess,
 }) => {
@@ -64,6 +68,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     const key = documentName === "Fotos" ? 'archivos' : 'archivo';
     files.forEach(file => formData.append(key, file));
     formData.append('placa', placa);
+    if (editadoPor) formData.append('editado_por', editadoPor);
 
     const lower = documentName.toLowerCase();
     const tipo = tiposMapping[lower] || lower.replace(/\s+/g, "_");
@@ -92,6 +97,23 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             } else {
                 onUploadSuccess(result);
             }
+        }
+        // Lectura IA: el backend ya persistió los datos en lecturasIA; se
+        // aplican al abrir el paso 2 (Datos). Solo se informa aquí.
+        const lectura = response.data.lectura_ia;
+        if (lectura && lectura.datos && Object.keys(lectura.datos).length > 0) {
+          const avisos = (lectura.avisos || []);
+          const htmlAvisos = avisos.length
+            ? `<div style="text-align:left; margin-top:8px; font-size:0.85em;">${avisos.map(a => `<div>${a}</div>`).join('')}</div>`
+            : '';
+          Swal.fire({
+            icon: 'success',
+            title: 'Documento leído con IA',
+            html: `Extraimos <b>${Object.keys(lectura.datos).length}</b> dato(s) del documento.<br/>
+                   Se usarán para <b>autollenar el formulario</b> del paso 2 (los que estén vacíos).${htmlAvisos}`,
+            confirmButtonColor: '#27ae60',
+            timer: 6000,
+          });
         }
       } else {
         Swal.fire({ icon: 'error', title: 'Error', text: 'Error al subir el documento.' });

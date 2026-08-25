@@ -66,7 +66,6 @@ body, html {
 .barra-derecha {
   display: flex;
   align-items: center;
-  gap: 15px;
 }
 
 /* Banner "Mi disponibilidad" (acción principal del conductor, fuera del header) */
@@ -117,54 +116,114 @@ body, html {
 .banner-disponibilidad-texto small { font-size: 0.8rem; opacity: 0.85; margin-top: 2px; }
 .banner-disponibilidad-flecha { font-size: 1.4rem; font-weight: bold; flex-shrink: 0; }
 
-.barra-usuario {
-  font-weight: 600;
-  font-size: 13px;
+/* Botón usuario + menú (patrón del header de /Pedidos) */
+.barra-derecha {
+  position: relative;
+}
+
+.barra-userBtn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(255,255,255,0.1);
-  padding: 5px 12px;
-  border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.1);
-  max-width: 220px;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.barra-userBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.barra-userIcon {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.barra-userInfo {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.barra-userName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  max-width: 160px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.hamburguesa-container {
-  display: flex;
-  align-items: center;
-  position: relative;
-  cursor: pointer;
+.barra-userPerfil {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
+
+.barra-chevron {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.barra-chevronOpen { transform: rotate(180deg); }
 
 .menu-desplegable {
   position: absolute;
-  top: 50px;
+  top: calc(100% + 8px);
   right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-  overflow: hidden;
-  min-width: 160px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 190px;
   z-index: 1001;
+  overflow: hidden;
+  animation: barra-fadeDown 0.15s ease;
 }
 
-.btn-cerrar-sesion {
+@keyframes barra-fadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 12px 15px;
+  padding: 10px 16px;
+  background: none;
   border: none;
-  background: transparent;
-  color: #135717;
-  font-weight: bold;
+  font-size: 0.88rem;
+  color: #1e2f45;
   cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
   text-align: left;
-  transition: background 0.2s;
 }
 
-.btn-cerrar-sesion:hover { background: #fce4e4; }
+.menu-item:hover { background: #f5f7fa; }
+
+.menu-divisor {
+  height: 1px;
+  background: #f0f2f5;
+  margin: 2px 0;
+}
+
+.menu-itemDanger { color: #c9302c; }
+.menu-itemDanger:hover { background: #fff5f5; }
 
 /* -------------------------------------------------------------------------- */
 /* 3. LAYOUT PRINCIPAL                                                        */
@@ -623,12 +682,11 @@ body, html {
   }
   .barra-marca { font-size: 1.1rem; }
 
-  /* Usuario más discreto */
-  .barra-usuario {
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    max-width: 120px;
-  }
+  /* Usuario más discreto (patrón Pedidos) */
+  .barra-userBtn { padding: 4px 8px 4px 6px; }
+  .barra-userIcon { font-size: 1.2rem; }
+  .barra-userName { font-size: 0.75rem; max-width: 110px; }
+  .barra-userPerfil { font-size: 0.65rem; }
 
   /* 2. LAYOUT: REDUCCIÓN DE ESPACIOS EXTERNOS */
   .layout-conductor {
@@ -820,10 +878,7 @@ body, html {
   .banner-disponibilidad-flecha { font-size: 1.1rem; }
 
   /* Nombre del conductor más corto para evitar desbordes */
-  .barra-usuario {
-    max-width: 110px;
-    padding: 5px 8px;
-  }
+  .barra-userName { max-width: 90px; }
 
   /* Título más compacto */
   .barra-marca { font-size: 1rem; }
@@ -868,14 +923,9 @@ body, html {
   .banner-disponibilidad-texto strong { font-size: 0.82rem; }
   .banner-disponibilidad-texto small { display: none; }
 
-  /* Ocultar el nombre del conductor, conservar el icono */
-  .barra-usuario {
-    font-size: 0;
-    padding: 6px;
-    max-width: none;
-  }
-
-  .barra-derecha { gap: 6px; }
+  /* Solo avatar + chevron (sin textos) para aprovechar el espacio */
+  .barra-userInfo { display: none; }
+  .barra-userBtn { padding: 5px 8px; }
 
   /* Layout casi sin margen para aprovechar toda la pantalla */
   .layout-conductor {

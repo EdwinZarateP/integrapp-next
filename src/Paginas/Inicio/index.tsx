@@ -15,7 +15,7 @@ const Inicio: React.FC = () => {
     const seguridadCookie = Cookies.get('seguridadId');
 
     if (!seguridadCookie) {
-      router.push("/LoginUsuariosSeguridad");
+      router.push("/LoginUsuario");
     } else {
       router.push("/revision");
     }

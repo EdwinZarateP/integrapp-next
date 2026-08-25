@@ -256,3 +256,125 @@
   transform: none;
   box-shadow: none;
 }
+
+/* ── Lectura de cédula con IA (atajo de pre-llenado) ── */
+.Datos-iaCedula {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #eefaf3 100%);
+  border: 1px solid #b8d4f0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.Datos-iaCedula-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.Datos-iaCedula-titulo {
+  font-weight: 800;
+  color: #0f1928;
+  font-size: 0.95rem;
+}
+
+.Datos-iaCedula-sub {
+  font-size: 0.8rem;
+  color: #5b6b7c;
+  line-height: 1.4;
+}
+
+.Datos-iaCedula-acciones {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.Datos-iaCedula-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: #fff;
+  border: 1px dashed #7fa8d9;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.Datos-iaCedula-file:hover {
+  border-color: #2c5f9e;
+  background: #f5faff;
+}
+
+.Datos-iaCedula-file input[type="file"] {
+  display: none;
+}
+
+.Datos-iaCedula-file--reverso {
+  border-color: #a9d9bf;
+}
+
+/* Botones de lectura IA para el resto de documentos (licencia, RUT, bancario...) */
+.Datos-iaDoc-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: #fff;
+  border: 1px dashed #7fa8d9;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e2f45;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.Datos-iaDoc-boton:hover {
+  border-color: #2c5f9e;
+  background: #f5faff;
+}
+
+.Datos-iaDoc-boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.Datos-iaCedula-estado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #1e2f45;
+  font-weight: 600;
+}
+
+.Datos-iaCedula-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #c7ddf5;
+  border-top-color: #2c5f9e;
+  border-radius: 50%;
+  animation: Datos-iaGirar 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes Datos-iaGirar {
+  to { transform: rotate(360deg); }
+}
+
+.Datos-iaCedula-ok {
+  font-size: 0.82rem;
+  color: #1d6b3f;
+  background: #e9f9ef;
+  border: 1px solid #b8e6c9;
+  border-radius: 8px;
+  padding: 8px 12px;
+}

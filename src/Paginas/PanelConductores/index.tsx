@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import {
   FaCar, FaClipboardList, FaFileUpload, FaCheckCircle,
-  FaUserCircle, FaBars, FaEdit, FaTrashAlt, FaEye, FaExclamationTriangle, FaClock, FaTimesCircle, FaTruck
+  FaUserCircle, FaEdit, FaTrashAlt, FaEye, FaExclamationTriangle, FaClock, FaTimesCircle, FaTruck,
+  FaChevronDown, FaSignOutAlt
 } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
 import Datos from '@/Componentes/Datos';
@@ -188,11 +189,12 @@ const formatoValorDato = (v: any): string => {
   return String(v);
 };
 
-/* --- BARRA SUPERIOR --- */
+/* --- BARRA SUPERIOR (mismo patrón del header de /Pedidos) --- */
 const BarraConductor: React.FC = () => {
   const router = useRouter();
   const primerNombreCookie = Cookies.get("conductorPrimerNombre");
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
   const obtenerNombreMostrar = () => {
     if (primerNombreCookie) {
@@ -201,7 +203,23 @@ const BarraConductor: React.FC = () => {
     return "CONDUCTOR";
   };
 
+  // Cerrar el menú al hacer click fuera (igual que en /Pedidos).
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuAbierto(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   const irInicio = () => { router.push("/"); };
+
+  const irDisponibilidad = () => {
+    setMenuAbierto(false);
+    router.push("/Disponibilidad");
+  };
 
   const cerrarSesion = () => {
     Cookies.remove("conductorCorreo");
@@ -214,28 +232,106 @@ const BarraConductor: React.FC = () => {
   };
 
   return (
-    <div className="barra-superior" onClick={() => menuAbierto && setMenuAbierto(false)}>
+    <div className="barra-superior">
       <div className="barra-izquierda" onClick={irInicio} title="Volver al inicio">
         <img src={logo.src} alt="Logo" className="barra-logo" />
         <span className="barra-marca">
           Integr<span className="barra-marca-acento">App</span>
         </span>
       </div>
-      <div className="barra-derecha">
-        <div className="barra-usuario">
-            <FaUserCircle size={20} />
-            {obtenerNombreMostrar()}
-        </div>
-        <div className="hamburguesa-container">
-          <FaBars size={24} onClick={(e) => { e.stopPropagation(); setMenuAbierto(!menuAbierto); }} />
-          {menuAbierto && (
-            <div className="menu-desplegable" onClick={(e) => e.stopPropagation()}>
-              <button onClick={cerrarSesion} className="btn-cerrar-sesion">Cerrar Sesión</button>
-            </div>
-          )}
-        </div>
+      <div className="barra-derecha" ref={menuRef}>
+        <button
+          className="barra-userBtn"
+          onClick={() => setMenuAbierto(o => !o)}
+        >
+          <FaUserCircle className="barra-userIcon" />
+          <div className="barra-userInfo">
+            <span className="barra-userName">{obtenerNombreMostrar()}</span>
+            <span className="barra-userPerfil">Conductor</span>
+          </div>
+          <FaChevronDown className={`barra-chevron ${menuAbierto ? "barra-chevronOpen" : ""}`} />
+        </button>
+
+        {menuAbierto && (
+          <div className="menu-desplegable">
+            <button className="menu-item" onClick={irDisponibilidad}>
+              <FaTruck /> Mi disponibilidad
+            </button>
+            <div className="menu-divisor" />
+            <button className="menu-item menu-itemDanger" onClick={cerrarSesion}>
+              <FaSignOutAlt /> Cerrar sesión
+            </button>
+          </div>
+        )}
       </div>
     </div>
+  );
+};
+
+/* --- Bloque de conductor vinculado (visible solo para TENEDOR) --- */
+const TenedorConductorInfo: React.FC<{
+  veh: any;
+  onInvitar: (placa: string) => void;
+  onReenviar: (placa: string) => void;
+  onQuitar: (placa: string) => void;
+}> = ({ veh, onInvitar, onReenviar, onQuitar }) => {
+  const estado = (() => {
+    if (veh.idConductor) {
+      return { texto: `✅ ${veh.invitacionConductor?.correo || 'conductor activo'}`, color: '#155724' };
+    }
+    const inv = veh.invitacionConductor;
+    if (inv?.correo) {
+      return { texto: `⏳ invitación ${inv.estado || 'pendiente'} → ${inv.correo}`, color: '#856404' };
+    }
+    return { texto: '— sin conductor —', color: '#6c757d' };
+  })();
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
+      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: estado.color }}>
+        {estado.texto}
+      </span>
+      {!veh.idConductor && !veh.invitacionConductor?.correo && (
+        <button
+          className="btn-ver-mis-datos"
+          style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+          onClick={() => onInvitar(veh.placa)}
+          title="Invitar a un conductor por correo para esta placa"
+        >
+          ➕ Invitar
+        </button>
+      )}
+      {!veh.idConductor && veh.invitacionConductor?.correo && (
+        <>
+          <button
+            className="btn-ver-mis-datos"
+            style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+            onClick={() => onReenviar(veh.placa)}
+            title="Reenviar el correo de invitación"
+          >
+            ✉️ Reenviar
+          </button>
+          <button
+            className="btn-ver-mis-datos"
+            style={{ padding: '2px 8px', fontSize: '0.72rem', borderColor: '#c0392b', color: '#c0392b' }}
+            onClick={() => onQuitar(veh.placa)}
+            title="Cancelar la invitación pendiente"
+          >
+            ✖ Quitar
+          </button>
+        </>
+      )}
+      {veh.idConductor && (
+        <button
+          className="btn-ver-mis-datos"
+          style={{ padding: '2px 8px', fontSize: '0.72rem', borderColor: '#c0392b', color: '#c0392b' }}
+          onClick={() => onQuitar(veh.placa)}
+          title="Desvincular al conductor de esta placa"
+        >
+          ✖ Quitar
+        </button>
+      )}
+    </span>
   );
 };
 
@@ -262,15 +358,29 @@ const PanelConductoresVista: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
 
   const [vehicles, setVehicles] = useState<string[]>([]);
+  const [vehiculosPendientes, setVehiculosPendientes] = useState<any[]>([]);
   const [vehiculosRechazados, setVehiculosRechazados] = useState<any[]>([]);
   const [vehiculosEnRevision, setVehiculosEnRevision] = useState<any[]>([]);
   const [vehiculosAprobados, setVehiculosAprobados] = useState<any[]>([]);
+
+  // Perfil del usuario logueado (TENEDOR gestiona flota + conductores invitados).
+  const perfilUsuario = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase();
+  const esTenedor = perfilUsuario === 'TENEDOR';
+
+  // Modal «Invitar conductor» para el tenedor.
+  const [invitarPlaca, setInvitarPlaca] = useState<string | null>(null);
+  const [invitarCorreo, setInvitarCorreo] = useState('');
+  const [invitarNombre, setInvitarNombre] = useState('');
+  const [invitando, setInvitando] = useState(false);
 
   const [secciones, setSecciones] = useState<SeccionDocumentos[]>(() => JSON.parse(JSON.stringify(initialSecciones)));
 
   const [selectedPlate, setSelectedPlate] = useState<string | null>(null);
   const [newPlate, setNewPlate] = useState<string>("");
   const [datosValidos, setDatosValidos] = useState<boolean>(false);
+  // True cuando se edita un vehículo aprobado: los componentes envían editado_por
+  // para que el backend lo baje a re-revisión con diff.
+  const [editarAprobadoActivo, setEditarAprobadoActivo] = useState<boolean>(false);
   const [cedulaConductor, setCedulaConductor] = useState<string>("");
   const [visibleSeccion, setVisibleSeccion] = useState<number | null>(null);
   const [selectedDocumento, setSelectedDocumento] = useState<any>(null);
@@ -304,9 +414,10 @@ const PanelConductoresVista: React.FC = () => {
 
       if (data.vehiculos && Array.isArray(data.vehiculos)) {
 
-        const pendientes = data.vehiculos
-            .filter((v: any) => v.estadoIntegra === 'registro_incompleto' && (!v.observaciones || v.observaciones.trim() === ""))
-            .map((v: any) => v.placa);
+        const pendientesDocs = data.vehiculos
+            .filter((v: any) => v.estadoIntegra === 'registro_incompleto' && (!v.observaciones || v.observaciones.trim() === ""));
+
+        const pendientes = pendientesDocs.map((v: any) => v.placa);
 
         const rechazados = data.vehiculos.filter((v: any) =>
             v.estadoIntegra === 'devuelto' ||
@@ -322,12 +433,14 @@ const PanelConductoresVista: React.FC = () => {
         );
 
         setVehicles(pendientes);
+        setVehiculosPendientes(pendientesDocs);
         setVehiculosRechazados(rechazados);
         setVehiculosEnRevision(revision);
         setVehiculosAprobados(aprobados);
 
       } else {
           setVehicles([]);
+          setVehiculosPendientes([]);
           setVehiculosRechazados([]);
           setVehiculosEnRevision([]);
           setVehiculosAprobados([]);
@@ -415,6 +528,113 @@ const PanelConductoresVista: React.FC = () => {
     setVerPlaca(null);
     setVerDatos(null);
     setVerSecciones([]);
+  };
+
+  /* --- Edición de un vehículo APROBADO: baja a re-revisión al guardar --- */
+  const editarAprobado = (placa: string) => {
+    Swal.fire({
+      icon: "warning",
+      title: "Editar vehículo aprobado",
+      html: `Vas a editar los datos de <strong>${placa}</strong>.<br/>
+             Al guardar los cambios, el vehículo saldrá de la flota disponible
+             y pasará a <strong>revisión de Seguridad</strong> antes de volver a operar.`,
+      showCancelButton: true,
+      confirmButtonText: "Continuar",
+      confirmButtonColor: "#b8860b",
+      cancelButtonText: "Cancelar",
+    }).then((res) => {
+      if (res.isConfirmed) {
+        setSelectedPlate(placa);
+        setEditarAprobadoActivo(true);
+        setCurrentStep(2);
+      }
+    });
+  };
+
+  /* --- Invitación de conductor (solo TENEDOR) --- */
+  const abrirInvitar = (placa: string) => {
+    setInvitarPlaca(placa);
+    setInvitarCorreo("");
+    setInvitarNombre("");
+  };
+
+  const cerrarInvitar = () => setInvitarPlaca(null);
+
+  const enviarInvitacion = async () => {
+    if (!invitarPlaca || invitando) return;
+    const correoLimpio = invitarCorreo.trim().toLowerCase();
+    if (!correoLimpio.includes('@')) {
+      Swal.fire("Correo inválido", "Escribe el correo del conductor.", "warning");
+      return;
+    }
+    setInvitando(true);
+    try {
+      const resp = await fetch(`${API_BASE}/conductores/invitar-conductor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_tenedor: idUsuario,
+          placa: invitarPlaca,
+          correo_conductor: correoLimpio,
+          nombre_conductor: invitarNombre.trim() || null,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo enviar la invitación.');
+      await Swal.fire({
+        icon: 'success',
+        title: data.estado === 'vinculado' ? 'Conductor vinculado' : 'Invitación enviada',
+        text: data.mensaje,
+        confirmButtonColor: '#27ae60',
+      });
+      cerrarInvitar();
+      await fetchVehiculosUsuario();
+    } catch (error: any) {
+      Swal.fire('Error', error.message || 'No se pudo enviar la invitación.', 'error');
+    } finally {
+      setInvitando(false);
+    }
+  };
+
+  const reenviarInvitacion = async (placa: string) => {
+    try {
+      const resp = await fetch(`${API_BASE}/conductores/reenviar-invitacion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_tenedor: idUsuario, placa }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo reenviar.');
+      Swal.fire({ icon: 'success', title: 'Reenviada', text: data.mensaje, timer: 1800, showConfirmButton: false });
+    } catch (error: any) {
+      Swal.fire('Error', error.message, 'error');
+    }
+  };
+
+  const desvincularConductor = async (placa: string) => {
+    const res = await Swal.fire({
+      icon: 'question',
+      title: `Quitar conductor de ${placa}`,
+      text: 'El conductor dejará de ver este vehículo en su panel. Puedes invitar a otro después.',
+      showCancelButton: true,
+      confirmButtonText: 'Quitar',
+      confirmButtonColor: '#c0392b',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!res.isConfirmed) return;
+    try {
+      const resp = await fetch(`${API_BASE}/conductores/desvincular-conductor`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_tenedor: idUsuario, placa }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo desvincular.');
+      Swal.fire({ icon: 'success', title: 'Conductor quitado', timer: 1500, showConfirmButton: false });
+      await fetchVehiculosUsuario();
+    } catch (error: any) {
+      Swal.fire('Error', error.message, 'error');
+    }
   };
 
   // Abre el/los documento(s) en pestaña nueva (solo lectura: sin opción de eliminar).
@@ -596,6 +816,7 @@ const PanelConductoresVista: React.FC = () => {
                         {vehicles.length === 0 ? (
                             <p style={{color: '#999', fontStyle:'italic', padding:'10px'}}>No tienes vehículos pendientes.</p>
                         ) : (
+                            <>
                                 <div className="lista-vehiculos-grid">
                                     {vehicles.map((placaItem, idx) => (
                                     <button
@@ -610,6 +831,22 @@ const PanelConductoresVista: React.FC = () => {
                                     </button>
                                     ))}
                                 </div>
+                                {esTenedor && (
+                                    <div style={{marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                                        {vehiculosPendientes.map((veh) => (
+                                            <div key={veh.placa} style={{display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap'}}>
+                                                <strong>{veh.placa}</strong>
+                                                <TenedorConductorInfo
+                                                    veh={veh}
+                                                    onInvitar={abrirInvitar}
+                                                    onReenviar={reenviarInvitacion}
+                                                    onQuitar={desvincularConductor}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 
@@ -659,12 +896,28 @@ const PanelConductoresVista: React.FC = () => {
                                 >
                                     <FaCheckCircle /> {veh.placa}
                                     <span style={{fontSize: '0.8rem', fontWeight: 'normal', color: '#155724', marginLeft: 'auto'}}>Aprobado para operar</span>
+                                    {esTenedor && (
+                                      <TenedorConductorInfo
+                                        veh={veh}
+                                        onInvitar={abrirInvitar}
+                                        onReenviar={reenviarInvitacion}
+                                        onQuitar={desvincularConductor}
+                                      />
+                                    )}
                                     <button
                                         className="btn-ver-mis-datos"
                                         onClick={() => abrirVer(veh.placa)}
                                         title="Ver los datos que cargaste"
                                     >
                                         <FaEye /> Ver mis datos
+                                    </button>
+                                    <button
+                                        className="btn-ver-mis-datos"
+                                        style={{ borderColor: '#b8860b', color: '#b8860b' }}
+                                        onClick={() => editarAprobado(veh.placa)}
+                                        title="Editar datos o documentos de este vehículo aprobado"
+                                    >
+                                        <FaEdit /> Editar
                                     </button>
                                 </div>
                                 ))}
@@ -694,6 +947,14 @@ const PanelConductoresVista: React.FC = () => {
                                     }}
                                 >
                                     <FaClock /> {veh.placa}
+                                    {esTenedor && (
+                                      <TenedorConductorInfo
+                                        veh={veh}
+                                        onInvitar={abrirInvitar}
+                                        onReenviar={reenviarInvitacion}
+                                        onQuitar={desvincularConductor}
+                                      />
+                                    )}
                                     <span style={{fontSize: '0.8rem', fontWeight: 'normal', color: '#555', marginLeft: 'auto'}}>Esperando aprobación...</span>
                                 </div>
                                 ))}
@@ -717,6 +978,8 @@ const PanelConductoresVista: React.FC = () => {
                 <div className="contenedor-formulario-fijo">
                     <Datos
                         placa={selectedPlate}
+                        idUsuario={idUsuario}
+                        editarAprobado={editarAprobadoActivo}
                         onValidChange={setDatosValidos}
                         onCedulaConductorChange={setCedulaConductor}
                         onSavedSuccess={() => changeStep(3)}
@@ -832,11 +1095,63 @@ const PanelConductoresVista: React.FC = () => {
       </div>
 
       {/* MODALES */}
+
+      {/* Modal «Invitar conductor» (solo tenedor) */}
+      {invitarPlaca && (
+        <div className="CargaDocumento-overlay" onClick={(e) => { if (e.target === e.currentTarget) cerrarInvitar(); }}>
+          <div className="CargaDocumento-modal" style={{ maxWidth: '440px' }}>
+            <h2>Invitar conductor — {invitarPlaca}</h2>
+            <p style={{ fontSize: '0.88rem', color: '#555', marginTop: 0 }}>
+              El conductor recibirá un correo para activar su cuenta y quedará vinculado
+              a esta placa. Si ya tiene cuenta, se vincula de inmediato.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  Correo del conductor *
+                </label>
+                <input
+                  type="email"
+                  className="input-moderno"
+                  placeholder="conductor@ejemplo.com"
+                  value={invitarCorreo}
+                  onChange={(e) => setInvitarCorreo(e.target.value)}
+                  disabled={invitando}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  Nombre del conductor (opcional)
+                </label>
+                <input
+                  type="text"
+                  className="input-moderno"
+                  placeholder="Ej: Juan Pérez"
+                  value={invitarNombre}
+                  onChange={(e) => setInvitarNombre(e.target.value)}
+                  disabled={invitando}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '18px', justifyContent: 'flex-end' }}>
+              <button className="CargaDocumento-btn-cerrar" onClick={cerrarInvitar} disabled={invitando}>
+                Cancelar
+              </button>
+              <button className="btn-moderno-accion" onClick={enviarInvitacion} disabled={invitando}>
+                {invitando ? 'Enviando…' : 'Enviar invitación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {selectedDocumento && selectedPlate && (
         <CargaDocumento
           documentName={selectedDocumento.documentName}
           endpoint={selectedDocumento.endpoint}
           placa={selectedPlate}
+          editadoPor={editarAprobadoActivo ? idUsuario : undefined}
           onClose={() => setSelectedDocumento(null)}
           onUploadSuccess={(result: string | string[]) => {
              const newSec = JSON.parse(JSON.stringify(secciones));

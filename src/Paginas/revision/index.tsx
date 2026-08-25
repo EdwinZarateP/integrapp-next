@@ -114,6 +114,16 @@ export interface Vehiculo {
   estudioSeguridad?: string;
   fotoconductorseguridad?: string;
   observaciones?: string;
+  // Re-revisión: cambios editados sobre un vehículo aprobado.
+  historialCambios?: Array<{
+    fecha: string;
+    usuario: string;
+    seccion: string;
+    campos: Array<{ campo: string; antes: any; despues: any }>;
+  }>;
+  // Vinculación tenedor → conductor invitado.
+  idConductor?: string | null;
+  invitacionConductor?: { correo: string; estado: string } | null;
   [key: string]: any;
 }
 
@@ -151,7 +161,7 @@ const RevisionVehiculos: React.FC = () => {
     const idUsuario = Cookies.get("seguridadId");
     if (!idUsuario) {
       console.warn("Acceso denegado: Credenciales no encontradas.");
-      router.push("/LoginUsuariosSeguridad");
+      router.push("/LoginUsuario");
     } else {
       cargarPendientesYRevision(idUsuario);
     }
@@ -461,10 +471,31 @@ const RevisionVehiculos: React.FC = () => {
     return (
         <div className="detalle-completo">
 
-          <h4 className="titulo-seccion">📌 Información Básica del Registro</h4>
+          <h4 className="titulo-seccion">
+            📌 Información Básica del Registro
+            {veh.estadoIntegra === 'completado_revision' && (veh.historialCambios?.length ?? 0) > 0 && (
+              <span
+                style={{
+                  marginLeft: '10px', fontSize: '0.7em', padding: '3px 10px', borderRadius: '12px',
+                  backgroundColor: '#fff3cd', border: '1px solid #ffeeba', color: '#856404',
+                  verticalAlign: 'middle',
+                }}
+              >
+                🔄 Re-revisión — editaron un vehículo aprobado
+              </span>
+            )}
+          </h4>
           <div className="datos-grid">
             <p><strong>Placa:</strong> {veh.placa}</p>
             <p><strong>Estado:</strong> {veh.estadoIntegra}</p>
+            {(veh.idConductor || veh.invitacionConductor) && (
+              <p style={{ gridColumn: '1 / -1' }}>
+                <strong>Conductor vinculado:</strong>{" "}
+                {veh.idConductor
+                  ? `✅ cuenta activa${veh.invitacionConductor?.correo ? ` (${veh.invitacionConductor.correo})` : ""}`
+                  : `⏳ invitación ${veh.invitacionConductor?.estado || "pendiente"} → ${veh.invitacionConductor?.correo || ""}`}
+              </p>
+            )}
 
             {veh.estadoIntegra === 'registro_incompleto' && totalFaltantes > 0 && (
                 <button className="btn-info-faltante" onClick={mostrarInfoFaltante}>
@@ -479,6 +510,43 @@ const RevisionVehiculos: React.FC = () => {
                 </p>
             )}
           </div>
+
+          {(veh.historialCambios?.length ?? 0) > 0 && (
+            <div
+              style={{
+                margin: '10px 0', padding: '12px 14px', borderRadius: '8px',
+                backgroundColor: '#eef6ff', border: '1px solid #cfe4ff',
+              }}
+            >
+              <strong style={{ display: 'block', marginBottom: '6px', color: '#0b5ed7' }}>
+                🔄 Cambios desde la última aprobación
+              </strong>
+              {veh.historialCambios!.map((cambio, i) => (
+                <div key={i} style={{ fontSize: '0.88rem', marginBottom: '8px' }}>
+                  <span style={{ color: '#555' }}>
+                    {cambio.fecha ? new Date(cambio.fecha).toLocaleString('es-CO') : ''} · {cambio.seccion} · por {cambio.usuario}
+                  </span>
+                  <ul style={{ margin: '4px 0 0 18px', padding: 0 }}>
+                    {cambio.campos.map((c, j) => {
+                      const esDoc = typeof c.antes === 'string' && (c.antes.startsWith('http') || c.antes === '(ninguno)' || c.antes === '(eliminado)');
+                      return (
+                        <li key={j}>
+                          <strong>{c.campo}</strong>:{" "}
+                          {esDoc ? '📄 documento actualizado' : (
+                            <>
+                              <span style={{ textDecoration: 'line-through', color: '#a33' }}>{String(c.antes ?? '—')}</span>
+                              {" → "}
+                              <span style={{ color: '#2a7a2a', fontWeight: 600 }}>{String(c.despues ?? '—')}</span>
+                            </>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
 
           <h4 className="titulo-seccion">👤 Datos del Conductor</h4>
           <div className="datos-grid">
@@ -497,6 +565,12 @@ const RevisionVehiculos: React.FC = () => {
             <p><strong>Licencia No:</strong> {veh.condNoLicencia}</p>
             <p><strong>Vencimiento Licencia:</strong> {veh.condFechaVencimientoLic}</p>
             <p><strong>Categoría Licencia:</strong> {veh.condCategoriaLic}</p>
+          </div>
+
+          <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
+            <p><strong>Banco:</strong> {veh.condBanco}</p>
+            <p><strong>Tipo de Cuenta:</strong> {veh.condTipoCuenta}</p>
+            <p><strong>No. Cuenta:</strong> {veh.condNumeroCuenta}</p>
           </div>
 
           <h5 className="titulo-subseccion">📞 Contacto Emergencia & Referencias</h5>
@@ -522,6 +596,13 @@ const RevisionVehiculos: React.FC = () => {
             <p><strong>Dirección:</strong> {veh.propDireccion}</p>
             <p><strong>Ciudad:</strong> {veh.propCiudad}</p>
           </div>
+          {(veh.propBanco || veh.propNumeroCuenta) && (
+            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
+              <p><strong>Banco:</strong> {veh.propBanco}</p>
+              <p><strong>Tipo de Cuenta:</strong> {veh.propTipoCuenta}</p>
+              <p><strong>No. Cuenta:</strong> {veh.propNumeroCuenta}</p>
+            </div>
+          )}
 
           <h4 className="titulo-seccion">🤝 Datos del Tenedor</h4>
           <div className="datos-grid">
@@ -533,6 +614,13 @@ const RevisionVehiculos: React.FC = () => {
             <p><strong>Dirección:</strong> {veh.tenedDireccion}</p>
             <p><strong>Ciudad:</strong> {veh.tenedCiudad}</p>
           </div>
+          {(veh.tenedBanco || veh.tenedNumeroCuenta) && (
+            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
+              <p><strong>Banco:</strong> {veh.tenedBanco}</p>
+              <p><strong>Tipo de Cuenta:</strong> {veh.tenedTipoCuenta}</p>
+              <p><strong>No. Cuenta:</strong> {veh.tenedNumeroCuenta}</p>
+            </div>
+          )}
 
           <h4 className="titulo-seccion">🚚 Datos del Vehículo</h4>
           <div className="datos-grid">
@@ -545,6 +633,14 @@ const RevisionVehiculos: React.FC = () => {
             <p><strong>Carrocería:</strong> {veh.vehTipoCarroceria}</p>
             <p><strong>Repotenciado:</strong> {veh.vehRepotenciado}</p>
           </div>
+
+          {(veh.vehAseguradoraSoat || veh.vehVencimientoSoat) && (
+            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
+              <p><strong>Aseguradora SOAT:</strong> {veh.vehAseguradoraSoat}</p>
+              <p><strong>Póliza SOAT:</strong> {veh.vehPolizaSoat}</p>
+              <p><strong>Vence SOAT:</strong> {veh.vehVencimientoSoat}</p>
+            </div>
+          )}
 
           <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
             <p><strong>Empresa Satélite:</strong> {veh.vehEmpresaSat}</p>
