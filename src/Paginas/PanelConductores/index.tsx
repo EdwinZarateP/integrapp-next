@@ -14,7 +14,7 @@ import CargaDocumento from '@/Componentes/CargaDocumento';
 import VerDocumento from '@/Componentes/VerDocumento';
 import { ContextoApp } from "@/Contexto/index";
 import { obtenerVehiculoPorPlaca } from '@/Funciones/ObtenerInfoPlaca';
-import { endpoints, tiposMapping } from '@/Funciones/documentConstants';
+import { endpoints, tiposMapping, FAMILIAS_FIGURA, calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
 import "./estilos.css";
 
 /* --- CONFIGURACIÓN --- */
@@ -25,11 +25,46 @@ interface DocumentoItem {
   nombre: string;
   progreso: number;
   url?: string | string[];
+  /** Figura cuya documentación cubre este ítem cuando las figuras coinciden. */
+  cubiertoPor?: string;
 }
 interface SeccionDocumentos {
   subtitulo: string;
   items: DocumentoItem[];
 }
+
+const NOMBRE_FIGURA: Record<string, string> = {
+  conductor: 'Conductor',
+  propietario: 'Propietario',
+  tenedor: 'Tenedor',
+};
+
+/* Un documento de figura se marca "cubierto" cuando su campo está vacío pero
+   el de una figura igual (gemelo de la misma familia) está lleno — misma
+   semántica que _documentos_faltantes del backend. */
+const docEstaLleno = (v: any): boolean => {
+  if (Array.isArray(v)) return v.some((u: any) => u && String(u).trim() && String(u) !== 'null' && String(u) !== 'undefined');
+  return Boolean(v && String(v).trim() && String(v) !== 'null' && String(v) !== 'undefined');
+};
+
+const figuraQueCubre = (field: string, vehiculo: any): string | undefined => {
+  if (!field || !vehiculo || docEstaLleno(vehiculo[field])) return undefined;
+  const { propIgualCond, tenedIgualProp } = calcularFigurasIguales(vehiculo);
+  const tenedIgualCond = tenedIgualProp && propIgualCond;
+  for (const familia of Object.values(FAMILIAS_FIGURA)) {
+    const cond = familia.conductor;
+    const prop = familia.propietario;
+    const tened = familia.tenedor;
+    if (!cond || !prop || !tened) continue;
+    if (field === cond && propIgualCond && docEstaLleno(vehiculo[prop])) return 'propietario';
+    if (field === cond && tenedIgualCond && docEstaLleno(vehiculo[tened])) return 'tenedor';
+    if (field === prop && propIgualCond && docEstaLleno(vehiculo[cond])) return 'conductor';
+    if (field === prop && tenedIgualProp && docEstaLleno(vehiculo[tened])) return 'tenedor';
+    if (field === tened && tenedIgualProp && docEstaLleno(vehiculo[prop])) return 'propietario';
+    if (field === tened && tenedIgualCond && docEstaLleno(vehiculo[cond])) return 'conductor';
+  }
+  return undefined;
+};
 
 const initialSecciones: SeccionDocumentos[] = [
     {
@@ -74,7 +109,8 @@ const initialSecciones: SeccionDocumentos[] = [
 
 const calculateSectionProgress = (items: DocumentoItem[]) => {
     if (items.length === 0) return 0;
-    const completed = items.filter(i => i.progreso === 100).length;
+    // Un ítem "cubierto por" otra figura cuenta como completado (deduplicación).
+    const completed = items.filter(i => i.progreso === 100 || i.cubiertoPor).length;
     return Math.round((completed / items.length) * 100);
 };
 
@@ -84,7 +120,7 @@ const getOverallDocumentProgress = (secciones: SeccionDocumentos[]) => {
   secciones.forEach(section => {
     totalItems += section.items.length;
     section.items.forEach((item) => {
-      if (item.progreso === 100) completed++;
+      if (item.progreso === 100 || item.cubiertoPor) completed++;
     });
   });
   return totalItems === 0 ? 0 : Math.round((completed / totalItems) * 100);
@@ -105,11 +141,18 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
             url && url !== "null" && url !== "undefined" &&
             typeof url === 'string' && url.trim() !== ""
           );
-          if (valor.length === 0) return { ...item, progreso: 0, url: undefined };
+          if (valor.length === 0) {
+            return {
+              ...item,
+              progreso: 0,
+              url: undefined,
+              cubiertoPor: figuraQueCubre(field, vehiculo),
+            };
+          }
         }
         return { ...item, progreso: 100, url: valor };
       }
-      return { ...item, progreso: 0, url: undefined };
+      return { ...item, progreso: 0, url: undefined, cubiertoPor: figuraQueCubre(field, vehiculo) };
     })
   }));
 };
@@ -356,6 +399,8 @@ const PanelConductoresVista: React.FC = () => {
   const { verDocumento, setVerDocumento } = almacenVariables;
 
   const [currentStep, setCurrentStep] = useState<number>(1);
+  // Vista hub de módulos (pantalla inicial): «Crear vehículo» / «Ofrecer mi disponibilidad».
+  const [vistaModulos, setVistaModulos] = useState<boolean>(true);
 
   const [vehicles, setVehicles] = useState<string[]>([]);
   const [vehiculosPendientes, setVehiculosPendientes] = useState<any[]>([]);
@@ -378,6 +423,8 @@ const PanelConductoresVista: React.FC = () => {
   const [selectedPlate, setSelectedPlate] = useState<string | null>(null);
   const [newPlate, setNewPlate] = useState<string>("");
   const [datosValidos, setDatosValidos] = useState<boolean>(false);
+  // Vehículo completo de la placa seleccionada (para figuras/gemelos del paso 3).
+  const [vehiculoActual, setVehiculoActual] = useState<any>(null);
   // True cuando se edita un vehículo aprobado: los componentes envían editado_por
   // para que el backend lo baje a re-revisión con diff.
   const [editarAprobadoActivo, setEditarAprobadoActivo] = useState<boolean>(false);
@@ -485,6 +532,7 @@ const PanelConductoresVista: React.FC = () => {
     const cargarInfo = async () => {
       if (!selectedPlate) {
           setSecciones(JSON.parse(JSON.stringify(initialSecciones)));
+          setVehiculoActual(null);
           return;
       }
 
@@ -493,8 +541,10 @@ const PanelConductoresVista: React.FC = () => {
       try {
         const data = await obtenerVehiculoPorPlaca(selectedPlate);
         if (data && data.data) {
+          setVehiculoActual(data.data);
           setSecciones(construirSeccionesDesdeVehiculo(data.data));
         } else {
+           setVehiculoActual(null);
            setSecciones(seccionesLimpias);
         }
       } catch (error) {
@@ -503,7 +553,8 @@ const PanelConductoresVista: React.FC = () => {
       }
     };
     cargarInfo();
-  }, [selectedPlate]);
+    // También al ENTRAR al paso 3: refleja lo subido con la tarjeta IA del paso 2.
+  }, [selectedPlate, currentStep === 3]);
 
   /* --- Modal "Ver mis datos" (vehículo aprobado, solo lectura) --- */
   const abrirVer = async (placa: string) => {
@@ -735,7 +786,10 @@ const PanelConductoresVista: React.FC = () => {
 
         const response = await fetch(`${API_BASE}/vehiculos/actualizar-estado`, { method: "PUT", body: formData });
 
-        if (!response.ok) throw new Error("Error al actualizar estado");
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || "Error al actualizar estado");
+        }
 
         Swal.fire(
             "¡Enviado a Revisión!",
@@ -747,29 +801,98 @@ const PanelConductoresVista: React.FC = () => {
               fetchVehiculosUsuario();
         });
 
-      } catch (error) {
+      } catch (error: any) {
           console.error(error);
-          Swal.fire("Error", "No se pudo finalizar el proceso. Intenta nuevamente.", "error");
+          // El backend detalla los documentos faltantes (validación server-side).
+          const detalle = error?.message || "";
+          if (detalle.startsWith("Faltan documentos")) {
+              Swal.fire({
+                  icon: "warning",
+                  title: "Faltan documentos",
+                  html: detalle.replace(/, /g, '<br>• ').replace(/^Faltan documentos obligatorios: /, '• '),
+                  confirmButtonColor: '#e67e22',
+              });
+          } else {
+              Swal.fire("Error", "No se pudo finalizar el proceso. Intenta nuevamente.", "error");
+          }
       }
   };
 
   return (
     <div className="bg-conductor">
       <BarraConductor />
-      <button
-        className="banner-disponibilidad"
-        onClick={() => router.push("/Disponibilidad")}
-        title="Ofrecerme como disponible para hoy"
-      >
-        <span className="banner-disponibilidad-icono"><FaTruck /></span>
-        <span className="banner-disponibilidad-texto">
-          <strong>Ofrecer mi disponibilidad para hoy</strong>
-          <small>Avísanos que estás listo para operar</small>
-        </span>
-        <span className="banner-disponibilidad-flecha">▸</span>
-      </button>
+
+      {/* VISTA HUB: dos módulos navegables */}
+      {vistaModulos ? (
+        <div className="pc-hub">
+          <div className="pc-hub-titulo">
+            <h2>¿Qué quieres hacer hoy?</h2>
+            <p>Elige un módulo para continuar.</p>
+          </div>
+          <div className="pc-hub-lista">
+            <button
+              className="pc-moduloCard"
+              style={{ borderColor: '#e8a000' }}
+              onClick={() => setVistaModulos(false)}
+            >
+              <div className="pc-moduloCardDot" style={{ background: '#e8a000' }}><FaCar /></div>
+              <div className="pc-moduloCardTexto">
+                <span className="pc-moduloCardNombre">
+                  Crear vehículo
+                  {(vehicles.length > 0 || vehiculosRechazados.length > 0) && (
+                    <span className="pc-moduloBadge">
+                      {vehicles.length + vehiculosRechazados.length} por terminar
+                    </span>
+                  )}
+                </span>
+                <span className="pc-moduloCardDesc">
+                  Registra una placa nueva o continúa una pendiente
+                </span>
+              </div>
+              <FaChevronDown className="pc-moduloCardFlecha" style={{ transform: 'rotate(-90deg)' }} />
+            </button>
+
+            <button
+              className={`pc-moduloCard ${vehiculosAprobados.length === 0 ? 'pc-moduloCardDisabled' : ''}`}
+              style={{ borderColor: vehiculosAprobados.length === 0 ? '#b0b8c1' : '#27ae60' }}
+              onClick={() => {
+                if (vehiculosAprobados.length === 0) return;
+                router.push('/Disponibilidad');
+              }}
+              disabled={vehiculosAprobados.length === 0}
+              title={vehiculosAprobados.length === 0 ? 'Se habilita cuando tengas placas aprobadas tras pasar la revisión' : 'Ir al check-in diario'}
+            >
+              <div
+                className="pc-moduloCardDot"
+                style={{ background: vehiculosAprobados.length === 0 ? '#b0b8c1' : '#27ae60' }}
+              >
+                <FaTruck />
+              </div>
+              <div className="pc-moduloCardTexto">
+                <span className="pc-moduloCardNombre">Ofrecer mi disponibilidad</span>
+                <span className="pc-moduloCardDesc">
+                  {vehiculosAprobados.length === 0
+                    ? 'Se habilita cuando tengas placas aprobadas tras pasar la revisión'
+                    : `Marca tus vehículos aprobados como disponibles hoy (${vehiculosAprobados.length})`}
+                </span>
+              </div>
+              <FaChevronDown
+                className="pc-moduloCardFlecha"
+                style={{ transform: 'rotate(-90deg)', opacity: vehiculosAprobados.length === 0 ? 0.4 : 1 }}
+              />
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="layout-conductor">
         <div className="sidebar-conductor">
+          <button
+            className="btn-sidebar-volver"
+            onClick={() => setVistaModulos(true)}
+            title="Volver al menú de módulos"
+          >
+            ← Menú
+          </button>
           {[1, 2, 3].map(step => (
             <button key={step} className={`btn-sidebar-step ${currentStep === step ? "active" : ""}`} onClick={() => changeStep(step)}>
                 <div className="step-indicator">{step}</div>
@@ -1014,8 +1137,31 @@ const PanelConductoresVista: React.FC = () => {
                                     {seccion.items.map((item, iIdx) => (
                                         <div key={iIdx} className="doc-item-row">
                                             <span className="doc-name">{item.progreso === 100 && <FaCheckCircle className="text-success"/>} {item.nombre}</span>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                {item.progreso < 100 ? (
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                                {item.cubiertoPor && item.progreso < 100 ? (
+                                                    <>
+                                                        <span
+                                                            style={{
+                                                                fontSize: '0.78rem',
+                                                                color: '#155724',
+                                                                background: '#d4edda',
+                                                                border: '1px solid #c3e6cb',
+                                                                borderRadius: '999px',
+                                                                padding: '3px 10px',
+                                                            }}
+                                                        >
+                                                            ✔ Cubierto por el documento del {NOMBRE_FIGURA[item.cubiertoPor] || item.cubiertoPor}
+                                                        </span>
+                                                        <button
+                                                            className="btn-doc-action upload"
+                                                            style={{ opacity: 0.75 }}
+                                                            onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                            title="Cargar un documento propio distinto para esta figura"
+                                                        >
+                                                            Cargar otro
+                                                        </button>
+                                                    </>
+                                                ) : item.progreso < 100 ? (
                                                     <button
                                                         className="btn-doc-action upload"
                                                         onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
@@ -1093,6 +1239,7 @@ const PanelConductoresVista: React.FC = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* MODALES */}
 
@@ -1152,6 +1299,14 @@ const PanelConductoresVista: React.FC = () => {
           endpoint={selectedDocumento.endpoint}
           placa={selectedPlate}
           editadoPor={editarAprobadoActivo ? idUsuario : undefined}
+          replicarEn={
+            vehiculoActual
+              ? gemelosDocumento(
+                  tiposMapping[normalizeKey(selectedDocumento.documentName)] || '',
+                  calcularFigurasIguales(vehiculoActual)
+                )
+              : undefined
+          }
           onClose={() => setSelectedDocumento(null)}
           onUploadSuccess={(result: string | string[]) => {
              const newSec = JSON.parse(JSON.stringify(secciones));

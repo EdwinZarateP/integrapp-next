@@ -68,53 +68,140 @@ body, html {
   align-items: center;
 }
 
-/* Banner "Mi disponibilidad" (acción principal del conductor, fuera del header) */
-.banner-disponibilidad {
+/* -------------------------------------------------------------------------- */
+/* 2b. HUB DE MÓDULOS (pantalla inicial del panel)                            */
+/* -------------------------------------------------------------------------- */
+.pc-hub {
   width: calc(100% - 40px);
-  max-width: 1160px;
-  margin: 16px auto 0 auto;
+  max-width: 640px;
+  margin: 40px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.pc-hub-titulo h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #1e2f45;
+}
+
+.pc-hub-titulo p {
+  margin: 6px 0 0;
+  color: #667;
+  font-size: 0.95rem;
+}
+
+.pc-hub-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Tarjeta de módulo (patrón LU-clienteCard de /LoginUsuario) */
+.pc-moduloCard {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 20px;
-  border: none;
+  width: 100%;
+  padding: 16px 18px;
+  background: #fff;
+  border: 2px solid #e2e8f0;
   border-radius: 14px;
-  background: linear-gradient(135deg, #f5b433 0%, #e8a000 100%);
-  color: #1a1a1a;
-  text-align: left;
   cursor: pointer;
+  text-align: left;
   font-family: inherit;
-  box-shadow: 0 4px 14px rgba(232, 160, 0, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 8px rgba(15, 25, 40, 0.06);
 }
-.banner-disponibilidad:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(232, 160, 0, 0.45);
-}
-.banner-disponibilidad:active { transform: scale(0.99); }
 
-.banner-disponibilidad-icono {
+.pc-moduloCard:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 25, 40, 0.12);
+}
+
+.pc-moduloCard:disabled {
+  cursor: not-allowed;
+  background: #f5f6f8;
+}
+
+.pc-moduloCardDisabled {
+  opacity: 0.75;
+}
+
+.pc-moduloCardDot {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: #b87c00;
-  font-size: 1.3rem;
+  color: #fff;
+  font-size: 1.15rem;
   flex-shrink: 0;
 }
-.banner-disponibilidad-texto {
+
+.pc-moduloCardTexto {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
-.banner-disponibilidad-texto strong { font-size: 1rem; font-weight: 800; }
-.banner-disponibilidad-texto small { font-size: 0.8rem; opacity: 0.85; margin-top: 2px; }
-.banner-disponibilidad-flecha { font-size: 1.4rem; font-weight: bold; flex-shrink: 0; }
+
+.pc-moduloCardNombre {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #1e2f45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pc-moduloBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #b87c00;
+  background: #fdf3dd;
+  border: 1px solid #f0d9a8;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.pc-moduloCardDesc {
+  font-size: 0.84rem;
+  color: #667;
+  line-height: 1.35;
+}
+
+.pc-moduloCardFlecha {
+  color: #98a3b3;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+/* Botón "← Menú" del sidebar (vuelve al hub) */
+.btn-sidebar-volver {
+  width: 100%;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  background: #fff;
+  color: #2c3e50;
+  border: 1px solid #d5dbe3;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-sidebar-volver:hover {
+  background: #f2f5f9;
+  border-color: #b8c2cf;
+}
 
 /* Botón usuario + menú (patrón del header de /Pedidos) */
 .barra-derecha {
@@ -850,32 +937,19 @@ body, html {
   .seccion-lista-vehiculos {
     padding: 10px;
   }
-
-  /* Banner: ocupa casi todo el ancho en tablet */
-  .banner-disponibilidad {
-    width: calc(100% - 10px);
-    margin: 10px auto 0 auto;
-    padding: 12px 16px;
-    border-radius: 12px;
-  }
 }
 
 /* ========================================================================== */
 /* MÓVIL ESTÁNDAR (≤600px)                                                    */
 /* ========================================================================== */
 @media (max-width: 600px) {
-  /* Banner más compacto */
-  .banner-disponibilidad {
-    width: calc(100% - 10px);
-    margin: 10px auto 0 auto;
-    padding: 11px 14px;
-    gap: 10px;
-    border-radius: 12px;
-  }
-  .banner-disponibilidad-icono { width: 34px; height: 34px; font-size: 1rem; }
-  .banner-disponibilidad-texto strong { font-size: 0.88rem; }
-  .banner-disponibilidad-texto small { font-size: 0.7rem; }
-  .banner-disponibilidad-flecha { font-size: 1.1rem; }
+  /* Hub de módulos más compacto */
+  .pc-hub { width: calc(100% - 10px); margin: 18px auto; gap: 16px; }
+  .pc-hub-titulo h2 { font-size: 1.2rem; }
+  .pc-moduloCard { padding: 13px 14px; gap: 11px; }
+  .pc-moduloCardDot { width: 38px; height: 38px; font-size: 1rem; }
+  .pc-moduloCardNombre { font-size: 0.95rem; }
+  .pc-moduloCardDesc { font-size: 0.78rem; }
 
   /* Nombre del conductor más corto para evitar desbordes */
   .barra-userName { max-width: 90px; }
@@ -912,16 +986,8 @@ body, html {
   .barra-logo { height: 28px; }
   .barra-marca { font-size: 0.95rem; letter-spacing: 0.3px; }
 
-  /* Banner: una sola línea, sin subtítulo para ahorrar espacio */
-  .banner-disponibilidad {
-    width: calc(100% - 8px);
-    margin: 8px auto 0 auto;
-    padding: 10px 12px;
-    gap: 10px;
-  }
-  .banner-disponibilidad-icono { width: 32px; height: 32px; font-size: 0.95rem; }
-  .banner-disponibilidad-texto strong { font-size: 0.82rem; }
-  .banner-disponibilidad-texto small { display: none; }
+  /* Hub: mínimo relleno en pantallas muy pequeñas */
+  .pc-hub { margin: 12px auto; }
 
   /* Solo avatar + chevron (sin textos) para aprovechar el espacio */
   .barra-userInfo { display: none; }

@@ -16,6 +16,8 @@ interface CargaDocumentoProps {
   placa: string;
   /** idUsuario cuando se edita un vehículo aprobado (baja a re-revisión). */
   editadoPor?: string;
+  /** Tipos gemelos (figuras iguales) donde replicar la URL subida. */
+  replicarEn?: string[];
   onClose: () => void;
   onUploadSuccess?: (result: string | string[]) => void;
 }
@@ -32,6 +34,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   endpoint,
   placa,
   editadoPor,
+  replicarEn,
   onClose,
   onUploadSuccess,
 }) => {
@@ -73,6 +76,9 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     const lower = documentName.toLowerCase();
     const tipo = tiposMapping[lower] || lower.replace(/\s+/g, "_");
     formData.append('tipo', tipo);
+    if (replicarEn && replicarEn.length > 0 && tipo !== 'fotos') {
+      formData.append('replicar_en', replicarEn.join(','));
+    }
 
     setUploading(true);
     setProgress(0);

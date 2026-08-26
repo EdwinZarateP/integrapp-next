@@ -3,6 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import municipios from "@/Componentes/Municipios/municipios.json";
 import Swal from 'sweetalert2';
 import SignatureCanvas from 'react-signature-canvas';
+import Lottie from 'lottie-react';
+import animationData from "@/Imagenes/AnimationPuntos.json";
+import { calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
 import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -16,9 +19,44 @@ const getCiudadesPorDepto = (depto: string) => {
     .sort() as string[];
 };
 
+// Normaliza para comparar: sin acentos, MAYÚSCULAS, sin puntuación ni espacios extra.
+const normalizarNombre = (valor: string): string =>
+  (valor || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// La cédula trae nombres que no coinciden literal con el catálogo (B/ = Barranquilla, etc.).
+const ALIAS_CIUDADES: Record<string, string> = {
+  "BOGOTA DC": "Bogota, D.C.",
+  "BOGOTA": "Bogota, D.C.",
+  "BARRANQUILLA": "Barranquilla",
+  "B BAMANGA": "Barranquilla",
+};
+
+// Busca el municipio (nombre EXACTO del catálogo) a partir de un nombre leído por IA.
+const buscarCiudadEnCatalogo = (ciudadLeida: string): string | null => {
+  const objetivo = normalizarNombre(ciudadLeida);
+  if (!objetivo) return null;
+  if (ALIAS_CIUDADES[objetivo]) return ALIAS_CIUDADES[objetivo];
+  const exacta = (municipios as any[]).find(m => normalizarNombre(m.CIUDAD) === objetivo);
+  if (exacta) return exacta.CIUDAD;
+  // Contenida: "BOGOTA D.C." o "SOACHA CUNDINAMARCA" → coincide con la del catálogo.
+  const contenida = (municipios as any[]).find(
+    m => objetivo.includes(normalizarNombre(m.CIUDAD)) || normalizarNombre(m.CIUDAD).includes(objetivo)
+  );
+  return contenida ? contenida.CIUDAD : null;
+};
+
 const buscarDepartamentoPorCiudad = (ciudad: string) => {
   if (!ciudad) return "";
-  const encontrado = (municipios as any[]).find(m => m.CIUDAD === ciudad);
+  const normalizada = normalizarNombre(ciudad);
+  const alias = ALIAS_CIUDADES[normalizada];
+  const objetivo = normalizarNombre(alias || ciudad);
+  const encontrado = (municipios as any[]).find(m => normalizarNombre(m.CIUDAD) === objetivo);
   return encontrado ? encontrado.DEPARTAMENTO : "";
 };
 
@@ -162,11 +200,16 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
     if (d.numero) nuevos.condCedulaCiudadania = d.numero;
     if (d.rh) nuevos.condGrupoSanguineo = d.rh;
     if (d.fecha_nacimiento) nuevos.condFechaNacimiento = d.fecha_nacimiento;
-    if (d.lugar_nacimiento) nuevos.condLugarNacimiento = d.lugar_nacimiento.toUpperCase();
     if (d.fecha_expedicion) nuevos.condFechaExpedicion = d.fecha_expedicion;
-    if (d.sexo) nuevos.condSexo = d.sexo.toUpperCase().startsWith('H') ? 'H' : 'M';
-    if (d.estatura) nuevos.condEstatura = d.estatura;
-    if (d.lugar_expedicion) nuevos.condExpedidaEn = d.lugar_expedicion.toUpperCase();
+    if (d.lugar_expedicion) {
+      // Aterrizar al nombre EXACTO del catálogo para que el valor sea consistente.
+      const ciudadCatalogo = buscarCiudadEnCatalogo(d.lugar_expedicion);
+      if (ciudadCatalogo) nuevos.condExpedidaEn = ciudadCatalogo.toUpperCase();
+    }
+    // Sin ciudad legible: el departamento leído queda como valor de «Expedida en».
+    if (!nuevos.condExpedidaEn && d.departamento_expedicion) {
+      nuevos.condExpedidaEn = String(d.departamento_expedicion).toUpperCase();
+    }
     return nuevos;
   },
   licencia: (d) => {
@@ -202,6 +245,7 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
 // Traducción: tipo de SUBIDA (clave con que el backend guarda lecturasIA)
 // → clave de MAPEOS_IA (para autollenar el formulario al montar).
 const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
+  documentoIdentidadConductor: 'cedula',
   rutTenedor: 'rut_tenedor',
   rutPropietario: 'rut_propietario',
   condCertificacionBancaria: 'certificado_bancario_cond',
@@ -211,6 +255,23 @@ const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
   tarjetaPropiedad: 'tarjeta_propiedad',
   soat: 'soat',
 };
+
+// Traducción inversa: tipo de lectura de la tarjeta IA → tipo de SUBIDA
+// canónico del backend (para guardar el archivo al leerlo).
+const LECTURA_IA_A_TIPO_SUBIDA: Record<string, string> = {
+  licencia: 'licencia',
+  tarjeta_propiedad: 'tarjetaPropiedad',
+  soat: 'soat',
+  rut_tenedor: 'rutTenedor',
+  rut_propietario: 'rutPropietario',
+  certificado_bancario_cond: 'condCertificacionBancaria',
+  certificado_bancario_tened: 'tenedCertificacionBancaria',
+  certificado_bancario_prop: 'propCertificacionBancaria',
+};
+
+// Límites de subida (espejo de CargaDocumento).
+const MAX_SIZE_MB_IA = 10;
+const FORMATOS_ACEPTADOS_IA = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
 
 // Botones de la tarjeta "Ahorra tiempo": tipo lectura → etiqueta y esquema backend.
 const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string }> = [
@@ -239,17 +300,34 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [tenedorSame, setTenedorSame] = useState<boolean>(false);
+  const [propietarioSame, setPropietarioSame] = useState<boolean>(false);
   const [editandoFirma, setEditandoFirma] = useState(false);
   const sigCanvas = useRef<any>(null);
+  // Documentos ya guardados en el vehículo (tipo subida → URL), para los ✓.
+  const [docsSubidos, setDocsSubidos] = useState<Record<string, string>>({});
 
   // --- Lectura de documentos con IA (cédula, RUT, bancario, licencia, etc.) ---
   const [leyendoCedula, setLeyendoCedula] = useState(false);
+  const [etiquetaLecturaIA, setEtiquetaLecturaIA] = useState('');
   const [camposLecturaIA, setCamposLecturaIA] = useState<string[]>([]);
   const inputAnversoRef = useRef<HTMLInputElement>(null);
   const inputReversoRef = useRef<HTMLInputElement>(null);
   // Input file genérico para el resto de tipos de documento.
   const [tipoLecturaPendiente, setTipoLecturaPendiente] = useState<string | null>(null);
   const inputDocumentoRef = useRef<HTMLInputElement>(null);
+  // Esperando el REVERSO de un documento de dos caras (licencia/tarjeta).
+  const [reversoPendiente, setReversoPendiente] = useState<{ tipo: string; esquema: string; etiqueta: string; anverso: File } | null>(null);
+  const inputReversoDocRef = useRef<HTMLInputElement>(null);
+
+  // --- Autoguardado con debounce ---
+  // 'inactivo' (nada pendiente) | 'guardando' | 'guardado' | 'error'
+  const [estadoAutoguardado, setEstadoAutoguardado] = useState<'inactivo' | 'guardando' | 'guardado' | 'error'>('inactivo');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cargandoInicialRef = useRef(true);
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+  const estadoAutoguardadoRef = useRef(estadoAutoguardado);
+  estadoAutoguardadoRef.current = estadoAutoguardado;
 
   const phoneFields = ['condCelular', 'condCelularEmergencia', 'condCelularRef', 'propCelular', 'tenedCelular'];
 
@@ -287,9 +365,33 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         const data = await response.json();
         if (data.data) {
           const loadedData = data.data;
+
+          // Documentos ya guardados (tipo subida → URL) para los ✓ de la tarjeta IA.
+          // Incluye los REVERSOS de docs de dos caras ({tipo}Reverso).
+          const tiposSubidaIA = [
+            'documentoIdentidadConductor',
+            ...Object.values(LECTURA_IA_A_TIPO_SUBIDA),
+            'documentoIdentidadConductorReverso', 'licenciaReverso', 'tarjetaPropiedadReverso',
+          ];
+          const subidos: Record<string, string> = {};
+          tiposSubidaIA.forEach((tipo) => {
+            const url = loadedData[tipo];
+            if (typeof url === 'string' && url && url !== 'null' && url !== 'undefined') subidos[tipo] = url;
+          });
+          setDocsSubidos(subidos);
+
+          // Toggles de figuras: solo desde flags persistidos (la inferencia de
+          // dígitos se usa para validación, no para auto-marcar la UI).
+          if (typeof loadedData.propietarioIgualConductor === 'boolean') {
+            setPropietarioSame(loadedData.propietarioIgualConductor);
+          }
+          if (typeof loadedData.tenedorIgualPropietario === 'boolean') {
+            setTenedorSame(loadedData.tenedorIgualPropietario);
+          }
+
           const departamentosCalculados: Record<string, string> = {};
           const cityToDeptoMap: Record<string, string> = {
-            'condExpedidaEn': 'condDeptoExpedida', 'condCiudad': 'condDeptoCiudad', 'condCiudadRef': 'condDeptoCiudadRef',
+            'condCiudad': 'condDeptoCiudad', 'condCiudadRef': 'condDeptoCiudadRef',
             'propCiudadExpDoc': 'propDeptoExpedida', 'propCiudad': 'propDeptoCiudad', 'tenedCiudadExpDoc': 'tenedDeptoExpedida',
             'tenedCiudad': 'tenedDeptoCiudad'
           };
@@ -323,6 +425,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           }
         }
       } catch (error) { console.error("Error cargando la información del vehículo:", error); }
+      finally {
+        // La carga inicial terminó: a partir del siguiente cambio de formData
+        // el autoguardado puede actuar (esto evita un guardado falso al montar).
+        setTimeout(() => { cargandoInicialRef.current = false; }, 300);
+      }
     };
     if (placa) fetchData();
   }, [placa]);
@@ -340,9 +447,9 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         if (name === 'condAntiguedadRef' && parseInt(value) > 30) return;
     }
     if (tenedorSame && name.startsWith("tened")) return;
+    if (propietarioSame && name.startsWith("prop")) return;
     if (name.includes('Depto')) {
         let ciudadField = "";
-        if (name === 'condDeptoExpedida') ciudadField = 'condExpedidaEn';
         if (name === 'condDeptoCiudad') ciudadField = 'condCiudad';
         if (name === 'condDeptoCiudadRef') ciudadField = 'condCiudadRef';
         if (name === 'propDeptoExpedida') ciudadField = 'propCiudadExpDoc';
@@ -366,6 +473,22 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     }));
   };
 
+  // Clona los datos del conductor en el propietario (toggle "Soy el propietario").
+  const handleCopiarDatosPropietario = () => {
+    setFormData((prevData) => ({
+      ...prevData,
+      propNombre: [prevData.condPrimerApellido, prevData.condSegundoApellido, prevData.condNombres]
+        .filter(Boolean).join(' ').toUpperCase() || "",
+      propDocumento: prevData.condCedulaCiudadania || "",
+      propCiudadExpDoc: prevData.condExpedidaEn || "",
+      propCorreo: prevData.condCorreo || "",
+      propCelular: prevData.condCelular || "",
+      propDireccion: prevData.condDireccion || "",
+      propDeptoCiudad: prevData.condDeptoCiudad || "",
+      propCiudad: prevData.condCiudad || ""
+    }));
+  };
+
   // Aplica los datos de una lectura IA al formData respetiendo lo escrito a mano:
   // solo llena campos vacíos o previamente llenados por IA.
   const aplicarLecturaIA = (nuevos: Record<string, string>) => {
@@ -374,22 +497,19 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       Object.entries(nuevos).forEach(([k, v]) => {
         if (!merged[k] || camposLecturaIA.includes(k)) merged[k] = v;
       });
-      // Depto. de expedición derivado de la ciudad leída en la cédula.
-      if (nuevos.condExpedidaEn) {
-        const depto = buscarDepartamentoPorCiudad(nuevos.condExpedidaEn);
-        if (depto && (!merged.condDeptoExpedida || camposLecturaIA.includes('condDeptoExpedida'))) {
-          merged.condDeptoExpedida = depto;
-        }
-      }
       return merged;
     });
     setCamposLecturaIA(prev => Array.from(new Set([...prev, ...Object.keys(nuevos)])));
   };
 
   /**
-   * Lee un documento con IA y autollena el formulario.
-   * `tipoLectura` es la clave de MAPEOS_IA; `esquema` el tipo del backend.
-   * Manda contexto (placa/cédula) para que el backend genere avisos de consistencia.
+   * Lee un documento con IA, GUARDA el archivo como documento oficial del
+   * vehículo y autollena el formulario.
+   * - 8 tipos de un solo archivo: `PUT /subir-documento` (sube + lee en un
+   *   solo request; `lectura_ia` null = guardado pero ilegible → campos a mano).
+   * - Cédula: `POST /extraer-datos-documento` (necesita frente+reverso) y
+   *   luego SIEMPRE sube el frente (`extraer=false`, ya se leyó). Si la IA no
+   *   logra leer (cédula azul nueva), el documento IGUAL queda guardado.
    */
   const leerDocumentoConIA = async (
     tipoLectura: string,
@@ -400,39 +520,132 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     const mapear = MAPEOS_IA[tipoLectura];
     if (!mapear) return;
     setLeyendoCedula(true);
+    setEtiquetaLecturaIA(etiqueta);
     try {
-      const body = new FormData();
-      body.append('tipo', esquema);
-      archivos.forEach((f, i) => body.append(i === 0 ? 'anverso' : 'reverso', f));
-      if (placa) body.append('placa_vehiculo', placa);
-      if (formData['condCedulaCiudadania']) body.append('cedula_conductor', formData['condCedulaCiudadania']);
+      const tipoSubida = tipoLectura === 'cedula'
+        ? 'documentoIdentidadConductor'
+        : LECTURA_IA_A_TIPO_SUBIDA[tipoLectura];
 
-      const resp = await fetch(`${API_BASE}/vehiculos/extraer-datos-documento`, { method: 'POST', body });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.detail || `No se pudo leer ${etiqueta.toLowerCase()}.`);
+      // Gemelos según las figuras activas (toggles) para replicar la URL.
+      const gemelos = tipoSubida ? gemelosDocumento(tipoSubida, calcularFigurasIguales({
+        ...formData,
+        propietarioIgualConductor: propietarioSame,
+        tenedorIgualPropietario: tenedorSame,
+      })) : [];
 
-      const nuevos = mapear(data.datos || {});
-      aplicarLecturaIA(nuevos);
+      let datos: Record<string, any> | null = null;
+      let avisos: string[] = [];
+      let lecturaFallida = false;
 
-      const leidos = Object.keys(nuevos).length;
-      const avisos: string[] = Array.isArray(data.avisos) ? data.avisos : [];
+      // Documentos de DOS caras (cédula, licencia, tarjeta de propiedad):
+      // leer frente+reverso con IA y subir el frente como documento oficial.
+      const esDosCaras = ['cedula', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura);
+
+      if (esDosCaras) {
+        // 1) Lectura con IA (frente + reverso opcional).
+        try {
+          const body = new FormData();
+          body.append('tipo', esquema);
+          archivos.forEach((f, i) => body.append(i === 0 ? 'anverso' : 'reverso', f));
+          if (placa) body.append('placa_vehiculo', placa);
+          if (formData['condCedulaCiudadania']) body.append('cedula_conductor', formData['condCedulaCiudadania']);
+          const resp = await fetch(`${API_BASE}/vehiculos/extraer-datos-documento`, { method: 'POST', body });
+          const data = await resp.json().catch(() => ({}));
+          // 409 = la IA determinó que NO es el documento esperado: no se guarda nada.
+          if (resp.status === 409) {
+            throw new Error(data.detail || 'Esto no parece ser el documento esperado.');
+          }
+          if (!resp.ok) throw new Error(data.detail || '');
+          datos = data.datos || null;
+          avisos = Array.isArray(data.avisos) ? data.avisos : [];
+          if (!datos || Object.keys(datos).length === 0) lecturaFallida = true;
+        } catch (error: any) {
+          if (error?.message?.includes('no parece ser el documento')) {
+            setLeyendoCedula(false);
+            await Swal.fire({
+              icon: 'error',
+              title: 'Documento no válido',
+              text: error.message,
+              confirmButtonColor: '#d33',
+            });
+            return; // NO subir el archivo.
+          }
+          lecturaFallida = true; // Ilegible: se sube igual.
+        }
+
+        // 2) Subir el FRENTE como documento oficial (+ REVERSO si lo hay).
+        //    La lectura de dos caras viaja con la subida (persiste en lecturasIA).
+        const bodySubida = new FormData();
+        bodySubida.append('archivo', archivos[0]);
+        bodySubida.append('placa', placa);
+        bodySubida.append('tipo', tipoSubida);
+        bodySubida.append('extraer', 'false');
+        if (archivos.length > 1) bodySubida.append('reverso', archivos[1]);
+        if (datos) bodySubida.append('lectura_datos', JSON.stringify(datos));
+        if (avisos.length) bodySubida.append('lectura_avisos', JSON.stringify(avisos));
+        if (gemelos.length) bodySubida.append('replicar_en', gemelos.join(','));
+        if (editarAprobado && idUsuario) bodySubida.append('editado_por', idUsuario);
+        const respSubida = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body: bodySubida });
+        const dataSubida = await respSubida.json().catch(() => ({}));
+        if (!respSubida.ok) throw new Error(dataSubida.detail || 'No se pudo guardar el documento.');
+        setDocsSubidos(prev => ({
+          ...prev,
+          [tipoSubida]: dataSubida.url,
+          ...(dataSubida.url_reverso ? { [`${tipoSubida}Reverso`]: dataSubida.url_reverso } : {}),
+        }));
+      } else {
+        // Un solo request: sube el archivo Y lo lee con IA.
+        const body = new FormData();
+        body.append('archivo', archivos[0]);
+        body.append('placa', placa);
+        body.append('tipo', tipoSubida);
+        if (gemelos.length) body.append('replicar_en', gemelos.join(','));
+        if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
+        const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.detail || `No se pudo guardar ${etiqueta.toLowerCase()}.`);
+
+        if (data.lectura_ia && data.lectura_ia.datos) {
+          datos = data.lectura_ia.datos;
+          avisos = Array.isArray(data.lectura_ia.avisos) ? data.lectura_ia.avisos : [];
+        } else {
+          lecturaFallida = true; // Guardado OK, pero la IA no pudo leerlo.
+        }
+        setDocsSubidos(prev => ({ ...prev, [tipoSubida]: data.url }));
+      }
+
+      if (datos && !lecturaFallida) aplicarLecturaIA(mapear(datos));
+
+      const leidos = datos && !lecturaFallida ? Object.keys(mapear(datos)).length : 0;
       const htmlAvisos = avisos.length
         ? `<div style="text-align:left; margin-top:10px; font-size:0.9em;">${avisos.map(a => `<div>${a}</div>`).join('')}</div>`
         : '';
-      await Swal.fire({
-        icon: leidos > 0 ? 'success' : 'warning',
-        title: leidos > 0 ? `${etiqueta} leído` : 'No pudimos leer datos',
-        html: leidos > 0
-          ? `Llenamos <b>${leidos}</b> campo(s). Revísalos y corrige lo que falte.${htmlAvisos}`
-          : 'Intenta con una foto/PDF más nítido, o diligencia los campos a mano.',
-        confirmButtonColor: '#27ae60',
-      });
+      // Cerrar el overlay ANTES del Swal de resultado para que la animación no
+      // tape la transición (el Swal a 1060 ya queda encima del overlay a 1050,
+      // pero así el resultado aparece sobre el formulario, no sobre el velo).
+      setLeyendoCedula(false);
+      if (leidos > 0) {
+        await Swal.fire({
+          icon: 'success',
+          title: `${etiqueta} guardado y leído`,
+          html: `Documento guardado. Llenamos <b>${leidos}</b> campo(s); revísalos y corrige lo que falte.${htmlAvisos}`,
+          confirmButtonColor: '#27ae60',
+        });
+      } else {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Documento guardado, pero no pudimos leerlo con IA',
+          html: `El archivo quedó guardado como <b>${etiqueta}</b>.${htmlAvisos}<div style="margin-top:8px">Diligencia los campos a mano en el formulario.</div>`,
+          confirmButtonColor: '#e67e22',
+        });
+      }
     } catch (error: any) {
+      const mensaje = error?.message || '';
       Swal.fire({
-        icon: 'warning',
-        title: 'No pudimos leer el documento',
-        text: error.message || 'Intenta con una foto más nítida, o diligencia el formulario manualmente.',
-        confirmButtonColor: '#e67e22',
+        icon: 'error',
+        title: mensaje.includes('no parece ser el documento') ? 'Documento no válido' : 'No pudimos guardar el documento',
+        text: mensaje || 'Intenta de nuevo o cárgalo manualmente en el paso de documentos.',
+        confirmButtonColor: '#d33',
       });
     } finally {
       setLeyendoCedula(false);
@@ -443,20 +656,81 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     }
   };
 
+  // Validación previa de archivo (espejo de CargaDocumento) antes de leer/subir.
+  const validarArchivoIA = (archivo: File): boolean => {
+    if (!FORMATOS_ACEPTADOS_IA.includes(archivo.type)) {
+      Swal.fire('Formato no válido', 'Solo se aceptan imágenes (JPG/PNG) o PDF.', 'warning');
+      return false;
+    }
+    if (archivo.size > MAX_SIZE_MB_IA * 1024 * 1024) {
+      Swal.fire('Archivo muy pesado', `El archivo supera los ${MAX_SIZE_MB_IA} MB permitidos.`, 'warning');
+      return false;
+    }
+    return true;
+  };
+
   const manejarSeleccionCedula = () => {
     const anverso = inputAnversoRef.current?.files?.[0];
     const reverso = inputReversoRef.current?.files?.[0] || null;
     if (!anverso) return;
-    leerDocumentoConIA('cedula', 'cedula', [anverso, reverso || undefined].filter(Boolean) as File[], 'Cédula');
+    if (!validarArchivoIA(anverso)) {
+      if (inputAnversoRef.current) inputAnversoRef.current.value = '';
+      return;
+    }
+    leerDocumentoConIA('cedula', 'cedula', [anverso, reverso || undefined].filter(Boolean) as File[], 'Cédula del conductor');
   };
 
   // Input file genérico: el usuario eligió un tipo de OPCIONES_LECTURA_IA y luego el archivo.
   const manejarSeleccionDocumento = () => {
     const archivo = inputDocumentoRef.current?.files?.[0];
     if (!archivo || !tipoLecturaPendiente) return;
+    if (!validarArchivoIA(archivo)) {
+      if (inputDocumentoRef.current) inputDocumentoRef.current.value = '';
+      setTipoLecturaPendiente(null);
+      return;
+    }
     const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipoLecturaPendiente);
     if (!opcion) return;
-    leerDocumentoConIA(opcion.tipo, opcion.esquema, [archivo], opcion.etiqueta.replace(/^[^\s]+\s/, ''));
+    const etiqueta = opcion.etiqueta.replace(/^[^\s]+\s/, '');
+
+    // Licencia y tarjeta de propiedad tienen DOS caras: tras el frente,
+    // ofrecer el reverso (opcional) antes de leer.
+    if (['licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
+      Swal.fire({
+        icon: 'question',
+        title: '¿Agregar el reverso?',
+        text: `${etiqueta} tiene dos caras. El FRENTE ya está listo; puedes agregar el REVERSO ahora (recomendado) o continuar sin él.`,
+        showCancelButton: true,
+        confirmButtonText: 'Agregar reverso',
+        cancelButtonText: 'Continuar sin reverso',
+        confirmButtonColor: '#2c5f9e',
+      }).then((res) => {
+        if (res.isConfirmed) {
+          setReversoPendiente({ tipo: opcion.tipo, esquema: opcion.esquema, etiqueta, anverso: archivo });
+          setTimeout(() => inputReversoDocRef.current?.click(), 0);
+        } else {
+          leerDocumentoConIA(opcion.tipo, opcion.esquema, [archivo], etiqueta);
+        }
+      });
+      return;
+    }
+    leerDocumentoConIA(opcion.tipo, opcion.esquema, [archivo], etiqueta);
+  };
+
+  // Reverso del documento de dos caras elegido: leer frente+reverso juntos.
+  const manejarSeleccionReversoDoc = () => {
+    const reverso = inputReversoDocRef.current?.files?.[0] || null;
+    const pendiente = reversoPendiente;
+    setReversoPendiente(null);
+    if (inputReversoDocRef.current) inputReversoDocRef.current.value = '';
+    if (!pendiente) return;
+    if (reverso && !validarArchivoIA(reverso)) return;
+    leerDocumentoConIA(
+      pendiente.tipo,
+      pendiente.esquema,
+      [pendiente.anverso, reverso || undefined].filter(Boolean) as File[],
+      pendiente.etiqueta
+    );
   };
 
   const solicitarLecturaDocumento = (tipo: string) => {
@@ -469,6 +743,12 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     const newState = !tenedorSame;
     setTenedorSame(newState);
     if (newState) handleCopiarDatos();
+  };
+
+  const togglePropietarioSame = () => {
+    const newState = !propietarioSame;
+    setPropietarioSame(newState);
+    if (newState) handleCopiarDatosPropietario();
   };
 
   const dataURLtoBlob = (dataurl: string) => {
@@ -485,6 +765,81 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     if (sigCanvas.current) sigCanvas.current.clear();
   };
 
+  // Campos de DOCUMENTOS que viven en el vehículo pero que ESTE formulario no
+  // controla: subir-documento/eliminar-documento son sus dueños. Si se enviaran
+  // (ej. el autoguardado con un valor null viejo cargado al montar), pisarían
+  // con "" la URL recién subida. Nunca se mandan desde aquí.
+  const CAMPOS_DOCUMENTOS_PROTEGIDOS = [
+    'documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor',
+    'licencia', 'tarjetaPropiedad', 'soat', 'revisionTecnomecanica', 'tarjetaRemolque',
+    'polizaResponsabilidad', 'planillaEpsArl', 'condFoto',
+    'condCertificacionBancaria', 'propCertificacionBancaria', 'tenedCertificacionBancaria',
+    'documentoAcreditacionTenedor', 'rutTenedor', 'rutPropietario', 'fotos', 'firmaUrl',
+  ];
+
+  /**
+   * Envía los datos del formulario al backend SIN interactuar con el usuario.
+   * La comparten el autoguardado (debounce) y los botones (que agregan Swals).
+   * Nunca envía campos de documentos (sus dueños son los endpoints de subida).
+   * Retorna true si el guardado fue exitoso.
+   */
+  const guardarDatos = async (): Promise<boolean> => {
+    const datos = formDataRef.current;
+    const { firma, firmaUrl, ...restFormData } = datos;
+    void firma; void firmaUrl;
+    const cleanedFormData: any = Object.fromEntries(
+      Object.entries(restFormData)
+        .filter(([key]) => !CAMPOS_DOCUMENTOS_PROTEGIDOS.includes(key))
+        .map(([key, value]) => [key, value || ""])
+    );
+
+    // Flags de figuras: asignar DESPUÉS del mapping (que convierte false→"").
+    cleanedFormData['propietarioIgualConductor'] = propietarioSame;
+    cleanedFormData['tenedorIgualPropietario'] = tenedorSame;
+
+    const urlGuardado = new URL(`${API_BASE}/vehiculos/actualizar-informacion/${placa}`);
+    if (editarAprobado && idUsuario) urlGuardado.searchParams.set('editado_por', idUsuario);
+
+    try {
+      const response = await fetch(urlGuardado.toString(), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cleanedFormData),
+      });
+      if (!response.ok) throw new Error('Fallo al guardar');
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // Autoguardado: 2.5 s después de la última edición, guardar en silencio.
+  useEffect(() => {
+    if (cargandoInicialRef.current) return; // No disparar al montar/cargar datos.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setEstadoAutoguardado((prev) => (prev === 'error' ? prev : 'inactivo'));
+    debounceRef.current = setTimeout(async () => {
+      setEstadoAutoguardado('guardando');
+      const ok = await guardarDatos();
+      setEstadoAutoguardado(ok ? 'guardado' : 'error');
+    }, 2500);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, propietarioSame, tenedorSame]);
+
+  // Guardado pendiente al desmontar/salir (mejor esfuerzo).
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current && estadoAutoguardadoRef.current !== 'inactivo') {
+        clearTimeout(debounceRef.current);
+        void guardarDatos();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const procesarGuardado = async (esFinalizar: boolean, e: React.MouseEvent) => {
     e.preventDefault();
     for (const field of phoneFields) {
@@ -494,7 +849,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         }
     }
     setIsLoading(true);
-    let nuevaUrlFirma = "";
 
     try {
       const hasSignatureDrawn = sigCanvas.current && !sigCanvas.current.isEmpty();
@@ -505,6 +859,9 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           setIsLoading(false);
           return;
       }
+
+      // Cancelar el autoguardado pendiente: ya se guarda acá.
+      if (debounceRef.current) clearTimeout(debounceRef.current);
 
       if (hasSignatureDrawn) {
           const dataURL = sigCanvas.current.getCanvas().toDataURL('image/webp');
@@ -517,28 +874,12 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           const resFirma = await fetch(`${API_BASE}/vehiculos/subir-firma`, { method: 'PUT', body: formDataFirma });
           if (!resFirma.ok) throw new Error("Fallo al subir la imagen de la firma");
           const dataRespuesta = await resFirma.json();
-          if (dataRespuesta.url) nuevaUrlFirma = dataRespuesta.url;
+          if (dataRespuesta.url) setFormData(prev => ({ ...prev, firmaUrl: dataRespuesta.url }));
       }
 
-      const { firma, firmaUrl, ...restFormData } = formData;
-      const cleanedFormData: any = Object.fromEntries(
-        Object.entries(restFormData).map(([key, value]) => [key, value || ""])
-      );
-
-      if (nuevaUrlFirma) cleanedFormData['firmaUrl'] = nuevaUrlFirma;
-      else cleanedFormData['firmaUrl'] = formData['firmaUrl'] || "";
-
-      const urlGuardado = new URL(`${API_BASE}/vehiculos/actualizar-informacion/${placa}`);
-      if (editarAprobado && idUsuario) urlGuardado.searchParams.set('editado_por', idUsuario);
-
-      const response = await fetch(urlGuardado.toString(), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleanedFormData),
-      });
-
-      if (!response.ok) throw new Error("Fallo al guardar los datos");
-      await response.json();
+      const ok = await guardarDatos();
+      if (!ok) throw new Error("Fallo al guardar los datos");
+      setEstadoAutoguardado('guardado');
 
       if (esFinalizar) {
           Swal.fire({
@@ -569,11 +910,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Nombres', name: 'condNombres' },
         { label: 'Cédula de Ciudadanía', name: 'condCedulaCiudadania' },
         { label: 'Fecha de Nacimiento', name: 'condFechaNacimiento', type: 'date' },
-        { label: 'Lugar de Nacimiento', name: 'condLugarNacimiento' },
-        { label: 'Sexo', name: 'condSexo', options: ['H', 'M'] },
-        { label: 'Estatura (m)', name: 'condEstatura', type: 'text', inputProps: { placeholder: 'Ej: 1.75' } },
-        { label: 'Departamento (Expedida)', name: 'condDeptoExpedida', options: departamentosUnicos },
-        { label: 'Expedida en (Ciudad)', name: 'condExpedidaEn', options: getCiudadesPorDepto(formData['condDeptoExpedida']) },
+        { label: 'Expedida en (Ciudad) *', name: 'condExpedidaEn' },
         { label: 'Fecha de Expedición Cédula', name: 'condFechaExpedicion', type: 'date' },
         { label: 'Dirección', name: 'condDireccion' },
         { label: 'Departamento (Residencia)', name: 'condDeptoCiudad', options: departamentosUnicos },
@@ -693,30 +1030,78 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             Faltan {requiredFields.filter(f => !formData[f] || formData[f].trim() === '').length} campos obligatorios (*)
           </span>
         )}
+        {estadoAutoguardado !== 'inactivo' && (
+          <span className={`Datos-autoguardado Datos-autoguardado--${estadoAutoguardado}`}>
+            {estadoAutoguardado === 'guardando' && (<><span className="Datos-autoguardado-spinner" /> Guardando…</>)}
+            {estadoAutoguardado === 'guardado' && (<>✓ Guardado automático</>)}
+            {estadoAutoguardado === 'error' && (<>⚠ No se pudo autoguardar — usa «Guardar Progreso»</>)}
+          </span>
+        )}
       </div>
 
-      {/* --- LECTURA DE DOCUMENTOS CON IA (opcional, atajo para pre-llenar) --- */}
+      {/* --- LECTURA DE DOCUMENTOS CON IA (guarda el documento Y autollena) --- */}
       <div className="Datos-iaCedula">
         <div className="Datos-iaCedula-header">
           <span className="Datos-iaCedula-titulo">⚡ Ahorra tiempo</span>
           <span className="Datos-iaCedula-sub">
-            Toma una foto (o sube el PDF) de un documento y llenamos los campos por ti con IA.
-            Igual podrás revisar y editar todo. La cédula <b>azul</b> basta el frente;
-            la <b>amarilla</b> antigua aporta más datos con su reverso.
+            Toma una foto (o sube el PDF) de un documento: lo <b>guardamos</b> y llenamos
+            los campos por ti con IA. Igual podrás revisar y editar todo. La cédula <b>azul</b>
+            basta el frente; la <b>amarilla</b> antigua aporta más datos con su reverso.
           </span>
         </div>
         <div className="Datos-iaCedula-acciones">
-          <label className="Datos-iaCedula-file">
-            🪪 Cédula — frente *
-            <input
-              ref={inputAnversoRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={manejarSeleccionCedula}
-              disabled={leyendoCedula}
-            />
-          </label>
+          {(() => {
+            const cedulaLista = Boolean(docsSubidos['documentoIdentidadConductor']);
+            return (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <label
+                  className={`Datos-iaCedula-file ${cedulaLista ? 'Datos-iaDoc-listo' : ''}`}
+                  title={cedulaLista ? 'Documento cargado — toca para reemplazarlo' : 'Toma la foto del frente de la cédula'}
+                >
+                  {cedulaLista ? '🪪 Cédula del conductor' : '🪪 Cédula — frente *'}
+                  {cedulaLista && <span className="Datos-iaDoc-badge">✓ Cargado</span>}
+                  <input
+                    ref={inputAnversoRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={manejarSeleccionCedula}
+                    disabled={leyendoCedula}
+                  />
+                </label>
+                {cedulaLista && (
+                  <button
+                    type="button"
+                    className="Datos-iaDoc-ver"
+                    onClick={() => {
+                      const urlReverso = docsSubidos['documentoIdentidadConductorReverso'];
+                      if (urlReverso) {
+                        Swal.fire({
+                          icon: 'question',
+                          title: '¿Qué cara quieres ver?',
+                          showDenyButton: true,
+                          showCancelButton: true,
+                          confirmButtonText: 'Frente',
+                          denyButtonText: 'Reverso',
+                          cancelButtonText: 'Cancelar',
+                          confirmButtonColor: '#2c5f9e',
+                          denyButtonColor: '#7f8c8d',
+                        }).then((r) => {
+                          if (r.isConfirmed) window.open(docsSubidos['documentoIdentidadConductor'], '_blank', 'noopener');
+                          else if (r.isDenied) window.open(urlReverso, '_blank', 'noopener');
+                        });
+                      } else {
+                        window.open(docsSubidos['documentoIdentidadConductor'], '_blank', 'noopener');
+                      }
+                    }}
+                    title={docsSubidos['documentoIdentidadConductorReverso'] ? 'Ver el documento (frente y reverso)' : 'Ver el documento subido (foto o PDF)'}
+                  >
+                    👁
+                  </button>
+                )}
+              </span>
+            );
+          })()}
           <label className="Datos-iaCedula-file Datos-iaCedula-file--reverso">
             Cédula — reverso (solo amarilla)
             <input
@@ -727,17 +1112,55 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
               disabled={leyendoCedula}
             />
           </label>
-          {OPCIONES_LECTURA_IA.filter(o => o.tipo !== 'cedula').map(opcion => (
-            <button
-              key={opcion.tipo}
-              type="button"
-              className="Datos-iaDoc-boton"
-              onClick={() => solicitarLecturaDocumento(opcion.tipo)}
-              disabled={leyendoCedula}
-            >
-              {opcion.etiqueta}
-            </button>
-          ))}
+          {OPCIONES_LECTURA_IA.filter(o => o.tipo !== 'cedula').map(opcion => {
+            const tipoSubida = LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
+            const listo = Boolean(tipoSubida && docsSubidos[tipoSubida]);
+            const dosCaras = ['licencia', 'tarjeta_propiedad'].includes(opcion.tipo);
+            return (
+              <span key={opcion.tipo} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <button
+                  type="button"
+                  className={`Datos-iaDoc-boton ${listo ? 'Datos-iaDoc-listo' : ''}`}
+                  onClick={() => solicitarLecturaDocumento(opcion.tipo)}
+                  disabled={leyendoCedula}
+                  title={listo ? 'Documento cargado — toca para reemplazarlo' : (dosCaras ? 'Frente y reverso (opcional)' : undefined)}
+                >
+                  {listo ? opcion.etiqueta.replace(/^[^\s]+\s/, '') : opcion.etiqueta}
+                  {listo && <span className="Datos-iaDoc-badge">✓ Cargado</span>}
+                </button>
+                {listo && (
+                  <button
+                    type="button"
+                    className="Datos-iaDoc-ver"
+                    onClick={() => {
+                      const urlReverso = docsSubidos[`${tipoSubida}Reverso`];
+                      if (urlReverso) {
+                        Swal.fire({
+                          icon: 'question',
+                          title: '¿Qué cara quieres ver?',
+                          showDenyButton: true,
+                          showCancelButton: true,
+                          confirmButtonText: 'Frente',
+                          denyButtonText: 'Reverso',
+                          cancelButtonText: 'Cancelar',
+                          confirmButtonColor: '#2c5f9e',
+                          denyButtonColor: '#7f8c8d',
+                        }).then((r) => {
+                          if (r.isConfirmed) window.open(docsSubidos[tipoSubida], '_blank', 'noopener');
+                          else if (r.isDenied) window.open(urlReverso, '_blank', 'noopener');
+                        });
+                      } else {
+                        window.open(docsSubidos[tipoSubida], '_blank', 'noopener');
+                      }
+                    }}
+                    title={docsSubidos[`${tipoSubida}Reverso`] ? 'Ver el documento (frente y reverso)' : 'Ver el documento subido (foto o PDF)'}
+                  >
+                    👁
+                  </button>
+                )}
+              </span>
+            );
+          })}
           {/* Input oculto para el resto de tipos de documento (foto o PDF). */}
           <input
             ref={inputDocumentoRef}
@@ -747,12 +1170,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             onChange={manejarSeleccionDocumento}
             style={{ display: 'none' }}
           />
+          {/* Input oculto para el REVERSO de licencia/tarjeta de propiedad. */}
+          <input
+            ref={inputReversoDocRef}
+            type="file"
+            accept="image/*,application/pdf"
+            capture="environment"
+            onChange={manejarSeleccionReversoDoc}
+            style={{ display: 'none' }}
+          />
         </div>
-        {leyendoCedula && (
-          <div className="Datos-iaCedula-estado">
-            <span className="Datos-iaCedula-spinner" /> Leyendo el documento con IA…
-          </div>
-        )}
         {camposLecturaIA.length > 0 && !leyendoCedula && (
           <div className="Datos-iaCedula-ok">
             ✓ {camposLecturaIA.length} campos llenados con IA — revísalos en el formulario antes de continuar.
@@ -763,6 +1190,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       <div className="Datos-Form-datos-generales">
         {sections.map(({ title, fields }) => (
           <div key={title}>
+            {title === "Datos del propietario" && (
+              <div className="Datos-toggle-tenedor">
+                <input type="checkbox" id="propietarioSameCheckbox" className="Datos-checkbox" checked={propietarioSame} onChange={togglePropietarioSame} />
+                <label htmlFor="propietarioSameCheckbox" className="Datos-checkbox-label">
+                  {propietarioSame ? "Editar datos del Propietario" : "Soy el propietario (usar los mismos datos del conductor)"}
+                </label>
+              </div>
+            )}
             {title === "Toggle Tenedor" && (
               <div className="Datos-toggle-tenedor">
                 <input type="checkbox" id="tenedorSameCheckbox" className="Datos-checkbox" checked={tenedorSame} onChange={toggleTenedorSame} />
@@ -772,7 +1207,17 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
               </div>
             )}
             {fields.length > 0 && (
-              <FormSection title={title} fields={fields} formData={formData} handleChange={handleChange} disabled={title.includes("Tenedor") && tenedorSame} requiredFields={requiredFields} />
+              <FormSection
+                title={title}
+                fields={fields}
+                formData={formData}
+                handleChange={handleChange}
+                disabled={
+                  (title.includes("Tenedor") && tenedorSame) ||
+                  (title === "Datos del propietario" && propietarioSame)
+                }
+                requiredFields={requiredFields}
+              />
             )}
           </div>
         ))}
@@ -812,6 +1257,18 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
               {isLoading ? "Procesando..." : "Continuar"}
           </button>
       </div>
+
+      {/* --- OVERLAY: lectura IA en curso --- */}
+      {leyendoCedula && (
+        <div className="Datos-iaLeyendo-overlay">
+          <div className="Datos-iaLeyendo-caja">
+            <Lottie animationData={animationData} style={{ height: 140, width: 180, margin: 'auto' }} />
+            <div className="Datos-iaLeyendo-titulo">Leyendo {etiquetaLecturaIA || 'el documento'}…</div>
+            <div className="Datos-iaLeyendo-sub">Estamos guardando el archivo y extrayendo los datos con IA</div>
+            <div className="Datos-iaLeyendo-barra"><div className="Datos-iaLeyendo-barra-fill" /></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
