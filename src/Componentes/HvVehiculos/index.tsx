@@ -219,6 +219,17 @@ const DocuPDF = ({ veh, huellas, firmaBlob }: { veh: Vehiculo, huellas: (string 
                         <View style={[styles.col, styles.w25]}><Text style={styles.label}>USUARIO</Text><Text style={styles.value}>{upper(veh.vehUsuarioSat)}</Text></View>
                         <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>CLAVE</Text><Text style={styles.value}>{upper(veh.vehClaveSat)}</Text></View>
                     </View>
+                    <View style={styles.row}>
+                        <View style={[styles.col, styles.w25]}><Text style={styles.label}>Nº LIC. TRÁNSITO</Text><Text style={styles.value}>{upper(veh.vehNoLicTransito)}</Text></View>
+                        <View style={[styles.col, styles.w25]}><Text style={styles.label}>CLASE</Text><Text style={styles.value}>{upper(veh.vehClase)}</Text></View>
+                        <View style={[styles.col, styles.w25]}><Text style={styles.label}>SERVICIO</Text><Text style={styles.value}>{upper(veh.vehServicio)}</Text></View>
+                        <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>CILINDRAJE</Text><Text style={styles.value}>{upper(veh.vehCilindraje)}</Text></View>
+                    </View>
+                    <View style={styles.row}>
+                        <View style={[styles.col, styles.w33]}><Text style={styles.label}>VIN</Text><Text style={styles.value}>{upper(veh.vehVin)}</Text></View>
+                        <View style={[styles.col, styles.w33]}><Text style={styles.label}>Nº CHASIS</Text><Text style={styles.value}>{upper(veh.vehChasis)}</Text></View>
+                        <View style={[styles.col, styles.w33, { borderRight: 'none' }]}><Text style={styles.label}>Nº MOTOR</Text><Text style={styles.value}>{upper(veh.vehMotor)}</Text></View>
+                    </View>
                     <View style={[styles.row, { borderBottom: 'none' }]}>
                         <View style={[styles.col, styles.w33]}><Text style={styles.label}>ASEGURADORA SOAT</Text><Text style={styles.value}>{upper(veh.vehAseguradoraSoat)}</Text></View>
                         <View style={[styles.col, styles.w33]}><Text style={styles.label}>PÓLIZA SOAT</Text><Text style={styles.value}>{upper(veh.vehPolizaSoat)}</Text></View>

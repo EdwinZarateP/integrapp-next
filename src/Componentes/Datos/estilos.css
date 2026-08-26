@@ -198,10 +198,32 @@
 
 
 @media (max-width: 600px) {
+    .Datos-contenedor {
+        /* Espacio para que el contenido pueda scrollear MÁS ALLÁ de la barra fija */
+        padding-bottom: 150px;
+    }
     .Datos-botones-flotantes {
-        bottom: 80px;
-        right: 35%;
-        transform: translateX(50%);
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: none;
+        flex-direction: row;
+        gap: 8px;
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+        background: rgba(253, 253, 253, 0.95);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.12);
+    }
+    .Datos-botones-flotantes .btn-guardar-progreso,
+    .Datos-botones-flotantes .btn-guardar-finalizar {
+        flex: 1;
+        min-width: 0;
+        width: auto;
+        padding: 12px 8px;
+        font-size: 0.9rem;
+        border-radius: 10px;
+        box-shadow: none;
     }
 }
 
@@ -255,6 +277,59 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* ── Categorías múltiples de la licencia (checkboxes tipo chip) ── */
+.Datos-categorias-lic {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.Datos-categorias-lic-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.Datos-categorias-lic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.Datos-categoria-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 2px solid #b8d4f0;
+  border-radius: 20px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #4a6a8a;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+}
+
+.Datos-categoria-chip:hover {
+  border-color: #2c5f9e;
+}
+
+.Datos-categoria-chip--activo {
+  border-color: #27ae60;
+  background: #eefaf3;
+  color: #1e8449;
+}
+
+.Datos-categoria-chip input[type="checkbox"] {
+  accent-color: #27ae60;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 /* ── Lectura de cédula con IA (atajo de pre-llenado) ── */

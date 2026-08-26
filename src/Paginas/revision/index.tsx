@@ -567,7 +567,7 @@ const RevisionVehiculos: React.FC = () => {
           <div className="datos-grid">
             <p><strong>Licencia No:</strong> {veh.condNoLicencia}</p>
             <p><strong>Vencimiento Licencia:</strong> {veh.condFechaVencimientoLic}</p>
-            <p><strong>Categoría Licencia:</strong> {veh.condCategoriaLic}</p>
+            <p><strong>Categorías Licencia:</strong> {(veh.condCategoriaLic || '').split(',').filter(Boolean).join(', ')}</p>
           </div>
 
           <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
@@ -606,6 +606,12 @@ const RevisionVehiculos: React.FC = () => {
               <p><strong>No. Cuenta:</strong> {veh.propNumeroCuenta}</p>
             </div>
           )}
+          {(veh.propFechaInicioActividad || veh.propFechaExpedicionRut) && (
+            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
+              <p><strong>Inicio de Actividad (RUT):</strong> {veh.propFechaInicioActividad}</p>
+              <p><strong>Fecha Expedición RUT:</strong> {veh.propFechaExpedicionRut}</p>
+            </div>
+          )}
 
           <h4 className="titulo-seccion">🤝 Datos del Tenedor</h4>
           <div className="datos-grid">
@@ -624,6 +630,12 @@ const RevisionVehiculos: React.FC = () => {
               <p><strong>No. Cuenta:</strong> {veh.tenedNumeroCuenta}</p>
             </div>
           )}
+          {(veh.tenedFechaInicioActividad || veh.tenedFechaExpedicionRut) && (
+            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
+              <p><strong>Inicio de Actividad (RUT):</strong> {veh.tenedFechaInicioActividad}</p>
+              <p><strong>Fecha Expedición RUT:</strong> {veh.tenedFechaExpedicionRut}</p>
+            </div>
+          )}
 
           <h4 className="titulo-seccion">🚚 Datos del Vehículo</h4>
           <div className="datos-grid">
@@ -636,6 +648,27 @@ const RevisionVehiculos: React.FC = () => {
             <p><strong>Carrocería:</strong> {veh.vehTipoCarroceria}</p>
             <p><strong>Repotenciado:</strong> {veh.vehRepotenciado}</p>
           </div>
+
+          {(veh.vehNoLicTransito || veh.vehVin || veh.vehChasis || veh.vehMotor) && (
+            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
+              <p><strong>Nº Licencia de Tránsito:</strong> {veh.vehNoLicTransito}</p>
+              <p><strong>Código Licencia (LT):</strong> {veh.vehCodigoLicTransito}</p>
+              <p><strong>Clase:</strong> {veh.vehClase}</p>
+              <p><strong>Servicio:</strong> {veh.vehServicio}</p>
+              <p><strong>Cilindraje:</strong> {veh.vehCilindraje ? `${veh.vehCilindraje} c.c.` : ''}</p>
+              <p><strong>Combustible:</strong> {veh.vehCombustible}</p>
+              <p><strong>Capacidad Pasajeros:</strong> {veh.vehCapPasajeros}</p>
+              <p><strong>Potencia:</strong> {veh.vehPotencia}</p>
+              <p><strong>VIN:</strong> {veh.vehVin}</p>
+              <p><strong>Nº Chasis:</strong> {veh.vehChasis}</p>
+              <p><strong>Nº Motor:</strong> {veh.vehMotor}</p>
+              <p><strong>Nº Puertas:</strong> {veh.vehPuertas}</p>
+              <p><strong>Fecha Matrícula:</strong> {veh.vehFechaMatricula}</p>
+              <p><strong>Organismo de Tránsito:</strong> {veh.vehOrganismoTransito}</p>
+              <p><strong>Blindaje:</strong> {veh.vehBlindaje}</p>
+              <p><strong>Limitación a la Propiedad:</strong> {veh.vehLimitacionProp}</p>
+            </div>
+          )}
 
           {(veh.vehAseguradoraSoat || veh.vehVencimientoSoat) && (
             <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">

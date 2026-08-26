@@ -118,6 +118,8 @@ const arlColombia = ["Positiva", "Sura", "Colpatria", "Bolívar", "Axa Colpatria
 const parentescos = ["Padre", "Madre", "Hijo(a)", "Hermano(a)", "Esposo(a)", "Abuelo(a)", "Tio(a)", "Otro"];
 const tiposCarroceria = ["S.R.S.","FURGON","ESTACAS","TANQUE","VOLCO","TOLVA","RECOLECTOR COMPARTADOR","PANEL","CAMABAJA","VAN","PLANCHON","PORTACONTENEDORES","PLATAFORMA","HOMIGONERO","BOTELLERO",];
 const tiposCuenta = ["AHORROS", "CORRIENTE"];
+const serviciosVehiculo = ["PARTICULAR", "PÚBLICO", "COMERCIAL", "ESPECIAL"];
+const combustiblesVehiculo = ["GASOLINA", "DIESEL", "GNV", "HÍBRIDO", "ELÉCTRICO"];
 const bancosColombia = [
   "Bancolombia", "Banco de Bogotá", "Davivienda", "BBVA", "Banco de Occidente",
   "Scotiabank Colpatria", "Banco Agrario", "Banco AV Villas", "Banco Caja Social",
@@ -175,6 +177,8 @@ const mapearRutAPersona = (prefijo: 'prop' | 'tened', d: Record<string, any>): R
   }
   if (d.correo) nuevos[`${prefijo}Correo`] = d.correo.toUpperCase();
   if (d.telefono) nuevos[`${prefijo}Celular`] = d.telefono.replace(/\D/g, '').slice(0, 10);
+  if (d.fecha_inicio_actividad) nuevos[`${prefijo}FechaInicioActividad`] = d.fecha_inicio_actividad;
+  if (d.fecha_expedicion_rut) nuevos[`${prefijo}FechaExpedicionRut`] = d.fecha_expedicion_rut;
   return nuevos;
 };
 
@@ -215,7 +219,15 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
   licencia: (d) => {
     const nuevos: Record<string, string> = {};
     if (d.numero) nuevos.condNoLicencia = d.numero;
-    if (d.categoria) nuevos.condCategoriaLic = d.categoria.toUpperCase();
+    // Categorías: una licencia puede autorizar VARIAS (ej: C1+C2). La IA
+    // devuelve la lista completa; se filtra al catálogo y se guarda separada
+    // por comas. Fallback "categoria" para lecturas viejas de una sola.
+    const crudo = d.categorias ?? d.categoria;
+    if (crudo) {
+      const texto = (Array.isArray(crudo) ? crudo.join(' ') : String(crudo)).toUpperCase();
+      const cats = categoriasLicencia.filter(c => texto.includes(c));
+      if (cats.length > 0) nuevos.condCategoriaLic = cats.join(',');
+    }
     if (d.fecha_vencimiento) nuevos.condFechaVencimientoLic = d.fecha_vencimiento;
     if (d.cedula) nuevos.condCedulaCiudadania = d.cedula;
     return nuevos;
@@ -227,10 +239,41 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
   certificado_bancario_prop: (d) => mapearBancario('prop', d),
   tarjeta_propiedad: (d) => {
     const nuevos: Record<string, string> = {};
+    if (d.numero_licencia_transito) nuevos.vehNoLicTransito = String(d.numero_licencia_transito).replace(/\D/g, '');
     if (d.marca) nuevos.vehMarca = d.marca.toUpperCase();
     if (d.linea) nuevos.vehLinea = d.linea.toUpperCase();
     if (d.modelo) nuevos.vehModelo = String(d.modelo).slice(0, 4);
     if (d.color) nuevos.vehColor = d.color.toUpperCase();
+    if (d.clase_vehiculo) nuevos.vehClase = d.clase_vehiculo.toUpperCase();
+    if (d.cilindraje) nuevos.vehCilindraje = String(d.cilindraje).replace(/\D/g, '');
+    if (d.servicio) {
+      // Aterrizar al catálogo del select (el valor crudo podría no coincidir).
+      const s = String(d.servicio).toUpperCase();
+      nuevos.vehServicio = s.includes('PARTIC') ? 'PARTICULAR'
+        : (s.includes('PÚBL') || s.includes('PUBL')) ? 'PÚBLICO'
+        : s.includes('COMERCIAL') ? 'COMERCIAL' : s;
+    }
+    if (d.combustible) {
+      const c = String(d.combustible).toUpperCase();
+      nuevos.vehCombustible = c.includes('GASO') ? 'GASOLINA'
+        : (c.includes('DIESEL') || c.includes('ACPM')) ? 'DIESEL'
+        : (c.includes('GNV') || c.includes('GAS NATURAL')) ? 'GNV'
+        : (c.includes('HÍBRID') || c.includes('HIBRID')) ? 'HÍBRIDO'
+        : c.includes('ELECTR') ? 'ELÉCTRICO' : c;
+    }
+    if (d.capacidad_pasajeros !== undefined && d.capacidad_pasajeros !== null) nuevos.vehCapPasajeros = String(d.capacidad_pasajeros);
+    if (d.potencia) nuevos.vehPotencia = String(d.potencia).toUpperCase();
+    if (d.vin) nuevos.vehVin = String(d.vin).toUpperCase();
+    if (d.numero_chasis) nuevos.vehChasis = String(d.numero_chasis).toUpperCase();
+    if (d.numero_motor) nuevos.vehMotor = String(d.numero_motor).toUpperCase();
+    if (d.numero_puertas !== undefined && d.numero_puertas !== null) nuevos.vehPuertas = String(d.numero_puertas);
+    if (d.fecha_matricula) nuevos.vehFechaMatricula = d.fecha_matricula;
+    if (d.organismo_transito) nuevos.vehOrganismoTransito = d.organismo_transito.toUpperCase();
+    if (d.blindaje) nuevos.vehBlindaje = String(d.blindaje).toUpperCase().startsWith('NO') ? 'No' : 'Sí';
+    if (d.limitacion_propiedad) nuevos.vehLimitacionProp = String(d.limitacion_propiedad).toUpperCase().startsWith('NO') ? 'No' : 'Sí';
+    if (d.codigo_licencia) nuevos.vehCodigoLicTransito = String(d.codigo_licencia).toUpperCase();
+    if (d.propietario_nombre) nuevos.propNombre = d.propietario_nombre.toUpperCase();
+    if (d.propietario_documento) nuevos.propDocumento = String(d.propietario_documento).replace(/\D/g, '');
     return nuevos;
   },
   soat: (d) => {
@@ -434,6 +477,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     if (placa) fetchData();
   }, [placa]);
 
+  // Categorías de licencia MÚLTIPLES: se guardan en condCategoriaLic separadas
+  // por comas (ej: "B2,C1"), compatibles con históricos de una sola categoría.
+  const toggleCategoriaLic = (cat: string) => {
+    const actuales = (formData['condCategoriaLic'] || '').split(',').map(s => s.trim()).filter(Boolean);
+    const set = new Set(actuales);
+    if (set.has(cat)) set.delete(cat); else set.add(cat);
+    const ordenadas = categoriasLicencia.filter(c => set.has(c));
+    setFormData(prev => ({ ...prev, condCategoriaLic: ordenadas.join(',') }));
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (phoneFields.some(field => name.includes(field))) {
@@ -519,6 +572,17 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   ) => {
     const mapear = MAPEOS_IA[tipoLectura];
     if (!mapear) return;
+    // Reverso OBLIGATORIO para licencia y tarjeta de propiedad (dos caras).
+    // La cédula lo admite opcional (solo la amarilla aporta datos extra).
+    if (['licencia', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Falta el reverso',
+        html: `${etiqueta} tiene <b>dos caras</b> y ambas son obligatorias.<br/>Vuelve a cargar el documento: primero el FRENTE y luego el REVERSO.`,
+        confirmButtonColor: '#e67e22',
+      });
+      return;
+    }
     setLeyendoCedula(true);
     setEtiquetaLecturaIA(etiqueta);
     try {
@@ -693,24 +757,19 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     if (!opcion) return;
     const etiqueta = opcion.etiqueta.replace(/^[^\s]+\s/, '');
 
-    // Licencia y tarjeta de propiedad tienen DOS caras: tras el frente,
-    // ofrecer el reverso (opcional) antes de leer.
+    // Licencia y tarjeta de propiedad tienen DOS caras OBLIGATORIAS: tras el
+    // frente, se pide el reverso inmediatamente (no se puede continuar sin él).
     if (['licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
       Swal.fire({
-        icon: 'question',
-        title: '¿Agregar el reverso?',
-        text: `${etiqueta} tiene dos caras. El FRENTE ya está listo; puedes agregar el REVERSO ahora (recomendado) o continuar sin él.`,
-        showCancelButton: true,
-        confirmButtonText: 'Agregar reverso',
-        cancelButtonText: 'Continuar sin reverso',
+        icon: 'info',
+        title: 'Ahora el REVERSO',
+        html: `El FRENTE de la ${etiqueta.toLowerCase()} está listo.<br/>Este documento tiene <b>dos caras y ambas son obligatorias</b>: selecciona ahora la foto o PDF del <b>reverso</b>.`,
+        confirmButtonText: 'Elegir reverso',
         confirmButtonColor: '#2c5f9e',
-      }).then((res) => {
-        if (res.isConfirmed) {
-          setReversoPendiente({ tipo: opcion.tipo, esquema: opcion.esquema, etiqueta, anverso: archivo });
-          setTimeout(() => inputReversoDocRef.current?.click(), 0);
-        } else {
-          leerDocumentoConIA(opcion.tipo, opcion.esquema, [archivo], etiqueta);
-        }
+        allowOutsideClick: false,
+      }).then(() => {
+        setReversoPendiente({ tipo: opcion.tipo, esquema: opcion.esquema, etiqueta, anverso: archivo });
+        setTimeout(() => inputReversoDocRef.current?.click(), 0);
       });
       return;
     }
@@ -921,7 +980,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'ARL', name: 'condArl', options: arlColombia },
         { label: 'No. Licencia', name: 'condNoLicencia', type: 'number' },
         { label: 'Fecha de Vencimiento', name: 'condFechaVencimientoLic', type: 'date' },
-        { label: 'Categoría', name: 'condCategoriaLic', options: categoriasLicencia },
         { label: 'Grupo Sanguíneo RH', name: 'condGrupoSanguineo', options: gruposSanguineos },
         { label: 'Banco', name: 'condBanco', options: bancosColombia },
         { label: 'Tipo de Cuenta', name: 'condTipoCuenta', options: tiposCuenta },
@@ -963,6 +1021,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Banco', name: 'propBanco', options: bancosColombia },
         { label: 'Tipo de Cuenta', name: 'propTipoCuenta', options: tiposCuenta },
         { label: 'No. de Cuenta', name: 'propNumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
+        { label: 'Inicio de Actividad (RUT)', name: 'propFechaInicioActividad', type: 'date' },
+        { label: 'Fecha Expedición RUT', name: 'propFechaExpedicionRut', type: 'date' },
       ],
     },
     {
@@ -984,6 +1044,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Banco', name: 'tenedBanco', options: bancosColombia },
         { label: 'Tipo de Cuenta', name: 'tenedTipoCuenta', options: tiposCuenta },
         { label: 'No. de Cuenta', name: 'tenedNumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
+        { label: 'Inicio de Actividad (RUT)', name: 'tenedFechaInicioActividad', type: 'date' },
+        { label: 'Fecha Expedición RUT', name: 'tenedFechaExpedicionRut', type: 'date' },
       ],
     },
     {
@@ -994,6 +1056,22 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: "Tipo Carroceria", name: "vehTipoCarroceria", options: tiposCarroceria },
         { label: 'Línea', name: 'vehLinea' },
         { label: 'Color', name: 'vehColor' },
+        { label: 'Nº Licencia de Tránsito', name: 'vehNoLicTransito', type: 'text', inputProps: { inputMode: 'numeric' as const } },
+        { label: 'Clase de Vehículo', name: 'vehClase' },
+        { label: 'Cilindraje (c.c.)', name: 'vehCilindraje', type: 'number' },
+        { label: 'Servicio', name: 'vehServicio', options: serviciosVehiculo },
+        { label: 'Combustible', name: 'vehCombustible', options: combustiblesVehiculo },
+        { label: 'Capacidad Pasajeros', name: 'vehCapPasajeros', type: 'number', inputProps: { min: 0, max: 80 } },
+        { label: 'Potencia', name: 'vehPotencia', type: 'text', inputProps: { placeholder: 'Ej: 15 HP' } },
+        { label: 'VIN', name: 'vehVin' },
+        { label: 'Nº Chasis', name: 'vehChasis' },
+        { label: 'Nº Motor', name: 'vehMotor' },
+        { label: 'Nº Puertas', name: 'vehPuertas', type: 'number', inputProps: { min: 0, max: 8 } },
+        { label: 'Fecha de Matrícula', name: 'vehFechaMatricula', type: 'date' },
+        { label: 'Organismo de Tránsito', name: 'vehOrganismoTransito' },
+        { label: 'Blindaje', name: 'vehBlindaje', options: ["Sí", "No"] },
+        { label: 'Limitación a la Propiedad', name: 'vehLimitacionProp', options: ["Sí", "No"] },
+        { label: 'Código Licencia (LT)', name: 'vehCodigoLicTransito', type: 'text', inputProps: { placeholder: 'Ej: LT02004908588' } },
         { label: 'Repotenciado', name: 'vehRepotenciado', options: ["Sí", "No"] },
         { label: 'Año Repotenciacion', name: 'vehAno', type: 'number', inputProps: { min: 1990, max: 2025 } },
         { label: 'Empresa Satelital', name: 'vehEmpresaSat' },
@@ -1047,6 +1125,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             Toma una foto (o sube el PDF) de un documento: lo <b>guardamos</b> y llenamos
             los campos por ti con IA. Igual podrás revisar y editar todo. La cédula <b>azul</b>
             basta el frente; la <b>amarilla</b> antigua aporta más datos con su reverso.
+            La <b>licencia</b> y la <b>tarjeta de propiedad</b> necesitan frente y reverso.
           </span>
         </div>
         <div className="Datos-iaCedula-acciones">
@@ -1056,15 +1135,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 <label
                   className={`Datos-iaCedula-file ${cedulaLista ? 'Datos-iaDoc-listo' : ''}`}
-                  title={cedulaLista ? 'Documento cargado — toca para reemplazarlo' : 'Toma la foto del frente de la cédula'}
+                  title={cedulaLista ? 'Documento cargado — toca para reemplazarlo' : 'Toma una foto o elige el archivo de la galería'}
                 >
                   {cedulaLista ? '🪪 Cédula del conductor' : '🪪 Cédula — frente *'}
                   {cedulaLista && <span className="Datos-iaDoc-badge">✓ Cargado</span>}
                   <input
                     ref={inputAnversoRef}
                     type="file"
-                    accept="image/*"
-                    capture="environment"
+                    accept="image/*,application/pdf"
                     onChange={manejarSeleccionCedula}
                     disabled={leyendoCedula}
                   />
@@ -1107,15 +1185,18 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             <input
               ref={inputReversoRef}
               type="file"
-              accept="image/*"
-              capture="environment"
+              accept="image/*,application/pdf"
               disabled={leyendoCedula}
             />
           </label>
           {OPCIONES_LECTURA_IA.filter(o => o.tipo !== 'cedula').map(opcion => {
             const tipoSubida = LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
-            const listo = Boolean(tipoSubida && docsSubidos[tipoSubida]);
             const dosCaras = ['licencia', 'tarjeta_propiedad'].includes(opcion.tipo);
+            // Dos caras obligatorias: el ✓ solo con FRENTE y REVERSO subidos.
+            const listo = Boolean(
+              tipoSubida && docsSubidos[tipoSubida]
+              && (!dosCaras || docsSubidos[`${tipoSubida}Reverso`])
+            );
             return (
               <span key={opcion.tipo} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 <button
@@ -1166,7 +1247,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             ref={inputDocumentoRef}
             type="file"
             accept="image/*,application/pdf"
-            capture="environment"
             onChange={manejarSeleccionDocumento}
             style={{ display: 'none' }}
           />
@@ -1175,7 +1255,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             ref={inputReversoDocRef}
             type="file"
             accept="image/*,application/pdf"
-            capture="environment"
             onChange={manejarSeleccionReversoDoc}
             style={{ display: 'none' }}
           />
@@ -1205,6 +1284,33 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                   {tenedorSame ? "Editar datos del Tenedor" : "Rellenar los datos del tenedor con los mismos del Propietario"}
                 </label>
               </div>
+            )}
+            {title === "Información del Conductor" && (
+              (() => {
+                const catsActivas = (formData['condCategoriaLic'] || '').split(',').map(s => s.trim()).filter(Boolean);
+                return (
+                  <div className="Datos-categorias-lic">
+                    <label className="Datos-categorias-lic-label">
+                      Categorías de la licencia (marca TODAS las que tengas) <span style={{ color: '#e74c3c' }}>*</span>
+                    </label>
+                    <div className="Datos-categorias-lic-chips">
+                      {categoriasLicencia.map(cat => (
+                        <label
+                          key={cat}
+                          className={`Datos-categoria-chip ${catsActivas.includes(cat) ? 'Datos-categoria-chip--activo' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={catsActivas.includes(cat)}
+                            onChange={() => toggleCategoriaLic(cat)}
+                          />
+                          {cat}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()
             )}
             {fields.length > 0 && (
               <FormSection

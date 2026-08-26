@@ -8,6 +8,7 @@ const normalizeKey = (key: string) => key.trim().toLowerCase();
 export const endpoints: Record<string, string> = Object.fromEntries(
   Object.entries({
     "Tarjeta de Propiedad": `${API_BASE_URL}/subir-documento`,
+    "Tarjeta de Propiedad (Reverso)": `${API_BASE_URL}/subir-documento`,
     "soat": `${API_BASE_URL}/subir-documento`,
     "Revisión Tecnomecánica": `${API_BASE_URL}/subir-documento`,
     "Tarjeta de Remolque": `${API_BASE_URL}/subir-documento`,
@@ -17,6 +18,7 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     "Documento de Identidad del Propietario": `${API_BASE_URL}/subir-documento`,
     "Documento de Identidad del Tenedor": `${API_BASE_URL}/subir-documento`,
     "Licencia de Conducción Vigente": `${API_BASE_URL}/subir-documento`,
+    "Licencia de Conducción (Reverso)": `${API_BASE_URL}/subir-documento`,
     "Planilla de EPS y ARL": `${API_BASE_URL}/subir-documento`,
     "Planilla de EPS": `${API_BASE_URL}/subir-documento`,
     "Planilla de ARL": `${API_BASE_URL}/subir-documento`,
@@ -34,6 +36,7 @@ export const endpoints: Record<string, string> = Object.fromEntries(
 export const tiposMapping: Record<string, string> = Object.fromEntries(
   Object.entries({
     "Tarjeta de Propiedad": "tarjetaPropiedad",
+    "Tarjeta de Propiedad (Reverso)": "tarjetaPropiedadReverso",
     "soat": "soat",
     "Revisión Tecnomecánica": "revisionTecnomecanica",
     "Tarjeta de Remolque": "tarjetaRemolque",
@@ -43,6 +46,7 @@ export const tiposMapping: Record<string, string> = Object.fromEntries(
     "Documento de Identidad del Propietario": "documentoIdentidadPropietario",
     "Documento de Identidad del Tenedor": "documentoIdentidadTenedor",
     "Licencia de Conducción Vigente": "licencia",
+    "Licencia de Conducción (Reverso)": "licenciaReverso",
     "Planilla de EPS y ARL": "planillaEpsArl",
     "Foto Conductor": "condFoto",
     "Certificación Bancaria Conductor": "condCertificacionBancaria",
