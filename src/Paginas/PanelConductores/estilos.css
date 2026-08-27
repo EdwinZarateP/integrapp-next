@@ -349,7 +349,7 @@ select:focus-visible {
   gap: 10px;
   flex-shrink: 0;
   position: sticky;
-  top: 64px; /* alto del header en escritorio */
+  top: 0; /* el header se va al scrollear: pegar al borde superior real */
   z-index: 500;
   background: #eef2f5;
   padding: 6px 0;
@@ -988,19 +988,18 @@ select:focus-visible {
     margin-top: 0;
   }
 
-  /* 3. SIDEBAR (NAVEGACIÓN): fila sticky bajo el header, siempre accesible */
+  /* 3. SIDEBAR (NAVEGACIÓN): fila sticky, siempre accesible */
   .sidebar-conductor {
     width: 100%;
     flex-direction: row;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding: 6px 0 4px;
     gap: 8px;
     margin-bottom: 2px;
     position: sticky;
-    top: 50px;
+    top: 0;
     z-index: 500;
     background: #eef2f5;
-    padding-top: 6px;
   }
 
   .sidebar-conductor::-webkit-scrollbar { display: none; }
@@ -1242,8 +1241,8 @@ select:focus-visible {
     padding: 0 8px;
   }
 
-  /* El stepper sticky acompaña el header más bajo */
-  .sidebar-conductor { top: 46px; }
+  /* El stepper acompaña el scroll pegado al borde superior */
+  .sidebar-conductor { top: 0; }
   .barra-logo { height: 28px; }
   .barra-marca { font-size: 0.95rem; letter-spacing: 0.3px; }
 
