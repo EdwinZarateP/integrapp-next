@@ -29,6 +29,35 @@
   border: 1px solid #2F6B3E;
 }
 
+/* ── Acento por FIGURA: un color por bloque para identificarlos de un vistazo ── */
+/* Conductor (con emergencia y referencias): AZUL */
+.Datos-form-section--conductor {
+  background: rgba(44, 95, 158, 0.08);
+  border-color: #2c5f9e;
+}
+.Datos-form-section--conductor h4 { color: #2c5f9e; }
+
+/* Propietario: ÁMBAR */
+.Datos-form-section--propietario {
+  background: rgba(184, 134, 11, 0.08);
+  border-color: #c9971c;
+}
+.Datos-form-section--propietario h4 { color: #a67708; }
+
+/* Tenedor: VIOLETA */
+.Datos-form-section--tenedor {
+  background: rgba(125, 60, 152, 0.07);
+  border-color: #8e5aa8;
+}
+.Datos-form-section--tenedor h4 { color: #7d3c98; }
+
+/* Vehículo y remolque: VERDE (el original) */
+.Datos-form-section--vehiculo {
+  background: rgba(47, 107, 62, 0.1);
+  border-color: #2F6B3E;
+}
+.Datos-form-section--vehiculo h4 { color: #2F6B3E; }
+
 /* Título de cada sección */
 .Datos-form-section h4 {
   width: 100%;
@@ -44,6 +73,9 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+  /* min-width:0 en los ítems: sin esto, un select con opciones largas
+     ensanchaba la columna y los inputs se salían de la pantalla. */
+  min-width: 0;
 }
 
 /* Contenedor de cada input */
@@ -52,6 +84,7 @@
   flex-direction: column;
   gap: 0.3rem;
   margin-bottom: 0.8rem;
+  min-width: 0;
 }
 
 /* Estilos para los labels */
@@ -279,6 +312,54 @@
   box-shadow: none;
 }
 
+/* ── Campo obligatorio faltante (al dar «Continuar»): borde + etiqueta rojos ── */
+.Datos-input-container--error label {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.Datos-input-container--error input,
+.Datos-input-container--error select {
+  border: 2px solid #e74c3c !important;
+  background: #fef7f6;
+  border-radius: 6px;
+}
+
+.Datos-categorias-lic--error .Datos-categorias-lic-label {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.Datos-categorias-lic--error .Datos-categoria-chip {
+  border-color: #f1b0aa;
+  background: #fef7f6;
+}
+
+/* ── Celular con región: select de prefijo + input del número ── */
+.Datos-phone {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Selectores con especificidad ALTA: deben ganarle al width:100% genérico
+   anti-desborde de ".Datos-input-container select/input" (que si no, pone el
+   select de región a ancho completo y el número se sale del contenedor). */
+.Datos-phone .Datos-phone-region {
+  width: auto;
+  min-width: 110px;
+  max-width: 55%;
+  flex: 0 1 auto;
+  font-size: 0.85rem;
+}
+
+.Datos-phone > input[type="text"] {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
 /* ── Categorías múltiples de la licencia (checkboxes tipo chip) ── */
 .Datos-categorias-lic {
   display: flex;
@@ -368,6 +449,36 @@
   flex-wrap: wrap;
 }
 
+/* En celular: TODOS los botones a ancho completo de la pantalla. */
+@media (max-width: 600px) {
+  .Datos-iaCedula-acciones {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .Datos-iaCedula-acciones > span,
+  .Datos-iaCedula-acciones > label {
+    display: flex;
+    width: 100%;
+  }
+
+  .Datos-iaCedula-acciones .Datos-iaCedula-file,
+  .Datos-iaCedula-acciones .Datos-iaDoc-boton {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    padding: 12px 10px;
+  }
+
+  /* El 👁 conserva su tamaño fijo al lado del botón. */
+  .Datos-iaCedula-acciones .Datos-iaDoc-ver {
+    flex: 0 0 auto;
+  }
+}
+
 .Datos-iaCedula-file {
   display: flex;
   align-items: center;
@@ -429,18 +540,17 @@
   color: #1d7a45;
 }
 
-/* Badge "✓ Cargado" dentro del botón. */
+/* Badge "✓" (documento cargado) dentro del botón. */
 .Datos-iaDoc-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   background: #27ae60;
   color: #fff;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 800;
-  letter-spacing: 0.2px;
   border-radius: 999px;
-  padding: 3px 9px;
+  padding: 2px 7px;
   margin-left: 7px;
   box-shadow: 0 1px 4px rgba(39, 174, 96, 0.4);
 }
@@ -594,4 +704,61 @@
   border: 1px solid #b8e6c9;
   border-radius: 8px;
   padding: 8px 12px;
+}
+
+/* ========================================================================== */
+/* ANTI-DESBORDAMIENTO DE INPUTS (pantallas pequeñas)                         */
+/* Sin min-width:0 un select con opciones largas (departamentos, aseguradoras) */
+/* ensanchaba su columna de la grid y los campos se salían de la pantalla.     */
+/* ========================================================================== */
+.Datos-input-container input,
+.Datos-input-container select,
+.Datos-input-container textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.Datos-form-section,
+.Datos-Form-datos-generales {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Móvil: paddings compactos y fuente 16px en los controles (iOS no hace
+   zoom automático al enfocar) — se veían enormes y desbordados. */
+@media (max-width: 600px) {
+  .Datos-Form-datos-generales {
+    padding: 0.5rem;
+    gap: 0.75rem;
+  }
+
+  .Datos-form-section {
+    padding: 0.75rem 0.6rem;
+  }
+
+  .Datos-fields-container {
+    gap: 0.6rem;
+  }
+
+  .Datos-input-container {
+    margin-bottom: 0.6rem;
+    gap: 0.25rem;
+  }
+
+  .Datos-input-container label {
+    font-size: 0.84rem;
+  }
+
+  .Datos-input-container input,
+  .Datos-input-container select,
+  .Datos-input-container textarea,
+  .Datos-phone input,
+  .Datos-phone-region {
+    font-size: 16px;
+  }
+
+  .Datos-phone-region {
+    min-width: 96px;
+  }
 }

@@ -71,10 +71,12 @@ interface InputFieldProps {
   disabled?: boolean;
   required?: boolean;
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+  /** Campo obligatorio faltante al intentar continuar: borde y etiqueta rojos. */
+  error?: boolean;
 }
 
-const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, options, disabled, inputProps, required }) => (
-  <div className="Datos-input-container">
+const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, options, disabled, inputProps, required, error }) => (
+  <div className={`Datos-input-container ${error ? 'Datos-input-container--error' : ''}`} data-campo={name}>
     <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
     {options ? (
       <select name={name} value={value} onChange={onChange} disabled={disabled}>
@@ -96,6 +98,54 @@ const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', val
   </div>
 );
 
+const PhoneField: React.FC<{
+  label: string;
+  name: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  disabled?: boolean;
+  required?: boolean;
+  error?: boolean;
+}> = ({ label, name, value, onChange, disabled, required, error }) => {
+  const codigo = regionDeValor(value);
+  const numero = numeroDeValor(value);
+
+  // Despacha el valor completo (prefijo + número) por el handleChange central,
+  // que valida dígitos y longitud según tenga o no prefijo internacional.
+  const despachar = (cod: string, num: string) => {
+    const digitos = num.replace(/\D/g, '');
+    const completo = cod === '57' ? digitos.slice(0, 10) : `+${cod} ${digitos.slice(0, 12)}`;
+    onChange({ target: { name, value: completo } } as React.ChangeEvent<HTMLInputElement>);
+  };
+
+  return (
+    <div className={`Datos-input-container ${error ? 'Datos-input-container--error' : ''}`} data-campo={name}>
+      <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
+      <div className="Datos-phone">
+        <select
+          className="Datos-phone-region"
+          value={codigo}
+          disabled={disabled}
+          onChange={(e) => despachar(e.target.value, numero)}
+          title="Región del número"
+        >
+          {REGIONES_CELULAR.map((r, i) => (
+            <option key={`${r.code}-${i}`} value={r.code}>{r.label}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={numero}
+          disabled={disabled}
+          placeholder={codigo === '57' ? 'Ej: 3001234567' : 'Número local'}
+          onChange={(e) => despachar(codigo, e.target.value)}
+        />
+      </div>
+    </div>
+  );
+};
+
 interface FormSectionProps {
   title: string;
   fields: {
@@ -109,9 +159,61 @@ interface FormSectionProps {
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   disabled?: boolean;
   requiredFields?: string[];
+  /** Clase de acento por figura (conductor/propietario/tenedor/vehículo). */
+  className?: string;
+  /** Campos obligatorios faltantes (se pintan en rojo al intentar continuar). */
+  camposError?: string[];
 }
 
 const categoriasLicencia = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3"];
+
+/* ── Celular con región: selector de país (default +57 Colombia) + número.
+   Almacenamiento: +57 → solo dígitos (formato histórico, ej: 3001234567);
+   otra región → "+<código> <número>" (ej: "+54 3794123456"). Los consumidores
+   (wa.me, HV, revisión) muestran/usan el valor tal cual. ── */
+const PHONE_FIELDS = ['condCelular', 'condCelularEmergencia', 'condCelularRef', 'propCelular', 'tenedCelular'];
+
+const REGIONES_CELULAR: Array<{ code: string; label: string }> = [
+  { code: '57', label: '🇨🇴 +57 Colombia' },
+  { code: '1', label: '🇺🇸 +1 EE.UU. / Canadá' },
+  { code: '1', label: '🇩🇴 +1 Rep. Dominicana' },
+  { code: '52', label: '🇲🇽 +52 México' },
+  { code: '51', label: '🇵🇪 +51 Perú' },
+  { code: '56', label: '🇨🇱 +56 Chile' },
+  { code: '54', label: '🇦🇷 +54 Argentina' },
+  { code: '55', label: '🇧🇷 +55 Brasil' },
+  { code: '58', label: '🇻🇪 +58 Venezuela' },
+  { code: '593', label: '🇪🇨 +593 Ecuador' },
+  { code: '591', label: '🇧🇴 +591 Bolivia' },
+  { code: '595', label: '🇵🇾 +595 Paraguay' },
+  { code: '598', label: '🇺🇾 +598 Uruguay' },
+  { code: '507', label: '🇵🇦 +507 Panamá' },
+  { code: '506', label: '🇨🇷 +506 Costa Rica' },
+  { code: '505', label: '🇳🇮 +505 Nicaragua' },
+  { code: '504', label: '🇭🇳 +504 Honduras' },
+  { code: '503', label: '🇸🇻 +503 El Salvador' },
+  { code: '502', label: '🇬🇹 +502 Guatemala' },
+  { code: '501', label: '🇧🇿 +501 Belice' },
+  { code: '509', label: '🇭🇹 +509 Haití' },
+  { code: '53', label: '🇨🇺 +53 Cuba' },
+  { code: '1', label: '🇯🇲 +1 Jamaica' },
+];
+
+const regionDeValor = (valor: string): string => {
+  const m = (valor || '').match(/^\+(\d{1,3})\s/);
+  return m ? m[1] : '57';
+};
+
+const numeroDeValor = (valor: string): string =>
+  (valor || '').replace(/^\+\d{1,3}\s?/, '');
+
+/* Fechas que provienen del RUT del propietario/tenedor: NO son clon del
+   conductor, así que siguen editables aunque los toggles de figura estén
+   activos (el RUT se exige igual aunque las figuras coincidan). */
+const RUT_FECHA_FIELDS = [
+  'propFechaInicioActividad', 'propFechaExpedicionRut',
+  'tenedFechaInicioActividad', 'tenedFechaExpedicionRut',
+];
 const gruposSanguineos = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 const epsColombia = ["Sura", "Sanitas", "Compensar", "Coomeva", "Salud Total"];
 const arlColombia = ["Positiva", "Sura", "Colpatria", "Bolívar", "Axa Colpatria"];
@@ -131,23 +233,47 @@ const aseguradorasSoat = [
   "HDI Seguros", "General de Seguros", "Previsora", "Liberty", "Estado (Fasecolda)",
 ];
 
-const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, handleChange, disabled = false, requiredFields }) => (
-  <div className="Datos-form-section">
+/* Acento visual por figura: cada bloque del formulario se identifica por color
+   (conductor=azul, propietario=ámbar, tenedor=violeta, vehículo=verde). */
+const claseSeccion = (title: string): string => {
+  if (title.startsWith('Datos del propietario')) return 'Datos-form-section--propietario';
+  if (title.startsWith('Datos del Tenedor')) return 'Datos-form-section--tenedor';
+  if (title.startsWith('Datos del Vehiculo') || title.startsWith('Datos del Remolque')) return 'Datos-form-section--vehiculo';
+  // Conductor, contacto de emergencia y referencias laborales (todo del conductor).
+  return 'Datos-form-section--conductor';
+};
+
+const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, handleChange, disabled = false, requiredFields, className, camposError }) => (
+  <div className={`Datos-form-section ${className || ''}`.trim()}>
     <h4>{title}</h4>
     <div className="Datos-fields-container">
       {fields.map(({ label, name, type, options, inputProps }) => (
-        <InputField
-          key={name}
-          label={label}
-          name={name}
-          type={type}
-          value={formData[name] || ""}
-          onChange={handleChange}
-          options={options}
-          disabled={disabled}
-          required={requiredFields?.includes(name)}
-          inputProps={inputProps}
-        />
+        PHONE_FIELDS.includes(name) ? (
+          <PhoneField
+            key={name}
+            label={label}
+            name={name}
+            value={formData[name] || ""}
+            onChange={handleChange}
+            disabled={disabled && !RUT_FECHA_FIELDS.includes(name)}
+            required={requiredFields?.includes(name)}
+            error={camposError?.includes(name)}
+          />
+        ) : (
+          <InputField
+            key={name}
+            label={label}
+            name={name}
+            type={type}
+            value={formData[name] || ""}
+            onChange={handleChange}
+            options={options}
+            disabled={disabled && !RUT_FECHA_FIELDS.includes(name)}
+            required={requiredFields?.includes(name)}
+            inputProps={inputProps}
+            error={camposError?.includes(name)}
+          />
+        )
       ))}
     </div>
   </div>
@@ -158,17 +284,36 @@ const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, hand
  * Cada entrada convierte los datos crudos del LLM a claves del formData.
  * ========================================================================== */
 
+// Catálogo de tipos de documento del RUT (campo 25) para el select.
+const tiposDocumentoRut = [
+  'CÉDULA DE CIUDADANÍA', 'NIT', 'CÉDULA DE EXTRANJERÍA', 'PASAPORTE', 'TARJETA DE IDENTIDAD',
+];
+
+// Aterriza el tipo de documento leído al catálogo (viene con acentos variantes).
+const normalizarTipoDocumento = (crudo: string): string => {
+  const t = String(crudo).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  if (t.includes('NIT')) return 'NIT';
+  if (t.includes('EXTRANJER')) return 'CÉDULA DE EXTRANJERÍA';
+  if (t.includes('CEDULA') || t.includes('CIUDADANIA')) return 'CÉDULA DE CIUDADANÍA';
+  if (t.includes('PASAPORTE')) return 'PASAPORTE';
+  if (t.includes('TARJETA')) return 'TARJETA DE IDENTIDAD';
+  return String(crudo).toUpperCase();
+};
+
 // Helper: mapear los campos de una persona (propietario/tenedor) desde un RUT.
+// El RUT trae el nombre separado (apellidos + nombres): se guarda NOMBRES PRIMERO.
 const mapearRutAPersona = (prefijo: 'prop' | 'tened', d: Record<string, any>): Record<string, string> => {
   const nuevos: Record<string, string> = {};
   const esJuridica = (d.tipo_persona || '').toUpperCase().includes('JURID');
   if (esJuridica && d.razon_social) {
     nuevos[`${prefijo}Nombre`] = d.razon_social.toUpperCase();
   } else if (d.nombres || d.apellidos) {
-    nuevos[`${prefijo}Nombre`] = [d.apellidos, d.nombres].filter(Boolean).join(' ').toUpperCase();
+    // Nombres de pila primero, apellidos después (ej: "JUAN CARLOS SUAREZ ORTIZ").
+    nuevos[`${prefijo}Nombre`] = [d.nombres, d.apellidos].filter(Boolean).join(' ').toUpperCase();
   }
-  const doc = [d.numero_documento, d.digito_verificacion].filter(Boolean).join('-');
-  if (d.numero_documento) nuevos[`${prefijo}Documento`] = doc;
+  if (d.tipo_documento) nuevos[`${prefijo}TipoDocumento`] = normalizarTipoDocumento(d.tipo_documento);
+  // Número de identificación asociado al tipo de documento: solo dígitos.
+  if (d.numero_documento) nuevos[`${prefijo}Documento`] = String(d.numero_documento).replace(/\D/g, '');
   if (d.direccion) nuevos[`${prefijo}Direccion`] = d.direccion.toUpperCase();
   if (d.ciudad) {
     const ciudad = d.ciudad.toUpperCase();
@@ -342,8 +487,6 @@ interface DatosProps {
 const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [tenedorSame, setTenedorSame] = useState<boolean>(false);
-  const [propietarioSame, setPropietarioSame] = useState<boolean>(false);
   const [editandoFirma, setEditandoFirma] = useState(false);
   const sigCanvas = useRef<any>(null);
   // Documentos ya guardados en el vehículo (tipo subida → URL), para los ✓.
@@ -362,6 +505,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const [reversoPendiente, setReversoPendiente] = useState<{ tipo: string; esquema: string; etiqueta: string; anverso: File } | null>(null);
   const inputReversoDocRef = useRef<HTMLInputElement>(null);
 
+  // --- Campos obligatorios faltantes (se pintan en rojo al dar «Continuar») ---
+  const [camposError, setCamposError] = useState<string[]>([]);
+  // Se limpian solos conforme el usuario va llenando.
+  useEffect(() => {
+    setCamposError(prev => prev.filter(c => !formData[c] || formData[c].trim() === ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData]);
+
   // --- Autoguardado con debounce ---
   // 'inactivo' (nada pendiente) | 'guardando' | 'guardado' | 'error'
   const [estadoAutoguardado, setEstadoAutoguardado] = useState<'inactivo' | 'guardando' | 'guardado' | 'error'>('inactivo');
@@ -372,7 +523,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const estadoAutoguardadoRef = useRef(estadoAutoguardado);
   estadoAutoguardadoRef.current = estadoAutoguardado;
 
-  const phoneFields = ['condCelular', 'condCelularEmergencia', 'condCelularRef', 'propCelular', 'tenedCelular'];
+  const phoneFields = PHONE_FIELDS;
 
   const requiredFields = [
     'condPrimerApellido', 'condSegundoApellido', 'condNombres', 'condCedulaCiudadania', 'condExpedidaEn', 'condDireccion',
@@ -422,15 +573,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             if (typeof url === 'string' && url && url !== 'null' && url !== 'undefined') subidos[tipo] = url;
           });
           setDocsSubidos(subidos);
-
-          // Toggles de figuras: solo desde flags persistidos (la inferencia de
-          // dígitos se usa para validación, no para auto-marcar la UI).
-          if (typeof loadedData.propietarioIgualConductor === 'boolean') {
-            setPropietarioSame(loadedData.propietarioIgualConductor);
-          }
-          if (typeof loadedData.tenedorIgualPropietario === 'boolean') {
-            setTenedorSame(loadedData.tenedorIgualPropietario);
-          }
 
           const departamentosCalculados: Record<string, string> = {};
           const cityToDeptoMap: Record<string, string> = {
@@ -489,18 +631,26 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (phoneFields.some(field => name.includes(field))) {
-        const numericValue = value.replace(/\D/g, '');
-        if (numericValue.length > 10) return;
-        setFormData(prev => ({ ...prev, [name]: numericValue }));
+    if (PHONE_FIELDS.some(field => name.includes(field))) {
+        // Celular: solo dígitos; con prefijo internacional "+<código> <número>"
+        // se permiten hasta 12 dígitos, sin él (Colombia) máximo 10.
+        const m = String(value).match(/^(\+\d{1,3})?\s?(\d*)$/);
+        if (!m) return;
+        const prefijo = m[1];
+        const digitos = m[2];
+        if (prefijo) {
+          if (digitos.length > 12) return;
+          setFormData(prev => ({ ...prev, [name]: `${prefijo} ${digitos}` }));
+        } else {
+          if (digitos.length > 10) return;
+          setFormData(prev => ({ ...prev, [name]: digitos }));
+        }
         return;
     }
     if (value !== "") {
         if (name === 'vehModelo' && parseInt(value) > 2026) return;
         if (name === 'condAntiguedadRef' && parseInt(value) > 30) return;
     }
-    if (tenedorSame && name.startsWith("tened")) return;
-    if (propietarioSame && name.startsWith("prop")) return;
     if (name.includes('Depto')) {
         let ciudadField = "";
         if (name === 'condDeptoCiudad') ciudadField = 'condCiudad';
@@ -513,33 +663,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     } else {
         setFormData((prevData) => ({ ...prevData, [name]: value }));
     }
-  };
-
-  const handleCopiarDatos = () => {
-    setFormData((prevData) => ({
-      ...prevData,
-      tenedNombre: prevData.propNombre || "", tenedDocumento: prevData.propDocumento || "",
-      tenedDeptoExpedida: prevData.propDeptoExpedida || "", tenedCiudadExpDoc: prevData.propCiudadExpDoc || "",
-      tenedCorreo: prevData.propCorreo || "", tenedCelular: prevData.propCelular || "",
-      tenedDireccion: prevData.propDireccion || "", tenedDeptoCiudad: prevData.propDeptoCiudad || "",
-      tenedCiudad: prevData.propCiudad || ""
-    }));
-  };
-
-  // Clona los datos del conductor en el propietario (toggle "Soy el propietario").
-  const handleCopiarDatosPropietario = () => {
-    setFormData((prevData) => ({
-      ...prevData,
-      propNombre: [prevData.condPrimerApellido, prevData.condSegundoApellido, prevData.condNombres]
-        .filter(Boolean).join(' ').toUpperCase() || "",
-      propDocumento: prevData.condCedulaCiudadania || "",
-      propCiudadExpDoc: prevData.condExpedidaEn || "",
-      propCorreo: prevData.condCorreo || "",
-      propCelular: prevData.condCelular || "",
-      propDireccion: prevData.condDireccion || "",
-      propDeptoCiudad: prevData.condDeptoCiudad || "",
-      propCiudad: prevData.condCiudad || ""
-    }));
   };
 
   // Aplica los datos de una lectura IA al formData respetiendo lo escrito a mano:
@@ -590,12 +713,9 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         ? 'documentoIdentidadConductor'
         : LECTURA_IA_A_TIPO_SUBIDA[tipoLectura];
 
-      // Gemelos según las figuras activas (toggles) para replicar la URL.
-      const gemelos = tipoSubida ? gemelosDocumento(tipoSubida, calcularFigurasIguales({
-        ...formData,
-        propietarioIgualConductor: propietarioSame,
-        tenedorIgualPropietario: tenedorSame,
-      })) : [];
+      // Gemelos por figura (inferencia por dígitos; los flags persistidos de
+      // históricos, si existen, viven dentro del propio formData).
+      const gemelos = tipoSubida ? gemelosDocumento(tipoSubida, calcularFigurasIguales(formData)) : [];
 
       let datos: Record<string, any> | null = null;
       let avisos: string[] = [];
@@ -798,18 +918,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     setTimeout(() => inputDocumentoRef.current?.click(), 0);
   };
 
-  const toggleTenedorSame = () => {
-    const newState = !tenedorSame;
-    setTenedorSame(newState);
-    if (newState) handleCopiarDatos();
-  };
-
-  const togglePropietarioSame = () => {
-    const newState = !propietarioSame;
-    setPropietarioSame(newState);
-    if (newState) handleCopiarDatosPropietario();
-  };
-
   const dataURLtoBlob = (dataurl: string) => {
     const arr = dataurl.split(',');
     const mime = arr[0].match(/:(.*?);/)![1];
@@ -852,10 +960,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         .map(([key, value]) => [key, value || ""])
     );
 
-    // Flags de figuras: asignar DESPUÉS del mapping (que convierte false→"").
-    cleanedFormData['propietarioIgualConductor'] = propietarioSame;
-    cleanedFormData['tenedorIgualPropietario'] = tenedorSame;
-
+    // Los flags de figuras ya no se envían: la igualdad se infiere por dígitos
+    // (los históricos que los tengan en BD siguen respetándose en el backend).
     const urlGuardado = new URL(`${API_BASE}/vehiculos/actualizar-informacion/${placa}`);
     if (editarAprobado && idUsuario) urlGuardado.searchParams.set('editado_por', idUsuario);
 
@@ -886,7 +992,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, propietarioSame, tenedorSame]);
+  }, [formData]);
 
   // Guardado pendiente al desmontar/salir (mejor esfuerzo).
   useEffect(() => {
@@ -901,9 +1007,39 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
 
   const procesarGuardado = async (esFinalizar: boolean, e: React.MouseEvent) => {
     e.preventDefault();
+    // «Continuar» exige los obligatorios completos: los faltantes se marcan en
+    // rojo y se hace scroll al primero. («Guardar Progreso» no exige nada.)
+    if (esFinalizar) {
+        const faltantes = requiredFields.filter(f => !formData[f] || formData[f].trim() === '');
+        if (faltantes.length > 0) {
+            setCamposError(faltantes);
+            const primero = document.querySelector(`[data-campo="${faltantes[0]}"]`);
+            if (primero) primero.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const etiquetas = faltantes.slice(0, 8).map(f => `<li>${etiquetaDeCampo(f)}</li>`).join('');
+            const resto = faltantes.length > 8 ? `<li>… y ${faltantes.length - 8} más</li>` : '';
+            Swal.fire({
+                title: 'Campos obligatorios incompletos',
+                html: `Te faltan <b>${faltantes.length}</b> campo(s); quedaron marcados en <b style="color:#e74c3c">rojo</b> en el formulario:<ul style="text-align:left; margin:10px 0 0; padding-left:20px;">${etiquetas}${resto}</ul>`,
+                icon: 'warning',
+                confirmButtonColor: '#e67e22',
+            });
+            return;
+        }
+    }
     for (const field of phoneFields) {
-        if (formData[field] && formData[field].length !== 10) {
-            Swal.fire({ title: "Número incorrecto", text: `El número de celular en el campo "${field}" debe tener exactamente 10 dígitos.`, icon: "warning" });
+        const valor = formData[field] || '';
+        if (!valor) continue;
+        const digitos = valor.replace(/\D/g, '');
+        // Colombia (sin prefijo): 10 dígitos. Internacional (+código): 6-12.
+        const esValido = valor.startsWith('+')
+          ? digitos.length >= 6 && digitos.length <= 13
+          : digitos.length === 10;
+        if (!esValido) {
+            Swal.fire({
+                title: "Número incorrecto",
+                text: `Revisa el celular "${field}": Colombia debe tener 10 dígitos; con otra región, elige el prefijo (+) y escribe el número local.`,
+                icon: "warning",
+            });
             return;
         }
     }
@@ -971,10 +1107,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Fecha de Nacimiento', name: 'condFechaNacimiento', type: 'date' },
         { label: 'Expedida en (Ciudad) *', name: 'condExpedidaEn' },
         { label: 'Fecha de Expedición Cédula', name: 'condFechaExpedicion', type: 'date' },
-        { label: 'Dirección', name: 'condDireccion' },
         { label: 'Departamento (Residencia)', name: 'condDeptoCiudad', options: departamentosUnicos },
-        { label: 'Ciudad', name: 'condCiudad', options: getCiudadesPorDepto(formData['condDeptoCiudad']) },
-        { label: 'Celular (10 dígitos)', name: 'condCelular', type: 'text', inputProps: { maxLength: 10, placeholder: 'Ej: 3001234567' } },
+        { label: 'Ciudad (Residencia)', name: 'condCiudad', options: getCiudadesPorDepto(formData['condDeptoCiudad']) },
+        { label: 'Dirección', name: 'condDireccion' },
+        { label: 'Celular', name: 'condCelular', type: 'text' },
         { label: 'Correo Electrónico', name: 'condCorreo', type: 'email' },
         { label: 'EPS', name: 'condEps', options: epsColombia },
         { label: 'ARL', name: 'condArl', options: arlColombia },
@@ -990,7 +1126,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       title: 'En Caso de Emergencia Avisar a',
       fields: [
         { label: 'Nombre', name: 'condNombreEmergencia' },
-        { label: 'Celular (10 dígitos)', name: 'condCelularEmergencia', type: 'text', inputProps: { maxLength: 10 } },
+        { label: 'Celular', name: 'condCelularEmergencia', type: 'text' },
         { label: 'Parentesco', name: 'condParentescoEmergencia', options: parentescos },
       ],
     },
@@ -998,7 +1134,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       title: 'Referencias Laborales',
       fields: [
         { label: 'Empresa', name: 'condEmpresaRef' },
-        { label: 'Celular (10 dígitos)', name: 'condCelularRef', type: 'text', inputProps: { maxLength: 10 } },
+        { label: 'Celular', name: 'condCelularRef', type: 'text' },
         { label: 'Departamento', name: 'condDeptoCiudadRef', options: departamentosUnicos },
         { label: 'Ciudad', name: 'condCiudadRef', options: getCiudadesPorDepto(formData['condDeptoCiudadRef']) },
         { label: 'Nro. Viajes', name: 'condNroViajesRef', type: 'number' },
@@ -1009,12 +1145,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     {
       title: 'Datos del propietario',
       fields: [
+        { label: 'Tipo de Documento', name: 'propTipoDocumento', options: tiposDocumentoRut },
         { label: 'Nombre/Razón', name: 'propNombre' },
         { label: 'Número documento', name: 'propDocumento', type: 'number' },
         { label: 'Departamento (Expedida)', name: 'propDeptoExpedida', options: departamentosUnicos },
         { label: 'Expedida en', name: 'propCiudadExpDoc', options: getCiudadesPorDepto(formData['propDeptoExpedida']) },
         { label: 'Correo', name: 'propCorreo', type: 'email' },
-        { label: 'Celular (10 dígitos)', name: 'propCelular', type: 'text', inputProps: { maxLength: 10 } },
+        { label: 'Celular', name: 'propCelular', type: 'text' },
         { label: 'Dirección', name: 'propDireccion' },
         { label: 'Departamento', name: 'propDeptoCiudad', options: departamentosUnicos },
         { label: 'Ciudad', name: 'propCiudad', options: getCiudadesPorDepto(formData['propDeptoCiudad']) },
@@ -1026,18 +1163,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       ],
     },
     {
-      title: 'Toggle Tenedor',
-      fields: []
-    },
-    {
-      title: 'Datos del Tenedor  (En caso que sea distinto al propietario)',
+      title: 'Datos del Tenedor',
       fields: [
+        { label: 'Tipo de Documento', name: 'tenedTipoDocumento', options: tiposDocumentoRut },
         { label: 'Nombre/Razón', name: 'tenedNombre' },
         { label: 'Número documento', name: 'tenedDocumento', type: 'number' },
         { label: 'Departamento (Expedida)', name: 'tenedDeptoExpedida', options: departamentosUnicos },
         { label: 'Expedida en', name: 'tenedCiudadExpDoc', options: getCiudadesPorDepto(formData['tenedDeptoExpedida']) },
         { label: 'Correo', name: 'tenedCorreo', type: 'email' },
-        { label: 'Celular (10 dígitos)', name: 'tenedCelular', type: 'text', inputProps: { maxLength: 10 } },
+        { label: 'Celular', name: 'tenedCelular', type: 'text' },
         { label: 'Dirección', name: 'tenedDireccion' },
         { label: 'Departamento', name: 'tenedDeptoCiudad', options: departamentosUnicos },
         { label: 'Ciudad', name: 'tenedCiudad', options: getCiudadesPorDepto(formData['tenedDeptoCiudad']) },
@@ -1096,6 +1230,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     },
   ];
 
+  // Etiqueta legible de un campo (para el Swal de campos faltantes).
+  const etiquetaDeCampo = (name: string): string => {
+    if (name === 'condCategoriaLic') return 'Categorías de la licencia';
+    for (const sec of sections) {
+      const f = sec.fields.find(fld => fld.name === name);
+      if (f) return f.label;
+    }
+    return name;
+  };
+
   return (
     <div className="Datos-contenedor">
       <div className="Datos-avance-container">
@@ -1138,7 +1282,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                   title={cedulaLista ? 'Documento cargado — toca para reemplazarlo' : 'Toma una foto o elige el archivo de la galería'}
                 >
                   {cedulaLista ? '🪪 Cédula del conductor' : '🪪 Cédula — frente *'}
-                  {cedulaLista && <span className="Datos-iaDoc-badge">✓ Cargado</span>}
+                  {cedulaLista && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
                   <input
                     ref={inputAnversoRef}
                     type="file"
@@ -1207,7 +1351,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                   title={listo ? 'Documento cargado — toca para reemplazarlo' : (dosCaras ? 'Frente y reverso (opcional)' : undefined)}
                 >
                   {listo ? opcion.etiqueta.replace(/^[^\s]+\s/, '') : opcion.etiqueta}
-                  {listo && <span className="Datos-iaDoc-badge">✓ Cargado</span>}
+                  {listo && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
                 </button>
                 {listo && (
                   <button
@@ -1269,27 +1413,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       <div className="Datos-Form-datos-generales">
         {sections.map(({ title, fields }) => (
           <div key={title}>
-            {title === "Datos del propietario" && (
-              <div className="Datos-toggle-tenedor">
-                <input type="checkbox" id="propietarioSameCheckbox" className="Datos-checkbox" checked={propietarioSame} onChange={togglePropietarioSame} />
-                <label htmlFor="propietarioSameCheckbox" className="Datos-checkbox-label">
-                  {propietarioSame ? "Editar datos del Propietario" : "Soy el propietario (usar los mismos datos del conductor)"}
-                </label>
-              </div>
-            )}
-            {title === "Toggle Tenedor" && (
-              <div className="Datos-toggle-tenedor">
-                <input type="checkbox" id="tenedorSameCheckbox" className="Datos-checkbox" checked={tenedorSame} onChange={toggleTenedorSame} />
-                <label htmlFor="tenedorSameCheckbox" className="Datos-checkbox-label">
-                  {tenedorSame ? "Editar datos del Tenedor" : "Rellenar los datos del tenedor con los mismos del Propietario"}
-                </label>
-              </div>
-            )}
             {title === "Información del Conductor" && (
               (() => {
                 const catsActivas = (formData['condCategoriaLic'] || '').split(',').map(s => s.trim()).filter(Boolean);
+                const catsError = camposError.includes('condCategoriaLic');
                 return (
-                  <div className="Datos-categorias-lic">
+                  <div
+                    className={`Datos-categorias-lic ${catsError ? 'Datos-categorias-lic--error' : ''}`}
+                    data-campo="condCategoriaLic"
+                  >
                     <label className="Datos-categorias-lic-label">
                       Categorías de la licencia (marca TODAS las que tengas) <span style={{ color: '#e74c3c' }}>*</span>
                     </label>
@@ -1318,10 +1450,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                 fields={fields}
                 formData={formData}
                 handleChange={handleChange}
-                disabled={
-                  (title.includes("Tenedor") && tenedorSame) ||
-                  (title === "Datos del propietario" && propietarioSame)
-                }
+                className={claseSeccion(title)}
+                camposError={camposError}
                 requiredFields={requiredFields}
               />
             )}

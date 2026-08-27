@@ -917,7 +917,7 @@ const PanelConductoresVista: React.FC = () => {
             className={`btn-sidebar-step btn-rechazados ${currentStep === 4 ? "active" : ""} ${vehiculosRechazados.length === 0 ? "disabled" : ""}`}
             onClick={() => changeStep(4)}
             disabled={vehiculosRechazados.length === 0}
-            style={{ marginTop: '20px', border: '2px solid #e74c3c', color: vehiculosRechazados.length === 0 ? '#ccc' : '#c0392b' }}
+            style={{ border: '2px solid #e74c3c', color: vehiculosRechazados.length === 0 ? '#ccc' : '#c0392b' }}
           >
               <div className="step-indicator" style={{ backgroundColor: vehiculosRechazados.length === 0 ? '#eee' : '#e74c3c', color: 'white' }}><FaExclamationTriangle /></div>
               <span>Vehículos Rechazados ({vehiculosRechazados.length})</span>
@@ -934,19 +934,26 @@ const PanelConductoresVista: React.FC = () => {
               </div>
               <div className="panel-creacion">
                 <div className="input-group-crear">
-                    <input type="text" placeholder="Ej: ABC1234" value={newPlate} onChange={(e) => setNewPlate(e.target.value)} className="input-moderno"/>
+                    <input
+                        type="text"
+                        placeholder="Ej: ABC123"
+                        value={newPlate}
+                        onChange={(e) => setNewPlate(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7))}
+                        className="input-moderno"
+                        maxLength={7}
+                        autoCapitalize="characters"
+                        inputMode="text"
+                    />
                     <button className="btn-moderno-accion" onClick={handleCreateVehicle}>Crear Placa</button>
                 </div>
 
                 <div style={{marginTop: '30px', display:'flex', flexDirection:'column', gap:'20px'}}>
 
                     {/* SECCIÓN 1: PENDIENTES */}
-                    <div className="seccion-lista-vehiculos">
-                        <h4 style={{textAlign:'left', color:'#555', borderBottom:'1px solid #ddd', paddingBottom:'5px'}}>
-                            <FaClipboardList /> Continuar Registro (Pendientes)
-                        </h4>
+                    <div className="estado-seccion estado-seccion--pendiente">
+                        <h4><FaClipboardList /> Continuar registro</h4>
                         {vehicles.length === 0 ? (
-                            <p style={{color: '#999', fontStyle:'italic', padding:'10px'}}>No tienes vehículos pendientes.</p>
+                            <p className="estado-vacio">No tienes vehículos pendientes.</p>
                         ) : (
                             <>
                                 <div className="lista-vehiculos-grid">
@@ -984,10 +991,8 @@ const PanelConductoresVista: React.FC = () => {
 
                     {/* SECCIÓN 2: DEVUELTOS / RECHAZADOS */}
                     {vehiculosRechazados.length > 0 && (
-                        <div className="seccion-lista-vehiculos" style={{backgroundColor: '#fff5f5', padding: '15px', borderRadius: '8px', border: '1px solid #ffcccc'}}>
-                            <h4 style={{textAlign:'left', color:'#c0392b', borderBottom:'1px solid #ffcccc', paddingBottom:'5px'}}>
-                                    <FaTimesCircle /> Vehículos Devueltos (Requieren Corrección)
-                            </h4>
+                        <div className="estado-seccion estado-seccion--devuelto">
+                            <h4><FaTimesCircle /> Vehículos devueltos <span className="estado-seccion-sub">requieren corrección</span></h4>
                             <div className="lista-vehiculos-grid">
                                 {vehiculosRechazados.map((veh, idx) => (
                                 <button
@@ -1008,26 +1013,15 @@ const PanelConductoresVista: React.FC = () => {
 
                     {/* SECCIÓN 3: APROBADOS */}
                     {vehiculosAprobados.length > 0 && (
-                        <div className="seccion-lista-vehiculos" style={{backgroundColor: '#d4edda', padding: '15px', borderRadius: '8px', border: '1px solid #c3e6cb'}}>
-                            <h4 style={{textAlign:'left', color:'#155724', borderBottom:'1px solid #c3e6cb', paddingBottom:'5px'}}>
-                                    <FaCheckCircle /> Vehículos Aprobados
-                            </h4>
+                        <div className="estado-seccion estado-seccion--aprobado">
+                            <h4><FaCheckCircle /> Vehículos aprobados</h4>
                             <div className="lista-vehiculos-grid">
                                 {vehiculosAprobados.map((veh, idx) => (
-                                <div
-                                    key={idx}
-                                    className="vehiculo-aprobado-card"
-                                    style={{
-                                        padding: '10px',
-                                        borderRadius:'5px',
-                                        backgroundColor: 'white',
-                                        border: '1px solid #c3e6cb',
-                                        display: 'flex', alignItems: 'center', gap: '10px',
-                                        color: '#155724', fontWeight: 'bold'
-                                    }}
-                                >
-                                    <FaCheckCircle /> {veh.placa}
-                                    <span style={{fontSize: '0.8rem', fontWeight: 'normal', color: '#155724', marginLeft: 'auto'}}>Aprobado para operar</span>
+                                <div key={idx} className="vehiculo-estado-card">
+                                    <span className="estado-card-placa">
+                                      <FaCheckCircle className="icono-ok" /> {veh.placa}
+                                    </span>
+                                    <span className="estado-chip estado-chip--aprobado">Aprobado para operar</span>
                                     {esTenedor && (
                                       <TenedorConductorInfo
                                         veh={veh}
@@ -1036,21 +1030,22 @@ const PanelConductoresVista: React.FC = () => {
                                         onQuitar={desvincularConductor}
                                       />
                                     )}
-                                    <button
-                                        className="btn-ver-mis-datos"
-                                        onClick={() => abrirVer(veh.placa)}
-                                        title="Ver los datos que cargaste"
-                                    >
-                                        <FaEye /> Ver mis datos
-                                    </button>
-                                    <button
-                                        className="btn-ver-mis-datos"
-                                        style={{ borderColor: '#b8860b', color: '#b8860b' }}
-                                        onClick={() => editarAprobado(veh.placa)}
-                                        title="Editar datos o documentos de este vehículo aprobado"
-                                    >
-                                        <FaEdit /> Editar
-                                    </button>
+                                    <div className="estado-card-acciones">
+                                        <button
+                                            className="btn-secundario btn-secundario--ok"
+                                            onClick={() => abrirVer(veh.placa)}
+                                            title="Ver los datos que cargaste"
+                                        >
+                                            <FaEye /> Ver mis datos
+                                        </button>
+                                        <button
+                                            className="btn-secundario btn-secundario--editar"
+                                            onClick={() => editarAprobado(veh.placa)}
+                                            title="Editar datos o documentos de este vehículo aprobado"
+                                        >
+                                            <FaEdit /> Editar
+                                        </button>
+                                    </div>
                                 </div>
                                 ))}
                             </div>
@@ -1059,26 +1054,15 @@ const PanelConductoresVista: React.FC = () => {
 
                     {/* SECCIÓN 4: EN REVISIÓN */}
                     {vehiculosEnRevision.length > 0 && (
-                        <div className="seccion-lista-vehiculos" style={{backgroundColor: '#e3f2fd', padding: '15px', borderRadius: '8px', border: '1px solid #bbdefb'}}>
-                            <h4 style={{textAlign:'left', color:'#1976d2', borderBottom:'1px solid #bbdefb', paddingBottom:'5px'}}>
-                                    <FaClock /> Vehículos en Revisión
-                            </h4>
+                        <div className="estado-seccion estado-seccion--revision">
+                            <h4><FaClock /> Vehículos en revisión</h4>
                             <div className="lista-vehiculos-grid">
                                 {vehiculosEnRevision.map((veh, idx) => (
-                                <div
-                                    key={idx}
-                                    className="vehiculo-revision-card"
-                                    style={{
-                                        padding: '10px',
-                                        marginTop: "10px",
-                                        borderRadius:'5px',
-                                        backgroundColor: 'white',
-                                        border: '1px solid #90caf9',
-                                        display: 'flex', alignItems: 'center', gap: '10px',
-                                        color: '#1565c0', fontWeight: 'bold'
-                                    }}
-                                >
-                                    <FaClock /> {veh.placa}
+                                <div key={idx} className="vehiculo-estado-card">
+                                    <span className="estado-card-placa">
+                                      <FaClock className="icono-reloj" /> {veh.placa}
+                                    </span>
+                                    <span className="estado-chip estado-chip--revision">Esperando aprobación</span>
                                     {esTenedor && (
                                       <TenedorConductorInfo
                                         veh={veh}
@@ -1087,7 +1071,6 @@ const PanelConductoresVista: React.FC = () => {
                                         onQuitar={desvincularConductor}
                                       />
                                     )}
-                                    <span style={{fontSize: '0.8rem', fontWeight: 'normal', color: '#555', marginLeft: 'auto'}}>Esperando aprobación...</span>
                                 </div>
                                 ))}
                             </div>
@@ -1138,8 +1121,19 @@ const PanelConductoresVista: React.FC = () => {
                     {secciones.map((seccion, idx) => (
                         <div key={idx} className="seccion-doc-card">
                             <div className="seccion-header" onClick={() => toggleSeccion(idx)}>
-                                <h4>{seccion.subtitulo} <span style={{fontSize:'0.8rem', color: '#666'}}>({calculateSectionProgress(seccion.items)}%)</span></h4>
-                                <span>{visibleSeccion === idx ? "▼" : "▶"}</span>
+                                <div className="seccion-header-texto">
+                                    <h4>
+                                        {seccion.subtitulo}{' '}
+                                        <span className="seccion-pct">{calculateSectionProgress(seccion.items)}%</span>
+                                    </h4>
+                                    <div className="barra-progreso-bg barra-progreso-bg--mini">
+                                        <div
+                                            className="barra-progreso-fill"
+                                            style={{ width: `${calculateSectionProgress(seccion.items)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                                <span className="seccion-flecha">{visibleSeccion === idx ? "▾" : "▸"}</span>
                             </div>
                             {visibleSeccion === idx && (
                                 <div className="seccion-body">

@@ -3,12 +3,20 @@
 /* -------------------------------------------------------------------------- */
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body, html {
   margin: 0;
   padding: 0;
   height: 100%;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #27ae60;
+  outline-offset: 2px;
 }
 
 .bg-conductor {
@@ -181,16 +189,17 @@ body, html {
   flex-shrink: 0;
 }
 
-/* Botón "← Menú" del sidebar (vuelve al hub) */
+/* Botón "← Menú" del stepper (vuelve al hub): píldora compacta en la fila */
 .btn-sidebar-volver {
-  width: 100%;
-  padding: 9px 12px;
-  margin-bottom: 14px;
+  flex: 0 0 auto;
+  align-self: center;
+  width: auto;
+  padding: 7px 14px;
   background: #fff;
   color: #2c3e50;
   border: 1px solid #d5dbe3;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -315,50 +324,62 @@ body, html {
 /* -------------------------------------------------------------------------- */
 /* 3. LAYOUT PRINCIPAL                                                        */
 /* -------------------------------------------------------------------------- */
+/* El menú de pasos va ARRIBA en todas las pantallas (igual que en móvil):
+   fila horizontal sticky bajo el header, más ordenado visualmente. */
 .layout-conductor {
   display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 1200px; /* Contenedor maximo razonable */
   margin: 0 auto;
   padding: 20px;
-  gap: 20px;
-  flex: 1; 
-  align-items: flex-start; /* Evita estiramiento innecesario */
+  gap: 14px;
+  flex: 1;
+  align-items: stretch;
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. SIDEBAR (Navegación de Pasos)                                           */
+/* 4. STEPPER SUPERIOR (Navegación de Pasos)                                  */
 /* -------------------------------------------------------------------------- */
 .sidebar-conductor {
-  width: 260px;
+  width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: row;
+  overflow-x: auto;
+  gap: 10px;
   flex-shrink: 0;
+  position: sticky;
+  top: 64px; /* alto del header en escritorio */
+  z-index: 500;
+  background: #eef2f5;
+  padding: 6px 0;
 }
 
+.sidebar-conductor::-webkit-scrollbar { display: none; }
+
 .btn-sidebar-step {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: 10px;
+  padding: 9px 16px;
   background: white;
-  border: 1px solid transparent;
-  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   text-align: left;
   font-weight: 600;
   color: #666;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .btn-sidebar-step:hover {
-  transform: translateX(3px);
   background: #fff;
   color: #2c3e50;
+  border-color: #b8c2cf;
 }
 
 .btn-sidebar-step.active {
@@ -369,8 +390,8 @@ body, html {
 }
 
 .step-indicator {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   background-color: #f0f2f5;
   color: #7f8c8d;
   border-radius: 50%;
@@ -378,7 +399,7 @@ body, html {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 11px;
   flex-shrink: 0;
 }
 
@@ -420,10 +441,15 @@ body, html {
 .step-header h2 {
   margin: 0 0 8px 0;
   color: #2c3e50;
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.step-header h2 svg {
+  color: #8dc73f;
+  font-size: 1rem;
 }
 
 .step-header p { margin: 0; color: #7f8c8d; font-size: 0.95rem; }
@@ -754,6 +780,185 @@ body, html {
 }
 
 /* ========================================================================== */
+/* 6b. TARJETAS DE ESTADO (paso 1) — minimalistas: blancas con acento lateral  */
+/* ========================================================================== */
+.estado-seccion {
+  background: #fff;
+  border: 1px solid #e4e9ef;
+  border-left: 4px solid #b0b8c1;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.estado-seccion h4 {
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  color: #2c3e50;
+}
+
+.estado-seccion h4 svg { font-size: 0.9rem; }
+
+.estado-seccion--pendiente  { border-left-color: #8dc73f; }
+.estado-seccion--pendiente h4 svg { color: #8dc73f; }
+
+.estado-seccion--devuelto   { border-left-color: #e74c3c; }
+.estado-seccion--devuelto h4 svg { color: #e74c3c; }
+
+.estado-seccion--aprobado   { border-left-color: #27ae60; }
+.estado-seccion--aprobado h4 svg { color: #27ae60; }
+
+.estado-seccion--revision   { border-left-color: #3498db; }
+.estado-seccion--revision h4 svg { color: #3498db; }
+
+.estado-seccion-sub {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #8a94a3;
+  text-transform: none;
+}
+
+.estado-vacio {
+  color: #9aa4b0;
+  font-style: italic;
+  padding: 8px 4px;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+/* Chip de estado (pill discreto) */
+.estado-chip {
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.estado-chip--aprobado { color: #1e8449; background: #eaf7ef; }
+.estado-chip--revision { color: #1f6fb2; background: #eaf3fb; }
+.estado-chip--pendiente { color: #7d8600; background: #f5f8e8; }
+.estado-chip--devuelto { color: #c0392b; background: #fdeeec; }
+
+/* Fila de vehículo (aprobados / en revisión): placa + estado + acciones */
+.vehiculo-estado-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid #e4e9ef;
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 8px;
+}
+
+.vehiculo-estado-card:last-child { margin-bottom: 0; }
+
+.estado-card-placa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.estado-card-placa svg { font-size: 0.9rem; }
+.estado-card-placa .icono-ok { color: #27ae60; }
+.estado-card-placa .icono-reloj { color: #3498db; }
+
+.estado-card-acciones {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Botones secundarios (outline discretos) */
+.btn-secundario {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  color: #2c3e50;
+  border: 1px solid #cdd6e0;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  min-height: 36px;
+}
+
+.btn-secundario:hover { border-color: #2c3e50; background: #f6f8fa; }
+.btn-secundario--editar { color: #b8860b; border-color: #e4cd96; }
+.btn-secundario--editar:hover { border-color: #b8860b; background: #fdf8ec; }
+.btn-secundario--ok { color: #1e8449; border-color: #aedcc0; }
+.btn-secundario--ok:hover { border-color: #27ae60; background: #f2faf5; }
+
+/* ========================================================================== */
+/* 6c. PASO 3 — jerarquía y áreas táctiles                                    */
+/* ========================================================================== */
+.seccion-header {
+  background: #f8f9fa;
+  padding: 12px 15px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: #34495e;
+  min-height: 44px;
+}
+.seccion-header h4 { margin: 0; font-size: 0.92rem; }
+
+.seccion-header-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.seccion-pct {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8a94a3;
+}
+
+.barra-progreso-bg--mini { height: 4px; border-radius: 2px; }
+
+.seccion-flecha {
+  color: #98a3b3;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.doc-item-row {
+  min-height: 44px;
+}
+
+.btn-doc-action {
+  min-height: 34px;
+  border-radius: 8px;
+}
+
+/* Finalizar = acción de éxito: verde, consistente con «Continuar» de Datos */
+.btn-finalizar {
+  background-color: #27ae60;
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.25);
+}
+.btn-finalizar:hover { background-color: #219150; }
+
+/* ========================================================================== */
 /* RESPONSIVE DESIGN (MÓVIL / TABLET)                                         */
 /* ========================================================================== */
 @media (max-width: 900px) {
@@ -783,17 +988,33 @@ body, html {
     margin-top: 0;
   }
 
-  /* 3. SIDEBAR (NAVEGACIÓN) */
+  /* 3. SIDEBAR (NAVEGACIÓN): fila sticky bajo el header, siempre accesible */
   .sidebar-conductor {
     width: 100%;
     flex-direction: row;
     overflow-x: auto;
-    padding-bottom: 0; 
+    padding-bottom: 4px;
     gap: 8px;
     margin-bottom: 2px;
+    position: sticky;
+    top: 50px;
+    z-index: 500;
+    background: #eef2f5;
+    padding-top: 6px;
   }
-  
+
   .sidebar-conductor::-webkit-scrollbar { display: none; }
+
+  /* «← Menú» compacto dentro de la fila (no ocupa una fila entera) */
+  .btn-sidebar-volver {
+    width: auto;
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    align-self: center;
+  }
 
   .btn-sidebar-step {
     flex: 0 0 auto;
@@ -906,6 +1127,39 @@ body, html {
     font-size: 0.9rem;
   }
 
+  /* Tarjetas de estado del paso 1: placas a fila completa (mejor touch) */
+  .lista-vehiculos-grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-seleccion-vehiculo {
+    width: 100%;
+    margin-top: 0;
+    justify-content: space-between;
+    min-height: 46px;
+  }
+
+  /* Acciones de tarjetas aprobadas/en revisión: fila completa */
+  .estado-card-acciones {
+    width: 100%;
+    margin-left: 0;
+  }
+  .estado-card-acciones .btn-secundario {
+    flex: 1;
+    justify-content: center;
+    min-height: 40px;
+  }
+
+  /* Acciones de documentos: botones a ancho completo repartido */
+  .doc-item-row > div {
+    width: 100%;
+  }
+  .doc-item-row .btn-doc-action {
+    flex: 1;
+    justify-content: center;
+    min-height: 40px;
+  }
+
   /* Filas de documentos: dejan de apretarse y envuelven botones debajo */
   .doc-item-row {
     flex-wrap: wrap;
@@ -972,6 +1226,10 @@ body, html {
     padding: 14px;
     font-size: 1rem;
   }
+
+  /* Tarjetas de estado con menos relleno en móvil */
+  .estado-seccion { padding: 12px; }
+  .vehiculo-estado-card { padding: 10px; }
 }
 
 /* ========================================================================== */
@@ -983,6 +1241,9 @@ body, html {
     height: 46px;
     padding: 0 8px;
   }
+
+  /* El stepper sticky acompaña el header más bajo */
+  .sidebar-conductor { top: 46px; }
   .barra-logo { height: 28px; }
   .barra-marca { font-size: 0.95rem; letter-spacing: 0.3px; }
 
