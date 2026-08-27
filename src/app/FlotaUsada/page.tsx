@@ -17,6 +17,7 @@ interface Asignacion {
   departamentos_destino?: string[];
   nombre_asignado_por?: string | null;
   asignado_por?: string;
+  observacion?: string | null;
   asignado_en?: string;
   estado: 'asignada' | 'devuelta';
   devuelto_en?: string;
@@ -134,12 +135,12 @@ const FlotaUsada: React.FC = () => {
             <thead>
               <tr>
                 <th>Placa</th><th>Origen</th><th>Destinos</th>
-                <th>Tomado por</th><th>Fecha</th><th>Estado</th><th>Acción</th>
+                <th>Tomado por</th><th>Observación</th><th>Fecha</th><th>Estado</th><th>Acción</th>
               </tr>
             </thead>
             <tbody>
               {asignaciones.length === 0 && (
-                <tr><td colSpan={7} className="FD-vacio">
+                <tr><td colSpan={8} className="FD-vacio">
                   {soloAbiertas ? 'No hay vehículos en uso.' : 'Aún no se ha usado ningún vehículo de la bolsa.'}
                 </td></tr>
               )}
@@ -149,6 +150,7 @@ const FlotaUsada: React.FC = () => {
                   <td>{a.origen || '-'}</td>
                   <td className="FD-destinos">{(a.departamentos_destino || []).join(', ') || '-'}</td>
                   <td>{a.nombre_asignado_por || a.asignado_por || '-'}</td>
+                  <td className="FD-destinos">{a.observacion || '-'}</td>
                   <td>{fmtFecha(a.asignado_en)}</td>
                   <td>
                     {a.estado === 'asignada' ? (

@@ -67,6 +67,8 @@ const FlotaDisponible: React.FC = () => {
     const confirma = await Swal.fire({
       title: '¿Usar este vehículo?',
       html: `<b>${placa}</b> saldrá de la bolsa y quedará registrado<br/>a tu nombre en la lista de vehículos en uso.`,
+      input: 'textarea',
+      inputPlaceholder: 'Observación (opcional): ¿para qué lo vas a usar? Ej: viaje CDI → Medellín',
       icon: 'question', showCancelButton: true,
       confirmButtonText: 'Sí, usar', cancelButtonText: 'Cancelar',
       confirmButtonColor: '#004d40',
@@ -79,6 +81,7 @@ const FlotaDisponible: React.FC = () => {
       fd.append('placa', placa);
       fd.append('asignado_por', usuario);
       fd.append('nombre_asignado', usuario);
+      fd.append('observacion', (confirma.value || '').trim());
       const res = await fetch(`${API}/disponibilidad/asignar`, { method: 'PUT', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al asignar');
