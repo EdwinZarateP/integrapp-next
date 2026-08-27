@@ -146,8 +146,9 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
     items: sec.items.map((item: DocumentoItem) => {
       const field = tiposMapping[normalizeKey(item.nombre)] || "";
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
-      // ítem por documento, sin filas «(Reverso)» separadas).
-      const esDosCaras = ['documentoIdentidadConductor', 'licencia', 'tarjetaPropiedad'].includes(field);
+      // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
+      // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.
+      const esDosCaras = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'licencia', 'tarjetaPropiedad'].includes(field);
       const reversoUrl = esDosCaras && vehiculo[`${field}Reverso`] ? vehiculo[`${field}Reverso`] : undefined;
       // TODAS las cédulas + licencia + tarjeta exigen reverso (2026-08-27):
       // si hay frente pero no reverso, se marca para que el conductor lo complete.

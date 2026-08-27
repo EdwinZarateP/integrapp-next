@@ -1,4 +1,15 @@
 .Disp-contenedor { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* Píldora «← Menú»: volver al hub del conductor (mismo rol que en PanelConductores). */
+.Disp-volver {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #fff; border: 1px solid #d1d5db; color: #374151;
+  border-radius: 999px; padding: 6px 14px;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  margin-bottom: 14px; transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+.Disp-volver:hover { background: #f3f4f6; border-color: #9ca3af; }
 .Disp-titulo { font-size: 1.5rem; color: #004d40; margin: 0 0 4px; }
 .Disp-fecha { color: #6b7280; margin: 0 0 20px; font-size: 0.9rem; }
 .Disp-vacio { background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; padding: 28px; text-align: center; color: #6b7280; }

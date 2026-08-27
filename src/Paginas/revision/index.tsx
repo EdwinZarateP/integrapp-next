@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState, useMemo } from "react";
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { FaSearch, FaTimes } from "react-icons/fa";
 import BarraSuperiorSeguridad from "@/Componentes/Barra";
@@ -10,6 +10,8 @@ import ListaVehiculos from "./componentes/ListaVehiculos";
 import PanelDetalle from "./componentes/PanelDetalle";
 import { Vehiculo, PestanaBandeja } from "./tipos";
 import "./estilos.css";
+
+const BANDEJAS_VALIDAS: PestanaBandeja[] = ["pendientes", "revision", "aprobados", "inactivos"];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -29,6 +31,27 @@ const RevisionVehiculos: React.FC = () => {
 
   const [pestanaActiva, setPestanaActiva] = useState<PestanaBandeja>("revision");
   const [seleccionado, setSeleccionado] = useState<Vehiculo | null>(null);
+
+  /* --- ESTADO EN LA URL (query param) ----------------------------------
+     /revision?bandeja=aprobados — misma convención de /PanelConductores:
+     sobrevive al refresh (F5), se puede compartir y marcar. */
+  const searchParams = useSearchParams();
+  const urlSincronizada = React.useRef(false);
+
+  // Restaurar la bandeja desde la URL al montar.
+  useEffect(() => {
+    urlSincronizada.current = true;
+    const bandejaUrl = searchParams.get("bandeja") as PestanaBandeja | null;
+    if (bandejaUrl && BANDEJAS_VALIDAS.includes(bandejaUrl)) setPestanaActiva(bandejaUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Espejo de la bandeja activa en la URL (replace: no ensucia el historial).
+  useEffect(() => {
+    if (!urlSincronizada.current) return; // No pisar la restauración inicial.
+    router.replace(`/revision?bandeja=${pestanaActiva}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pestanaActiva]);
 
   const [busqueda, setBusqueda] = useState("");
   const [busquedaAprobadosEnVuelo, setBusquedaAprobadosEnVuelo] = useState("");

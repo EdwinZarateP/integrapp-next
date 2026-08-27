@@ -164,6 +164,9 @@ const Disponibilidad: React.FC = () => {
     <>
       <HeaderSesion modo="conductor" />
       <div className="Disp-contenedor">
+        <button className="Disp-volver" onClick={() => router.push('/PanelConductores')} title="Volver al menú del conductor">
+          ← Menú
+        </button>
         <h1 className="Disp-titulo">Mi disponibilidad de hoy</h1>
       <p className="Disp-fecha">
         {fechaHoy ? `Fecha: ${fechaHoy}` : ''} — Marca los vehículos que tienes listos para salir hoy y a qué departamentos puedes ir.

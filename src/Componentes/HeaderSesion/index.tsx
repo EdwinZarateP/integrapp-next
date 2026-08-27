@@ -1,25 +1,27 @@
 'use client';
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import logo from "@/Imagenes/albatros.png";
-import { FaUserCircle, FaBars } from "react-icons/fa";
+import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaTruck } from "react-icons/fa";
 import "./estilos.css";
 
 type Modo = "conductor" | "personal";
 
 /**
- * Header de marca (igual que HeaderApp: degradado + "IntegrApp") con zona derecha
- * de usuario y menú hamburguesa para Cerrar Sesión.
+ * Header de marca (degradado + "IntegrApp") con zona derecha de usuario en el
+ * MISMO patrón del header de /PanelConductores: botón avatar+nombre+perfil+
+ * chevron con dropdown blanco (click-fuera cierra, «Cerrar sesión» en rojo).
  *
  * `modo` define qué cookies se limpian y a qué login se vuelve:
- *  - "conductor": cookies conductor* → /LoginConductores
+ *  - "conductor": cookies conductor* → /LoginConductores (dropdown: «Mi panel»)
  *  - "personal":  cookies *PedidosCookie → /LoginUsuario
  */
 const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
   const router = useRouter();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const nombre = (() => {
     if (modo === "conductor") {
@@ -28,6 +30,26 @@ const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
     }
     return Cookies.get("usuarioPedidosCookie") || "USUARIO";
   })();
+
+  const perfil = (() => {
+    if (modo === "conductor") {
+      return (Cookies.get("conductorPerfil") || "").toUpperCase() === "TENEDOR"
+        ? "Tenedor"
+        : "Conductor";
+    }
+    return "Personal";
+  })();
+
+  // Cerrar el menú al hacer click fuera (igual que en /PanelConductores).
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuAbierto(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const cerrarSesion = () => {
     if (modo === "conductor") {
@@ -46,7 +68,7 @@ const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
   };
 
   return (
-    <header className="HS-header" onClick={() => menuAbierto && setMenuAbierto(false)}>
+    <header className="HS-header">
       <button className="HS-brand" onClick={() => router.push("/")} title="Inicio">
         <Image src={logo} alt="Integra" height={40} priority />
         <span className="HS-brandName">
@@ -54,19 +76,38 @@ const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
         </span>
       </button>
 
-      <div className="HS-derecha">
-        <div className="HS-usuario" title={nombre}>
-          <FaUserCircle size={20} />
-          <span className="HS-usuarioNombre">{nombre}</span>
-        </div>
-        <div className="HS-hamburguesa">
-          <FaBars size={22} onClick={(e) => { e.stopPropagation(); setMenuAbierto(!menuAbierto); }} />
-          {menuAbierto && (
-            <div className="HS-menu" onClick={(e) => e.stopPropagation()}>
-              <button onClick={cerrarSesion} className="HS-cerrar">Cerrar Sesión</button>
-            </div>
-          )}
-        </div>
+      <div className="HS-derecha" ref={menuRef}>
+        <button
+          className="HS-userBtn"
+          onClick={() => setMenuAbierto(o => !o)}
+          aria-expanded={menuAbierto}
+        >
+          <FaUserCircle className="HS-userIcon" />
+          <div className="HS-userInfo">
+            <span className="HS-userName">{nombre}</span>
+            <span className="HS-userPerfil">{perfil}</span>
+          </div>
+          <FaChevronDown className={`HS-chevron ${menuAbierto ? "HS-chevronOpen" : ""}`} />
+        </button>
+
+        {menuAbierto && (
+          <div className="HS-menuDesplegable">
+            {modo === "conductor" && (
+              <>
+                <button
+                  className="HS-menuItem"
+                  onClick={() => { setMenuAbierto(false); router.push("/PanelConductores"); }}
+                >
+                  <FaTruck /> Mi panel
+                </button>
+                <div className="HS-menuDivisor" />
+              </>
+            )}
+            <button className="HS-menuItem HS-menuItemDanger" onClick={cerrarSesion}>
+              <FaSignOutAlt /> Cerrar sesión
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

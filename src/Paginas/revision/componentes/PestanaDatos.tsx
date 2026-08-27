@@ -234,7 +234,9 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
         <p><strong>Marca:</strong> {veh.vehMarca}</p>
         <p><strong>Línea:</strong> {veh.vehLinea}</p>
         <p><strong>Modelo:</strong> {veh.vehModelo}</p>
-        <p><strong>Año:</strong> {veh.vehAno}</p>
+        {/* Año de repotenciación: solo aplica (y solo se diligencia en el
+            formulario) cuando el vehículo es repotenciado. */}
+        {veh.vehRepotenciado === 'Sí' && <p><strong>Año Repotenciación:</strong> {veh.vehAno}</p>}
         <p><strong>Color:</strong> {veh.vehColor}</p>
         <p><strong>Carrocería:</strong> {veh.vehTipoCarroceria}</p>
         <p><strong>Repotenciado:</strong> {veh.vehRepotenciado}</p>
