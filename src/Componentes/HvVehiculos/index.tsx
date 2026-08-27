@@ -8,16 +8,15 @@ import logo from "@/Imagenes/albatros.png";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-import { Vehiculo } from '@/Paginas/revision';
+// Desde tipos directamente (NO desde '@/Paginas/revision'): importar desde
+// la página crea un ciclo página→PanelDetalle→HvVehiculos→página que rompe
+// el render ("Lazy element type must resolve to a class or function").
+import { Vehiculo } from '@/Paginas/revision/tipos';
 
 interface HvVehiculosProps {
     vehiculo: Vehiculo;
 }
 
-interface HuellasResponse {
-    encontrado: boolean;
-    huellas: (string | null)[];
-}
 interface FirmaResponse {
     firma_b64: string;
 }
@@ -42,15 +41,9 @@ const styles = StyleSheet.create({
     checkRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2, justifyContent: 'space-between', paddingRight: 2 },
     checkBox: { width: 10, height: 10, border: '1px solid #000', alignItems: 'center', justifyContent: 'center' },
 
-    huellasContainer: { border: '1px solid #000', marginTop: 5 },
-    huellasRow: { flexDirection: 'row', width: '100%' },
-
-    huellaBox: { width: '20%', height: 90, borderRight: '1px solid #000', padding: 2, alignItems: 'center', justifyContent: 'flex-start' },
-
-    huellaImageContainer: { width: 50, height: 60, marginTop: 5, marginBottom: 5, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9f9f9' },
-    huellaImage: { width: '100%', height: '100%', objectFit: 'contain' },
-
-    firmaBox: { height: 60, border: '1px solid #000', marginTop: 5, padding: 5 },
+    // Sin registro dactilar (eliminado 2026-08-27): la caja de firma gana
+    // el espacio que dejaron las huellas.
+    firmaBox: { height: 90, border: '1px solid #000', marginTop: 5, padding: 5 },
     w50: { width: '50%' },
     w33: { width: '33.33%' },
     w25: { width: '25%' },
@@ -71,12 +64,8 @@ const CheckItem = ({ label, checked }: { label: string, checked: boolean }) => (
     </View>
 );
 
-const DocuPDF = ({ veh, huellas, firmaBlob }: { veh: Vehiculo, huellas: (string | null)[], firmaBlob?: string | null }) => {
+const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null }) => {
 
-    const getHuella = (idx: number) => (huellas && huellas.length > idx && huellas[idx]) ? huellas[idx] : null;
-    const NombresHuellasDerecha = ["PULGAR", "ÍNDICE", "MEDIO", "ANULAR", "MEÑIQUE"];
-    const NombresHuellasIzquierda = ["PULGAR", "ÍNDICE", "MEDIO", "ANULAR", "MEÑIQUE"];
-    const getBorderStyle = (index: number) => index === 4 ? { borderRight: 'none' } : {};
     const hasDoc = (_keyCandidates: string[]) => true;
 
     const imagenFirma = firmaBlob || veh.firmaUrl;
@@ -237,63 +226,22 @@ const DocuPDF = ({ veh, huellas, firmaBlob }: { veh: Vehiculo, huellas: (string 
                     </View>
                 </View>
 
-                {/* HUELLAS */}
-                <View style={styles.sectionTitle}><Text>REGISTRO DACTILAR Y AUTORIZACIÓN</Text></View>
-                <View style={styles.huellasContainer}>
-                    <Text style={[styles.headerGreen, { width: '100%' }]}>MANO DERECHA</Text>
-                    <View style={[styles.huellasRow, { borderBottom: '1px solid #000' }]}>
-                        {NombresHuellasDerecha.map((nombre, i) => {
-                            const urlHuella = getHuella(i);
-                            return (
-                                <View key={`der-${i}`} style={[styles.huellaBox, getBorderStyle(i)]}>
-                                    <View style={styles.huellaImageContainer}>
-                                        {urlHuella ? (
-                                            <Image src={urlHuella} style={styles.huellaImage} />
-                                        ) : (
-                                            <Text style={{fontSize:6, color:'#999'}}>SIN HUELLA</Text>
-                                        )}
-                                    </View>
-                                    <Text style={{ fontSize: 6 }}>{nombre}</Text>
-                                </View>
-                            );
-                        })}
-                    </View>
-
-                    <Text style={[styles.headerGreen, { width: '100%' }]}>MANO IZQUIERDA</Text>
-                    <View style={styles.huellasRow}>
-                        {NombresHuellasIzquierda.map((nombre, i) => {
-                            const urlHuella = getHuella(i + 5);
-                            return (
-                                <View key={`izq-${i}`} style={[styles.huellaBox, getBorderStyle(i)]}>
-                                    <View style={styles.huellaImageContainer}>
-                                        {urlHuella ? (
-                                            <Image src={urlHuella} style={styles.huellaImage} />
-                                        ) : (
-                                            <Text style={{fontSize:6, color:'#999'}}>SIN HUELLA</Text>
-                                        )}
-                                    </View>
-                                    <Text style={{ fontSize: 6 }}>{nombre}</Text>
-                                </View>
-                            );
-                        })}
-                    </View>
-                </View>
-
-                {/* FIRMA */}
+                {/* AUTORIZACIÓN Y FIRMA (sin registro dactilar, eliminado 2026-08-27) */}
+                <View style={styles.sectionTitle}><Text>AUTORIZACIÓN</Text></View>
                 <View style={{ flexDirection: 'row', marginTop: 5 }}>
-                    <View style={{ width: '70%', paddingRight: 5 }}>
-                           <Text style={{ fontSize: 5, textAlign: 'justify', color: '#555' }}>
+                    <View style={{ width: '65%', paddingRight: 5 }}>
+                           <Text style={{ fontSize: 5.5, textAlign: 'justify', color: '#555' }}>
                                AUTORIZO A INTEGRA CADENA DE SERVICIOS S.A.S O A QUIEN EN EL FUTURO REPRESENTE SUS DERECHOS U OSTENTE LA CALIDAD DE ACREEDOR...
                         </Text>
                     </View>
-                    <View style={{ width: '30%' }}>
+                    <View style={{ width: '35%' }}>
                            <View style={styles.firmaBox}>
                                  <Text style={{ fontSize: 6 }}>FIRMA:</Text>
 
                                  {imagenFirma && (
                                      <Image
                                          src={imagenFirma}
-                                         style={{ width: '100%', height: 45, objectFit: 'contain', marginTop: 2 }}
+                                         style={{ width: '100%', height: 70, objectFit: 'contain', marginTop: 2 }}
                                      />
                                  )}
 
@@ -308,21 +256,15 @@ const DocuPDF = ({ veh, huellas, firmaBlob }: { veh: Vehiculo, huellas: (string 
 
 
 const HvVehiculos: React.FC<HvVehiculosProps> = ({ vehiculo }) => {
-    const [cargandoHuellas, setCargandoHuellas] = useState(false);
-    const documentoBusqueda = vehiculo.condCedulaCiudadania;
+    const [cargando, setCargando] = useState(false);
 
     const manejarDescargaDirecta = async () => {
-        if (cargandoHuellas) return;
+        if (cargando) return;
 
-        setCargandoHuellas(true);
+        setCargando(true);
 
         try {
-            const resHuellas = await axios.get<HuellasResponse>(`${API_BASE}/verificacion/obtener-huellas-pdf/${documentoBusqueda}`);
-            let huellasData: (string | null)[] = [];
-            if (resHuellas.data && resHuellas.data.encontrado && Array.isArray(resHuellas.data.huellas)) {
-                huellasData = resHuellas.data.huellas.map(h => h || "");
-            }
-
+            // Firma fresca (convierte a PNG para el PDF); fallback a la URL guardada.
             let firmaDataUrl: string | null = null;
             try {
                 const resFirma = await axios.get<FirmaResponse>(`${API_BASE}/vehiculos/obtener-firma?placa=${vehiculo.placa}`);
@@ -339,7 +281,6 @@ const HvVehiculos: React.FC<HvVehiculosProps> = ({ vehiculo }) => {
             const blob = await pdf(
                 <DocuPDF
                     veh={vehiculo}
-                    huellas={huellasData}
                     firmaBlob={imagenFirmaFinal}
                 />
             ).toBlob();
@@ -358,7 +299,7 @@ const HvVehiculos: React.FC<HvVehiculosProps> = ({ vehiculo }) => {
             console.error("Error generando PDF:", error);
             alert("Hubo un error al generar el PDF.");
         } finally {
-            setCargandoHuellas(false);
+            setCargando(false);
         }
     };
 
@@ -367,11 +308,11 @@ const HvVehiculos: React.FC<HvVehiculosProps> = ({ vehiculo }) => {
             <button
                 className="btn-descarga-pdf"
                 onClick={manejarDescargaDirecta}
-                disabled={cargandoHuellas}
+                disabled={cargando}
                 onMouseDown={(e) => e.stopPropagation()}
             >
-                {cargandoHuellas ? <FaSpinner className="spin" /> : <FaFilePdf />}
-                {cargandoHuellas ? " GENERANDO..." : " DESCARGAR HV"}
+                {cargando ? <FaSpinner className="spin" /> : <FaFilePdf />}
+                {cargando ? " GENERANDO..." : " DESCARGAR HV"}
             </button>
         </div>
     );

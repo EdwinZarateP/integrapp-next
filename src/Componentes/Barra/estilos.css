@@ -1,34 +1,33 @@
-/* ---------------------------
-   BARRA SUPERIOR PROFESIONAL
-   --------------------------- */
+/* ---------------------------------------------------------------
+   HEADER DE SESIÓN de /revision — MISMO patrón que /PanelConductores
+   (marca + botón usuario con dropdown blanco). Sin hamburguesa.
+   z-index 900: por debajo del panel de detalle (1000) y de los visores
+   (1050) para que nunca compita con la UI de la bandeja.
+   --------------------------------------------------------------- */
 .barra-superior {
   background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
-  color: #ffffff;
-  height: 64px;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
-  flex-shrink: 0;
-  z-index: 9999;
+  padding: 0 24px;
+  height: 64px;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+  z-index: 900;
+  position: relative;
 }
 
-/* ---------------------------
-   SECCIÓN IZQUIERDA (LOGO + TÍTULOS)
-   --------------------------- */
+/* Izquierda: logo + marca */
 .barra-izquierda {
   display: flex;
   align-items: center;
-  gap: 15px; 
+  gap: 15px;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  min-width: 0;
 }
 
-/* Efecto visual al pasar el mouse por el logo/titulo */
-.barra-izquierda:hover {
-  opacity: 0.9;
-}
+.barra-izquierda:hover { opacity: 0.9; }
 
 .barra-logo {
   width: auto;
@@ -37,14 +36,13 @@
   object-fit: contain;
 }
 
-/* Contenedor Flex para alinear las líneas de título verticalmente */
 .barra-titulos-agrupados {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
+  min-width: 0;
 }
 
-/* Marca IntegrApp (mismo estilo que HeaderApp) */
 .barra-marca {
   font-size: 1.3rem;
   font-weight: 800;
@@ -52,13 +50,9 @@
   color: #fff;
   letter-spacing: -0.3px;
 }
-.barra-marca-acento {
-  color: #e8a000;
-}
 
-/* ---------------------------
-   TÍTULO MEJORADO
-   --------------------------- */
+.barra-marca-acento { color: #e8a000; }
+
 .barra-titulo {
   font-size: 11px;
   font-weight: 600;
@@ -66,126 +60,116 @@
   text-transform: uppercase;
   margin: 0;
   color: #c7d2dc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.barra-subtitulo {
-  /* INTEGR */
-  font-size: 13px; 
-  font-weight: 500;
-  letter-spacing: 2px;
-  color: #e0f2f1;
-  margin-right: 0; 
-}
-
-.barra-subsubtitulo {
-  font-size: 13px; 
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: #bacf65;
-  margin-left: 0px;
-}
-
-/* ---------------------------
-   SECCIÓN DERECHA (USUARIO + HAMBURGUESA)
-   --------------------------- */
+/* Derecha: botón de usuario (avatar + nombre + rol + chevron) */
 .barra-derecha {
   display: flex;
   align-items: center;
-  gap: 30px; 
+  position: relative;
 }
 
-.barra-usuario {
-  font-size: 17px;
-  font-weight: 600;
-  opacity: 0.95;
-  margin: 0; 
-  padding-right: 10px;
-  /* CAMBIO VISUAL: Para que "EDWIN ZARATE" se vea "Edwin Zarate" */
-  text-transform: capitalize; 
-  white-space: nowrap; /* Evita que el nombre se parta */
-}
-
-/* ---------------------------
-   MENÚ HAMBURGUESA
-   --------------------------- */
-.hamburguesa-container {
-  position: relative; 
+.barra-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
   cursor: pointer;
-  z-index: 10001; 
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
 }
 
-.hamburguesa {
-  width: 32px;
-  height: 24px;
+.barra-userBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.barra-userIcon { font-size: 1.6rem; color: #c7d2dc; }
+
+.barra-userInfo {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  align-items: flex-start;
+  line-height: 1.15;
+  min-width: 0;
 }
 
-.hamburguesa span {
-  display: block;
-  height: 4px;
-  background: white;
-  border-radius: 3px;
-  transition: 0.3s ease;
+.barra-userName {
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-/* Animación al abrir */
-.hamburguesa.abierta span:nth-child(1) {
-  transform: translateY(10px) rotate(45deg);
+.barra-userPerfil {
+  font-size: 0.68rem;
+  color: #9fb2c4;
 }
 
-.hamburguesa.abierta span:nth-child(2) {
-  opacity: 0;
+.barra-chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+  color: #c7d2dc;
 }
 
-.hamburguesa.abierta span:nth-child(3) {
-  transform: translateY(-10px) rotate(-45deg);
-}
+.barra-chevronOpen { transform: rotate(180deg); }
 
-/* ---------------------------
-   MENÚ DESPLEGABLE
-   --------------------------- */
+/* Dropdown blanco (mismo look que PanelConductores) */
 .menu-desplegable {
   position: absolute;
-  top: 40px; 
+  top: calc(100% + 8px);
   right: 0;
-  background: #ffffff;
-  color: #000;
-  border-radius: 8px;
-  padding: 0; 
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  animation: fadeInMenu 0.25s ease;
-  z-index: 10000;
-  min-width: 180px; 
-  overflow: hidden; 
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 190px;
+  z-index: 1001;
+  overflow: hidden;
+  animation: barra-fadeDown 0.15s ease;
 }
 
-@keyframes fadeInMenu {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes barra-fadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.menu-desplegable button.btn-cerrar-sesion {
-  background:#edf2ca ;
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
   border: none;
-  width: 100%; 
-  padding: 12px 20px;
-  text-align: left;
-  font-size: 15px;
+  font-size: 0.88rem;
+  color: #1e2f45;
   cursor: pointer;
-  font-weight: 2000;
-  color: #0c5d1f; 
-  transition: background-color 0.4s;
+  transition: background 0.15s;
+  font-family: inherit;
+  text-align: left;
 }
 
-.menu-desplegable button.btn-cerrar-sesion:hover {
-  background: #d7d8d2; 
-  color: #bacf65;
+.menu-item:hover { background: #f2f5f8; }
+
+.menu-itemDanger { color: #c0392b; }
+.menu-itemDanger:hover { background: #fdeeec; }
+
+/* Responsive: en móvil se oculta el nombre, queda avatar + chevron */
+@media (max-width: 600px) {
+  .barra-superior { padding: 0 12px; }
+
+  .barra-userInfo { display: none; }
+
+  .barra-titulo { display: none; }
+
+  .barra-logo { height: 34px; }
+
+  .menu-desplegable { right: -4px; }
 }

@@ -8,7 +8,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  /* Por encima del stepper del panel (500) y del header (1000), debajo de
+     Swal (1060). Antes estaba a 100 y el stepper TAPABA la parte alta del
+     modal — incluido el botón «Girar para ver el respaldo». */
+  z-index: 1050;
   padding: 10px;
 }
 
@@ -57,6 +60,160 @@
   width: 100%;
   height: 100%;
   padding: 10px;
+}
+
+/* 🔄 Botón girar frente↔respaldo (documentos de dos caras).
+   order:10 → SIEMPRE debajo del documento (el contenedor es flex-column):
+   arriba estorbaba y competía con la imagen. */
+.VerDocumento-boton-girar {
+  order: 10;
+  flex-shrink: 0;
+  width: 100%;
+  background: #2F6B3E;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+  margin-top: 10px;
+}
+
+.VerDocumento-boton-girar:hover {
+  background: #255833;
+}
+
+.VerDocumento-boton-girar:active {
+  transform: scale(0.98);
+}
+
+/* El respaldo entra "girando" al cambiar de cara. */
+.VerDocumento-cara-girada {
+  animation: VerDocumento-giro 0.45s ease;
+}
+
+@keyframes VerDocumento-giro {
+  from {
+    transform: rotateY(75deg);
+    opacity: 0.25;
+  }
+  to {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
+}
+
+.VerDocumento-cara-etiqueta {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #2F6B3E;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+/* ── CARRUSEL de fotos: una imagen a la vez, flechas finitas + contador ── */
+/* La foto ocupa TODO el ancho; los controles (◀ contador ▶) van DEBAJO en
+   una barra — las flechas laterales le robaban ancho a la imagen en móvil. */
+.VerDocumento-carrusel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Pista deslizable (scroll-snap): arrastre horizontal pasa de foto en foto,
+   una a la vez (scroll-snap-stop), sin scrollbar visible — estilo Airbnb. */
+.VerDocumento-carrusel-track {
+  display: flex;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* IE/Edge clásico */
+}
+
+.VerDocumento-carrusel-track::-webkit-scrollbar {
+  display: none;              /* Chrome/Safari */
+}
+
+.VerDocumento-carrusel-slide {
+  flex: 0 0 100%;
+  min-width: 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;   /* una foto por gesto, no salta varias */
+}
+
+.VerDocumento-carrusel-slide img {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.VerDocumento-carrusel-controles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+/* Flechas SUPERPUESTAS sobre la foto, a los lados (círculo blanco estilo
+   Airbnb). En los extremos no se renderizan (primera sin ◀, última sin ▶). */
+.VerDocumento-carrusel-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.VerDocumento-carrusel-flecha {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.93);
+  color: #24303e;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.15s ease;
+  touch-action: manipulation;
+  z-index: 5;
+}
+
+.VerDocumento-carrusel-flecha:hover {
+  background: #ffffff;
+}
+
+.VerDocumento-carrusel-flecha:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+.VerDocumento-carrusel-flecha--izq {
+  left: 8px;
+}
+
+.VerDocumento-carrusel-flecha--der {
+  right: 8px;
+}
+
+.VerDocumento-contador {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #5a6472;
+  letter-spacing: 0.03em;
+  min-width: 64px;
+  text-align: center;
 }
 
 /* 📷 Contenedor de imágenes */
@@ -166,17 +323,23 @@
   justify-content: center;
   align-items: center;
 }
-/* 📱 RESPONSIVE: Ajustes en móviles */
+/* 📱 RESPONSIVE: el visor de fotos va a PANTALLA COMPLETA en móvil */
 @media (max-width: 768px) {
+  .VerDocumento-overlay {
+    padding: 0;
+  }
+
   .VerDocumento-contenedor {
-    width: 90%;
-    max-width: 90%;
-    height: auto;
-    padding: 15px;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    padding: 14px 12px;
   }
 
   .VerDocumento-imagen {
-    max-height: 300px;
+    max-height: 68vh; /* foto grande, controles visibles sin scroll */
   }
 
   .VerDocumento-pdf-container {
@@ -194,11 +357,34 @@
   }
 
   .VerDocumento-boton-cerrar {
-    top: 2px;
-    right: 2px;
+    top: 6px;
+    right: 6px;
     font-size: 1rem;
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
 
+  }
+
+  .VerDocumento-carrusel {
+    height: 100%;
+    justify-content: center;
+  }
+
+  .VerDocumento-carrusel-flecha {
+    width: 36px;
+    height: 36px;
+    font-size: 0.85rem;
+  }
+
+  .VerDocumento-carrusel-flecha--izq {
+    left: 4px;
+  }
+
+  .VerDocumento-carrusel-flecha--der {
+    right: 4px;
+  }
+
+  .VerDocumento-contador {
+    font-size: 0.95rem;
   }
 }

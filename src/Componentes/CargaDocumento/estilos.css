@@ -16,6 +16,18 @@
 }
 
 /* Modal elegante y centrado */
+/* Nota de regla bajo el título (ej. fotos: mínimo 1 · máximo 10). */
+.CargaDocumento-hint {
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  color: #5a6472;
+  background: #f2f6f9;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
 .CargaDocumento-modal {
   background: #ffffff;
   border-radius: 8px;

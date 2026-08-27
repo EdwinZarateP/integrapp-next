@@ -6,6 +6,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import Lottie from 'lottie-react';
 import animationData from "@/Imagenes/AnimationPuntos.json";
 import { calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
+import VerCaraDocumento from '@/Componentes/VerCaraDocumento';
 import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -75,6 +76,13 @@ interface InputFieldProps {
   error?: boolean;
 }
 
+// La rueda del mouse sobre un input numérico ENFOCADO cambia el valor sin
+// querer (ej: escribes 10, scrolleas y queda 11). Se sale del campo: el
+// scroll sigue scrolleando la página y el número queda como estaba.
+const manejarRuedaInputNumerico = (e: React.WheelEvent<HTMLInputElement>) => {
+  (e.target as HTMLInputElement).blur();
+};
+
 const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, options, disabled, inputProps, required, error }) => (
   <div className={`Datos-input-container ${error ? 'Datos-input-container--error' : ''}`} data-campo={name}>
     <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
@@ -93,6 +101,7 @@ const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', val
         onChange={onChange}
         disabled={disabled}
         {...(inputProps || {})}
+        onWheel={type === 'number' ? manejarRuedaInputNumerico : undefined}
       />
     )}
   </div>
@@ -166,6 +175,9 @@ interface FormSectionProps {
 }
 
 const categoriasLicencia = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3"];
+
+// Año en curso (Colombia): tope del Año de Repotenciación — nunca futuro.
+const ANIO_ACTUAL = new Date().getFullYear();
 
 /* ── Celular con región: selector de país (default +57 Colombia) + número.
    Almacenamiento: +57 → solo dígitos (formato histórico, ej: 3001234567);
@@ -242,6 +254,21 @@ const claseSeccion = (title: string): string => {
   // Conductor, contacto de emergencia y referencias laborales (todo del conductor).
   return 'Datos-form-section--conductor';
 };
+
+/* Grupos de avance por figura (para las mini-barras junto al avance global).
+   Cada grupo cuenta SOLO sus campos obligatorios, igual que el avance total.
+   El grupo "Conductor" absorbe emergencia + referencias (todas son cond*) y
+   las categorías de licencia (chips, no están en ninguna sección de fields). */
+const GRUPOS_AVANCE: Array<{ etiqueta: string; titulos: string[]; extra?: string[] }> = [
+  {
+    etiqueta: 'Conductor',
+    titulos: ['Información del Conductor', 'En Caso de Emergencia Avisar a', 'Referencias Laborales'],
+    extra: ['condCategoriaLic'],
+  },
+  { etiqueta: 'Propietario', titulos: ['Datos del propietario'] },
+  { etiqueta: 'Tenedor', titulos: ['Datos del Tenedor'] },
+  { etiqueta: 'Vehículo', titulos: ['Datos del Vehiculo'] },
+];
 
 const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, handleChange, disabled = false, requiredFields, className, camposError }) => (
   <div className={`Datos-form-section ${className || ''}`.trim()}>
@@ -327,6 +354,31 @@ const mapearRutAPersona = (prefijo: 'prop' | 'tened', d: Record<string, any>): R
   return nuevos;
 };
 
+// Helper: cédula de ciudadanía (propietario/tenedor) → campos de la figura.
+// El RUT se carga en el paso 3; en el paso 2 la cédula autollena la
+// identidad: nombre, número de documento y lugar de expedición.
+const mapearCedulaAPersona = (prefijo: 'prop' | 'tened', d: Record<string, any>): Record<string, string> => {
+  const nuevos: Record<string, string> = {};
+  const nombre = [d.nombres, d.apellidos].filter(Boolean).join(' ').toUpperCase().replace(/\s+/g, ' ').trim();
+  if (nombre) nuevos[`${prefijo}Nombre`] = nombre;
+  if (d.numero) {
+    nuevos[`${prefijo}Documento`] = String(d.numero).replace(/\D/g, '');
+    nuevos[`${prefijo}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
+  }
+  // Expedición: aterrizar al catálogo para que calce con el select de ciudad
+  // (y derivar el departamento, que alimenta las opciones del select).
+  const ciudadLeida = d.lugar_expedicion || d.departamento_expedicion;
+  if (ciudadLeida) {
+    const ciudad = buscarCiudadEnCatalogo(ciudadLeida);
+    if (ciudad) {
+      nuevos[`${prefijo}CiudadExpDoc`] = ciudad;
+      const depto = buscarDepartamentoPorCiudad(ciudad);
+      if (depto) nuevos[`${prefijo}DeptoExpedida`] = depto;
+    }
+  }
+  return nuevos;
+};
+
 // Helper: certificado bancario → campos de cuenta según prefijo.
 const mapearBancario = (prefijo: 'cond' | 'prop' | 'tened', d: Record<string, any>): Record<string, string> => {
   const nuevos: Record<string, string> = {};
@@ -334,6 +386,26 @@ const mapearBancario = (prefijo: 'cond' | 'prop' | 'tened', d: Record<string, an
   if (d.tipo_cuenta) nuevos[`${prefijo}TipoCuenta`] = d.tipo_cuenta.toUpperCase().includes('AHO') ? 'AHORROS' : 'CORRIENTE';
   if (d.numero_cuenta) nuevos[`${prefijo}NumeroCuenta`] = String(d.numero_cuenta).replace(/\D/g, '');
   return nuevos;
+};
+
+// Aterriza la aseguradora leída por IA al catálogo del select (viene con
+// variantes: "AXA SEGUROS S.A.", "SEGUROS BOLIVAR S.A."… sin esto el valor
+// no coincide con NINGUNA opción y el select se pinta en blanco aunque el
+// dato esté guardado).
+const aterrizarAseguradora = (crudo: string): string => {
+  const a = String(crudo).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  const claves: Array<[string, string]> = [
+    ['AXA', 'Axa Colpatria'], ['COLPATRIA', 'Axa Colpatria'],
+    ['SURA', 'Sura'], ['MAPFRE', 'Mapfre'], ['LIBERTY', 'Liberty'],
+    ['ALLIANZ', 'Allianz'], ['HDI', 'HDI Seguros'], ['EQUIDAD', 'Equidad'],
+    ['SOLIDARIA', 'Solidaria'], ['BOLIVAR', 'Bolívar'], ['PREVISORA', 'Previsora'],
+    ['GENERAL DE SEGUROS', 'General de Seguros'],
+    ['FASECOLDA', 'Estado (Fasecolda)'], ['ESTADO', 'Estado (Fasecolda)'],
+  ];
+  for (const [clave, valor] of claves) {
+    if (a.includes(clave)) return valor;
+  }
+  return String(crudo);
 };
 
 const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, string>> = {
@@ -379,6 +451,8 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
   },
   rut_tenedor: (d) => mapearRutAPersona('tened', d),
   rut_propietario: (d) => mapearRutAPersona('prop', d),
+  cedula_tenedor: (d) => mapearCedulaAPersona('tened', d),
+  cedula_propietario: (d) => mapearCedulaAPersona('prop', d),
   certificado_bancario_cond: (d) => mapearBancario('cond', d),
   certificado_bancario_tened: (d) => mapearBancario('tened', d),
   certificado_bancario_prop: (d) => mapearBancario('prop', d),
@@ -423,8 +497,8 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
   },
   soat: (d) => {
     const nuevos: Record<string, string> = {};
-    if (d.aseguradora) nuevos.vehAseguradoraSoat = d.aseguradora;
-    if (d.numero_poliza) nuevos.vehPolizaSoat = d.numero_poliza;
+    if (d.aseguradora) nuevos.vehAseguradoraSoat = aterrizarAseguradora(d.aseguradora);
+    if (d.numero_poliza) nuevos.vehPolizaSoat = String(d.numero_poliza).replace(/\D/g, '');
     if (d.fecha_vencimiento) nuevos.vehVencimientoSoat = d.fecha_vencimiento;
     return nuevos;
   },
@@ -434,6 +508,8 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
 // → clave de MAPEOS_IA (para autollenar el formulario al montar).
 const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
   documentoIdentidadConductor: 'cedula',
+  documentoIdentidadPropietario: 'cedula_propietario',
+  documentoIdentidadTenedor: 'cedula_tenedor',
   rutTenedor: 'rut_tenedor',
   rutPropietario: 'rut_propietario',
   condCertificacionBancaria: 'certificado_bancario_cond',
@@ -450,6 +526,11 @@ const LECTURA_IA_A_TIPO_SUBIDA: Record<string, string> = {
   licencia: 'licencia',
   tarjeta_propiedad: 'tarjetaPropiedad',
   soat: 'soat',
+  // Cédulas de propietario/tenedor: identidad en el paso 2.
+  cedula_propietario: 'documentoIdentidadPropietario',
+  cedula_tenedor: 'documentoIdentidadTenedor',
+  // RUT: complemento (dirección, ciudad, correo, fechas, NIT) — también se
+  // pueden subir en el paso 3 y su lectura se aplica aquí al montar.
   rut_tenedor: 'rutTenedor',
   rut_propietario: 'rutPropietario',
   certificado_bancario_cond: 'condCertificacionBancaria',
@@ -462,13 +543,17 @@ const MAX_SIZE_MB_IA = 10;
 const FORMATOS_ACEPTADOS_IA = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
 
 // Botones de la tarjeta "Ahorra tiempo": tipo lectura → etiqueta y esquema backend.
+// Cédulas de propietario/tenedor = identidad; RUT = complemento (dirección,
+// ciudad, correo, celular, fechas, NIT). Ambos aportan; nunca pisan lo manual.
 const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string }> = [
   { tipo: 'cedula', esquema: 'cedula', etiqueta: '🪪 Cédula del conductor' },
   { tipo: 'licencia', esquema: 'licencia', etiqueta: '🎫 Licencia de conducción' },
   { tipo: 'tarjeta_propiedad', esquema: 'tarjeta_propiedad', etiqueta: '📄 Tarjeta de propiedad' },
   { tipo: 'soat', esquema: 'soat', etiqueta: '🛡️ SOAT' },
-  { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor' },
+  { tipo: 'cedula_propietario', esquema: 'cedula', etiqueta: '🪪 Cédula del propietario' },
+  { tipo: 'cedula_tenedor', esquema: 'cedula', etiqueta: '🪪 Cédula del tenedor' },
   { tipo: 'rut_propietario', esquema: 'rut', etiqueta: '📊 RUT del propietario' },
+  { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor' },
   { tipo: 'certificado_bancario_cond', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario conductor' },
   { tipo: 'certificado_bancario_tened', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario tenedor' },
   { tipo: 'certificado_bancario_prop', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario propietario' },
@@ -489,6 +574,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const [isLoading, setIsLoading] = useState(false);
   const [editandoFirma, setEditandoFirma] = useState(false);
   const sigCanvas = useRef<any>(null);
+  // Sello de la firma electrónica (vehiculo.firmaEvidencia): fecha de la
+  // última firma registrada vía /vehiculos/firmar. Null = firma histórica
+  // sin sellado o aún no firmado.
+  const [firmaSellada, setFirmaSellada] = useState<{ firmado_en: string; version: number } | null>(null);
   // Documentos ya guardados en el vehículo (tipo subida → URL), para los ✓.
   const [docsSubidos, setDocsSubidos] = useState<Record<string, string>>({});
 
@@ -496,9 +585,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const [leyendoCedula, setLeyendoCedula] = useState(false);
   const [etiquetaLecturaIA, setEtiquetaLecturaIA] = useState('');
   const [camposLecturaIA, setCamposLecturaIA] = useState<string[]>([]);
-  const inputAnversoRef = useRef<HTMLInputElement>(null);
-  const inputReversoRef = useRef<HTMLInputElement>(null);
-  // Input file genérico para el resto de tipos de documento.
+  // Input file genérico: todos los documentos pasan por aquí (la cédula del
+  // conductor ya no tiene botones separados de frente/reverso).
   const [tipoLecturaPendiente, setTipoLecturaPendiente] = useState<string | null>(null);
   const inputDocumentoRef = useRef<HTMLInputElement>(null);
   // Esperando el REVERSO de un documento de dos caras (licencia/tarjeta).
@@ -507,6 +595,9 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
 
   // --- Campos obligatorios faltantes (se pintan en rojo al dar «Continuar») ---
   const [camposError, setCamposError] = useState<string[]>([]);
+  // Visor de documento de dos caras (botón 👁 de la tarjeta IA): frente +
+  // «Girar para ver el respaldo», sin tener que elegir la cara de antemano.
+  const [verCaraIA, setVerCaraIA] = useState<{ frente: string; reverso?: string; etiqueta: string } | null>(null);
   // Se limpian solos conforme el usuario va llenando.
   useEffect(() => {
     setCamposError(prev => prev.filter(c => !formData[c] || formData[c].trim() === ''));
@@ -532,7 +623,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     'condCiudadRef', 'condNroViajesRef', 'condAntiguedadRef', 'condMercTransportada', 'propNombre', 'propDocumento', 'propCiudadExpDoc',
     'propCorreo', 'propCelular', 'propDireccion', 'propCiudad', 'tenedNombre', 'tenedDocumento', 'tenedCiudadExpDoc', 'tenedCorreo',
     'tenedCelular', 'tenedDireccion', 'tenedCiudad', 'vehModelo', 'vehMarca', 'vehTipoCarroceria', 'vehLinea', 'vehColor',
-    'vehEmpresaSat', 'vehUsuarioSat', 'vehClaveSat'
+    'vehEmpresaSat', 'vehUsuarioSat', 'vehClaveSat',
+    // Datos del SOAT OBLIGATORIOS (2026-08-27, orden del usuario).
+    'vehAseguradoraSoat', 'vehPolizaSoat', 'vehVencimientoSoat',
+    // El Año de Repotenciación es obligatorio SOLO si el vehículo fue repotenciado.
+    ...(formData['vehRepotenciado'] === 'Sí' ? ['vehAno'] : []),
   ];
 
   const calcularAvance = () => {
@@ -566,6 +661,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             'documentoIdentidadConductor',
             ...Object.values(LECTURA_IA_A_TIPO_SUBIDA),
             'documentoIdentidadConductorReverso', 'licenciaReverso', 'tarjetaPropiedadReverso',
+            'documentoIdentidadPropietarioReverso', 'documentoIdentidadTenedorReverso',
           ];
           const subidos: Record<string, string> = {};
           tiposSubidaIA.forEach((tipo) => {
@@ -586,6 +682,12 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
              }
           });
           setFormData((prevData) => ({ ...prevData, ...loadedData, ...departamentosCalculados }));
+
+          // Sello de la firma electrónica (si ya firmó antes con el flujo nuevo).
+          const evidencia = loadedData.firmaEvidencia;
+          if (evidencia && evidencia.firmado_en) {
+            setFirmaSellada({ firmado_en: evidencia.firmado_en, version: evidencia.version ?? 1 });
+          }
 
           // Datos extraídos por IA al subir documentos (paso 3): autollenar los
           // campos aún vacíos con la misma regla de no pisar lo escrito a mano.
@@ -649,6 +751,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     }
     if (value !== "") {
         if (name === 'vehModelo' && parseInt(value) > 2026) return;
+        // El año de repotenciación nunca puede ser futuro.
+        if (name === 'vehAno' && parseInt(value) > ANIO_ACTUAL) return;
         if (name === 'condAntiguedadRef' && parseInt(value) > 30) return;
     }
     if (name.includes('Depto')) {
@@ -695,9 +799,9 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   ) => {
     const mapear = MAPEOS_IA[tipoLectura];
     if (!mapear) return;
-    // Reverso OBLIGATORIO para licencia y tarjeta de propiedad (dos caras).
-    // La cédula lo admite opcional (solo la amarilla aporta datos extra).
-    if (['licencia', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
+    // Reverso OBLIGATORIO para TODOS los docs de dos caras (cédulas, licencia
+    // y tarjeta de propiedad — siempre frente y reverso, sin excepciones).
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
       Swal.fire({
         icon: 'warning',
         title: 'Falta el reverso',
@@ -721,9 +825,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       let avisos: string[] = [];
       let lecturaFallida = false;
 
-      // Documentos de DOS caras (cédula, licencia, tarjeta de propiedad):
-      // leer frente+reverso con IA y subir el frente como documento oficial.
-      const esDosCaras = ['cedula', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura);
+      // Documentos de DOS caras (cédulas de conductor/propietario/tenedor,
+      // licencia, tarjeta de propiedad): leer frente+reverso con IA y subir
+      // el frente como documento oficial.
+      const esDosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura);
 
       if (esDosCaras) {
         // 1) Lectura con IA (frente + reverso opcional).
@@ -833,8 +938,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       });
     } finally {
       setLeyendoCedula(false);
-      if (inputAnversoRef.current) inputAnversoRef.current.value = '';
-      if (inputReversoRef.current) inputReversoRef.current.value = '';
       if (inputDocumentoRef.current) inputDocumentoRef.current.value = '';
       setTipoLecturaPendiente(null);
     }
@@ -853,17 +956,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     return true;
   };
 
-  const manejarSeleccionCedula = () => {
-    const anverso = inputAnversoRef.current?.files?.[0];
-    const reverso = inputReversoRef.current?.files?.[0] || null;
-    if (!anverso) return;
-    if (!validarArchivoIA(anverso)) {
-      if (inputAnversoRef.current) inputAnversoRef.current.value = '';
-      return;
-    }
-    leerDocumentoConIA('cedula', 'cedula', [anverso, reverso || undefined].filter(Boolean) as File[], 'Cédula del conductor');
-  };
-
   // Input file genérico: el usuario eligió un tipo de OPCIONES_LECTURA_IA y luego el archivo.
   const manejarSeleccionDocumento = () => {
     const archivo = inputDocumentoRef.current?.files?.[0];
@@ -877,9 +969,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     if (!opcion) return;
     const etiqueta = opcion.etiqueta.replace(/^[^\s]+\s/, '');
 
-    // Licencia y tarjeta de propiedad tienen DOS caras OBLIGATORIAS: tras el
-    // frente, se pide el reverso inmediatamente (no se puede continuar sin él).
-    if (['licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
+    // Documentos de DOS caras OBLIGATORIAS (todas las cédulas, licencia y
+    // tarjeta de propiedad — 2026-08-27, orden del usuario: siempre reverso):
+    // tras el frente se pide el reverso inmediatamente, sin poder saltarlo.
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
       Swal.fire({
         icon: 'info',
         title: 'Ahora el REVERSO',
@@ -928,6 +1021,63 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     return new Blob([u8arr], { type: mime });
   };
 
+  // La fecha del backend llega ISO sin zona (naive UTC): se interpreta como
+  // UTC y se muestra en hora de Colombia.
+  const formatoFechaFirma = (iso: string): string => {
+    try {
+      return new Date(iso.endsWith('Z') ? iso : `${iso}Z`).toLocaleString('es-CO', {
+        timeZone: 'America/Bogota', dateStyle: 'long', timeStyle: 'short',
+      });
+    } catch { return iso; }
+  };
+
+  /**
+   * FIRMA ELECTRÓNICA con evidencia sellada (Ley 1955 art. 76 / Dec. 1499):
+   * en un solo request (PUT /vehiculos/firmar) sube la imagen Y sella el
+   * registro inmutable — hash SHA-256 de los datos declarados, fecha UTC,
+   * IP y user-agent. Retorna la fecha ISO del sellado.
+   */
+  const firmarAhora = async (): Promise<string> => {
+    if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
+      throw new Error('Dibuja tu firma antes de firmar.');
+    }
+    const dataURL = sigCanvas.current.getCanvas().toDataURL('image/webp');
+    const blob = dataURLtoBlob(dataURL);
+    const fileFirma = new File([blob], 'firma_conductor.webp', { type: 'image/webp' });
+    const body = new FormData();
+    body.append('archivo', fileFirma);
+    body.append('placa', placa);
+    if (idUsuario) body.append('id_usuario', idUsuario);
+    if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
+
+    const resp = await fetch(`${API_BASE}/vehiculos/firmar`, { method: 'PUT', body });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.detail || 'No se pudo registrar la firma.');
+    if (data.url) setFormData(prev => ({ ...prev, firmaUrl: data.url }));
+    if (data.firmado_en) setFirmaSellada({ firmado_en: data.firmado_en, version: data.version ?? 1 });
+    return data.firmado_en || '';
+  };
+
+  // Botón «Firmar»: acto explícito e informado (qué firma y cuándo quedó sellado).
+  const manejarFirmar = async () => {
+    setIsLoading(true);
+    try {
+      const firmadoEn = await firmarAhora();
+      await Swal.fire({
+        icon: 'success',
+        title: 'Firma registrada',
+        html: `Firmaste electrónicamente el <b>${formatoFechaFirma(firmadoEn)}</b>.<br/>
+               <span style="font-size:0.85em; color:#666">La firma quedó sellada con el hash de tus datos
+               y la fecha exacta, como evidencia inmutable.</span>`,
+        confirmButtonColor: '#27ae60',
+      });
+    } catch (error: any) {
+      Swal.fire({ icon: 'error', title: 'No se pudo firmar', text: error?.message || 'Intenta de nuevo.', confirmButtonColor: '#d33' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const limpiarFirma = () => {
     if (sigCanvas.current) sigCanvas.current.clear();
   };
@@ -942,6 +1092,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     'polizaResponsabilidad', 'planillaEpsArl', 'condFoto',
     'condCertificacionBancaria', 'propCertificacionBancaria', 'tenedCertificacionBancaria',
     'documentoAcreditacionTenedor', 'rutTenedor', 'rutPropietario', 'fotos', 'firmaUrl',
+    // Reversos de documentos de dos caras (mismo blindaje que sus frentes).
+    'documentoIdentidadConductorReverso', 'documentoIdentidadPropietarioReverso',
+    'documentoIdentidadTenedorReverso', 'licenciaReverso', 'tarjetaPropiedadReverso',
+    // Sello de la firma electrónica: solo /vehiculos/firmar lo escribe.
+    'firmaEvidencia',
   ];
 
   /**
@@ -1059,17 +1214,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
       if (hasSignatureDrawn) {
-          const dataURL = sigCanvas.current.getCanvas().toDataURL('image/webp');
-          const blob = dataURLtoBlob(dataURL);
-          const fileFirma = new File([blob], "firma_conductor.webp", { type: "image/webp" });
-          const formDataFirma = new FormData();
-          formDataFirma.append("archivo", fileFirma);
-          formDataFirma.append("placa", placa);
-          if (editarAprobado && idUsuario) formDataFirma.append("editado_por", idUsuario);
-          const resFirma = await fetch(`${API_BASE}/vehiculos/subir-firma`, { method: 'PUT', body: formDataFirma });
-          if (!resFirma.ok) throw new Error("Fallo al subir la imagen de la firma");
-          const dataRespuesta = await resFirma.json();
-          if (dataRespuesta.url) setFormData(prev => ({ ...prev, firmaUrl: dataRespuesta.url }));
+          // Subida + sellado en un solo acto (firma electrónica con evidencia:
+          // hash de los datos, fecha UTC, IP — antes era solo subir-firma).
+          try {
+              await firmarAhora();
+          } catch {
+              throw new Error('Fallo al registrar la firma electrónica');
+          }
       }
 
       const ok = await guardarDatos();
@@ -1190,7 +1341,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: "Tipo Carroceria", name: "vehTipoCarroceria", options: tiposCarroceria },
         { label: 'Línea', name: 'vehLinea' },
         { label: 'Color', name: 'vehColor' },
-        { label: 'Nº Licencia de Tránsito', name: 'vehNoLicTransito', type: 'text', inputProps: { inputMode: 'numeric' as const } },
+        { label: 'Nº Licencia de Tránsito', name: 'vehNoLicTransito', type: 'number' },
         { label: 'Clase de Vehículo', name: 'vehClase' },
         { label: 'Cilindraje (c.c.)', name: 'vehCilindraje', type: 'number' },
         { label: 'Servicio', name: 'vehServicio', options: serviciosVehiculo },
@@ -1207,11 +1358,19 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Limitación a la Propiedad', name: 'vehLimitacionProp', options: ["Sí", "No"] },
         { label: 'Código Licencia (LT)', name: 'vehCodigoLicTransito', type: 'text', inputProps: { placeholder: 'Ej: LT02004908588' } },
         { label: 'Repotenciado', name: 'vehRepotenciado', options: ["Sí", "No"] },
-        { label: 'Año Repotenciacion', name: 'vehAno', type: 'number', inputProps: { min: 1990, max: 2025 } },
+        { label: 'Año Repotenciacion', name: 'vehAno', type: 'number', inputProps: { min: 1990, max: ANIO_ACTUAL } },
         { label: 'Empresa Satelital', name: 'vehEmpresaSat' },
         { label: 'Usuario Satelital', name: 'vehUsuarioSat' },
         { label: 'Clave Satelital', name: 'vehClaveSat' },
-        { label: 'Aseguradora SOAT', name: 'vehAseguradoraSoat', options: aseguradorasSoat },
+        {
+          label: 'Aseguradora SOAT',
+          name: 'vehAseguradoraSoat',
+          // Si la IA leyó una aseguradora fuera del catálogo, se agrega como
+          // opción para que el select la MUESTRE (si no coincide, pinta blanco).
+          options: formData['vehAseguradoraSoat'] && !aseguradorasSoat.includes(formData['vehAseguradoraSoat'])
+            ? [...aseguradorasSoat, formData['vehAseguradoraSoat']]
+            : aseguradorasSoat,
+        },
         { label: 'Póliza SOAT', name: 'vehPolizaSoat', type: 'text', inputProps: { inputMode: 'numeric' as const } },
         { label: 'Vence SOAT', name: 'vehVencimientoSoat', type: 'date' },
       ],
@@ -1240,25 +1399,56 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     return name;
   };
 
+  // Avance individual por figura: % de campos OBLIGATORIOS llenos del grupo
+  // (misma regla que el avance global, para que los 4 sumen el total).
+  const avancesPorGrupo = GRUPOS_AVANCE.map(grupo => {
+    const campos = [
+      ...(grupo.extra || []),
+      ...sections
+        .filter(s => grupo.titulos.includes(s.title))
+        .flatMap(s => s.fields.map(f => f.name)),
+    ].filter(name => requiredFields.includes(name));
+    const llenos = campos.filter(f => formData[f] && formData[f].trim() !== '').length;
+    return { etiqueta: grupo.etiqueta, pct: campos.length ? Math.round((llenos / campos.length) * 100) : 0 };
+  });
+
   return (
     <div className="Datos-contenedor">
       <div className="Datos-avance-container">
-        <span className="Datos-avance-texto">Avance: {calcularAvance()}%</span>
-        <div className="Datos-barra-avance">
-          <div className="Datos-progreso" style={{ width: `${calcularAvance()}%` }}></div>
+        <div className="Datos-avance-fila">
+          <span className="Datos-avance-texto">Avance: {calcularAvance()}%</span>
+          <div className="Datos-barra-avance">
+            <div className="Datos-progreso" style={{ width: `${calcularAvance()}%` }}></div>
+          </div>
+          {calcularAvance() < 100 && (
+            <span className="Datos-avance-faltan" style={{ display: 'block', fontSize: '0.85rem', color: '#e67e22', marginTop: '6px' }}>
+              Faltan {requiredFields.filter(f => !formData[f] || formData[f].trim() === '').length} campos obligatorios (*)
+            </span>
+          )}
+          {estadoAutoguardado !== 'inactivo' && (
+            <span className={`Datos-autoguardado Datos-autoguardado--${estadoAutoguardado}`}>
+              {estadoAutoguardado === 'guardando' && (<><span className="Datos-autoguardado-spinner" /> Guardando…</>)}
+              {estadoAutoguardado === 'guardado' && (<>✓ Guardado automático</>)}
+              {estadoAutoguardado === 'error' && (<>⚠ No se pudo autoguardar — usa «Guardar Progreso»</>)}
+            </span>
+          )}
         </div>
-        {calcularAvance() < 100 && (
-          <span className="Datos-avance-faltan" style={{ display: 'block', fontSize: '0.85rem', color: '#e67e22', marginTop: '6px' }}>
-            Faltan {requiredFields.filter(f => !formData[f] || formData[f].trim() === '').length} campos obligatorios (*)
-          </span>
-        )}
-        {estadoAutoguardado !== 'inactivo' && (
-          <span className={`Datos-autoguardado Datos-autoguardado--${estadoAutoguardado}`}>
-            {estadoAutoguardado === 'guardando' && (<><span className="Datos-autoguardado-spinner" /> Guardando…</>)}
-            {estadoAutoguardado === 'guardado' && (<>✓ Guardado automático</>)}
-            {estadoAutoguardado === 'error' && (<>⚠ No se pudo autoguardar — usa «Guardar Progreso»</>)}
-          </span>
-        )}
+      </div>
+
+      {/* Avance individual por figura (mismos campos obligatorios que el total).
+          FUERA del contenedor sticky: se oculta al hacer scroll; solo el
+          avance general queda fijo arriba. */}
+      <div className="Datos-avance-grupos">
+        {avancesPorGrupo.map(g => (
+          <div key={g.etiqueta} className="Datos-avance-grupo">
+            <span className="Datos-avance-grupo-texto">
+              {g.etiqueta} <b>{g.pct}%</b>
+            </span>
+            <div className="Datos-barra-avance Datos-barra-avance--mini">
+              <div className="Datos-progreso" style={{ width: `${g.pct}%` }}></div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* --- LECTURA DE DOCUMENTOS CON IA (guarda el documento Y autollena) --- */}
@@ -1267,75 +1457,19 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           <span className="Datos-iaCedula-titulo">⚡ Ahorra tiempo</span>
           <span className="Datos-iaCedula-sub">
             Toma una foto (o sube el PDF) de un documento: lo <b>guardamos</b> y llenamos
-            los campos por ti con IA. Igual podrás revisar y editar todo. La cédula <b>azul</b>
-            basta el frente; la <b>amarilla</b> antigua aporta más datos con su reverso.
-            La <b>licencia</b> y la <b>tarjeta de propiedad</b> necesitan frente y reverso.
+            los campos por ti con IA. Igual podrás revisar y editar todo. Las <b>cédulas</b>
+            (conductor, propietario y tenedor), la <b>licencia</b> y la <b>tarjeta de propiedad</b>
+            tienen <b>dos caras y ambas son obligatorias</b>: al subir el frente te pedimos el reverso.
           </span>
         </div>
         <div className="Datos-iaCedula-acciones">
-          {(() => {
-            const cedulaLista = Boolean(docsSubidos['documentoIdentidadConductor']);
-            return (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <label
-                  className={`Datos-iaCedula-file ${cedulaLista ? 'Datos-iaDoc-listo' : ''}`}
-                  title={cedulaLista ? 'Documento cargado — toca para reemplazarlo' : 'Toma una foto o elige el archivo de la galería'}
-                >
-                  {cedulaLista ? '🪪 Cédula del conductor' : '🪪 Cédula — frente *'}
-                  {cedulaLista && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
-                  <input
-                    ref={inputAnversoRef}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={manejarSeleccionCedula}
-                    disabled={leyendoCedula}
-                  />
-                </label>
-                {cedulaLista && (
-                  <button
-                    type="button"
-                    className="Datos-iaDoc-ver"
-                    onClick={() => {
-                      const urlReverso = docsSubidos['documentoIdentidadConductorReverso'];
-                      if (urlReverso) {
-                        Swal.fire({
-                          icon: 'question',
-                          title: '¿Qué cara quieres ver?',
-                          showDenyButton: true,
-                          showCancelButton: true,
-                          confirmButtonText: 'Frente',
-                          denyButtonText: 'Reverso',
-                          cancelButtonText: 'Cancelar',
-                          confirmButtonColor: '#2c5f9e',
-                          denyButtonColor: '#7f8c8d',
-                        }).then((r) => {
-                          if (r.isConfirmed) window.open(docsSubidos['documentoIdentidadConductor'], '_blank', 'noopener');
-                          else if (r.isDenied) window.open(urlReverso, '_blank', 'noopener');
-                        });
-                      } else {
-                        window.open(docsSubidos['documentoIdentidadConductor'], '_blank', 'noopener');
-                      }
-                    }}
-                    title={docsSubidos['documentoIdentidadConductorReverso'] ? 'Ver el documento (frente y reverso)' : 'Ver el documento subido (foto o PDF)'}
-                  >
-                    👁
-                  </button>
-                )}
-              </span>
-            );
-          })()}
-          <label className="Datos-iaCedula-file Datos-iaCedula-file--reverso">
-            Cédula — reverso (solo amarilla)
-            <input
-              ref={inputReversoRef}
-              type="file"
-              accept="image/*,application/pdf"
-              disabled={leyendoCedula}
-            />
-          </label>
-          {OPCIONES_LECTURA_IA.filter(o => o.tipo !== 'cedula').map(opcion => {
-            const tipoSubida = LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
-            const dosCaras = ['licencia', 'tarjeta_propiedad'].includes(opcion.tipo);
+          {OPCIONES_LECTURA_IA.map(opcion => {
+            const tipoSubida = opcion.tipo === 'cedula'
+              ? 'documentoIdentidadConductor'
+              : LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
+            // TODAS las cédulas + licencia + tarjeta: dos caras OBLIGATORIAS
+            // (el ✓ exige frente y reverso).
+            const dosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo);
             // Dos caras obligatorias: el ✓ solo con FRENTE y REVERSO subidos.
             const listo = Boolean(
               tipoSubida && docsSubidos[tipoSubida]
@@ -1358,27 +1492,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                     type="button"
                     className="Datos-iaDoc-ver"
                     onClick={() => {
-                      const urlReverso = docsSubidos[`${tipoSubida}Reverso`];
-                      if (urlReverso) {
-                        Swal.fire({
-                          icon: 'question',
-                          title: '¿Qué cara quieres ver?',
-                          showDenyButton: true,
-                          showCancelButton: true,
-                          confirmButtonText: 'Frente',
-                          denyButtonText: 'Reverso',
-                          cancelButtonText: 'Cancelar',
-                          confirmButtonColor: '#2c5f9e',
-                          denyButtonColor: '#7f8c8d',
-                        }).then((r) => {
-                          if (r.isConfirmed) window.open(docsSubidos[tipoSubida], '_blank', 'noopener');
-                          else if (r.isDenied) window.open(urlReverso, '_blank', 'noopener');
-                        });
-                      } else {
-                        window.open(docsSubidos[tipoSubida], '_blank', 'noopener');
-                      }
+                      setVerCaraIA({
+                        frente: docsSubidos[tipoSubida],
+                        reverso: docsSubidos[`${tipoSubida}Reverso`],
+                        etiqueta: opcion.etiqueta.replace(/^[^\s]+\s/, ''),
+                      });
                     }}
-                    title={docsSubidos[`${tipoSubida}Reverso`] ? 'Ver el documento (frente y reverso)' : 'Ver el documento subido (foto o PDF)'}
+                    title={docsSubidos[`${tipoSubida}Reverso`] ? 'Ver el documento (gira al respaldo)' : 'Ver el documento subido (foto o PDF)'}
                   >
                     👁
                   </button>
@@ -1464,6 +1584,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             {formData['firmaUrl'] && !editandoFirma ? (
                 <div className="firma-existente-container" style={{textAlign: 'center', padding: '15px', border: '1px solid #27ae60', borderRadius: '8px', backgroundColor: '#e8f8f5'}}>
                     <div style={{color: '#27ae60', fontWeight: 'bold', marginBottom: '10px', fontSize: '1.1rem'}}>Firma Registrada Exitosamente</div>
+                    {firmaSellada ? (
+                      <div style={{fontSize: '0.82rem', color: '#5a6472', marginTop: '-4px', marginBottom: '10px'}}>
+                        ✍️ Firmada electrónicamente el <b>{formatoFechaFirma(firmaSellada.firmado_en)}</b> — evidencia sellada (hash de tus datos + fecha exacta{firmaSellada.version > 1 ? `, firma #${firmaSellada.version}` : ''}).
+                      </div>
+                    ) : (
+                      <div style={{fontSize: '0.82rem', color: '#8a6d3b', marginTop: '-4px', marginBottom: '10px'}}>
+                        Firma histórica sin sellado electrónico — usa «Cambiar / Volver a firmar» para firmar con evidencia.
+                      </div>
+                    )}
                     <img src={formData['firmaUrl']} alt="Firma Conductor" style={{maxWidth: '100%', height: '150px', border: '1px dashed #ccc', marginBottom: '15px', backgroundColor: 'white'}} />
                     <div>
                         <button type="button" className="btn-cambiar-firma" onClick={() => { setEditandoFirma(true); setTimeout(() => limpiarFirma(), 100); }} style={{backgroundColor: '#f39c12', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold'}}>
@@ -1473,9 +1602,12 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                 </div>
             ) : (
                 <div className="firma-nueva-container">
-                    <p style={{fontSize: '0.9rem', color: '#4d4d4dff', marginBottom: '10px'}}>{formData['firmaUrl'] ? "Estas en modo edición." : "Dibuja tu firma a continuación."}</p>
+                    <p style={{fontSize: '0.9rem', color: '#4d4d4dff', marginBottom: '10px'}}>{formData['firmaUrl'] ? "Estas en modo edición." : "Dibuja tu firma y pulsa «Firmar»: queda sellada con la fecha exacta y el hash de tus datos (firma electrónica)."}</p>
                     <div className="signature-wrapper" style={{border: '2px dashed #ccc', borderRadius: '8px', overflow: 'hidden'}}><SignatureCanvas ref={sigCanvas} penColor='black' canvasProps={{className: 'signature-canvas', style: {width: '100%', height: '200px'}}} backgroundColor="white" /></div>
-                    <div style={{marginTop: '10px', display: 'flex', gap: '10px'}}>
+                    <div style={{marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                        <button type="button" onClick={manejarFirmar} disabled={isLoading} style={{backgroundColor: '#2F6B3E', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold'}}>
+                            {isLoading ? 'Sellando…' : '✍️ Firmar'}
+                        </button>
                         <button type="button" onClick={limpiarFirma} className="btn-limpiar-firma" style={{backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer'}}>Borrar dibujo</button>
                         {formData['firmaUrl'] && (<button type="button" onClick={() => { setEditandoFirma(false); limpiarFirma(); }} style={{backgroundColor: '#7f8c8d', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer'}}>Cancelar edición</button>)}
                     </div>
@@ -1493,6 +1625,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
               {isLoading ? "Procesando..." : "Continuar"}
           </button>
       </div>
+
+      {/* --- VISOR de documento de dos caras (👁 de la tarjeta IA) --- */}
+      {verCaraIA && (
+        <VerCaraDocumento
+          frenteUrl={verCaraIA.frente}
+          reversoUrl={verCaraIA.reverso}
+          etiqueta={verCaraIA.etiqueta}
+          onClose={() => setVerCaraIA(null)}
+        />
+      )}
 
       {/* --- OVERLAY: lectura IA en curso --- */}
       {leyendoCedula && (

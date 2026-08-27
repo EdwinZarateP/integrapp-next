@@ -670,11 +670,34 @@ select:focus-visible {
 }
 .doc-item-row:last-child { border-bottom: none; }
 
-.doc-name { 
-    display: flex; align-items: center; gap: 8px; 
+.doc-name {
+    display: flex; align-items: center; gap: 8px;
     font-size: 0.9rem; color: #555; font-weight: 500;
     max-width: 60%; /* Evita que el texto empuje los botones */
     line-height: 1.2;
+    flex-wrap: wrap;
+}
+/* Etiqueta «opcional» y nota de regla (ej. cantidad de fotos). */
+.doc-tag-opcional {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c7a89;
+    background: #eef2f6;
+    border: 1px solid #dbe3ea;
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+.doc-hint {
+    font-size: 0.72rem;
+    color: #8a94a0;
+    font-weight: 500;
+}
+/* Variante de alerta: falta el reverso de un doc de dos caras. */
+.doc-hint--alerta {
+    color: #e67e22;
+    font-weight: 700;
 }
 .text-success { color: #27ae60; font-size: 1.1rem; }
 
@@ -814,6 +837,10 @@ select:focus-visible {
 .estado-seccion--revision   { border-left-color: #3498db; }
 .estado-seccion--revision h4 svg { color: #3498db; }
 
+/* Inactivados por Seguridad: gris neutro (en la base, fuera de operación). */
+.estado-seccion--inactivo   { border-left-color: #7f8c8d; background: #f7f8f9; }
+.estado-seccion--inactivo h4 svg { color: #7f8c8d; }
+
 .estado-seccion-sub {
   font-size: 0.72rem;
   font-weight: 500;
@@ -841,6 +868,7 @@ select:focus-visible {
 .estado-chip--revision { color: #1f6fb2; background: #eaf3fb; }
 .estado-chip--pendiente { color: #7d8600; background: #f5f8e8; }
 .estado-chip--devuelto { color: #c0392b; background: #fdeeec; }
+.estado-chip--inactivo { color: #5d6d7e; background: #eef1f4; }
 
 /* Fila de vehículo (aprobados / en revisión): placa + estado + acciones */
 .vehiculo-estado-card {

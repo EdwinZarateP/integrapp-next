@@ -1,12 +1,12 @@
 'use client';
 import React, { useState, useEffect, useContext } from 'react';
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import {
   FaCar, FaClipboardList, FaFileUpload, FaCheckCircle,
   FaUserCircle, FaEdit, FaTrashAlt, FaEye, FaExclamationTriangle, FaClock, FaTimesCircle, FaTruck,
-  FaChevronDown, FaSignOutAlt
+  FaChevronDown, FaSignOutAlt, FaBan
 } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
 import Datos from '@/Componentes/Datos';
@@ -27,6 +27,14 @@ interface DocumentoItem {
   url?: string | string[];
   /** Figura cuya documentación cubre este ítem cuando las figuras coinciden. */
   cubiertoPor?: string;
+  /** URL del reverso cuando el documento tiene dos caras (cédula/licencia/tarjeta). */
+  reversoUrl?: string;
+  /** Documento OPCIONAL: no bloquea «Finalizar» ni cuenta en el % de avance. */
+  opcional?: boolean;
+  /** Nota corta bajo el nombre (ej. regla de cantidad de fotos). */
+  hint?: string;
+  /** Doc de dos caras (licencia/tarjeta) con frente pero SIN reverso. */
+  faltaReverso?: boolean;
 }
 interface SeccionDocumentos {
   subtitulo: string;
@@ -71,11 +79,10 @@ const initialSecciones: SeccionDocumentos[] = [
       subtitulo: "1. Documentos del Vehículo",
       items: [
         { nombre: "Tarjeta de Propiedad", progreso: 0 },
-        { nombre: "Tarjeta de Propiedad (Reverso)", progreso: 0 },
         { nombre: "soat", progreso: 0 },
-        { nombre: "Fotos", progreso: 0 },
+        { nombre: "Fotos", progreso: 0, hint: "Mínimo 1 · máximo 10 fotos" },
         { nombre: "Revisión Tecnomecánica", progreso: 0 },
-        { nombre: "Tarjeta de Remolque", progreso: 0 },
+        { nombre: "Tarjeta de Remolque", progreso: 0, opcional: true },
         { nombre: "Póliza de Responsabilidad Civil", progreso: 0 },
       ]
     },
@@ -84,7 +91,6 @@ const initialSecciones: SeccionDocumentos[] = [
         items: [
           { nombre: "Documento de Identidad del Conductor", progreso: 0 },
           { nombre: "Licencia de Conducción Vigente", progreso: 0 },
-          { nombre: "Licencia de Conducción (Reverso)", progreso: 0 },
           { nombre: "Planilla de EPS y ARL", progreso: 0 },
           { nombre: "Foto Conductor", progreso: 0 },
           { nombre: "Certificación Bancaria Conductor", progreso: 0 },
@@ -110,18 +116,21 @@ const initialSecciones: SeccionDocumentos[] = [
 ];
 
 const calculateSectionProgress = (items: DocumentoItem[]) => {
-    if (items.length === 0) return 0;
+    // Los opcionales (ej. Tarjeta de Remolque) no cuentan en el avance.
+    const exigidos = items.filter(i => !i.opcional);
+    if (exigidos.length === 0) return 0;
     // Un ítem "cubierto por" otra figura cuenta como completado (deduplicación).
-    const completed = items.filter(i => i.progreso === 100 || i.cubiertoPor).length;
-    return Math.round((completed / items.length) * 100);
+    const completed = exigidos.filter(i => i.progreso === 100 || i.cubiertoPor).length;
+    return Math.round((completed / exigidos.length) * 100);
 };
 
 const getOverallDocumentProgress = (secciones: SeccionDocumentos[]) => {
   let totalItems = 0;
   let completed = 0;
   secciones.forEach(section => {
-    totalItems += section.items.length;
     section.items.forEach((item) => {
+      if (item.opcional) return; // Los opcionales no bloquean el 100%.
+      totalItems += 1;
       if (item.progreso === 100 || item.cubiertoPor) completed++;
     });
   });
@@ -136,6 +145,13 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
     ...sec,
     items: sec.items.map((item: DocumentoItem) => {
       const field = tiposMapping[normalizeKey(item.nombre)] || "";
+      // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
+      // ítem por documento, sin filas «(Reverso)» separadas).
+      const esDosCaras = ['documentoIdentidadConductor', 'licencia', 'tarjetaPropiedad'].includes(field);
+      const reversoUrl = esDosCaras && vehiculo[`${field}Reverso`] ? vehiculo[`${field}Reverso`] : undefined;
+      // TODAS las cédulas + licencia + tarjeta exigen reverso (2026-08-27):
+      // si hay frente pero no reverso, se marca para que el conductor lo complete.
+      const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'licencia', 'tarjetaPropiedad'].includes(field);
       if (field && vehiculo[field]) {
         let valor = vehiculo[field];
         if (Array.isArray(valor)) {
@@ -143,18 +159,28 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
             url && url !== "null" && url !== "undefined" &&
             typeof url === 'string' && url.trim() !== ""
           );
+          // Sanear duplicados (bug de numeración de fotos: misma URL N veces).
+          valor = Array.from(new Set(valor));
           if (valor.length === 0) {
             return {
               ...item,
               progreso: 0,
               url: undefined,
               cubiertoPor: figuraQueCubre(field, vehiculo),
+              reversoUrl,
             };
           }
         }
-        return { ...item, progreso: 100, url: valor };
+        return {
+          ...item,
+          progreso: 100,
+          url: valor,
+          reversoUrl,
+          faltaReverso: requiereReverso && !reversoUrl,
+          hint: requiereReverso && !reversoUrl ? 'Falta el reverso' : item.hint,
+        };
       }
-      return { ...item, progreso: 0, url: undefined, cubiertoPor: figuraQueCubre(field, vehiculo) };
+      return { ...item, progreso: 0, url: undefined, cubiertoPor: figuraQueCubre(field, vehiculo), reversoUrl };
     })
   }));
 };
@@ -411,11 +437,36 @@ const PanelConductoresVista: React.FC = () => {
   // Vista hub de módulos (pantalla inicial): «Crear vehículo» / «Ofrecer mi disponibilidad».
   const [vistaModulos, setVistaModulos] = useState<boolean>(true);
 
+  /* --- ESTADO EN LA URL (query params) ----------------------------------
+     El export es estático (GoDaddy): segmentos dinámicos como /datos-basicos/
+     MVX48E serían 404 para placas desconocidas al build. En su lugar:
+     /PanelConductores?vista=flujo&paso=2&placa=MVX48E — sobrevive al refresh,
+     se puede compartir y marcar. */
+  const searchParams = useSearchParams();
+  const urlSincronizada = React.useRef(false);
+
+  // Restaurar vista/paso/placa desde la URL al montar (evita perder el paso
+  // al recargar — antes un F5 devolvía al hub).
+  useEffect(() => {
+    if (urlSincronizada.current) return;
+    urlSincronizada.current = true;
+    const pasoUrl = parseInt(searchParams.get('paso') || '', 10);
+    const placaUrl = (searchParams.get('placa') || '').trim().toUpperCase();
+    if (searchParams.get('vista') === 'flujo' && [1, 2, 3, 4].includes(pasoUrl)) {
+      if (placaUrl) setSelectedPlate(placaUrl);
+      setVistaModulos(false);
+      setCurrentStep(pasoUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [vehicles, setVehicles] = useState<string[]>([]);
   const [vehiculosPendientes, setVehiculosPendientes] = useState<any[]>([]);
   const [vehiculosRechazados, setVehiculosRechazados] = useState<any[]>([]);
   const [vehiculosEnRevision, setVehiculosEnRevision] = useState<any[]>([]);
   const [vehiculosAprobados, setVehiculosAprobados] = useState<any[]>([]);
+  // Aprobados pausados por Seguridad: siguen en la base pero sin operar.
+  const [vehiculosInactivos, setVehiculosInactivos] = useState<any[]>([]);
 
   // Perfil del usuario logueado (TENEDOR gestiona flota + conductores invitados).
   const perfilUsuario = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase();
@@ -430,6 +481,20 @@ const PanelConductoresVista: React.FC = () => {
   const [secciones, setSecciones] = useState<SeccionDocumentos[]>(() => JSON.parse(JSON.stringify(initialSecciones)));
 
   const [selectedPlate, setSelectedPlate] = useState<string | null>(null);
+
+  // Espejo del estado en la URL (replace: no ensucia el historial con cada clic).
+  useEffect(() => {
+    if (!urlSincronizada.current) return; // No pisar la restauración inicial.
+    const params = new URLSearchParams();
+    if (!vistaModulos) {
+      params.set('vista', 'flujo');
+      params.set('paso', String(currentStep));
+      if (selectedPlate) params.set('placa', selectedPlate);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/PanelConductores?${qs}` : '/PanelConductores', { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vistaModulos, currentStep, selectedPlate]);
   const [newPlate, setNewPlate] = useState<string>("");
   const [datosValidos, setDatosValidos] = useState<boolean>(false);
   // Vehículo completo de la placa seleccionada (para figuras/gemelos del paso 3).
@@ -463,6 +528,7 @@ const PanelConductoresVista: React.FC = () => {
           setVehiculosRechazados([]);
           setVehiculosEnRevision([]);
           setVehiculosAprobados([]);
+          setVehiculosInactivos([]);
           return;
       }
 
@@ -488,11 +554,16 @@ const PanelConductoresVista: React.FC = () => {
             v.estadoIntegra === 'aprobado'
         );
 
+        const inactivos = data.vehiculos.filter((v: any) =>
+            v.estadoIntegra === 'inactivo'
+        );
+
         setVehicles(pendientes);
         setVehiculosPendientes(pendientesDocs);
         setVehiculosRechazados(rechazados);
         setVehiculosEnRevision(revision);
         setVehiculosAprobados(aprobados);
+        setVehiculosInactivos(inactivos);
 
       } else {
           setVehicles([]);
@@ -500,6 +571,7 @@ const PanelConductoresVista: React.FC = () => {
           setVehiculosRechazados([]);
           setVehiculosEnRevision([]);
           setVehiculosAprobados([]);
+          setVehiculosInactivos([]);
       }
     } catch (error) { console.error("Error fetching vehiculos", error); }
   };
@@ -842,7 +914,13 @@ const PanelConductoresVista: React.FC = () => {
             <button
               className="pc-moduloCard"
               style={{ borderColor: '#e8a000' }}
-              onClick={() => setVistaModulos(false)}
+              onClick={() => {
+                // Entrar al flujo SIEMPRE desde el paso 1 (antes heredaba el
+                // último paso visitado y la placa seleccionada previa).
+                setCurrentStep(1);
+                setSelectedPlate(null);
+                setVistaModulos(false);
+              }}
             >
               <div className="pc-moduloCardDot" style={{ background: '#e8a000' }}><FaCar /></div>
               <div className="pc-moduloCardTexto">
@@ -1052,7 +1130,46 @@ const PanelConductoresVista: React.FC = () => {
                         </div>
                     )}
 
-                    {/* SECCIÓN 4: EN REVISIÓN */}
+                    {/* SECCIÓN 4: INACTIVADOS POR SEGURIDAD */}
+                    {vehiculosInactivos.length > 0 && (
+                        <div className="estado-seccion estado-seccion--inactivo">
+                            <h4><FaBan /> Vehículos inactivados por Seguridad</h4>
+                            <p className="estado-seccion-sub" style={{ margin: '0 0 10px' }}>
+                              Están en la base pero pausados: no puedes ofrecer disponibilidad ni hacer
+                              check-in con ellos. Contacta al área de Seguridad para reactivarlos.
+                            </p>
+                            <div className="lista-vehiculos-grid">
+                                {vehiculosInactivos.map((veh, idx) => {
+                                  const ultima = (veh.historialInactivacion || []).at(-1);
+                                  return (
+                                    <div key={idx} className="vehiculo-estado-card">
+                                        <span className="estado-card-placa">
+                                          <FaBan style={{ color: '#7f8c8d' }} /> {veh.placa}
+                                        </span>
+                                        <span className="estado-chip estado-chip--inactivo">Inactivo</span>
+                                        {ultima && (
+                                          <span style={{ fontSize: '0.75rem', color: '#5a6472' }}>
+                                            {ultima.motivo}
+                                            {ultima.fecha ? ` — ${new Date(ultima.fecha.endsWith('Z') ? ultima.fecha : `${ultima.fecha}Z`).toLocaleDateString('es-CO')}` : ''}
+                                          </span>
+                                        )}
+                                        <div className="estado-card-acciones">
+                                            <button
+                                              className="btn-secundario"
+                                              onClick={() => abrirVer(veh.placa)}
+                                              title="Ver los datos que cargaste"
+                                            >
+                                              <FaEye /> Ver mis datos
+                                            </button>
+                                        </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SECCIÓN 5: EN REVISIÓN */}
                     {vehiculosEnRevision.length > 0 && (
                         <div className="estado-seccion estado-seccion--revision">
                             <h4><FaClock /> Vehículos en revisión</h4>
@@ -1139,7 +1256,11 @@ const PanelConductoresVista: React.FC = () => {
                                 <div className="seccion-body">
                                     {seccion.items.map((item, iIdx) => (
                                         <div key={iIdx} className="doc-item-row">
-                                            <span className="doc-name">{item.progreso === 100 && <FaCheckCircle className="text-success"/>} {item.nombre}</span>
+                                            <span className="doc-name">
+                                                {item.progreso === 100 && <FaCheckCircle className="text-success"/>} {item.nombre}
+                                                {item.opcional && <span className="doc-tag-opcional">opcional</span>}
+                                                {item.hint && <span className={`doc-hint ${item.faltaReverso ? 'doc-hint--alerta' : ''}`}>{item.hint}</span>}
+                                            </span>
                                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                                 {item.cubiertoPor && item.progreso < 100 ? (
                                                     <>
@@ -1173,12 +1294,35 @@ const PanelConductoresVista: React.FC = () => {
                                                     </button>
                                                 ) : (
                                                     <>
+                                                        {/* Doc de dos caras sin reverso: completarlo (pide frente+reverso). */}
+                                                        {item.faltaReverso && (
+                                                            <button
+                                                                className="btn-doc-action upload"
+                                                                style={{ borderColor: '#e67e22', color: '#e67e22' }}
+                                                                onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                                title="Cargar el documento completo (frente y reverso)"
+                                                            >
+                                                                ＋ Reverso
+                                                            </button>
+                                                        )}
+                                                        {/* Fotos: siempre se pueden añadir MÁS (hasta 10). */}
+                                                        {normalizeKey(item.nombre) === 'fotos' && (
+                                                            Array.isArray(item.url) ? item.url.length < 10 : true
+                                                        ) && (
+                                                            <button
+                                                                className="btn-doc-action upload"
+                                                                onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                                title="Agregar más fotos (máximo 10 en total)"
+                                                            >
+                                                                ＋ Cargar más
+                                                            </button>
+                                                        )}
                                                         <button
                                                             className="btn-doc-action view"
-                                                            title="Ver documento"
+                                                            title={item.reversoUrl ? 'Ver documento (gira al respaldo)' : 'Ver documento'}
                                                             onClick={() => {
                                                                 const urlsParaVer = Array.isArray(item.url) ? item.url : [item.url as string];
-                                                                setVerDocumentoInfo({ sectionIndex: idx, itemIndex: iIdx, urls: urlsParaVer });
+                                                                setVerDocumentoInfo({ sectionIndex: idx, itemIndex: iIdx, urls: urlsParaVer, reverso: item.reversoUrl });
                                                                 setVerDocumento(true);
                                                             }}
                                                         >
@@ -1206,12 +1350,12 @@ const PanelConductoresVista: React.FC = () => {
             </div>
           )}
 
-          {/* PASO 4 (RECHAZADOS) */}
+          {/* PASO 4 (DEVUELTOS POR SEGURIDAD) */}
           {currentStep === 4 && (
              <div className="step-content fade-in">
                  <div className="step-header" style={{borderBottomColor: '#e74c3c'}}>
-                    <h2 style={{color: '#c0392b'}}><FaExclamationTriangle /> Edición de Vehículos Rechazados</h2>
-                    <p>Estos vehículos requieren correcciones según las observaciones.</p>
+                    <h2 style={{color: '#c0392b'}}><FaExclamationTriangle /> Vehículos devueltos por Seguridad</h2>
+                    <p>Estos vehículos requieren correcciones según las observaciones — pueden ser de <strong>datos</strong> o de <strong>documentos</strong>.</p>
                   </div>
                  {vehiculosRechazados.length > 0 ? (
                     <div className="lista-rechazados" style={{marginTop:'20px'}}>
@@ -1223,20 +1367,33 @@ const PanelConductoresVista: React.FC = () => {
                                     </div>
                                     <p className="observacion-texto">"{veh.observaciones}"</p>
                                 </div>
-                                <button
-                                    className="btn-corregir"
-                                    onClick={() => {
-                                        setSelectedPlate(veh.placa);
-                                        changeStep(3);
-                                    }}
-                                >
-                                    <FaEdit /> Corregir Documentos
-                                </button>
+                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                    <button
+                                        className="btn-corregir"
+                                        onClick={() => {
+                                            setSelectedPlate(veh.placa);
+                                            changeStep(2);
+                                        }}
+                                        title="Corregir los datos del formulario (paso 2)"
+                                    >
+                                        <FaEdit /> Corregir Datos
+                                    </button>
+                                    <button
+                                        className="btn-corregir"
+                                        onClick={() => {
+                                            setSelectedPlate(veh.placa);
+                                            changeStep(3);
+                                        }}
+                                        title="Corregir los documentos (paso 3)"
+                                    >
+                                        <FaFileUpload /> Corregir Documentos
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
                  ) : (
-                     <div className="alert-box">No hay vehículos rechazados por el momento.</div>
+                     <div className="alert-box">No hay vehículos devueltos por el momento.</div>
                  )}
              </div>
           )}
@@ -1302,6 +1459,14 @@ const PanelConductoresVista: React.FC = () => {
           endpoint={selectedDocumento.endpoint}
           placa={selectedPlate}
           editadoPor={editarAprobadoActivo ? idUsuario : undefined}
+          /* Tope de fotos del vehículo (mín. 1 · máx. 10): el modal avisa
+             antes de subir si esta tanda se pasa del límite. */
+          maximo={normalizeKey(selectedDocumento.documentName) === 'fotos' ? 10 : undefined}
+          cantidadActual={(() => {
+            if (normalizeKey(selectedDocumento.documentName) !== 'fotos') return undefined;
+            const it = secciones[selectedDocumento.sectionIndex]?.items[selectedDocumento.itemIndex];
+            return Array.isArray(it?.url) ? it.url.length : (it?.url ? 1 : 0);
+          })()}
           replicarEn={
             vehiculoActual
               ? gemelosDocumento(
@@ -1311,22 +1476,29 @@ const PanelConductoresVista: React.FC = () => {
               : undefined
           }
           onClose={() => setSelectedDocumento(null)}
-          onUploadSuccess={(result: string | string[]) => {
+          onUploadSuccess={(result: string | string[], urlReverso?: string) => {
              const newSec = JSON.parse(JSON.stringify(secciones));
              const item = newSec[selectedDocumento.sectionIndex].items[selectedDocumento.itemIndex];
 
              item.progreso = 100;
 
+             // Doc de dos caras subido con reverso: refrescar sello del ítem
+             // (chip «Falta el reverso» fuera, botón girar disponible en Ver).
+             if (urlReverso) {
+                item.reversoUrl = urlReverso;
+                item.faltaReverso = false;
+                item.hint = undefined;
+             }
+
              if (normalizeKey(item.nombre) === 'fotos') {
-                if (Array.isArray(item.url)) {
-                    if (typeof result === 'string') item.url.push(result);
-                    else item.url = [...item.url, ...result];
-                } else if (typeof item.url === 'string') {
-                    if (typeof result === 'string') item.url = [item.url, result];
-                    else item.url = [item.url, ...result];
-                } else {
-                    item.url = Array.isArray(result) ? result : [result];
-                }
+                // Acumular SIN duplicados: si el array traía URLs repetidas
+                // (bug de numeración) o el backend devolvió una ya existente,
+                // se muestran una sola vez.
+                const previas = Array.isArray(item.url)
+                    ? item.url.filter((u: any) => u && String(u).trim() && u !== 'null' && u !== 'undefined')
+                    : (item.url ? [item.url] : []);
+                const nuevas = Array.isArray(result) ? result : [result];
+                item.url = Array.from(new Set([...previas, ...nuevas]));
              } else {
                  item.url = result;
              }
@@ -1340,6 +1512,7 @@ const PanelConductoresVista: React.FC = () => {
       {verDocumentoInfo && verDocumento && (
          <VerDocumento
             urls={verDocumentoInfo.urls}
+            reversoUrl={verDocumentoInfo.reverso}
             placa={selectedPlate || ""}
             onClose={() => { setVerDocumentoInfo(null); setVerDocumento(false); }}
 

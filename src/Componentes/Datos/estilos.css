@@ -111,6 +111,19 @@
   border-color: #1ab33b;
 }
 
+/* Inputs numéricos: SIN spinner de flechas (junto al onWheel que sale del
+   campo, elimina los cambios accidentales de valor al scrollear). */
+.Datos-contenedor input[type="number"]::-webkit-outer-spin-button,
+.Datos-contenedor input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.Datos-contenedor input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+  appearance: textfield;
+}
+
 
 .Datos-avance-container {
   position: sticky;
@@ -119,13 +132,51 @@
   background: white;
   /* Ancho COMPLETO de la tarjeta: márgenes negativos que "escapan" al
      padding de la tarjeta contenedora (30px en escritorio). */
-  margin: -30px -30px 16px;
+  margin: -30px -30px 8px;
   padding: 10px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 400; /* por debajo del stepper (500) */
+}
+
+/* Fila superior: avance global + indicador de autoguardado. */
+.Datos-avance-fila {
   display: flex;
   align-items: center;
   gap: 1rem;
-  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-  z-index: 400; /* por debajo del stepper (500) */
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* Fila inferior: avance individual por figura (conductor/prop/tenedor/vehículo).
+   FUERA del contenedor sticky — se oculta con el scroll; solo el avance
+   general queda fijo arriba. Mismo truco de ancho completo de la tarjeta. */
+.Datos-avance-grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px 18px;
+  margin: 0 -30px 16px;
+  padding: 0 30px;
+}
+
+.Datos-avance-grupo {
+  min-width: 0;
+}
+
+.Datos-avance-grupo-texto {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5a6472;
+  white-space: nowrap;
+}
+
+.Datos-avance-grupo-texto b {
+  color: #2F6B3E;
 }
 
 /* Estilos para la barra de progreso */
@@ -135,6 +186,13 @@
   background: #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
+}
+
+/* Mini-barra de las barras por figura. */
+.Datos-barra-avance--mini {
+  height: 5px;
+  margin-top: 3px;
+  flex-grow: 1;
 }
 
 .Datos-progreso {
@@ -733,17 +791,25 @@
    tramo, y pegada debajo del stepper (que en pantallas chicas es más bajo). */
 @media (max-width: 900px) {
   .Datos-avance-container {
-    margin: -15px -15px 14px;
+    margin: -15px -15px 8px;
     padding: 8px 15px;
     top: 44px;
+  }
+  .Datos-avance-grupos {
+    margin: 0 -15px 14px;
+    padding: 0 15px;
   }
 }
 
 @media (max-width: 480px) {
   .Datos-avance-container {
-    margin: -12px -12px 12px;
+    margin: -12px -12px 8px;
     padding: 8px 12px;
     top: 40px;
+  }
+  .Datos-avance-grupos {
+    margin: 0 -12px 12px;
+    padding: 0 12px;
   }
 }
 

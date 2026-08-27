@@ -3,162 +3,41 @@ import React, { useEffect, useState, useMemo } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import Swal from "sweetalert2";
-import { FaSearch, FaTimes, FaExclamationTriangle } from "react-icons/fa";
-import HvVehiculos from "@/Componentes/HvVehiculos";
+import { FaSearch, FaTimes } from "react-icons/fa";
 import BarraSuperiorSeguridad from "@/Componentes/Barra";
+import PestanasBandeja from "./componentes/PestanasBandeja";
+import ListaVehiculos from "./componentes/ListaVehiculos";
+import PanelDetalle from "./componentes/PanelDetalle";
+import { Vehiculo, PestanaBandeja } from "./tipos";
 import "./estilos.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-/* -------------------------------------------------------------------------- */
-/* 1. CONFIGURACIÓN EXACTA DE REQUISITOS          */
-/* -------------------------------------------------------------------------- */
-
-// A. Documentos
-const DOCUMENTOS_REQUERIDOS = [
-  { key: "documentoIdentidadConductor", label: "Cédula de Ciudadanía" },
-  { key: "licencia", label: "Licencia de Conducción" },
-  { key: "tarjetaPropiedad", label: "Tarjeta de Propiedad" },
-  { key: "soat", label: "SOAT" },
-  { key: "revisionTecnomecanica", label: "Revisión Tecnomecánica" },
-];
-
-// Lista para visualizar TODOS los documentos posibles en las tarjetas de abajo
-const TODOS_LOS_DOCUMENTOS_DISPLAY = [
-    { key: "documentoIdentidadConductor", label: "Cédula Conductor" },
-    { key: "licencia", label: "Licencia Conducción" },
-    { key: "tarjetaPropiedad", label: "Tarjeta Propiedad" },
-    { key: "soat", label: "SOAT" },
-    { key: "revisionTecnomecanica", label: "Tecnomecánica" },
-    { key: "tarjetaRemolque", label: "Tarjeta Remolque" },
-    { key: "polizaResponsabilidad", label: "Póliza Resp." },
-    { key: "condFoto", label: "Foto Conductor (App)" },
-    { key: "fotoconductorseguridad", label: "Foto Conductor (Seguridad)" },
-    { key: "planillaEpsArl", label: "Planilla EPS/ARL" },
-    { key: "documentoIdentidadTenedor", label: "Cédula Tenedor" },
-    { key: "documentoIdentidadPropietario", label: "Cédula Propietario" },
-    { key: "documentoIdentidadConductorReverso", label: "Cédula Conductor (Reverso)" },
-    { key: "licenciaReverso", label: "Licencia (Reverso)" },
-    { key: "tarjetaPropiedadReverso", label: "Tarjeta Propiedad (Reverso)" },
-    { key: "rutPropietario", label: "RUT Propietario" },
-    { key: "rutTenedor", label: "RUT Tenedor" },
-    { key: "condCertificacionBancaria", label: "Cert. Bancaria Cond." },
-    { key: "propCertificacionBancaria", label: "Cert. Bancaria Prop." },
-    { key: "tenedCertificacionBancaria", label: "Cert. Bancaria Tened." },
-    { key: "fotos", label: "Foto Vehículo" }
-];
-
-// B. Campos de Texto (Texto plano en BD)
-const CAMPOS_TEXTO_REQUERIDOS = [
-  // Conductor
-  { key: 'condPrimerApellido', label: '1er Apellido Conductor' },
-  { key: 'condSegundoApellido', label: '2do Apellido Conductor' },
-  { key: 'condNombres', label: 'Nombres Conductor' },
-  { key: 'condCedulaCiudadania', label: 'Cédula Conductor' },
-  { key: 'condExpedidaEn', label: 'Ciudad Exp. Cédula' },
-  { key: 'condDireccion', label: 'Dirección Conductor' },
-  { key: 'condCiudad', label: 'Ciudad Residencia' },
-  { key: 'condCelular', label: 'Celular Conductor' },
-  { key: 'condCorreo', label: 'Correo Conductor' },
-  { key: 'condEps', label: 'EPS' },
-  { key: 'condArl', label: 'ARL' },
-  { key: 'condNoLicencia', label: 'No. Licencia' },
-  { key: 'condFechaVencimientoLic', label: 'Vencimiento Licencia' },
-  { key: 'condCategoriaLic', label: 'Categoría Licencia' },
-  { key: 'condGrupoSanguineo', label: 'Grupo Sanguíneo' },
-
-  // Emergencia y Referencias
-  { key: 'condNombreEmergencia', label: 'Nombre Emergencia' },
-  { key: 'condCelularEmergencia', label: 'Celular Emergencia' },
-  { key: 'condParentescoEmergencia', label: 'Parentesco Emergencia' },
-  { key: 'condEmpresaRef', label: 'Empresa Referencia' },
-  { key: 'condCelularRef', label: 'Celular Referencia' },
-  { key: 'condCiudadRef', label: 'Ciudad Referencia' },
-  { key: 'condNroViajesRef', label: 'Nro. Viajes Ref' },
-  { key: 'condAntiguedadRef', label: 'Antigüedad Ref' },
-  { key: 'condMercTransportada', label: 'Mercancía Transportada' },
-
-  // Propietario
-  { key: 'propNombre', label: 'Nombre Propietario' },
-  { key: 'propDocumento', label: 'Doc. Propietario' },
-  { key: 'propCiudadExpDoc', label: 'Ciudad Exp. Doc Prop' },
-  { key: 'propCorreo', label: 'Correo Propietario' },
-  { key: 'propCelular', label: 'Celular Propietario' },
-  { key: 'propDireccion', label: 'Dirección Propietario' },
-  { key: 'propCiudad', label: 'Ciudad Propietario' },
-
-  // Tenedor
-  { key: 'tenedNombre', label: 'Nombre Tenedor' },
-  { key: 'tenedDocumento', label: 'Doc. Tenedor' },
-  { key: 'tenedCiudadExpDoc', label: 'Ciudad Exp. Doc Tenedor' },
-  { key: 'tenedCorreo', label: 'Correo Tenedor' },
-  { key: 'tenedCelular', label: 'Celular Tenedor' },
-  { key: 'tenedDireccion', label: 'Dirección Tenedor' },
-  { key: 'tenedCiudad', label: 'Ciudad Tenedor' },
-
-  // Vehículo
-  { key: 'vehModelo', label: 'Modelo Vehículo' },
-  { key: 'vehMarca', label: 'Marca Vehículo' },
-  { key: 'vehTipoCarroceria', label: 'Carrocería Vehículo' },
-  { key: 'vehLinea', label: 'Línea Vehículo' },
-  { key: 'vehColor', label: 'Color Vehículo' },
-  // Satelital
-  { key: 'vehEmpresaSat', label: 'Empresa Satelital' },
-  { key: 'vehUsuarioSat', label: 'Usuario Satelital' },
-  { key: 'vehClaveSat', label: 'Clave Satelital' },
-];
-
-export interface Vehiculo {
-  _id: string;
-  placa: string;
-  estadoIntegra: string;
-  idUsuario: string;
-  estudioSeguridad?: string;
-  fotoconductorseguridad?: string;
-  observaciones?: string;
-  // Re-revisión: cambios editados sobre un vehículo aprobado.
-  historialCambios?: Array<{
-    fecha: string;
-    usuario: string;
-    seccion: string;
-    campos: Array<{ campo: string; antes: any; despues: any }>;
-  }>;
-  // Vinculación tenedor → conductor invitado.
-  idConductor?: string | null;
-  invitacionConductor?: { correo: string; estado: string } | null;
-  [key: string]: any;
-}
-
-type Vista = "registro_incompleto" | "completado_revision" | "aprobados";
-
-/* -------------------------------------------------------------------------- */
-/* COMPONENTE PRINCIPAL                                                       */
-/* -------------------------------------------------------------------------- */
-
+/**
+ * /revision — bandeja de trabajo de Seguridad: pestañas por estado con
+ * contador, lista compacta y panel lateral de detalle con acciones
+ * (Aprobar / Devolver / Inactivar / Reactivar). El diseño anterior era una
+ * lista de acordeones de 900 líneas (2026-08-27 → rediseño bandeja+panel).
+ */
 const RevisionVehiculos: React.FC = () => {
   const router = useRouter();
 
-  const [vehiculosIncompletos, setVehiculosIncompletos] = useState<Vehiculo[]>([]);
-  const [vehiculosCompletados, setVehiculosCompletados] = useState<Vehiculo[]>([]);
+  const [vehiculosPendientes, setVehiculosPendientes] = useState<Vehiculo[]>([]);
+  const [vehiculosRevision, setVehiculosRevision] = useState<Vehiculo[]>([]);
+  const [vehiculosInactivos, setVehiculosInactivos] = useState<Vehiculo[]>([]);
   const [vehiculosAprobados, setVehiculosAprobados] = useState<Vehiculo[]>([]);
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [vista, setVista] = useState<Vista>("registro_incompleto");
+  const [pestanaActiva, setPestanaActiva] = useState<PestanaBandeja>("revision");
+  const [seleccionado, setSeleccionado] = useState<Vehiculo | null>(null);
+
+  const [busqueda, setBusqueda] = useState("");
+  const [busquedaAprobadosEnVuelo, setBusquedaAprobadosEnVuelo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const vehiclesPerPage = 20;
 
-  const [inputIncompletos, setInputIncompletos] = useState("");
-  const [inputCompletados, setInputCompletados] = useState("");
-  const [inputAprobados, setInputAprobados] = useState("");
-
-  const [searchQueryIncompletos, setSearchQueryIncompletos] = useState("");
-  const [searchQueryCompletados, setSearchQueryCompletados] = useState("");
-  const [searchQueryAprobados, setSearchQueryAprobados] = useState("");
-
-  /* -------------------------------------------------------------------------- */
-  /* CARGA DE DATOS                                                             */
-  /* -------------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------- */
+  /* CARGA                                                            */
+  /* ---------------------------------------------------------------- */
 
   useEffect(() => {
     const idUsuario = Cookies.get("seguridadId");
@@ -166,731 +45,154 @@ const RevisionVehiculos: React.FC = () => {
       console.warn("Acceso denegado: Credenciales no encontradas.");
       router.push("/LoginUsuario");
     } else {
-      cargarPendientesYRevision(idUsuario);
+      cargarBandejas(idUsuario);
     }
   }, [router]);
 
-  const cargarPendientesYRevision = async (idUsuario: string) => {
+  const cargarBandejas = async (idUsuario: string) => {
     try {
       const res = await axios.get<{ message: string; vehicles: Vehiculo[] }>(
         `${API_BASE}/vehiculos/obtener-vehiculos-incompletos`,
         { params: { id_usuario: idUsuario } }
       );
       const list = res.data.vehicles || [];
-      setVehiculosIncompletos(list.filter((v) => v.estadoIntegra === "registro_incompleto"));
-      setVehiculosCompletados(list.filter((v) => v.estadoIntegra === "completado_revision"));
+      setVehiculosPendientes(list.filter(v => v.estadoIntegra === "registro_incompleto"));
+      setVehiculosRevision(list.filter(v => v.estadoIntegra === "completado_revision" || v.estadoIntegra === "en_revision"));
+      setVehiculosInactivos(list.filter(v => v.estadoIntegra === "inactivo"));
     } catch (error) {
-      console.error("Error al cargar pendientes:", error);
+      console.error("Error al cargar bandejas:", error);
     }
   };
 
+  const fetchAprobados = async (query: string) => {
+    try {
+      const res = await axios.get<{ vehiculos: Vehiculo[] }>(
+        `${API_BASE}/vehiculos/obtener-aprobados-paginados`,
+        { params: { search: query, limit: 10 } }
+      );
+      setVehiculosAprobados(res.data.vehiculos || []);
+    } catch (error) {
+      console.error("Error buscando aprobados:", error);
+    }
+  };
+
+  // Aprobados se consulta al backend (paginado + búsqueda) al entrar a la pestaña.
   useEffect(() => {
-    if (vista === "aprobados") {
-        fetchAprobadosBackend(searchQueryAprobados);
-    }
-  }, [vista, searchQueryAprobados]);
+    if (pestanaActiva === "aprobados") fetchAprobados(busquedaAprobadosEnVuelo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pestanaActiva, busquedaAprobadosEnVuelo]);
 
-  const fetchAprobadosBackend = async (query: string) => {
-      try {
-          const res = await axios.get<{ vehiculos: Vehiculo[] }>(
-              `${API_BASE}/vehiculos/obtener-aprobados-paginados`,
-              { params: { search: query, limit: 10 } }
-          );
-          setVehiculosAprobados(res.data.vehiculos || []);
-      } catch (error) {
-          console.error("Error buscando aprobados:", error);
-      }
-  };
+  /* ---------------------------------------------------------------- */
+  /* BÚSQUEDA Y PAGINACIÓN                                            */
+  /* ---------------------------------------------------------------- */
 
-  /* -------------------------------------------------------------------------- */
-  /* FUNCIONES DE BÚSQUEDA                                                    */
-  /* -------------------------------------------------------------------------- */
-
-  const ejecutarBusquedaIncompletos = () => setSearchQueryIncompletos(inputIncompletos);
-  const ejecutarBusquedaCompletados = () => setSearchQueryCompletados(inputCompletados);
-  const ejecutarBusquedaAprobados = () => setSearchQueryAprobados(inputAprobados);
-  const limpiarIncompletos = () => { setInputIncompletos(""); setSearchQueryIncompletos(""); };
-  const limpiarCompletados = () => { setInputCompletados(""); setSearchQueryCompletados(""); };
-  const limpiarAprobados = () => { setInputAprobados(""); setSearchQueryAprobados(""); };
-  const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => { if (e.key === 'Enter') action(); };
-
-  /* -------------------------------------------------------------------------- */
-  /* APROBACIÓN / RECHAZO                                                      */
-  /* -------------------------------------------------------------------------- */
-  const aprobarVehiculo = async (veh: Vehiculo) => {
-    const tieneEstudioPrevio = !!veh.estudioSeguridad;
-
-    let htmlEstudio = "";
-    if (tieneEstudioPrevio) {
-        htmlEstudio = `
-            <div style="text-align: left; margin-bottom: 15px; background: #eff6ff; padding: 10px; border-radius: 6px; border: 1px solid #bfdbfe;">
-                <p style="margin: 0 0 8px 0; color: #1e40af; font-size: 0.9rem; display: flex; align-items: center; gap: 5px;">
-                    <strong>✅ Estudio de Seguridad Vigente</strong>
-                </p>
-                <a href="${veh.estudioSeguridad}" target="_blank" class="link-ver-doc-swal">
-                    Ver documento actual
-                </a>
-                <label style="font-weight:600; font-size: 0.85rem; display:block; margin-bottom:5px; margin-top: 10px; color: #333;">
-                    1. ¿Desea actualizarlo? (Opcional)
-                </label>
-                <input type="file" id="swal-file-estudio" class="swal2-file" style="display:block; width:100%; box-sizing:border-box; font-size: 0.9rem;" />
-            </div>
-        `;
-    } else {
-        htmlEstudio = `
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label style="font-weight:600; font-size: 0.9rem; display:block; margin-bottom:5px;">
-                    1. Cargar Estudio de Seguridad <span style="color:red">* (Obligatorio)</span>
-                </label>
-                <input type="file" id="swal-file-estudio" class="swal2-file" style="display:block; width:100%; box-sizing:border-box;" />
-            </div>
-        `;
-    }
-
-    const { value: formValues } = await Swal.fire({
-      title: `Aprobar Vehículo`,
-      text: `Gestionar aprobación para placa: ${veh.placa}`,
-      html: `
-        ${htmlEstudio}
-
-        <div style="text-align: left; margin-bottom: 15px;">
-            <label style="font-weight:600; font-size: 0.9rem; display:block; margin-bottom:5px;">
-                2. Cargar Foto de Conductor <span style="color:red">* (Obligatorio)</span>
-            </label>
-            <input type="file" id="swal-file-foto" class="swal2-file" accept="image/*" style="display:block; width:100%; box-sizing:border-box;" />
-            <small style="color: #666;">Evidencia de seguridad (Obligatoria).</small>
-        </div>
-
-        <div style="text-align: left;">
-            <label style="font-weight:600; font-size: 0.9rem; display:block; margin-bottom:5px;">
-                3. Comentario / Observación (Opcional)
-            </label>
-            <textarea id="swal-comment" class="swal2-textarea" placeholder="Observaciones..." style="margin:0; width:100%; box-sizing:border-box;"></textarea>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: "Aprobar Vehículo",
-      confirmButtonColor: "#28a745",
-      cancelButtonText: "Cancelar",
-      cancelButtonColor: "#6c757d",
-      width: '550px',
-      preConfirm: () => {
-        const fileInputEstudio = document.getElementById("swal-file-estudio") as HTMLInputElement;
-        const fileInputFoto = document.getElementById("swal-file-foto") as HTMLInputElement;
-        const commentInput = document.getElementById("swal-comment") as HTMLInputElement;
-
-        const archivoEstudioSeleccionado = fileInputEstudio?.files?.[0] || null;
-        const archivoFotoSeleccionado = fileInputFoto?.files?.[0] || null;
-
-        if (!tieneEstudioPrevio && !archivoEstudioSeleccionado) {
-            Swal.showValidationMessage('⚠️ Falta el Estudio de Seguridad.');
-            return false;
-        }
-        if (!archivoFotoSeleccionado) {
-            Swal.showValidationMessage('⚠️ Falta la Foto del Conductor.');
-            return false;
-        }
-
-        return {
-            fileEstudio: archivoEstudioSeleccionado,
-            fileFoto: archivoFotoSeleccionado,
-            comment: commentInput ? commentInput.value : ""
-        };
-      }
-    });
-
-    if (!formValues) return;
-    const { fileEstudio, fileFoto, comment } = formValues;
-
-    Swal.fire({
-        title: 'Procesando...',
-        html: 'Iniciando carga de archivos...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    try {
-        if (fileEstudio) {
-            Swal.getHtmlContainer()!.textContent = 'Subiendo Estudio de Seguridad...';
-            const formDataEstudio = new FormData();
-            formDataEstudio.append("archivo", fileEstudio);
-            formDataEstudio.append("placa", veh.placa);
-            await axios.put(`${API_BASE}/vehiculos/subir-estudio-seguridad`, formDataEstudio);
-        }
-
-        Swal.getHtmlContainer()!.textContent = 'Subiendo Foto de Conductor...';
-        const formDataFoto = new FormData();
-        formDataFoto.append("archivo", fileFoto);
-        formDataFoto.append("placa", veh.placa);
-        await axios.put(`${API_BASE}/vehiculos/subir-foto-seguridad`, formDataFoto);
-
-        Swal.getHtmlContainer()!.textContent = 'Finalizando aprobación...';
-        await ejecutarAprobacion(veh, comment);
-
-    } catch (error: any) {
-        console.error("Detalle del error:", error);
-
-        let mensajeError = "Ocurrió un error inesperado.";
-
-        if (error.response) {
-            const detalleServidor = error.response.data?.detail || error.message;
-            const urlFallida = error.config?.url || "desconocida";
-
-            if (urlFallida.includes("subir-foto-seguridad")) {
-                mensajeError = `Error al subir la FOTO: ${detalleServidor}`;
-            } else if (urlFallida.includes("subir-estudio-seguridad")) {
-                mensajeError = `Error al subir el ESTUDIO: ${detalleServidor}`;
-            } else if (urlFallida.includes("actualizar-estado")) {
-                mensajeError = `Error al ACTUALIZAR ESTADO: ${detalleServidor}`;
-            } else {
-                mensajeError = `Error del servidor (${error.response.status}): ${detalleServidor}`;
-            }
-        } else if (error.request) {
-            mensajeError = "No se recibió respuesta del servidor. Verifique su conexión.";
-        } else {
-            mensajeError = error.message;
-        }
-
-        Swal.fire({
-            icon: 'error',
-            title: 'Falló la operación',
-            text: mensajeError
-        });
-    }
-  };
-
-  const ejecutarAprobacion = async (veh: Vehiculo, observaciones: string) => {
-      try {
-        const seguridadId = Cookies.get("seguridadId") || "";
-        const formDataEstado = new FormData();
-        formDataEstado.append("placa", veh.placa);
-        formDataEstado.append("nuevo_estado", "aprobado");
-        formDataEstado.append("usuario_id", seguridadId);
-        if (observaciones) formDataEstado.append("observaciones", observaciones);
-
-        await axios.put(`${API_BASE}/vehiculos/actualizar-estado`, formDataEstado);
-
-        Swal.fire("Aprobado", `El vehículo ${veh.placa} ha sido aprobado.`, "success");
-        setVehiculosCompletados(prev => prev.filter(v => v._id !== veh._id));
-        fetchAprobadosBackend("");
-        if (expandedId === veh._id) setExpandedId(null);
-        setVista("aprobados");
-      } catch (error) { throw error; }
-  };
-
-  const rechazarVehiculo = async (veh: Vehiculo) => {
-    const { value: observaciones } = await Swal.fire({
-      title: `Devolver a Registro Incompleto ${veh.placa}`,
-      input: 'textarea',
-      inputPlaceholder: 'Ingrese las observaciones...',
-      showCancelButton: true,
-      confirmButtonText: 'Devolver',
-      confirmButtonColor: '#e74c3c',
-      preConfirm: (t) => t || Swal.showValidationMessage('Requerido')
-    });
-
-    if (!observaciones) return;
-
-    try {
-      Swal.fire({ title: 'Procesando...', didOpen: () => Swal.showLoading() });
-      const seguridadId = Cookies.get("seguridadId") || "";
-      const formData = new FormData();
-      formData.append("placa", veh.placa);
-      formData.append("nuevo_estado", "registro_incompleto");
-      formData.append("usuario_id", seguridadId);
-      formData.append("observaciones", observaciones);
-
-      await axios.put(`${API_BASE}/vehiculos/actualizar-estado`, formData);
-      const tenedor = veh.tenedor || veh.idUsuario;
-      axios.post(`${API_BASE}/revision/enviar-observaciones?tenedor=${tenedor}`, { observaciones }).catch(console.warn);
-
-      Swal.fire("Devuelto", "Vehículo devuelto exitosamente.", "success");
-      setVehiculosCompletados(prev => prev.filter(v => v._id !== veh._id));
-      const vehActualizado = { ...veh, estadoIntegra: "registro_incompleto", observaciones };
-      setVehiculosIncompletos(prev => [...prev, vehActualizado]);
-
-      if (expandedId === veh._id) setExpandedId(null);
-      setVista("registro_incompleto");
-    } catch {
-      Swal.fire("Error", "Error al procesar devolución.", "error");
-    }
-  };
-
-  const toggleExpand = (id: string) => setExpandedId(prev => (prev === id ? null : id));
-  const handlePageChange = (newPage: number) => { if (newPage >= 1 && newPage <= totalPages) setCurrentPage(newPage); };
-
-  /* -------------------------------------------------------------------------- */
-  /* RENDER DATOS                                                             */
-  /* -------------------------------------------------------------------------- */
-
-  const RenderDatosVehiculo = ({ veh }: { veh: Vehiculo }) => {
-
-    const faltantesTexto = CAMPOS_TEXTO_REQUERIDOS.filter(req => {
-        const val = veh[req.key];
-        return !val || val.toString().trim() === "";
-    });
-
-    const faltantesDocs = DOCUMENTOS_REQUERIDOS.filter(req => {
-        const urlDoc = veh[req.key];
-        return !urlDoc || urlDoc === "";
-    });
-
-    const faltaFirma = !veh.firmaUrl;
-    const totalFaltantes = faltantesTexto.length + faltantesDocs.length + (faltaFirma ? 1 : 0);
-
-    const isAprobado = veh.estadoIntegra === "aprobado" || vista === "aprobados";
-    const estiloObservacion = isAprobado
-        ? { backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724' }
-        : { backgroundColor: '#fff3cd', border: '1px solid #ffeeba', color: '#856404' };
-    const tituloObservacion = isAprobado ? "✅ Observación de Aprobación:" : "⚠️ Últimas Observaciones:";
-
-    const mostrarInfoFaltante = () => {
-        let htmlContent = `<div style="text-align: left; font-size: 0.9rem; max-height: 400px; overflow-y: auto;">`;
-
-        if (faltantesDocs.length > 0 || faltaFirma) {
-            htmlContent += `<h5 style="color:#c0392b; border-bottom:1px solid #ddd; margin-top:10px;">📄 Documentos Faltantes</h5><ul style="padding-left: 20px;">`;
-            htmlContent += faltantesDocs.map(d => `<li>${d.label}</li>`).join('');
-            if(faltaFirma) htmlContent += `<li><strong>✍️ Firma Digital del Conductor</strong></li>`;
-            htmlContent += `</ul>`;
-        }
-
-        if (faltantesTexto.length > 0) {
-            htmlContent += `<h5 style="color:#d35400; border-bottom:1px solid #ddd; margin-top:15px;">📝 Datos Faltantes</h5><ul style="padding-left: 20px;">`;
-            htmlContent += faltantesTexto.map(t => `<li>${t.label}</li>`).join('');
-            htmlContent += `</ul>`;
-        }
-        htmlContent += `</div>`;
-
-        Swal.fire({
-            title: `<strong>Faltan ${totalFaltantes} Datos/Documentos</strong>`,
-            html: htmlContent,
-            icon: 'warning',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#e67e22',
-            width: '600px'
-        });
-    };
-
-    return (
-        <div className="detalle-completo">
-
-          <h4 className="titulo-seccion">
-            📌 Información Básica del Registro
-            {veh.estadoIntegra === 'completado_revision' && (veh.historialCambios?.length ?? 0) > 0 && (
-              <span
-                style={{
-                  marginLeft: '10px', fontSize: '0.7em', padding: '3px 10px', borderRadius: '12px',
-                  backgroundColor: '#fff3cd', border: '1px solid #ffeeba', color: '#856404',
-                  verticalAlign: 'middle',
-                }}
-              >
-                🔄 Re-revisión — editaron un vehículo aprobado
-              </span>
-            )}
-          </h4>
-          <div className="datos-grid">
-            <p><strong>Placa:</strong> {veh.placa}</p>
-            <p><strong>Estado:</strong> {veh.estadoIntegra}</p>
-            {(veh.idConductor || veh.invitacionConductor) && (
-              <p style={{ gridColumn: '1 / -1' }}>
-                <strong>Conductor vinculado:</strong>{" "}
-                {veh.idConductor
-                  ? `✅ cuenta activa${veh.invitacionConductor?.correo ? ` (${veh.invitacionConductor.correo})` : ""}`
-                  : `⏳ invitación ${veh.invitacionConductor?.estado || "pendiente"} → ${veh.invitacionConductor?.correo || ""}`}
-              </p>
-            )}
-
-            {veh.estadoIntegra === 'registro_incompleto' && totalFaltantes > 0 && (
-                <button className="btn-info-faltante" onClick={mostrarInfoFaltante}>
-                    <FaExclamationTriangle className="icon-alert" />
-                    <span>Ver Información Faltante ({totalFaltantes})</span>
-                </button>
-            )}
-
-            {veh.observaciones && (
-                <p style={{ gridColumn: '1 / -1', ...estiloObservacion }}>
-                  <strong>{tituloObservacion}</strong> {veh.observaciones}
-                </p>
-            )}
-          </div>
-
-          {(veh.historialCambios?.length ?? 0) > 0 && (
-            <div
-              style={{
-                margin: '10px 0', padding: '12px 14px', borderRadius: '8px',
-                backgroundColor: '#eef6ff', border: '1px solid #cfe4ff',
-              }}
-            >
-              <strong style={{ display: 'block', marginBottom: '6px', color: '#0b5ed7' }}>
-                🔄 Cambios desde la última aprobación
-              </strong>
-              {veh.historialCambios!.map((cambio, i) => (
-                <div key={i} style={{ fontSize: '0.88rem', marginBottom: '8px' }}>
-                  <span style={{ color: '#555' }}>
-                    {cambio.fecha ? new Date(cambio.fecha).toLocaleString('es-CO') : ''} · {cambio.seccion} · por {cambio.usuario}
-                  </span>
-                  <ul style={{ margin: '4px 0 0 18px', padding: 0 }}>
-                    {cambio.campos.map((c, j) => {
-                      const esDoc = typeof c.antes === 'string' && (c.antes.startsWith('http') || c.antes === '(ninguno)' || c.antes === '(eliminado)');
-                      return (
-                        <li key={j}>
-                          <strong>{c.campo}</strong>:{" "}
-                          {esDoc ? '📄 documento actualizado' : (
-                            <>
-                              <span style={{ textDecoration: 'line-through', color: '#a33' }}>{String(c.antes ?? '—')}</span>
-                              {" → "}
-                              <span style={{ color: '#2a7a2a', fontWeight: 600 }}>{String(c.despues ?? '—')}</span>
-                            </>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <h4 className="titulo-seccion">👤 Datos del Conductor</h4>
-          <div className="datos-grid">
-            <p><strong>Nombre Completo:</strong> {veh.condNombres} {veh.condPrimerApellido} {veh.condSegundoApellido}</p>
-            <p><strong>Cédula:</strong> {veh.condCedulaCiudadania}</p>
-            <p><strong>Expedida En:</strong> {veh.condExpedidaEn}</p>
-            <p><strong>Dirección:</strong> {veh.condDireccion}</p>
-            <p><strong>Ciudad:</strong> {veh.condCiudad}</p>
-            <p><strong>Celular:</strong> {veh.condCelular}</p>
-            <p><strong>Correo:</strong> {veh.condCorreo}</p>
-            <p><strong>EPS:</strong> {veh.condEps}</p>
-            <p><strong>ARL:</strong> {veh.condArl}</p>
-            <p><strong>Grupo Sanguíneo:</strong> {veh.condGrupoSanguineo}</p>
-          </div>
-          <div className="datos-grid">
-            <p><strong>Licencia No:</strong> {veh.condNoLicencia}</p>
-            <p><strong>Vencimiento Licencia:</strong> {veh.condFechaVencimientoLic}</p>
-            <p><strong>Categorías Licencia:</strong> {(veh.condCategoriaLic || '').split(',').filter(Boolean).join(', ')}</p>
-          </div>
-
-          <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-            <p><strong>Banco:</strong> {veh.condBanco}</p>
-            <p><strong>Tipo de Cuenta:</strong> {veh.condTipoCuenta}</p>
-            <p><strong>No. Cuenta:</strong> {veh.condNumeroCuenta}</p>
-          </div>
-
-          <h5 className="titulo-subseccion">📞 Contacto Emergencia & Referencias</h5>
-          <div className="datos-grid">
-            <p><strong>Nombre Emergencia:</strong> {veh.condNombreEmergencia}</p>
-            <p><strong>Celular Emergencia:</strong> {veh.condCelularEmergencia}</p>
-            <p><strong>Parentesco:</strong> {veh.condParentescoEmergencia}</p>
-            <p><strong>Empresa Ref:</strong> {veh.condEmpresaRef}</p>
-            <p><strong>Celular Ref:</strong> {veh.condCelularRef}</p>
-            <p><strong>Ciudad Ref:</strong> {veh.condCiudadRef}</p>
-            <p><strong>Nro Viajes Ref:</strong> {veh.condNroViajesRef}</p>
-            <p><strong>Antigüedad Ref:</strong> {veh.condAntiguedadRef}</p>
-            <p><strong>Mercancía:</strong> {veh.condMercTransportada}</p>
-          </div>
-
-          <h4 className="titulo-seccion">🔑 Datos del Propietario</h4>
-          <div className="datos-grid">
-            <p><strong>Nombre:</strong> {veh.propNombre}</p>
-            <p><strong>Documento:</strong> {veh.propDocumento}</p>
-            <p><strong>Ciudad Exp:</strong> {veh.propCiudadExpDoc}</p>
-            <p><strong>Celular:</strong> {veh.propCelular}</p>
-            <p><strong>Correo:</strong> {veh.propCorreo}</p>
-            <p><strong>Dirección:</strong> {veh.propDireccion}</p>
-            <p><strong>Ciudad:</strong> {veh.propCiudad}</p>
-          </div>
-          {(veh.propBanco || veh.propNumeroCuenta) && (
-            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-              <p><strong>Banco:</strong> {veh.propBanco}</p>
-              <p><strong>Tipo de Cuenta:</strong> {veh.propTipoCuenta}</p>
-              <p><strong>No. Cuenta:</strong> {veh.propNumeroCuenta}</p>
-            </div>
-          )}
-          {(veh.propFechaInicioActividad || veh.propFechaExpedicionRut) && (
-            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-              <p><strong>Inicio de Actividad (RUT):</strong> {veh.propFechaInicioActividad}</p>
-              <p><strong>Fecha Expedición RUT:</strong> {veh.propFechaExpedicionRut}</p>
-            </div>
-          )}
-
-          <h4 className="titulo-seccion">🤝 Datos del Tenedor</h4>
-          <div className="datos-grid">
-            <p><strong>Nombre:</strong> {veh.tenedNombre}</p>
-            <p><strong>Documento:</strong> {veh.tenedDocumento}</p>
-            <p><strong>Ciudad Exp:</strong> {veh.tenedCiudadExpDoc}</p>
-            <p><strong>Celular:</strong> {veh.tenedCelular}</p>
-            <p><strong>Correo:</strong> {veh.tenedCorreo}</p>
-            <p><strong>Dirección:</strong> {veh.tenedDireccion}</p>
-            <p><strong>Ciudad:</strong> {veh.tenedCiudad}</p>
-          </div>
-          {(veh.tenedBanco || veh.tenedNumeroCuenta) && (
-            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-              <p><strong>Banco:</strong> {veh.tenedBanco}</p>
-              <p><strong>Tipo de Cuenta:</strong> {veh.tenedTipoCuenta}</p>
-              <p><strong>No. Cuenta:</strong> {veh.tenedNumeroCuenta}</p>
-            </div>
-          )}
-          {(veh.tenedFechaInicioActividad || veh.tenedFechaExpedicionRut) && (
-            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-              <p><strong>Inicio de Actividad (RUT):</strong> {veh.tenedFechaInicioActividad}</p>
-              <p><strong>Fecha Expedición RUT:</strong> {veh.tenedFechaExpedicionRut}</p>
-            </div>
-          )}
-
-          <h4 className="titulo-seccion">🚚 Datos del Vehículo</h4>
-          <div className="datos-grid">
-            <p><strong>Placa:</strong> {veh.placa}</p>
-            <p><strong>Marca:</strong> {veh.vehMarca}</p>
-            <p><strong>Línea:</strong> {veh.vehLinea}</p>
-            <p><strong>Modelo:</strong> {veh.vehModelo}</p>
-            <p><strong>Año:</strong> {veh.vehAno}</p>
-            <p><strong>Color:</strong> {veh.vehColor}</p>
-            <p><strong>Carrocería:</strong> {veh.vehTipoCarroceria}</p>
-            <p><strong>Repotenciado:</strong> {veh.vehRepotenciado}</p>
-          </div>
-
-          {(veh.vehNoLicTransito || veh.vehVin || veh.vehChasis || veh.vehMotor) && (
-            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-              <p><strong>Nº Licencia de Tránsito:</strong> {veh.vehNoLicTransito}</p>
-              <p><strong>Código Licencia (LT):</strong> {veh.vehCodigoLicTransito}</p>
-              <p><strong>Clase:</strong> {veh.vehClase}</p>
-              <p><strong>Servicio:</strong> {veh.vehServicio}</p>
-              <p><strong>Cilindraje:</strong> {veh.vehCilindraje ? `${veh.vehCilindraje} c.c.` : ''}</p>
-              <p><strong>Combustible:</strong> {veh.vehCombustible}</p>
-              <p><strong>Capacidad Pasajeros:</strong> {veh.vehCapPasajeros}</p>
-              <p><strong>Potencia:</strong> {veh.vehPotencia}</p>
-              <p><strong>VIN:</strong> {veh.vehVin}</p>
-              <p><strong>Nº Chasis:</strong> {veh.vehChasis}</p>
-              <p><strong>Nº Motor:</strong> {veh.vehMotor}</p>
-              <p><strong>Nº Puertas:</strong> {veh.vehPuertas}</p>
-              <p><strong>Fecha Matrícula:</strong> {veh.vehFechaMatricula}</p>
-              <p><strong>Organismo de Tránsito:</strong> {veh.vehOrganismoTransito}</p>
-              <p><strong>Blindaje:</strong> {veh.vehBlindaje}</p>
-              <p><strong>Limitación a la Propiedad:</strong> {veh.vehLimitacionProp}</p>
-            </div>
-          )}
-
-          {(veh.vehAseguradoraSoat || veh.vehVencimientoSoat) && (
-            <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-              <p><strong>Aseguradora SOAT:</strong> {veh.vehAseguradoraSoat}</p>
-              <p><strong>Póliza SOAT:</strong> {veh.vehPolizaSoat}</p>
-              <p><strong>Vence SOAT:</strong> {veh.vehVencimientoSoat}</p>
-            </div>
-          )}
-
-          <div className="datos-grid mt-2 bg-gray-50 p-2 rounded">
-            <p><strong>Empresa Satélite:</strong> {veh.vehEmpresaSat}</p>
-            <p><strong>Usuario Satélite:</strong> {veh.vehUsuarioSat}</p>
-            <p><strong>Clave Satélite:</strong> {veh.vehClaveSat}</p>
-          </div>
-
-          {(veh.RemolPlaca || veh.tarjetaRemolque) && (
-            <>
-              <h4 className="titulo-seccion">🚛 Datos del Remolque</h4>
-              <div className="datos-grid">
-                <p><strong>Placa Remolque:</strong> {veh.RemolPlaca}</p>
-                <p><strong>Modelo:</strong> {veh.RemolModelo}</p>
-                <p><strong>Clase:</strong> {veh.RemolClase}</p>
-                <p><strong>Carrocería:</strong> {veh.RemolTipoCarroceria}</p>
-                <p><strong>Alto:</strong> {veh.RemolAlto}</p>
-                <p><strong>Largo:</strong> {veh.RemolLargo}</p>
-                <p><strong>Ancho:</strong> {veh.RemolAncho}</p>
-              </div>
-            </>
-          )}
-
-          <h4 className="titulo-seccion">📄 Documentos y Fotos</h4>
-
-          {isAprobado && (
-              <div className="box-estudio-seguridad">
-                  {veh.estudioSeguridad ? (
-                    <div className="flex items-center gap-4 w-full">
-                      <span className="font-bold text-blue-800">Estudio de Seguridad:</span>
-                      <a href={veh.estudioSeguridad} target="_blank" rel="noopener noreferrer" className="btn-ver-doc-seguridad">
-                        VER DOCUMENTO
-                      </a>
-                    </div>
-                  ) : (
-                    <span className="text-red-500 font-bold">Sin estudio de seguridad cargado.</span>
-                  )}
-              </div>
-          )}
-
-          <div className="grid-documentos">
-             {veh.firmaUrl && (
-                <div className="documento-card" onClick={() => window.open(veh.firmaUrl, "_blank")}>
-                  <p>✍️ Firma Conductor</p>
-                  <span className="text-xs text-blue-600">Ver</span>
-                </div>
-             )}
-
-             {TODOS_LOS_DOCUMENTOS_DISPLAY.map((doc) => {
-                 const url = veh[doc.key];
-
-                 if (doc.key === "fotos" && Array.isArray(veh.fotos) && veh.fotos.length > 0) {
-                     return (
-                         <div key="foto-veh" className="documento-card" onClick={() => window.open(veh.fotos[0], "_blank")}>
-                            <p>📸 Foto Vehículo</p>
-                            <span className="text-xs text-blue-600">Ver</span>
-                         </div>
-                     );
-                 }
-
-                 if (url && typeof url === 'string') {
-                     return (
-                        <div key={doc.key} className="documento-card" onClick={() => window.open(url, "_blank")}>
-                          <p className="font-medium">{doc.label}</p>
-                          <span className="text-xs text-blue-600">Ver</span>
-                        </div>
-                     );
-                 }
-                 return null;
-             })}
-          </div>
-        </div>
+  const filtrarLocales = (lista: Vehiculo[]) => {
+    if (!busqueda) return lista;
+    const q = busqueda.toLowerCase();
+    return lista.filter(veh =>
+      veh.placa?.toLowerCase().includes(q) ||
+      veh.condCedulaCiudadania?.toString().toLowerCase().includes(q)
     );
   };
 
-  /* -------------------------------------------------------------------------- */
-  /* FILTROS Y RENDERIZADO                                                    */
-  /* -------------------------------------------------------------------------- */
+  const listaActiva = useMemo(() => {
+    if (pestanaActiva === "pendientes") return filtrarLocales(vehiculosPendientes);
+    if (pestanaActiva === "inactivos") return filtrarLocales(vehiculosInactivos);
+    if (pestanaActiva === "aprobados") return vehiculosAprobados;
+    return filtrarLocales(vehiculosRevision);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pestanaActiva, busqueda, vehiculosPendientes, vehiculosRevision, vehiculosInactivos, vehiculosAprobados]);
 
-  const filtrarLocales = (lista: Vehiculo[], busqueda: string) => {
-    if (!busqueda) return lista;
-    const lowerQ = busqueda.toLowerCase();
-    return lista.filter((veh) => {
-      const placaMatch = veh.placa?.toLowerCase().includes(lowerQ);
-      const cedulaMatch = veh.condCedulaCiudadania?.toString().toLowerCase().includes(lowerQ);
-      return placaMatch || cedulaMatch;
-    });
+  // Paginación solo para "En revisión" (la bandeja más larga).
+  const totalPages = pestanaActiva === "revision" ? Math.ceil(listaActiva.length / vehiclesPerPage) : 1;
+  const paginaActual = useMemo(() => {
+    if (pestanaActiva !== "revision") return listaActiva;
+    const inicio = (currentPage - 1) * vehiclesPerPage;
+    return listaActiva.slice(inicio, inicio + vehiclesPerPage);
+  }, [listaActiva, currentPage, pestanaActiva, vehiclesPerPage]);
+
+  useEffect(() => { setCurrentPage(1); }, [pestanaActiva, busqueda, busquedaAprobadosEnVuelo]);
+
+  /* ---------------------------------------------------------------- */
+  /* ACCIONES                                                         */
+  /* ---------------------------------------------------------------- */
+
+  // Tras aprobar/devolver/inactivar/reactivar: recargar todo y re-seleccionar.
+  const alCambiar = async (_mensaje: string) => {
+    setSeleccionado(null);
+    await cargarBandejas(Cookies.get("seguridadId") || "");
+    if (pestanaActiva === "aprobados") await fetchAprobados(busquedaAprobadosEnVuelo);
   };
 
-  const filteredIncompletos = useMemo(() =>
-    filtrarLocales(vehiculosIncompletos, searchQueryIncompletos),
-  [vehiculosIncompletos, searchQueryIncompletos]);
+  const contadores: Record<PestanaBandeja, number> = {
+    pendientes: vehiculosPendientes.length,
+    revision: vehiculosRevision.length,
+    aprobados: vehiculosAprobados.length,
+    inactivos: vehiculosInactivos.length,
+  };
 
-  const filteredCompletados = useMemo(() =>
-    filtrarLocales(vehiculosCompletados, searchQueryCompletados),
-  [vehiculosCompletados, searchQueryCompletados]);
-
-  const totalPages = Math.ceil(filteredCompletados.length / vehiclesPerPage);
-  const paginatedVehicles = useMemo(() => {
-    const startIndex = (currentPage - 1) * vehiclesPerPage;
-    return filteredCompletados.slice(startIndex, startIndex + vehiclesPerPage);
-  }, [filteredCompletados, currentPage, vehiclesPerPage]);
+  const ejecutarBusquedaAprobados = () => setBusquedaAprobadosEnVuelo(busqueda.trim());
 
   return (
     <div>
       <BarraSuperiorSeguridad />
-      <div className="layout-revision">
-        <div className="panel-lateral">
-          <button className={`btn-menu ${vista === "registro_incompleto" ? "active" : ""} color-rojo`} onClick={() => setVista("registro_incompleto")}>
-            Registros Incompletos <span className="contador-vehiculos">({vehiculosIncompletos.length})</span>
-          </button>
-          <button className={`btn-menu ${vista === "completado_revision" ? "active" : ""} color-amarillo`} onClick={() => setVista("completado_revision")}>
-            Pendientes por Aprobar <span className="contador-vehiculos">({vehiculosCompletados.length})</span>
-          </button>
-          <button className={`btn-menu ${vista === "aprobados" ? "active" : ""} color-verde`} onClick={() => setVista("aprobados")}>
-            Aprobados
-          </button>
-        </div>
-
-        <div className="contenedor-principal">
-
-          {/* ROJO */}
-          {vista === "registro_incompleto" && (
-            <>
-              <h2>Registros Incompletos</h2>
-              <div className="dropdown-contenedor">
-                <label>Buscar por Placa o Cédula:</label>
-                <div className="busqueda-wrapper">
-                  <input type="text" className="input-busqueda" placeholder="Ej: KUT45E o 12345678" value={inputIncompletos} onChange={(e) => setInputIncompletos(e.target.value)} onKeyDown={(e) => handleKeyDown(e, ejecutarBusquedaIncompletos)}/>
-                  {inputIncompletos && <button className="btn-clear" onClick={limpiarIncompletos}><FaTimes /></button>}
-                  <button className="btn-lupa" onClick={ejecutarBusquedaIncompletos}><FaSearch /></button>
-                </div>
-              </div>
-              {filteredIncompletos.length === 0 && <p style={{marginTop: 20}}>No hay vehículos.</p>}
-              {filteredIncompletos.map((veh) => (
-                <div key={veh._id} className="vehiculo-card">
-                  <div className="vehiculo-header" onClick={() => toggleExpand(veh._id)}>
-                    <h3>{veh.placa} - {veh.condNombres || 'SIN NOMBRE'}</h3>
-                    <span className="toggle-icon">{expandedId === veh._id ? "▲" : "▼"}</span>
-                  </div>
-                  {expandedId === veh._id && <div className="vehiculo-body"><RenderDatosVehiculo veh={veh} /></div>}
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* AMARILLO */}
-          {vista === "completado_revision" && (
-            <>
-              <h2>Pendientes por Aprobar</h2>
-              <div className="dropdown-contenedor">
-                <div className="busqueda-wrapper">
-                  <input type="text" className="input-busqueda" placeholder="Buscar por Placa o Cédula..." value={inputCompletados} onChange={(e) => setInputCompletados(e.target.value)} onKeyDown={(e) => handleKeyDown(e, ejecutarBusquedaCompletados)}/>
-                  {inputCompletados && <button className="btn-clear" onClick={limpiarCompletados}><FaTimes /></button>}
-                  <button className="btn-lupa" onClick={ejecutarBusquedaCompletados}><FaSearch /></button>
-                </div>
-              </div>
-              {paginatedVehicles.map((veh) => (
-                <div key={veh._id} className="vehiculo-card completado">
-                  <div className="vehiculo-header" onClick={() => toggleExpand(veh._id)}>
-                    <h3>{veh.placa} - {veh.condNombres || 'SIN NOMBRE'}</h3>
-                    <span className="toggle-icon">{expandedId === veh._id ? "▲" : "▼"}</span>
-                  </div>
-                  {expandedId === veh._id && (
-                    <div className="vehiculo-body">
-                      <RenderDatosVehiculo veh={veh} />
-                      <div className="acciones mt-4 border-t pt-4">
-                        <button className="btn-aprobar" onClick={() => aprobarVehiculo(veh)}>Aprobar vehículo</button>
-                        <button className="btn-rechazar" onClick={() => rechazarVehiculo(veh)}>Rechazar Vehículo</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {totalPages > 1 && (
-                <div className="paginacion-contenedor">
-                  <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>Ant</button>
-                  <span>{currentPage} / {totalPages}</span>
-                  <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>Sig</button>
-                </div>
+      <div className="rev-layout">
+        {/* BANDEJA */}
+        <div className="rev-bandeja">
+          <div className="rev-toolbar">
+            <div className="rev-busqueda">
+              <FaSearch className="rev-busqueda-icono" aria-hidden="true" />
+              <input
+                type="text"
+                className="rev-input-busqueda"
+                placeholder={pestanaActiva === "aprobados" ? "Buscar en la base por placa o cédula…" : "Filtrar por placa o cédula…"}
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && pestanaActiva === 'aprobados') ejecutarBusquedaAprobados(); }}
+              />
+              {busqueda && (
+                <button
+                  className="rev-btn-clear"
+                  title="Limpiar"
+                  onClick={() => { setBusqueda(""); if (pestanaActiva === 'aprobados') setBusquedaAprobadosEnVuelo(""); }}
+                >
+                  <FaTimes />
+                </button>
               )}
-            </>
-          )}
+              {pestanaActiva === "aprobados" && (
+                <button className="rev-btn-buscar" onClick={ejecutarBusquedaAprobados}>
+                  Buscar
+                </button>
+              )}
+            </div>
+          </div>
 
-          {/* VERDE */}
-          {vista === "aprobados" && (
-            <>
-              <h2>Vehículos Aprobados (Recientes)</h2>
-              <div className="dropdown-contenedor">
-                <div className="busqueda-wrapper">
-                  <input type="text" className="input-busqueda" placeholder="Buscar en BD..." value={inputAprobados} onChange={(e) => setInputAprobados(e.target.value)} onKeyDown={(e) => handleKeyDown(e, ejecutarBusquedaAprobados)}/>
-                  {inputAprobados && <button className="btn-clear" onClick={limpiarAprobados}><FaTimes /></button>}
-                  <button className="btn-lupa" onClick={ejecutarBusquedaAprobados}><FaSearch /></button>
-                </div>
-              </div>
-              {vehiculosAprobados.length === 0 && <p>No se encontraron resultados.</p>}
-              {vehiculosAprobados.map((veh) => (
-                  <div key={veh._id} className="vehiculo-card aprobado">
-                    <div className="vehiculo-header aprobado-header" onClick={() => toggleExpand(veh._id)}>
-                        <h3>{veh.placa} - {veh.condNombres || 'SIN NOMBRE'}</h3>
-                        <span className="toggle-icon">{expandedId === veh._id ? "▲" : "▼"}</span>
-                    </div>
-                    {expandedId === veh._id && (
-                        <div className="vehiculo-body">
-                           <RenderDatosVehiculo veh={veh} />
-                           <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}>
-                                <HvVehiculos vehiculo={veh} />
-                           </div>
-                        </div>
-                    )}
-                  </div>
-              ))}
-            </>
+          <PestanasBandeja activa={pestanaActiva} contadores={contadores} onCambiar={p => { setPestanaActiva(p); setSeleccionado(null); }} />
+
+          <ListaVehiculos
+            vehiculos={paginaActual}
+            seleccionadoId={seleccionado?._id}
+            onSeleccionar={setSeleccionado}
+            vacioTexto={pestanaActiva === 'aprobados' ? 'No se encontraron vehículos aprobados.' : 'No hay vehículos en esta bandeja.'}
+          />
+
+          {totalPages > 1 && (
+            <div className="paginacion-contenedor">
+              <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Ant</button>
+              <span>{currentPage} / {totalPages}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Sig</button>
+            </div>
           )}
         </div>
+
+        {/* PANEL DE DETALLE */}
+        {seleccionado && (
+          <PanelDetalle
+            veh={seleccionado}
+            onClose={() => setSeleccionado(null)}
+            alCambiar={alCambiar}
+          />
+        )}
       </div>
     </div>
   );

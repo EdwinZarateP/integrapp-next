@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import Lottie from 'lottie-react';
@@ -10,6 +10,14 @@ import './estilos.css';
 const MAX_SIZE_MB = 10;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
+/* Documentos de DOS CARAS en el paso 3: tras elegir el frente se pide el
+   reverso y AMBOS suben en un solo request (obligatorio para TODAS las
+   cédulas, la licencia y la tarjeta de propiedad — 2026-08-27). */
+const TIPOS_DOS_CARAS = [
+  'documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor',
+  'licencia', 'tarjetaPropiedad',
+];
+
 interface CargaDocumentoProps {
   documentName: string;
   endpoint: string;
@@ -18,13 +26,18 @@ interface CargaDocumentoProps {
   editadoPor?: string;
   /** Tipos gemelos (figuras iguales) donde replicar la URL subida. */
   replicarEn?: string[];
+  /** Tope TOTAL de archivos permitidos (ej. fotos del vehículo: máx. 10). */
+  maximo?: number;
+  /** Cuántos hay ya subidos (para respetar el tope con esta tanda). */
+  cantidadActual?: number;
   onClose: () => void;
-  onUploadSuccess?: (result: string | string[]) => void;
+  onUploadSuccess?: (result: string | string[], urlReverso?: string) => void;
 }
 
 interface UploadResponse {
   urls?: string[];
   url?: string;
+  url_reverso?: string;
   lectura_ia?: { datos?: Record<string, any>; avisos?: string[] } | null;
 }
 
@@ -35,12 +48,32 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   placa,
   editadoPor,
   replicarEn,
+  maximo,
+  cantidadActual,
   onClose,
   onUploadSuccess,
 }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [selectedFileNames, setSelectedFileNames] = useState<string>("Ningún archivo seleccionado");
+  // Dos caras: frente elegido esperando que se elija el reverso.
+  const frentePendienteRef = useRef<File | null>(null);
+  const inputReversoRef = useRef<HTMLInputElement>(null);
+
+  const tipoDoc = tiposMapping[documentName.trim().toLowerCase()] || '';
+  const esDosCaras = TIPOS_DOS_CARAS.includes(tipoDoc);
+
+  const validarArchivo = (file: File): boolean => {
+    if (!['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)) {
+      Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'Solo se permiten archivos de imagen (jpg, jpeg, png) o PDF.' });
+      return false;
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      Swal.fire({ icon: 'error', title: 'Archivo muy pesado', text: `Cada archivo debe pesar máximo ${MAX_SIZE_MB} MB. Revisa: ${file.name}` });
+      return false;
+    }
+    return true;
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -62,14 +95,62 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
         Swal.fire({ icon: 'error', title: 'Archivo muy pesado', text: `Cada archivo debe pesar máximo ${MAX_SIZE_MB} MB. Revisa: ${tooBig.map(f => f.name).join(', ')}` });
         return;
       }
+      // Tope total (fotos del vehículo): las ya subidas + esta tanda.
+      if (maximo != null && (cantidadActual ?? 0) + validFiles.length > maximo) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Demasiadas fotos',
+          text: `Máximo ${maximo} fotos del vehículo. Ya tienes ${cantidadActual ?? 0}; puedes subir hasta ${Math.max(maximo - (cantidadActual ?? 0), 0)} más.`,
+        });
+        return;
+      }
+      // Dos caras (licencia/tarjeta): el FRENTE queda listo y se pide el
+      // REVERSO a continuación — ambos suben juntos en un solo request.
+      if (esDosCaras) {
+        frentePendienteRef.current = validFiles[0];
+        const etiqueta = documentName.toLowerCase();
+        const res = await Swal.fire({
+          icon: 'info',
+          title: 'Ahora el REVERSO',
+          html: `El <b>frente</b> de la ${etiqueta} está listo.<br/>Este documento tiene <b>dos caras</b> y ambas son obligatorias: elige ahora la foto o PDF del <b>reverso</b>.`,
+          showCancelButton: true,
+          confirmButtonText: 'Elegir reverso',
+          cancelButtonText: 'Solo el frente',
+          confirmButtonColor: '#2c5f9e',
+          allowOutsideClick: false,
+        });
+        if (res.isConfirmed) {
+          setTimeout(() => inputReversoRef.current?.click(), 0);
+        } else {
+          const frente = frentePendienteRef.current;
+          frentePendienteRef.current = null;
+          if (frente) await handleUpload([frente]);
+        }
+        return;
+      }
       await handleUpload(validFiles);
     }
   };
 
-  const handleUpload = async (files: File[]) => {
+  // Reverso elegido del documento de dos caras: subir frente+reverso juntos.
+  const manejarReversoElegido = async () => {
+    const reverso = inputReversoRef.current?.files?.[0] || null;
+    if (inputReversoRef.current) inputReversoRef.current.value = '';
+    const frente = frentePendienteRef.current;
+    frentePendienteRef.current = null;
+    if (!frente) return;
+    if (reverso && !validarArchivo(reverso)) {
+      await handleUpload([frente]);
+      return;
+    }
+    await handleUpload([frente], reverso || undefined);
+  };
+
+  const handleUpload = async (files: File[], reverso?: File) => {
     const formData = new FormData();
     const key = documentName === "Fotos" ? 'archivos' : 'archivo';
     files.forEach(file => formData.append(key, file));
+    if (reverso) formData.append('reverso', reverso);
     formData.append('placa', placa);
     if (editadoPor) formData.append('editado_por', editadoPor);
 
@@ -99,9 +180,9 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
         if (result && onUploadSuccess) {
             if (Array.isArray(result)) {
                 const cleanResult = result.filter(u => u && u !== "null" && u !== "undefined" && u.trim() !== "");
-                onUploadSuccess(cleanResult);
+                onUploadSuccess(cleanResult, response.data.url_reverso);
             } else {
-                onUploadSuccess(result);
+                onUploadSuccess(result, response.data.url_reverso);
             }
         }
         // Lectura IA: el backend ya persistió los datos en lecturasIA; se
@@ -136,6 +217,18 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     <div className="CargaDocumento-overlay">
       <div className="CargaDocumento-modal">
         <h2>Cargar {documentName}</h2>
+        {documentName === "Fotos" && (
+          <p className="CargaDocumento-hint">
+            Fotos del vehículo: <b>mínimo 1</b> y <b>máximo {maximo ?? 10}</b> en total
+            {cantidadActual ? <> — ya tienes <b>{cantidadActual}</b></> : ''}.
+          </p>
+        )}
+        {esDosCaras && (
+          <p className="CargaDocumento-hint">
+            Este documento tiene <b>dos caras</b>: primero eliges el <b>frente</b> y luego
+            te pediremos el <b>reverso</b> — suben juntos.
+          </p>
+        )}
         <div className="CargaDocumento-file-input-wrapper">
           <label className="CargaDocumento-btn-file" htmlFor="file-upload">
             {documentName === "Fotos" ? "Elegir Archivos" : "Elegir Archivo"}
@@ -151,6 +244,16 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             onChange={handleFileChange}
             disabled={uploading}
             className="CargaDocumento-input-hidden"
+          />
+          {/* Reverso del documento de dos caras (elegido tras el frente). */}
+          <input
+            ref={inputReversoRef}
+            type="file"
+            accept="image/jpeg, image/png, image/jpg, application/pdf"
+            onChange={manejarReversoElegido}
+            disabled={uploading}
+            className="CargaDocumento-input-hidden"
+            style={{ display: 'none' }}
           />
         </div>
         {uploading && (
