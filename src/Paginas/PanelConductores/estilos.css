@@ -330,7 +330,7 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 1200px; /* Contenedor maximo razonable */
+  max-width: 1000px; /* Compacto en desktop: sin columnas de aire a los lados */
   margin: 0 auto;
   padding: 20px;
   gap: 14px;
@@ -412,14 +412,15 @@ select:focus-visible {
 /* 5. CONTENIDO DERECHO (Formularios)                                         */
 /* -------------------------------------------------------------------------- */
 .contenido-conductor-container {
-  flex: 1; 
+  flex: 1;
   background: white;
   border-radius: 15px;
   box-shadow: 0 5px 20px rgba(0,0,0,0.05);
   padding: 30px;
   display: flex;
   flex-direction: column;
-  min-height: 500px; 
+  /* Sin min-height: la altura depende naturalmente del contenido
+     (antes quedaba un bloque de aire vacío debajo del paso 1). */
   position: relative;
   width: 100%; /* Asegura que tome el ancho disponible */
 }
@@ -564,53 +565,168 @@ select:focus-visible {
   font-weight: 600;
 }
 
-/* --- NUEVO: SELECCIÓN DE VEHÍCULOS (PASO 1) --- */
-.lista-vehiculos-seleccion {
-  text-align: center;
-  margin-top: 10px;
+/* ========================================================================== */
+/* 6c. PASO 1 «Mis vehículos» — registro + tarjetas orientadas a acción        */
+/* (mobile-first: una columna, touch targets ≥46px, CTA protagonista)         */
+/* ========================================================================== */
+
+/* Línea compacta de conteos bajo el título (datos ya cargados, sin consultas). */
+.pv-resumen {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: #5a6472;
+  font-weight: 600;
 }
 
-.lista-vehiculos-title {
-  margin-bottom: 15px;
-  color: #333;
-  font-weight: bold;
-}
-
-.lista-vehiculos-grid {
+/* --- Registrar vehículo nuevo --- */
+.pv-registro {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+.pv-registro-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+.pv-registro .input-group-crear .input-moderno {
+  flex: 1;
+  min-width: 220px;
+  min-height: 46px;
+  font-size: 1.05rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.pv-registro .input-group-crear .btn-moderno-accion {
+  min-height: 46px;
+  white-space: nowrap;
+}
+.pv-input-invalido {
+  border-color: #e74c3c !important;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.08);
+}
+.pv-input-error {
+  margin: 0;
+  color: #c0392b;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
-.btn-seleccion-vehiculo {
-  padding: 12px 20px;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-  color: #333;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+/* --- Tarjeta de vehículo por estado --- */
+.pv-card {
+  border: 1px solid #e4e9ef;
+  border-left: 4px solid #b0b8c1;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.pv-card:last-child { margin-bottom: 0; }
+
+/* Color con significado funcional:
+   amarillo=registro incompleto · verde=aprobado · azul=en revisión ·
+   rojo=requiere correcciones · gris=inactivo */
+.pv-card--pendiente { border-left-color: #e6b800; }
+.pv-card--aprobado { border-left-color: #27ae60; }
+.pv-card--devuelto { border-left-color: #e74c3c; }
+.pv-card--revision { border-left-color: #3498db; }
+.pv-card--inactivo { border-left-color: #7f8c8d; background: #f9fafb; }
+
+.pv-card-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  transition: all 0.2s ease;
-  font-size: 1rem;
-  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.pv-placa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #2c3e50;
+}
+.pv-placa svg { font-size: 1rem; color: #9aa4b0; }
+.pv-placa .icono-ok { color: #27ae60; }
+.pv-placa .icono-reloj { color: #3498db; }
+
+.pv-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #5a6472;
+}
+.pv-card-progreso {
+  font-size: 0.75rem;
+  color: #8a94a3;
+  font-weight: 600;
+}
+.pv-card-motivo {
+  font-size: 0.8rem;
+  color: #5a6472;
+}
+.pv-observacion {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #8a3033;
+  background: #fdeeec;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-style: italic;
 }
 
-.btn-seleccion-vehiculo:hover {
-  border-color: #8dc73f;
-  transform: translateY(-2px);
-  background-color: #f9fff0;
-  box-shadow: 0 4px 8px rgba(141, 199, 63, 0.2);
+/* --- Botones: CTA protagonista + secundario discreto --- */
+.pv-acciones {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
+.pv-btn-cta {
+  flex: 1 1 220px;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #27ae60;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.pv-btn-cta:hover { background: #219150; }
+.pv-btn-cta--alerta { background: #e74c3c; }
+.pv-btn-cta--alerta:hover { background: #c0392b; }
 
-.btn-seleccion-vehiculo svg {
-  color: #8dc73f;
-  font-size: 1.1rem;
+.pv-btn-ghost {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fff;
+  color: #2c3e50;
+  border: 1px solid #cdd6e0;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 8px 16px;
+  transition: border-color 0.15s, background 0.15s;
 }
+.pv-btn-ghost:hover { border-color: #2c3e50; background: #f6f8fa; }
 /* --------------------------------------------- */
 
 /* RECHAZADOS */
@@ -848,14 +964,6 @@ select:focus-visible {
   text-transform: none;
 }
 
-.estado-vacio {
-  color: #9aa4b0;
-  font-style: italic;
-  padding: 8px 4px;
-  font-size: 0.88rem;
-  margin: 0;
-}
-
 /* Chip de estado (pill discreto) */
 .estado-chip {
   font-size: 0.7rem;
@@ -869,67 +977,6 @@ select:focus-visible {
 .estado-chip--pendiente { color: #7d8600; background: #f5f8e8; }
 .estado-chip--devuelto { color: #c0392b; background: #fdeeec; }
 .estado-chip--inactivo { color: #5d6d7e; background: #eef1f4; }
-
-/* Fila de vehículo (aprobados / en revisión): placa + estado + acciones */
-.vehiculo-estado-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 10px 12px;
-  border: 1px solid #e4e9ef;
-  border-radius: 8px;
-  background: #fff;
-  margin-bottom: 8px;
-}
-
-.vehiculo-estado-card:last-child { margin-bottom: 0; }
-
-.estado-card-placa {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  color: #2c3e50;
-  font-size: 0.95rem;
-}
-
-.estado-card-placa svg { font-size: 0.9rem; }
-.estado-card-placa .icono-ok { color: #27ae60; }
-.estado-card-placa .icono-reloj { color: #3498db; }
-
-.estado-card-acciones {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-/* Botones secundarios (outline discretos) */
-.btn-secundario {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #fff;
-  color: #2c3e50;
-  border: 1px solid #cdd6e0;
-  border-radius: 8px;
-  padding: 7px 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
-  min-height: 36px;
-}
-
-.btn-secundario:hover { border-color: #2c3e50; background: #f6f8fa; }
-.btn-secundario--editar { color: #b8860b; border-color: #e4cd96; }
-.btn-secundario--editar:hover { border-color: #b8860b; background: #fdf8ec; }
-.btn-secundario--ok { color: #1e8449; border-color: #aedcc0; }
-.btn-secundario--ok:hover { border-color: #27ae60; background: #f2faf5; }
 
 /* ========================================================================== */
 /* 6c. PASO 3 — jerarquía y áreas táctiles                                    */
@@ -1123,12 +1170,6 @@ select:focus-visible {
     font-size: 0.85rem;
   }
 
-  /* Lista de Vehículos más compacta */
-  .btn-seleccion-vehiculo {
-    padding: 8px 12px;
-    font-size: 0.85rem;
-  }
-
   /* Botones flotantes */
   .btn-whatsapp-flotante {
     padding: 8px;
@@ -1154,29 +1195,6 @@ select:focus-visible {
     font-size: 0.9rem;
   }
 
-  /* Tarjetas de estado del paso 1: placas a fila completa (mejor touch) */
-  .lista-vehiculos-grid {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .btn-seleccion-vehiculo {
-    width: 100%;
-    margin-top: 0;
-    justify-content: space-between;
-    min-height: 46px;
-  }
-
-  /* Acciones de tarjetas aprobadas/en revisión: fila completa */
-  .estado-card-acciones {
-    width: 100%;
-    margin-left: 0;
-  }
-  .estado-card-acciones .btn-secundario {
-    flex: 1;
-    justify-content: center;
-    min-height: 40px;
-  }
-
   /* Acciones de documentos: botones a ancho completo repartido */
   .doc-item-row > div {
     width: 100%;
@@ -1199,25 +1217,8 @@ select:focus-visible {
     font-size: 0.88rem;
   }
 
-  /* Tarjetas inline (aprobados / en revisión) envuelven su etiqueta */
-  .vehiculo-aprobado-card,
-  .vehiculo-revision-card {
-    flex-wrap: wrap;
-  }
-  .vehiculo-aprobado-card > span,
-  .vehiculo-revision-card > span {
-    margin-left: 0 !important;
-    flex-basis: 100%;
-    font-size: 0.75rem !important;
-  }
-
   /* Header: espaciado más compacto entre elementos */
   .barra-derecha { gap: 8px; }
-
-  /* Secciones de listas reducen relleno */
-  .seccion-lista-vehiculos {
-    padding: 10px;
-  }
 }
 
 /* ========================================================================== */
@@ -1256,7 +1257,15 @@ select:focus-visible {
 
   /* Tarjetas de estado con menos relleno en móvil */
   .estado-seccion { padding: 12px; }
-  .vehiculo-estado-card { padding: 10px; }
+
+  /* Paso 1 «Mis vehículos»: una columna, input y botones a ancho completo */
+  .pv-registro .input-group-crear { flex-direction: column; }
+  .pv-registro .input-group-crear .input-moderno,
+  .pv-registro .input-group-crear .btn-moderno-accion { width: 100%; }
+  .pv-placa { font-size: 1.1rem; letter-spacing: 1px; }
+  .pv-card { padding: 12px; }
+  .pv-acciones { flex-direction: column; }
+  .pv-btn-cta, .pv-btn-ghost { width: 100%; flex: none; }
 }
 
 /* ========================================================================== */
@@ -1309,9 +1318,6 @@ select:focus-visible {
   .step-header h2 { font-size: 1rem; gap: 8px; }
   .step-header h2 svg { font-size: 0.9rem; }
   .step-header p { font-size: 0.75rem; }
-
-  /* Encabezado de cada bloque de listas */
-  .seccion-lista-vehiculos h4 { font-size: 0.85rem; }
 
   /* Filas de documentos: botones a ancho completo, apilados */
   .doc-name { font-size: 0.82rem; }

@@ -186,6 +186,27 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
   }));
 };
 
+/* Validación de la placa del paso 1: devuelve el mensaje de error inline o
+   null si es válida (mayúsculas, sin espacios, máx 7 alfanuméricos). */
+const validarPlaca = (placa: string): string | null => {
+  const limpia = placa.trim().toUpperCase();
+  if (!limpia) return "Escribe la placa del vehículo para continuar.";
+  if (!/^[A-Z0-9]{1,7}$/.test(limpia)) {
+    return "Placa inválida: máximo 7 caracteres, solo letras y números.";
+  }
+  return null;
+};
+
+/* Progreso de documentación (0-100) de un vehículo del paso 1, reutilizando
+   la construcción de secciones del paso 3. Solo para mostrar el avance. */
+const progresoDocumentosVehiculo = (veh: any): number => {
+  try {
+    return getOverallDocumentProgress(construirSeccionesDesdeVehiculo(veh));
+  } catch {
+    return 0;
+  }
+};
+
 /* Secciones de datos básicos (label + key del documento en BD) que se muestran
    en el modal "Ver mis datos" de un vehículo aprobado. */
 const SECCIONES_DATOS: { titulo: string; campos: { label: string; key: string }[] }[] = [
@@ -497,6 +518,8 @@ const PanelConductoresVista: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vistaModulos, currentStep, selectedPlate]);
   const [newPlate, setNewPlate] = useState<string>("");
+  // Error inline de la placa (debajo del input, sin Swal para formatos).
+  const [newPlateError, setNewPlateError] = useState<string>("");
   const [datosValidos, setDatosValidos] = useState<boolean>(false);
   // Vehículo completo de la placa seleccionada (para figuras/gemelos del paso 3).
   const [vehiculoActual, setVehiculoActual] = useState<any>(null);
@@ -578,11 +601,11 @@ const PanelConductoresVista: React.FC = () => {
   };
 
   const handleCreateVehicle = async () => {
+    const error = validarPlaca(newPlate);
+    if (error) { setNewPlateError(error); return; }
+    setNewPlateError("");
+
     const placaCreada = newPlate.trim().toUpperCase();
-    if (!placaCreada) return Swal.fire("Error", "Ingrese una placa válida", "error");
-    if (!/^[A-Z0-9]{1,7}$/.test(placaCreada)) {
-      return Swal.fire("Placa inválida", "La placa debe tener máximo 7 caracteres (solo letras y números, en cualquier orden).", "warning");
-    }
 
     try {
       const formData = new FormData();
@@ -934,7 +957,7 @@ const PanelConductoresVista: React.FC = () => {
                   )}
                 </span>
                 <span className="pc-moduloCardDesc">
-                  Registra una placa nueva o continúa una pendiente
+                  Registra un vehículo nuevo o continúa uno pendiente
                 </span>
               </div>
               <FaChevronDown className="pc-moduloCardFlecha" style={{ transform: 'rotate(-90deg)' }} />
@@ -985,8 +1008,8 @@ const PanelConductoresVista: React.FC = () => {
             <button key={step} className={`btn-sidebar-step ${currentStep === step ? "active" : ""}`} onClick={() => changeStep(step)}>
                 <div className="step-indicator">{step}</div>
                 <span>
-                    {step === 1 && "Crear/Seleccionar"}
-                    {step === 2 && "Datos Básicos"}
+                    {step === 1 && "Vehículo"}
+                    {step === 2 && "Datos básicos"}
                     {step === 3 && "Documentación"}
                 </span>
             </button>
@@ -999,7 +1022,7 @@ const PanelConductoresVista: React.FC = () => {
             style={{ border: '2px solid #e74c3c', color: vehiculosRechazados.length === 0 ? '#ccc' : '#c0392b' }}
           >
               <div className="step-indicator" style={{ backgroundColor: vehiculosRechazados.length === 0 ? '#eee' : '#e74c3c', color: 'white' }}><FaExclamationTriangle /></div>
-              <span>Vehículos Rechazados ({vehiculosRechazados.length})</span>
+              <span>Revisión ({vehiculosRechazados.length})</span>
           </button>
         </div>
 
@@ -1008,99 +1031,126 @@ const PanelConductoresVista: React.FC = () => {
           {currentStep === 1 && (
             <div className="step-content fade-in">
               <div className="step-header">
-                <h2><FaCar /> Gestión de Vehículo</h2>
-                <p>Crea una nueva placa o continúa con una pendiente.</p>
+                <h2><FaCar /> Mis vehículos</h2>
+                <p>Registra un vehículo nuevo o administra los que ya tienes registrados.</p>
+                {/* Resumen compacta de conteos (de los datos ya cargados). */}
+                {(vehiculosAprobados.length + vehiculosPendientes.length + vehiculosEnRevision.length + vehiculosRechazados.length) > 0 && (
+                  <p className="pv-resumen">
+                    {vehiculosAprobados.length} aprobado{vehiculosAprobados.length === 1 ? '' : 's'} ·{' '}
+                    {vehiculosPendientes.length + vehiculosEnRevision.length} en proceso ·{' '}
+                    {vehiculosRechazados.length} con novedade{vehiculosRechazados.length === 1 ? '' : 's'}
+                  </p>
+                )}
               </div>
               <div className="panel-creacion">
-                <div className="input-group-crear">
+                {/* REGISTRAR VEHÍCULO NUEVO */}
+                <div className="pv-registro">
+                  <label className="pv-registro-label" htmlFor="pv-placa-input">Placa del vehículo</label>
+                  <div className="input-group-crear">
                     <input
+                        id="pv-placa-input"
                         type="text"
                         placeholder="Ej: ABC123"
                         value={newPlate}
-                        onChange={(e) => setNewPlate(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7))}
-                        className="input-moderno"
+                        onChange={(e) => {
+                          setNewPlate(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7));
+                          if (newPlateError) setNewPlateError("");
+                        }}
+                        className={`input-moderno ${newPlateError ? 'pv-input-invalido' : ''}`}
                         maxLength={7}
                         autoCapitalize="characters"
                         inputMode="text"
+                        aria-invalid={!!newPlateError}
+                        aria-describedby={newPlateError ? 'pv-placa-error' : undefined}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleCreateVehicle(); }}
                     />
-                    <button className="btn-moderno-accion" onClick={handleCreateVehicle}>Crear Placa</button>
+                    <button className="btn-moderno-accion" onClick={handleCreateVehicle}>Registrar vehículo</button>
+                  </div>
+                  {newPlateError && <p id="pv-placa-error" className="pv-input-error" role="alert">{newPlateError}</p>}
                 </div>
 
-                <div style={{marginTop: '30px', display:'flex', flexDirection:'column', gap:'20px'}}>
+                <div style={{marginTop: '26px', display:'flex', flexDirection:'column', gap:'20px'}}>
 
-                    {/* SECCIÓN 1: PENDIENTES */}
-                    <div className="estado-seccion estado-seccion--pendiente">
-                        <h4><FaClipboardList /> Continuar registro</h4>
-                        {vehicles.length === 0 ? (
-                            <p className="estado-vacio">No tienes vehículos pendientes.</p>
-                        ) : (
-                            <>
-                                <div className="lista-vehiculos-grid">
-                                    {vehicles.map((placaItem, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => {
-                                            setSelectedPlate(placaItem);
-                                            setCurrentStep(2);
-                                        }}
-                                        className="btn-seleccion-vehiculo"
-                                    >
-                                        <FaCar /> {placaItem}
-                                    </button>
-                                    ))}
-                                </div>
-                                {esTenedor && (
-                                    <div style={{marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                                        {vehiculosPendientes.map((veh) => (
-                                            <div key={veh.placa} style={{display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap'}}>
-                                                <strong>{veh.placa}</strong>
-                                                <TenedorConductorInfo
-                                                    veh={veh}
-                                                    onInvitar={abrirInvitar}
-                                                    onReenviar={reenviarInvitacion}
-                                                    onQuitar={desvincularConductor}
-                                                />
+                    {/* SECCIÓN 1: PENDIENTES — solo si existen (nada de tarjetas vacías) */}
+                    {vehiculosPendientes.length > 0 && (
+                        <div className="estado-seccion estado-seccion--pendiente">
+                            <h4><FaClipboardList /> Continuar registro</h4>
+                            {vehiculosPendientes.map((veh) => {
+                                const pct = progresoDocumentosVehiculo(veh);
+                                return (
+                                    <div key={veh.placa} className="pv-card pv-card--pendiente">
+                                        <div className="pv-card-top">
+                                            <span className="pv-placa">{veh.placa}</span>
+                                            <span className="estado-chip estado-chip--pendiente">Registro incompleto</span>
+                                        </div>
+                                        <div className="pv-card-info">
+                                            <span>{pct === 100 ? 'Documentos listos: falta finalizar el registro' : 'Falta completar tu información y documentación'}</span>
+                                            <div className="barra-progreso-bg barra-progreso-bg--mini">
+                                                <div className="barra-progreso-fill" style={{ width: `${pct}%` }} />
                                             </div>
-                                        ))}
+                                            <span className="pv-card-progreso">Documentación: {pct}%</span>
+                                        </div>
+                                        {esTenedor && (
+                                            <TenedorConductorInfo
+                                                veh={veh}
+                                                onInvitar={abrirInvitar}
+                                                onReenviar={reenviarInvitacion}
+                                                onQuitar={desvincularConductor}
+                                            />
+                                        )}
+                                        <div className="pv-acciones">
+                                            <button
+                                                className="pv-btn-cta"
+                                                onClick={() => { setSelectedPlate(veh.placa); setCurrentStep(2); }}
+                                            >
+                                                Continuar registro
+                                            </button>
+                                        </div>
                                     </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    {/* SECCIÓN 2: DEVUELTOS / RECHAZADOS */}
-                    {vehiculosRechazados.length > 0 && (
-                        <div className="estado-seccion estado-seccion--devuelto">
-                            <h4><FaTimesCircle /> Vehículos devueltos <span className="estado-seccion-sub">requieren corrección</span></h4>
-                            <div className="lista-vehiculos-grid">
-                                {vehiculosRechazados.map((veh, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => {
-                                            setSelectedPlate(veh.placa);
-                                            changeStep(4);
-                                    }}
-                                    className="btn-seleccion-vehiculo btn-rechazado-item"
-                                    style={{borderColor: '#e74c3c', color: '#c0392b', backgroundColor: '#fff'}}
-                                >
-                                    <FaExclamationTriangle /> {veh.placa}
-                                </button>
-                                ))}
-                            </div>
+                                );
+                            })}
                         </div>
                     )}
 
-                    {/* SECCIÓN 3: APROBADOS */}
+                    {/* SECCIÓN 2: DEVUELTOS / CON NOVEDADES (estado rojo) */}
+                    {vehiculosRechazados.length > 0 && (
+                        <div className="estado-seccion estado-seccion--devuelto">
+                            <h4><FaTimesCircle /> Requieren correcciones</h4>
+                            {vehiculosRechazados.map((veh) => (
+                                <div key={veh.placa} className="pv-card pv-card--devuelto">
+                                    <div className="pv-card-top">
+                                        <span className="pv-placa">{veh.placa}</span>
+                                        <span className="estado-chip estado-chip--devuelto">Requiere correcciones</span>
+                                    </div>
+                                    {veh.observaciones && veh.observaciones.trim() !== "" && (
+                                        <p className="pv-observacion">"{veh.observaciones}"</p>
+                                    )}
+                                    <div className="pv-acciones">
+                                        <button
+                                            className="pv-btn-cta pv-btn-cta--alerta"
+                                            onClick={() => { setSelectedPlate(veh.placa); changeStep(4); }}
+                                        >
+                                            <FaExclamationTriangle /> Corregir
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* SECCIÓN 3: APROBADOS (estado verde) */}
                     {vehiculosAprobados.length > 0 && (
                         <div className="estado-seccion estado-seccion--aprobado">
-                            <h4><FaCheckCircle /> Vehículos aprobados</h4>
-                            <div className="lista-vehiculos-grid">
-                                {vehiculosAprobados.map((veh, idx) => (
-                                <div key={idx} className="vehiculo-estado-card">
-                                    <span className="estado-card-placa">
-                                      <FaCheckCircle className="icono-ok" /> {veh.placa}
-                                    </span>
-                                    <span className="estado-chip estado-chip--aprobado">Aprobado para operar</span>
+                            <h4><FaCheckCircle /> Aprobados para operar</h4>
+                            {vehiculosAprobados.map((veh) => (
+                                <div key={veh.placa} className="pv-card pv-card--aprobado">
+                                    <div className="pv-card-top">
+                                        <span className="pv-placa"><FaCheckCircle className="icono-ok" /> {veh.placa}</span>
+                                        <span className="estado-chip estado-chip--aprobado">● Aprobado para operar</span>
+                                    </div>
+                                    <div className="pv-card-info">
+                                        <span>Documentación completa. Puedes ofrecer tu disponibilidad con este vehículo.</span>
+                                    </div>
                                     {esTenedor && (
                                       <TenedorConductorInfo
                                         veh={veh}
@@ -1109,78 +1159,78 @@ const PanelConductoresVista: React.FC = () => {
                                         onQuitar={desvincularConductor}
                                       />
                                     )}
-                                    <div className="estado-card-acciones">
+                                    <div className="pv-acciones">
                                         <button
-                                            className="btn-secundario btn-secundario--ok"
+                                            className="pv-btn-cta"
                                             onClick={() => abrirVer(veh.placa)}
-                                            title="Ver los datos que cargaste"
+                                            title="Ver los datos y documentos de este vehículo"
                                         >
-                                            <FaEye /> Ver mis datos
+                                            <FaEye /> Ver vehículo
                                         </button>
+                                        {/* Secundario: editar baja a re-revisión (aviso en el Swal) */}
                                         <button
-                                            className="btn-secundario btn-secundario--editar"
+                                            className="pv-btn-ghost"
                                             onClick={() => editarAprobado(veh.placa)}
-                                            title="Editar datos o documentos de este vehículo aprobado"
+                                            title="Editar datos o documentos (puede requerir nueva validación)"
                                         >
                                             <FaEdit /> Editar
                                         </button>
                                     </div>
                                 </div>
-                                ))}
-                            </div>
+                            ))}
                         </div>
                     )}
 
-                    {/* SECCIÓN 4: INACTIVADOS POR SEGURIDAD */}
+                    {/* SECCIÓN 4: INACTIVADOS POR SEGURIDAD (estado gris) */}
                     {vehiculosInactivos.length > 0 && (
                         <div className="estado-seccion estado-seccion--inactivo">
-                            <h4><FaBan /> Vehículos inactivados por Seguridad</h4>
+                            <h4><FaBan /> Inactivados por Seguridad</h4>
                             <p className="estado-seccion-sub" style={{ margin: '0 0 10px' }}>
                               Están en la base pero pausados: no puedes ofrecer disponibilidad ni hacer
                               check-in con ellos. Contacta al área de Seguridad para reactivarlos.
                             </p>
-                            <div className="lista-vehiculos-grid">
-                                {vehiculosInactivos.map((veh, idx) => {
-                                  const ultima = (veh.historialInactivacion || []).at(-1);
-                                  return (
-                                    <div key={idx} className="vehiculo-estado-card">
-                                        <span className="estado-card-placa">
-                                          <FaBan style={{ color: '#7f8c8d' }} /> {veh.placa}
-                                        </span>
+                            {vehiculosInactivos.map((veh) => {
+                              const ultima = (veh.historialInactivacion || []).at(-1);
+                              return (
+                                <div key={veh.placa} className="pv-card pv-card--inactivo">
+                                    <div className="pv-card-top">
+                                        <span className="pv-placa"><FaBan style={{ color: '#7f8c8d' }} /> {veh.placa}</span>
                                         <span className="estado-chip estado-chip--inactivo">Inactivo</span>
-                                        {ultima && (
-                                          <span style={{ fontSize: '0.75rem', color: '#5a6472' }}>
-                                            {ultima.motivo}
-                                            {ultima.fecha ? ` — ${new Date(ultima.fecha.endsWith('Z') ? ultima.fecha : `${ultima.fecha}Z`).toLocaleDateString('es-CO')}` : ''}
-                                          </span>
-                                        )}
-                                        <div className="estado-card-acciones">
-                                            <button
-                                              className="btn-secundario"
-                                              onClick={() => abrirVer(veh.placa)}
-                                              title="Ver los datos que cargaste"
-                                            >
-                                              <FaEye /> Ver mis datos
-                                            </button>
-                                        </div>
                                     </div>
-                                  );
-                                })}
-                            </div>
+                                    {ultima && (
+                                      <span className="pv-card-motivo">
+                                        {ultima.motivo}
+                                        {ultima.fecha ? ` — ${new Date(ultima.fecha.endsWith('Z') ? ultima.fecha : `${ultima.fecha}Z`).toLocaleDateString('es-CO')}` : ''}
+                                      </span>
+                                    )}
+                                    <div className="pv-acciones">
+                                        <button
+                                          className="pv-btn-ghost"
+                                          onClick={() => abrirVer(veh.placa)}
+                                          title="Ver los datos que cargaste"
+                                        >
+                                          <FaEye /> Ver vehículo
+                                        </button>
+                                    </div>
+                                </div>
+                              );
+                            })}
                         </div>
                     )}
 
-                    {/* SECCIÓN 5: EN REVISIÓN */}
+                    {/* SECCIÓN 5: EN REVISIÓN (estado azul) */}
                     {vehiculosEnRevision.length > 0 && (
                         <div className="estado-seccion estado-seccion--revision">
-                            <h4><FaClock /> Vehículos en revisión</h4>
-                            <div className="lista-vehiculos-grid">
-                                {vehiculosEnRevision.map((veh, idx) => (
-                                <div key={idx} className="vehiculo-estado-card">
-                                    <span className="estado-card-placa">
-                                      <FaClock className="icono-reloj" /> {veh.placa}
-                                    </span>
-                                    <span className="estado-chip estado-chip--revision">Esperando aprobación</span>
+                            <h4><FaClock /> En revisión</h4>
+                            {vehiculosEnRevision.map((veh) => (
+                                <div key={veh.placa} className="pv-card pv-card--revision">
+                                    <div className="pv-card-top">
+                                        <span className="pv-placa"><FaClock className="icono-reloj" /> {veh.placa}</span>
+                                        <span className="estado-chip estado-chip--revision">En revisión</span>
+                                    </div>
+                                    <div className="pv-card-info">
+                                        <span>Seguridad está revisando tu registro. Te avisaremos cuando haya una respuesta.</span>
+                                    </div>
                                     {esTenedor && (
                                       <TenedorConductorInfo
                                         veh={veh}
@@ -1190,8 +1240,7 @@ const PanelConductoresVista: React.FC = () => {
                                       />
                                     )}
                                 </div>
-                                ))}
-                            </div>
+                            ))}
                         </div>
                     )}
 

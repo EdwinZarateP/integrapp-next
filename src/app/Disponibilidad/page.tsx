@@ -18,10 +18,12 @@ interface CheckInHoy {
   placa: string;
   origen?: string;
   departamentos_destino?: string[];
+  estado?: string;       // activa | asignada
 }
 interface EstadoPlaca {
   disponible: boolean;   // toggle local (muestra/oculta el formulario)
   guardado: boolean;     // hay un check-in activo hoy en el backend
+  asignada: boolean;     // la operación TOMÓ el vehículo de la bolsa
   origen: string;
   destinos: string[];
   cargando?: boolean;
@@ -66,6 +68,7 @@ const Disponibilidad: React.FC = () => {
           inicial[v.placa] = {
             disponible: !!ch,
             guardado: !!ch,
+            asignada: ch?.estado === 'asignada',
             origen: ch?.origen || BODEGAS[0],
             destinos: ch?.departamentos_destino || [],
           };
@@ -117,7 +120,7 @@ const Disponibilidad: React.FC = () => {
       const res = await fetch(`${API}/disponibilidad/checkin`, { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al guardar');
-      set(placa, { disponible: true, guardado: true, cargando: false });
+      set(placa, { disponible: true, guardado: true, asignada: false, cargando: false });
       Swal.fire({ icon: 'success', title: 'Disponibilidad registrada', text: `${placa} está disponible hoy.`, timer: 1600, showConfirmButton: false });
     } catch (e: any) {
       set(placa, { cargando: false });
@@ -143,7 +146,7 @@ const Disponibilidad: React.FC = () => {
       const res = await fetch(`${API}/disponibilidad/cancelar`, { method: 'PUT', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al quitar');
-      set(placa, { disponible: false, guardado: false, destinos: [], cargando: false });
+      set(placa, { disponible: false, guardado: false, asignada: false, destinos: [], cargando: false });
       Swal.fire({ icon: 'success', title: 'Quitada', timer: 1400, showConfirmButton: false });
     } catch (e: any) {
       set(placa, { cargando: false });
@@ -182,6 +185,12 @@ const Disponibilidad: React.FC = () => {
           if (!e) return null;
           return (
             <div key={v.placa} className={`Disp-card ${e.guardado ? 'Disp-card--activa' : ''}`}>
+              {e.asignada && (
+                <div className="Disp-nota">
+                  🚚 <strong>Asignado por la operación:</strong> este vehículo fue tomado de la bolsa
+                  de hoy. Si no lo van a usar, la operación puede devolverlo y volverá a estar disponible.
+                </div>
+              )}
               <div className="Disp-card-head">
                 <div>
                   <div className="Disp-placa">{v.placa}</div>

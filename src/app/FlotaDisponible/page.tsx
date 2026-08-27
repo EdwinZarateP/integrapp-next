@@ -39,6 +39,7 @@ const FlotaDisponible: React.FC = () => {
   const [fOrigen, setFOrigen] = useState('');
   const [fDestino, setFDestino] = useState('');
   const [fTipo, setFTipo] = useState('');
+  const [ocupado, setOcupado] = useState<string | null>(null); // placa en curso de asignar
 
   const consultar = async () => {
     setCargando(true);
@@ -56,6 +57,37 @@ const FlotaDisponible: React.FC = () => {
       Swal.fire('Error', e?.message || 'No se pudo cargar la flota', 'error');
     } finally {
       setCargando(false);
+    }
+  };
+
+  // La operación TOMA el vehículo de la bolsa: check-in → `asignada` y queda
+  // registrado en el control de flota usada (se devuelve desde /FlotaUsada).
+  const usarVehiculo = async (placa: string) => {
+    const usuario = leerCookie('usuarioPedidosCookie');
+    const confirma = await Swal.fire({
+      title: '¿Usar este vehículo?',
+      html: `<b>${placa}</b> saldrá de la bolsa y quedará registrado<br/>a tu nombre en la lista de vehículos en uso.`,
+      icon: 'question', showCancelButton: true,
+      confirmButtonText: 'Sí, usar', cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#004d40',
+    });
+    if (!confirma.isConfirmed) return;
+
+    setOcupado(placa);
+    try {
+      const fd = new FormData();
+      fd.append('placa', placa);
+      fd.append('asignado_por', usuario);
+      fd.append('nombre_asignado', usuario);
+      const res = await fetch(`${API}/disponibilidad/asignar`, { method: 'PUT', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al asignar');
+      Swal.fire({ icon: 'success', title: 'Asignado', text: `${placa} pasó a la lista de vehículos en uso.`, timer: 1800, showConfirmButton: false });
+      consultar();
+    } catch (e: any) {
+      Swal.fire('No se pudo asignar', e?.message || 'Error de conexión', 'error');
+    } finally {
+      setOcupado(null);
     }
   };
 
@@ -78,7 +110,10 @@ const FlotaDisponible: React.FC = () => {
       <HeaderSesion modo="personal" />
       <div className="FD-contenedor">
         <h2>🚚 Flota disponible hoy</h2>
-      <p className="FD-sub-desc">Carros cuyos conductores se ofrecieron para viajar hoy. Contáctalos directo.</p>
+      <p className="FD-sub-desc">
+        Carros cuyos conductores se ofrecieron para viajar hoy. Contáctalos directo.
+        {' '}<a className="FD-link-usados" href="/integrapp/FlotaUsada">📋 Vehículos en uso →</a>
+      </p>
 
       <div className="FD-filtros">
         <select value={fOrigen} onChange={(e) => setFOrigen(e.target.value)}>
@@ -100,12 +135,12 @@ const FlotaDisponible: React.FC = () => {
           <thead>
             <tr>
               <th>Placa</th><th>Conductor</th><th>Contacto</th>
-              <th>Origen</th><th>Destinos</th><th>Vehículo</th>
+              <th>Origen</th><th>Destinos</th><th>Vehículo</th><th>Acción</th>
             </tr>
           </thead>
           <tbody>
             {flota.length === 0 && (
-              <tr><td colSpan={6} className="FD-vacio">No hay vehículos disponibles con estos filtros.</td></tr>
+              <tr><td colSpan={7} className="FD-vacio">No hay vehículos disponibles con estos filtros.</td></tr>
             )}
             {flota.map((f) => {
               const cel = f.conductor?.celular || '';
@@ -132,6 +167,16 @@ const FlotaDisponible: React.FC = () => {
                     <div className="FD-sub">
                       {f.vehiculo?.tipo_veh_sicetac || ''}{f.vehiculo?.toneladas ? ` · ${f.vehiculo.toneladas} t` : ''}
                     </div>
+                  </td>
+                  <td>
+                    <button
+                      className="FD-btn-usar"
+                      onClick={() => usarVehiculo(f.placa)}
+                      disabled={ocupado === f.placa}
+                      title="Tomar este vehículo de la bolsa y registrarlo como en uso"
+                    >
+                      {ocupado === f.placa ? 'Asignando…' : '🚚 Usar'}
+                    </button>
                   </td>
                 </tr>
               );

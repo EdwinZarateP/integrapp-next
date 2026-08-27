@@ -23,3 +23,47 @@
 .FD-contacto a:hover { text-decoration: underline; }
 .FD-destinos { max-width: 300px; color: #374151; }
 .FD-vacio { text-align: center; color: #9ca3af; padding: 30px; }
+
+/* Acción «Usar»: tomar el vehículo de la bolsa y registrarlo como en uso */
+.FD-btn-usar {
+  padding: 8px 14px;
+  background: #004d40;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 38px;
+}
+.FD-btn-usar:hover { background: #00352c; }
+.FD-btn-usar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Link a la lista de vehículos en uso */
+.FD-link-usados { color: #004d40; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.FD-link-usados:hover { text-decoration: underline; }
+
+/* ===== /FlotaUsada (reutiliza el look de FlotaDisponible) ===== */
+.FU-chip { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.FU-chip--enuso { color: #92400e; background: #fef3c7; }
+.FU-chip--devuelta { color: #6b7280; background: #f3f4f6; }
+
+.FU-btn-devolver {
+  padding: 8px 14px;
+  background: #b45309;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 38px;
+}
+.FU-btn-devolver:hover { background: #92400e; }
+.FU-btn-devolver:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .FD-btn-usar, .FU-btn-devolver { width: 100%; }
+}

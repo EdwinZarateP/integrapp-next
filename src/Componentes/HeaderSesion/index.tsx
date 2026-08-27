@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import logo from "@/Imagenes/albatros.png";
-import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaTruck } from "react-icons/fa";
+import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaTruck, FaClipboardList } from "react-icons/fa";
 import "./estilos.css";
 
 type Modo = "conductor" | "personal";
@@ -99,6 +99,23 @@ const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
                   onClick={() => { setMenuAbierto(false); router.push("/PanelConductores"); }}
                 >
                   <FaTruck /> Mi panel
+                </button>
+                <div className="HS-menuDivisor" />
+              </>
+            )}
+            {modo === "personal" && (
+              <>
+                <button
+                  className="HS-menuItem"
+                  onClick={() => { setMenuAbierto(false); router.push("/FlotaDisponible"); }}
+                >
+                  <FaTruck /> Flota disponible
+                </button>
+                <button
+                  className="HS-menuItem"
+                  onClick={() => { setMenuAbierto(false); router.push("/FlotaUsada"); }}
+                >
+                  <FaClipboardList /> Vehículos en uso
                 </button>
                 <div className="HS-menuDivisor" />
               </>
