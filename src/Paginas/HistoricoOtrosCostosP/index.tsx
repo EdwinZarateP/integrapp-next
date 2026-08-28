@@ -320,10 +320,12 @@ const HistoricoOtrosCostosP: React.FC = () => {
               <Campo label="Número cuenta" v={detalle.datos_bancarios?.numero_cuenta} />
               <Campo label="Titular" v={detalle.datos_bancarios?.nombre_titular} />
               <Campo label="Conductor" v={detalle.conductor?.nombre} />
+              <Campo label="Teléfono conductor" v={detalle.conductor?.telefono} />
               <Campo label="Aprobado por" v={`${detalle.aprobacion?.usuario || '-'} (${detalle.aprobacion?.rol || ''})`} />
               <Campo label="Pagado por" v={detalle.pago?.usuario} />
               <Campo label="Referencia bancaria" v={detalle.Referencia_bancaria || detalle.pago?.referencia} />
               <Campo label="Valor tras retenciones" v={detalle.valor_despues_retenciones != null ? formatMoney(detalle.valor_despues_retenciones) : (detalle.pago?.valor_despues_retenciones != null ? formatMoney(detalle.pago.valor_despues_retenciones) : '-')} />
+              <Campo label="Observaciones pago" v={detalle.pago?.observaciones} />
               <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
             </div>
 

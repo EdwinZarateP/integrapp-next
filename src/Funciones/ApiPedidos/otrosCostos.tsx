@@ -267,6 +267,7 @@ export const registrarPago = async (payload: {
   fecha_pago?: string;
   referencia?: string;
   observaciones?: string;
+  valor_despues_retenciones?: number;
 }) => {
   const res = await axios.post(`${BASE_URL}/registrar-pago`, payload);
   return res.data;

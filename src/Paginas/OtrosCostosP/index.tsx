@@ -624,16 +624,39 @@ const OtrosCostosP: React.FC = () => {
   const onPagar = (it: OtroCosto) => {
     Swal.fire({
       title: 'Registrar pago',
-      html: `<div style="text-align:left">${formatMoney(it.valor_total)} — <b>${it.consecutivo}</b></div>`,
+      html: `
+        <div style="text-align:left;margin-bottom:0.75rem">
+          ${formatMoney(it.valor_total)} — <b>${it.consecutivo}</b>${it.manifiesto ? ` · manifiesto <b>${it.manifiesto}</b>` : ''}
+        </div>
+        <input id="swal-pago-ref" class="swal2-input" style="margin:0.4rem 0" placeholder="Referencia / comprobante (opcional)">
+        <input id="swal-pago-vdr" type="number" min="0" max="${it.valor_total}" step="any" class="swal2-input" style="margin:0.4rem 0" placeholder="Valor tras retenciones (opcional)">
+        <textarea id="swal-pago-obs" class="swal2-textarea" style="margin:0.4rem 0" rows="2" placeholder="Observaciones del pago (opcional)"></textarea>`,
       icon: 'question', showCancelButton: true,
       confirmButtonColor: '#1d4ed8', cancelButtonColor: '#6b7280',
       confirmButtonText: 'Registrar pago', cancelButtonText: 'Cancelar',
-      input: 'text', inputPlaceholder: 'Referencia / comprobante (opcional)',
+      focusConfirm: false,
+      preConfirm: () => {
+        const ref = (document.getElementById('swal-pago-ref') as HTMLInputElement)?.value.trim() || '';
+        const vdrRaw = (document.getElementById('swal-pago-vdr') as HTMLInputElement)?.value.trim() || '';
+        const obs = (document.getElementById('swal-pago-obs') as HTMLTextAreaElement)?.value.trim() || '';
+        let vdr: number | undefined;
+        if (vdrRaw) {
+          vdr = Number(vdrRaw.replace(/\./g, '').replace(',', '.'));
+          if (isNaN(vdr) || vdr <= 0) { Swal.showValidationMessage('El valor tras retenciones debe ser un número mayor que cero.'); return false; }
+          if (vdr > it.valor_total) { Swal.showValidationMessage(`El valor tras retenciones no puede exceder el total (${formatMoney(it.valor_total)}).`); return false; }
+        }
+        return { ref, vdr, obs };
+      },
     }).then(async (r) => {
       if (!r.isConfirmed) return;
+      const { ref, vdr, obs } = r.value as { ref: string; vdr?: number; obs: string };
       Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
       try {
-        await registrarPago({ consecutivo: it.consecutivo!, usuario, referencia: typeof r.value === 'string' ? r.value : '' });
+        await registrarPago({
+          consecutivo: it.consecutivo!, usuario,
+          referencia: ref, observaciones: obs,
+          ...(vdr !== undefined ? { valor_despues_retenciones: vdr } : {}),
+        });
         Swal.fire('✅ Pagado', 'Pago registrado y movido al histórico', 'success');
         cerrarModal();
         cargarListado();
@@ -1045,6 +1068,7 @@ const OtrosCostosP: React.FC = () => {
                   <Campo label="Fecha pago" v={detalle.pago?.fecha_pago ? formatFecha(detalle.pago.fecha_pago) : '-'} />
                   <Campo label="Referencia" v={detalle.pago?.referencia} />
                   <Campo label="Valor tras retenciones" v={detalle.valor_despues_retenciones != null ? formatMoney(detalle.valor_despues_retenciones) : (detalle.pago?.valor_despues_retenciones != null ? formatMoney(detalle.pago.valor_despues_retenciones) : '-')} />
+                  <Campo label="Observaciones pago" v={detalle.pago?.observaciones} />
                   <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
                   <Campo label="Tramitado por" v={detalle.tramite_vulcano_info?.usuario} />
                 </div>

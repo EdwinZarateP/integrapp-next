@@ -151,7 +151,7 @@ const CuentasPlacaP: React.FC = () => {
   const validarForm = (): string | null => {
     if (!REGEX_PLACA.test(form.placa)) return 'La placa debe tener 4-6 caracteres alfanuméricos, sin espacios, guiones ni símbolos.';
     if (!form.nombre_beneficiario.trim()) return 'El nombre del beneficiario es obligatorio.';
-    if (form.telefono && !/^\d{7,15}$/.test(form.telefono)) return 'El teléfono debe tener entre 7 y 15 dígitos.';
+    if (!/^\d{7,15}$/.test(form.telefono)) return 'El teléfono del conductor es obligatorio (7-15 dígitos).';
     if (!/^\d{5,15}$/.test(form.cedula)) return 'La cédula debe tener entre 5 y 15 dígitos.';
     if (!form.banco) return 'Seleccione el banco.';
     if (!form.tipo_cuenta) return 'Seleccione el tipo de cuenta.';
@@ -416,7 +416,7 @@ const CuentasPlacaP: React.FC = () => {
                   onChange={(e) => setForm({ ...form, nombre_conductor: e.target.value.toUpperCase() })} />
               </div>
               <div className="OC-field">
-                <label className="OC-label">Teléfono del conductor</label>
+                <label className="OC-label">Teléfono del conductor *</label>
                 <input className="OC-input" inputMode="numeric" value={form.telefono}
                   onChange={(e) => setForm({ ...form, telefono: e.target.value.replace(/\D/g, '') })} />
               </div>

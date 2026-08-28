@@ -668,3 +668,20 @@ Registro de costos adicionales posteriores al servicio, con buscador de pedidos 
 - **Update optimista**: COORDINADOR/CONTROL dejan de ver la planilla (al volver a `CREADO` solo la ve el operativo creador + ADMIN); ADMIN la sigue viendo en `CREADO`.
 - **Aviso al operativo (in-app)**: cuando una planilla está en `CREADO` con `motivo_devolucion`, bajo el badge aparece una línea roja `⚠️ Devuelta por {devuelto_por}: {motivo}` (truncada, con el texto completo en tooltip) — el operativo la ve al recargar. El WhatsApp al `usuario_registro` lo manda el backend (plantilla `devolucion_planilla`).
 - Se distingue del botón existente **«Volver a CREADO»** (`FaLockOpen`, ADMIN/ANALISTA): ése es una reapertura de edición genérica **sin motivo**; «Devolver» es el rechazo con feedback del revisor.
+
+## Actualizaciones Recientes (2026-08-28)
+
+### Otros Costos (`/OtrosCostos`) — adjuntos y pago enriquecido
+
+- **Adjuntos (soportes)**: nueva sección «4. Archivos adjuntos (opcional)» en el formulario crear/editar — hasta **10 archivos** (JPG/PNG/PDF, 10 MB c/u) que se suben en el mismo guardado (multipart). Imágenes optimizadas a WEBP en el backend y alojadas en Google Cloud Storage (`OtrosCostos/{consecutivo}/...`); en Mongo solo quedan las URLs (`adjuntos[]`). En edición se ven como links y se pueden agregar más hasta el tope. Sección «Adjuntos» también en los modales de detalle de `OtrosCostosP` e `HistoricoOtrosCostosP`. `crearSolicitud`/`editarSolicitud` (`otrosCostos.tsx`) ahora envían FormData. Clases `.OC-adj*` en `OtrosCostosP/estilos.css`.
+- **Modal «Registrar pago» (FINANCIERO)**: ahora captura **3 campos** — Referencia (opcional), **Valor tras retenciones** (opcional, valida ≤ valor total) y **Observaciones** (opcional). El backend guarda ambos en `pago` + top-level (uniforme con el archivo bancario). Los detalles (activo e histórico) muestran «Observaciones pago»; el histórico también el teléfono del conductor.
+- **Auto-llenado bancario por placa**: al salir del campo Placa (máx 6 caracteres, símbolos sanitados) del formulario de nueva/editar solicitud se consulta el catálogo Cuentas por Placa y se llenan **solo los campos vacíos**: banco, tipo de cuenta, número de cuenta, cédula y nombre del titular (← nombreBeneficiario) y nombre/teléfono del conductor. Toast no bloqueante informa cuántos llenó; nunca pisa lo ya digitado. Si la placa existe en varias regionales, avisa y no llena.
+
+### Nuevo módulo: Cuentas por Placa (`/CuentasPlaca`)
+
+Catálogo regional de datos bancarios por placa (conductor, teléfono **obligatorio**, beneficiario, cédula, banco, tipo y número de cuenta) que alimenta el auto-llenado de Otros Costos.
+
+- **Página**: `Paginas/CuentasPlacaP` (estilos OC- reutilizados de OtrosCostosP) + wrapper `app/CuentasPlaca/page.tsx`; API en `Funciones/ApiPedidos/cuentasPlaca.tsx`. Tabla con búsqueda por placa y paginación server-side; modal crear/editar con selects de banco/tipo (mismos catálogos de Otros Costos).
+- **Perfiles**: visible en el menú hamburguesa (`NavMedicalCare`, ítem «Cuentas por Placa», `FaIdCard`) para **ADMIN, OPERATIVO y DESPACHADOR**. OPERATIVO/DESPACHADOR solo ven/crean/editan/eliminan su regional (el backend la impone); ADMIN tiene dropdown de regional (por bodega: JUAN MINA, YUMBO, BUCARAMANGA, GIRARDOTA, FUNZA) y botones **Plantilla / Importar Excel / Exportar**.
+- **Importar Excel (ADMIN)**: mini-modal con regional destino obligatoria + archivo `.xlsx`; upsert por (placa, regional) — placa existente se actualiza; resultado con errores por fila. La plantilla descargable trae 8 columnas y una hoja «Valores» con los bancos/tipos permitidos.
+- **Reglas**: placa 4-6 caracteres alfanuméricos (sin espacios/guiones/símbolos); una placa puede repetirse entre regionales pero no dentro de la misma (409); bancos = catálogo de Otros Costos.
