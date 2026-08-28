@@ -1,0 +1,16 @@
+
+> integrapp-next@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3s
+ ○ Compiling /PanelConductores ...
+ ✓ Compiled /PanelConductores in 9.8s (863 modules)
+ GET /PanelConductores/ 200 in 10437ms
+   Reload env: .env.local
+ ✓ Compiled in 4.6s (345 modules)
+[?25h

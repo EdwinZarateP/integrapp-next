@@ -1,15 +1,20 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import municipios from "@/Componentes/Municipios/municipios.json";
 import Swal from 'sweetalert2';
-import SignatureCanvas from 'react-signature-canvas';
 import Lottie from 'lottie-react';
 import animationData from "@/Imagenes/AnimationPuntos.json";
 import { calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
+import { comprimirImagen } from '@/Funciones/comprimirImagen';
 import VerCaraDocumento from '@/Componentes/VerCaraDocumento';
+import CamaraInterna from '@/Componentes/CamaraInterna';
 import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+// El canvas de firma (react-signature-canvas) solo se carga cuando se va a
+// dibujar: baja el JS residente al entrar a la cámara en móviles con poca RAM.
+const SignatureCanvas = lazy(() => import('react-signature-canvas'));
 
 const departamentosUnicos = [...new Set(municipios.map((m: any) => m.DEPARTAMENTO))].sort() as string[];
 
@@ -591,6 +596,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const inputDocumentoRef = useRef<HTMLInputElement>(null);
   // Esperando el REVERSO de un documento de dos caras (licencia/tarjeta).
   const [reversoPendiente, setReversoPendiente] = useState<{ tipo: string; esquema: string; etiqueta: string; anverso: File } | null>(null);
+  // Cámara dentro de la página (getUserMedia): { etiqueta, modo } con modo
+  // 'frente' (documento aún sin archivo) o 'reverso' (siguiendo el flujo de
+  // dos caras). Null = cerrada.
+  const [camaraAbierta, setCamaraAbierta] = useState<{ etiqueta: string; modo: 'frente' | 'reverso' } | null>(null);
   const inputReversoDocRef = useRef<HTMLInputElement>(null);
 
   // --- Campos obligatorios faltantes (se pintan en rojo al dar «Continuar») ---
@@ -957,11 +966,17 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   };
 
   // Input file genérico: el usuario eligió un tipo de OPCIONES_LECTURA_IA y luego el archivo.
-  const manejarSeleccionDocumento = () => {
-    const archivo = inputDocumentoRef.current?.files?.[0];
-    if (!archivo || !tipoLecturaPendiente) return;
+  const manejarSeleccionDocumento = async () => {
+    const archivoOriginal = inputDocumentoRef.current?.files?.[0];
+    if (!archivoOriginal || !tipoLecturaPendiente) return;
+    // Comprimir apenas llega la foto: las fotos de cámara (12–50 MP) son las
+    // que desbordan la memoria del navegador en móviles ("memoria
+    // insuficiente"); comprimida (~1600px) baja el pico de RAM del flujo de
+    // dos caras y de la subida. Ante fallo devuelve el archivo original.
+    const archivo = await comprimirImagen(archivoOriginal);
+    // Vaciar el input ya: no retener el original en memoria más de lo necesario.
+    if (inputDocumentoRef.current) inputDocumentoRef.current.value = '';
     if (!validarArchivoIA(archivo)) {
-      if (inputDocumentoRef.current) inputDocumentoRef.current.value = '';
       setTipoLecturaPendiente(null);
       return;
     }
@@ -990,12 +1005,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   };
 
   // Reverso del documento de dos caras elegido: leer frente+reverso juntos.
-  const manejarSeleccionReversoDoc = () => {
-    const reverso = inputReversoDocRef.current?.files?.[0] || null;
+  const manejarSeleccionReversoDoc = async () => {
+    const reversoOriginal = inputReversoDocRef.current?.files?.[0] || null;
     const pendiente = reversoPendiente;
     setReversoPendiente(null);
     if (inputReversoDocRef.current) inputReversoDocRef.current.value = '';
     if (!pendiente) return;
+    const reverso = reversoOriginal ? await comprimirImagen(reversoOriginal) : null;
     if (reverso && !validarArchivoIA(reverso)) return;
     leerDocumentoConIA(
       pendiente.tipo,
@@ -1005,10 +1021,89 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     );
   };
 
+  // Al tocar un botón de documento de la tarjeta IA: elegir cómo cargar.
+  // «Tomar foto» abre la cámara DENTRO de la página (getUserMedia) — en varios
+  // celulares la entrada Cámara del selector de Android muere con «memoria
+  // insuficiente» (la app de cámara del sistema no cabe en RAM junto a la
+  // pestaña) y la foto nunca llega. «Adjuntar» abre el selector de archivos
+  // (galería/PDF) tal como antes.
   const solicitarLecturaDocumento = (tipo: string) => {
-    setTipoLecturaPendiente(tipo);
-    // Abrir el file picker en el siguiente tick (el input ya existe oculto).
-    setTimeout(() => inputDocumentoRef.current?.click(), 0);
+    const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipo);
+    if (!opcion) return;
+    const etiqueta = opcion.etiqueta.replace(/^[^\s]+\s/, '');
+    Swal.fire({
+      icon: 'question',
+      title: `${etiqueta}`,
+      html: `¿Cómo quieres cargar el documento?<br/><span style="font-size:0.85em; color:#5a6472">Si tu celular dice «memoria insuficiente» con la cámara normal, usa <b>Tomar foto</b> (cámara integrada, más liviana).</span>`,
+      showDenyButton: true,
+      showCloseButton: true,
+      confirmButtonText: '📷 Tomar foto',
+      denyButtonText: '📎 Adjuntar (galería/PDF)',
+      confirmButtonColor: '#2c5f9e',
+      denyButtonColor: '#7f8c8d',
+      reverseButtons: true,
+    }).then(res => {
+      if (res.isConfirmed) {
+        setTipoLecturaPendiente(tipo);
+        setCamaraAbierta({ etiqueta, modo: 'frente' });
+      } else if (res.isDenied) {
+        setTipoLecturaPendiente(tipo);
+        setTimeout(() => inputDocumentoRef.current?.click(), 0);
+      } else if (res.dismiss === Swal.DismissReason.close) {
+        setTipoLecturaPendiente(null);
+      }
+    });
+  };
+
+  // Foto tomada con la cámara integrada: sigue el MISMO camino que un archivo
+  // elegido (compresión ya aplicada en la captura, ~1600px JPEG).
+  const manejarCapturaCamara = async (archivo: File) => {
+    const modo = camaraAbierta?.modo;
+    const etiqueta = camaraAbierta?.etiqueta || '';
+    setCamaraAbierta(null);
+    if (modo === 'reverso' && reversoPendiente) {
+      await manejarReversoElegidoCon(archivo);
+      return;
+    }
+    // Frente: mismo tratamiento que manejarSeleccionDocumento.
+    if (!validarArchivoIA(archivo)) {
+      setTipoLecturaPendiente(null);
+      return;
+    }
+    const tipo = tipoLecturaPendiente;
+    if (!tipo) return;
+    const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipo);
+    if (!opcion) return;
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(tipo)) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Ahora el REVERSO',
+        html: `El FRENTE de la ${etiqueta.toLowerCase()} está listo.<br/>Este documento tiene <b>dos caras y ambas son obligatorias</b>: toma ahora la foto del <b>reverso</b>.`,
+        confirmButtonText: '📷 Tomar reverso',
+        confirmButtonColor: '#2c5f9e',
+        allowOutsideClick: false,
+      }).then(() => {
+        setReversoPendiente({ tipo: opcion.tipo, esquema: opcion.esquema, etiqueta, anverso: archivo });
+        setCamaraAbierta({ etiqueta: `${etiqueta} — REVERSO`, modo: 'reverso' });
+      });
+      return;
+    }
+    leerDocumentoConIA(opcion.tipo, opcion.esquema, [archivo], etiqueta);
+  };
+
+  // Reverso llegado por cámara integrada (espejo de manejarSeleccionReversoDoc
+  // pero con el File directamente, sin input).
+  const manejarReversoElegidoCon = async (reverso: File) => {
+    const pendiente = reversoPendiente;
+    setReversoPendiente(null);
+    if (!pendiente) return;
+    if (!validarArchivoIA(reverso)) return;
+    leerDocumentoConIA(
+      pendiente.tipo,
+      pendiente.esquema,
+      [pendiente.anverso, reverso].filter(Boolean) as File[],
+      pendiente.etiqueta
+    );
   };
 
   const dataURLtoBlob = (dataurl: string) => {
@@ -1460,6 +1555,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             los campos por ti con IA. Igual podrás revisar y editar todo. Las <b>cédulas</b>
             (conductor, propietario y tenedor), la <b>licencia</b> y la <b>tarjeta de propiedad</b>
             tienen <b>dos caras y ambas son obligatorias</b>: al subir el frente te pedimos el reverso.
+            <br/><b>Si al tomar la foto el celular dice «memoria insuficiente»</b>: tómala primero
+            con la app de cámara y adjúntala aquí desde la galería.
           </span>
         </div>
         <div className="Datos-iaCedula-acciones">
@@ -1506,11 +1603,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
               </span>
             );
           })}
-          {/* Input oculto para el resto de tipos de documento (foto o PDF). */}
+          {/* Input oculto para el resto de tipos de documento (foto o PDF).
+              accept explícito (no image/*): en Android reduce el procesamiento
+              de la foto al volver de la cámara y evita ofrecer HEIC/WebP que la
+              validación rechazaría. */}
           <input
             ref={inputDocumentoRef}
             type="file"
-            accept="image/*,application/pdf"
+            accept="image/jpeg, image/png, image/jpg, application/pdf"
             onChange={manejarSeleccionDocumento}
             style={{ display: 'none' }}
           />
@@ -1518,7 +1618,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           <input
             ref={inputReversoDocRef}
             type="file"
-            accept="image/*,application/pdf"
+            accept="image/jpeg, image/png, image/jpg, application/pdf"
             onChange={manejarSeleccionReversoDoc}
             style={{ display: 'none' }}
           />
@@ -1603,7 +1703,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             ) : (
                 <div className="firma-nueva-container">
                     <p style={{fontSize: '0.9rem', color: '#4d4d4dff', marginBottom: '10px'}}>{formData['firmaUrl'] ? "Estas en modo edición." : "Dibuja tu firma y pulsa «Firmar»: queda sellada con la fecha exacta y el hash de tus datos (firma electrónica)."}</p>
-                    <div className="signature-wrapper" style={{border: '2px dashed #ccc', borderRadius: '8px', overflow: 'hidden'}}><SignatureCanvas ref={sigCanvas} penColor='black' canvasProps={{className: 'signature-canvas', style: {width: '100%', height: '200px'}}} backgroundColor="white" /></div>
+                    <div className="signature-wrapper" style={{border: '2px dashed #ccc', borderRadius: '8px', overflow: 'hidden'}}>
+                        <Suspense fallback={<div style={{height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8a94a6', fontSize: '0.9rem'}}>Cargando espacio de firma…</div>}>
+                            <SignatureCanvas ref={sigCanvas} penColor='black' canvasProps={{className: 'signature-canvas', style: {width: '100%', height: '200px'}}} backgroundColor="white" />
+                        </Suspense>
+                    </div>
                     <div style={{marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
                         <button type="button" onClick={manejarFirmar} disabled={isLoading} style={{backgroundColor: '#2F6B3E', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold'}}>
                             {isLoading ? 'Sellando…' : '✍️ Firmar'}
@@ -1633,6 +1737,28 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           reversoUrl={verCaraIA.reverso}
           etiqueta={verCaraIA.etiqueta}
           onClose={() => setVerCaraIA(null)}
+        />
+      )}
+
+      {/* --- CÁMARA INTEGRADA (getUserMedia) para la tarjeta IA --- */}
+      {camaraAbierta && (
+        <CamaraInterna
+          titulo={camaraAbierta.modo === 'reverso'
+            ? `${camaraAbierta.etiqueta} — REVERSO`
+            : `${camaraAbierta.etiqueta} — FRENTE`}
+          onCaptura={manejarCapturaCamara}
+          onCancelar={() => {
+            // Cancelar el reverso tras haber tomado el frente: subir solo el frente.
+            if (camaraAbierta.modo === 'reverso' && reversoPendiente) {
+              const pendiente = reversoPendiente;
+              setReversoPendiente(null);
+              setCamaraAbierta(null);
+              leerDocumentoConIA(pendiente.tipo, pendiente.esquema, [pendiente.anverso], pendiente.etiqueta);
+            } else {
+              setCamaraAbierta(null);
+              setTipoLecturaPendiente(null);
+            }
+          }}
         />
       )}
 

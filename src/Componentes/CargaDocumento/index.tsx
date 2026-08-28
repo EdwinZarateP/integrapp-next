@@ -5,6 +5,8 @@ import Swal from 'sweetalert2';
 import Lottie from 'lottie-react';
 import animationData from "@/Imagenes/AnimationPuntos.json";
 import { tiposMapping } from '@/Funciones/documentConstants';
+import { comprimirImagen } from '@/Funciones/comprimirImagen';
+import CamaraInterna from '@/Componentes/CamaraInterna';
 import './estilos.css';
 
 const MAX_SIZE_MB = 10;
@@ -59,6 +61,8 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   // Dos caras: frente elegido esperando que se elija el reverso.
   const frentePendienteRef = useRef<File | null>(null);
   const inputReversoRef = useRef<HTMLInputElement>(null);
+  // Cámara integrada abierta: 'frente' o 'reverso' del documento actual.
+  const [camaraAbierta, setCamaraAbierta] = useState<'frente' | 'reverso' | null>(null);
 
   const tipoDoc = tiposMapping[documentName.trim().toLowerCase()] || '';
   const esDosCaras = TIPOS_DOS_CARAS.includes(tipoDoc);
@@ -83,7 +87,13 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
       } else {
         setSelectedFileNames("Ningún archivo seleccionado");
       }
-      const validFiles = files.filter(file =>
+      // Comprimir imágenes apenas llegan: las fotos de cámara (12–50 MP)
+      // desbordan la memoria del navegador en móviles y bloquean la carga
+      // ("memoria insuficiente"); comprimidas (~1600px) suben rápido y sin
+      // rechazos por tamaño. Ante fallo devuelve el archivo original.
+      const comprimidos = await Promise.all(files.map(f => comprimirImagen(f)));
+      e.target.value = '';
+      const validFiles = comprimidos.filter(file =>
         ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)
       );
       if (validFiles.length === 0) {
@@ -134,16 +144,55 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
 
   // Reverso elegido del documento de dos caras: subir frente+reverso juntos.
   const manejarReversoElegido = async () => {
-    const reverso = inputReversoRef.current?.files?.[0] || null;
+    const reversoOriginal = inputReversoRef.current?.files?.[0] || null;
     if (inputReversoRef.current) inputReversoRef.current.value = '';
     const frente = frentePendienteRef.current;
     frentePendienteRef.current = null;
     if (!frente) return;
+    const reverso = reversoOriginal ? await comprimirImagen(reversoOriginal) : null;
     if (reverso && !validarArchivo(reverso)) {
       await handleUpload([frente]);
       return;
     }
     await handleUpload([frente], reverso || undefined);
+  };
+
+  // Foto tomada con la cámara integrada (getUserMedia): misma ruta que un
+  // archivo elegido — validación, dos caras y subida. La captura ya sale
+  // limitada (~1600px JPEG), no necesita re-compresión.
+  const manejarCapturaCamara = async (archivo: File) => {
+    const modo = camaraAbierta;
+    setCamaraAbierta(null);
+    if (!validarArchivo(archivo)) return;
+    if (modo === 'reverso') {
+      const frente = frentePendienteRef.current;
+      frentePendienteRef.current = null;
+      if (frente) await handleUpload([frente], archivo);
+      return;
+    }
+    if (esDosCaras) {
+      frentePendienteRef.current = archivo;
+      const etiqueta = documentName.toLowerCase();
+      const res = await Swal.fire({
+        icon: 'info',
+        title: 'Ahora el REVERSO',
+        html: `El <b>frente</b> de la ${etiqueta} está listo.<br/>Este documento tiene <b>dos caras</b> y ambas son obligatorias: toma ahora la foto del <b>reverso</b>.`,
+        showCancelButton: true,
+        confirmButtonText: '📷 Tomar reverso',
+        cancelButtonText: 'Adjuntar el reverso',
+        confirmButtonColor: '#2c5f9e',
+        allowOutsideClick: false,
+      });
+      if (res.isConfirmed) {
+        setCamaraAbierta('reverso');
+      } else {
+        // El reverso se adjuntará por archivo: dejar el frente pendiente y
+        // abrir el input de reverso directamente.
+        setTimeout(() => inputReversoRef.current?.click(), 0);
+      }
+      return;
+    }
+    await handleUpload([archivo]);
   };
 
   const handleUpload = async (files: File[], reverso?: File) => {
@@ -229,9 +278,21 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             te pediremos el <b>reverso</b> — suben juntos.
           </p>
         )}
+        <p className="CargaDocumento-hint">
+          💡 Si al tomar la foto con la cámara el celular dice <b>«memoria insuficiente»</b>,
+          tómala primero con la app de cámara y adjúntala aquí desde la galería.
+        </p>
         <div className="CargaDocumento-file-input-wrapper">
+          <button
+            type="button"
+            className="CargaDocumento-btn-file CargaDocumento-btn-camara"
+            onClick={() => setCamaraAbierta('frente')}
+            disabled={uploading}
+          >
+            📷 Tomar foto
+          </button>
           <label className="CargaDocumento-btn-file" htmlFor="file-upload">
-            {documentName === "Fotos" ? "Elegir Archivos" : "Elegir Archivo"}
+            {documentName === "Fotos" ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
           </label>
           <span className="CargaDocumento-file-text">
             {selectedFileNames}
@@ -269,6 +330,25 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           Cerrar
         </button>
       </div>
+      {/* Cámara integrada (getUserMedia): en móviles donde la cámara del
+          selector de archivos muere con «memoria insuficiente». */}
+      {camaraAbierta && (
+        <CamaraInterna
+          titulo={`${documentName} — ${camaraAbierta === 'reverso' ? 'REVERSO' : 'FRENTE'}`}
+          onCaptura={manejarCapturaCamara}
+          onCancelar={() => {
+            // Cancelar el reverso con el frente pendiente: subir solo el frente.
+            if (camaraAbierta === 'reverso' && frentePendienteRef.current) {
+              const frente = frentePendienteRef.current;
+              frentePendienteRef.current = null;
+              setCamaraAbierta(null);
+              handleUpload([frente]);
+            } else {
+              setCamaraAbierta(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
