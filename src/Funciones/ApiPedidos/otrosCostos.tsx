@@ -51,6 +51,15 @@ export interface Movimiento {
   ip: string;
 }
 
+export interface Adjunto {
+  nombre: string;
+  url: string;
+  content_type: string;
+  tamano: number;
+  subido_por: string;
+  fecha: string;
+}
+
 export interface OtroCosto {
   _id?: string;
   consecutivo?: string;
@@ -64,6 +73,7 @@ export interface OtroCosto {
   requiere_aprobacion_control: boolean;
   datos_bancarios: DatosBancarios;
   conductor: Conductor;
+  adjuntos?: Adjunto[];
   observaciones: string;
   manifiesto: string;
   valor_despues_retenciones?: number | null;
@@ -196,13 +206,26 @@ export const verificarManifiesto = async (usuario: string, manifiesto: string): 
 };
 
 // ── Crear / Editar ───────────────────────────────────────────────────────────
-export const crearSolicitud = async (payload: any): Promise<any> => {
-  const res = await axios.post(`${BASE_URL}/crear`, payload);
+// Multipart: el payload JSON va como campo 'payload' y los adjuntos (opcional,
+// máx. 10) como campos 'archivos'. Igual que importarPago.
+const aFormData = (payload: any, archivos: File[] = []): FormData => {
+  const form = new FormData();
+  form.append('payload', JSON.stringify(payload));
+  archivos.forEach((f) => form.append('archivos', f));
+  return form;
+};
+
+export const crearSolicitud = async (payload: any, archivos: File[] = []): Promise<any> => {
+  const res = await axios.post(`${BASE_URL}/crear`, aFormData(payload, archivos), {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return res.data;
 };
 
-export const editarSolicitud = async (payload: any): Promise<any> => {
-  const res = await axios.put(`${BASE_URL}/editar`, payload);
+export const editarSolicitud = async (payload: any, archivos: File[] = []): Promise<any> => {
+  const res = await axios.put(`${BASE_URL}/editar`, aFormData(payload, archivos), {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return res.data;
 };
 

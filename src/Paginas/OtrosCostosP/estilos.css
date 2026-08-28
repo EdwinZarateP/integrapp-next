@@ -367,6 +367,53 @@
 .OC-modalLabel { color: #64748b; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px; }
 .OC-modalValue { color: #0f172a; font-weight: 600; word-break: break-word; }
 
+/* ── Adjuntos (soportes) ── */
+.OC-adjList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.OC-adjItem {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  color: #005f56;
+  text-decoration: none;
+  background: #fff;
+}
+
+a.OC-adjItem:hover { background: #f0fdfa; border-color: #99f6e4; }
+
+.OC-adjNombre {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.OC-adjMeta { color: #6b7280; font-size: 0.75rem; white-space: nowrap; }
+
+.OC-adjRemove {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.OC-adjRemove:hover { background: #fee2e2; }
+
 /* ── Formulario (secciones) ── */
 .OC-formGrid {
   display: grid;

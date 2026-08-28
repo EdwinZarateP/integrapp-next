@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
   FaSearch, FaFileExcel, FaCalendarAlt, FaTimes, FaPlus, FaTrash, FaSave,
   FaPaperPlane, FaCheck, FaUndo, FaBan, FaMoneyBillWave, FaEdit, FaEye, FaWallet,
-  FaFileUpload, FaUniversity,
+  FaFileUpload, FaUniversity, FaPaperclip,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
@@ -17,13 +17,29 @@ import {
   getTiposCosto, getBancos, getTiposCuenta, getClientes,
   exportarPago, importarPago, verificarManifiesto, listarPagables,
   type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado, type BancoCatalogo,
+  type Adjunto,
 } from '@/Funciones/ApiPedidos/otrosCostos';
+import { consultarCuentaPorPlaca } from '@/Funciones/ApiPedidos/cuentasPlaca';
 import './estilos.css';
 
 const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'DESPACHADOR', 'COORDINADOR', 'CONTROL', 'FINANCIERO', 'ANALISTA'];
 const PERFILES_GLOBALES_OC = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL']; // ven todo + dropdown de regional
 const LIMITE_COORDINADOR = 500000;
 const LIMITE_VALOR_TOTAL = 5000000; // valor total máximo permitido por solicitud
+
+// Adjuntos de la solicitud (soportes). Tope total 10 (existentes + nuevos), 10 MB
+// por archivo, imágenes JPG/PNG o PDF — igual que los documentos de Vehículos.
+const MAX_ADJUNTOS = 10;
+const MAX_ADJUNTO_MB = 10;
+const TIPOS_ADJUNTO = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+const ACCEPT_ADJUNTOS = 'image/jpeg,image/jpg,image/png,application/pdf';
+
+const formatTamano = (bytes: number): string => {
+  const b = Number(bytes || 0);
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+  if (b >= 1024) return `${Math.round(b / 1024)} KB`;
+  return `${b} B`;
+};
 
 // Bandeja de estados visibles en el dropdown de filtro según el perfil. Se alinea
 // con el scope del backend: cada perfil solo ve/filtra los estados de SU bandeja.
@@ -163,6 +179,12 @@ const OtrosCostosP: React.FC = () => {
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [guardando, setGuardando] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
+
+  // Adjuntos del formulario: los ya subidos (solo lectura, se conservan) y los
+  // seleccionados en esta sesión (se envían junto con crear/editar).
+  const [archivosNuevos, setArchivosNuevos] = useState<File[]>([]);
+  const [adjuntosExistentes, setAdjuntosExistentes] = useState<Adjunto[]>([]);
+  const inputAdjuntosRef = useRef<HTMLInputElement | null>(null);
 
   // Selección de consecutivos para el archivo bancario (FINANCIERO/ADMIN)
   const [selPago, setSelPago] = useState<Set<string>>(new Set());
@@ -321,6 +343,62 @@ const OtrosCostosP: React.FC = () => {
     } catch { /* silencioso: la advertencia no bloquea la edición */ }
   };
 
+  // ── Autollenado desde el catálogo Cuentas por Placa ──────────────────────
+  // Al salir del campo Placa: consulta el catálogo (con scope de regional) y
+  // llena SOLO los campos vacíos de la sección bancaria y el conductor. Nunca
+  // pisa lo ya digitado; el usuario puede corregir todo manualmente.
+  const autollenarPorPlaca = async (placa: string) => {
+    const p = (placa || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{4,6}$/.test(p)) return;
+    try {
+      const res = await consultarCuentaPorPlaca(usuario, p, form.datos_servicio.centro_distribucion);
+      if (!res.encontrada || !res.cuenta) {
+        if (res.coincidencias?.length) {
+          Swal.fire({
+            toast: true, position: 'top-end', icon: 'info', timer: 4000, showConfirmButton: false,
+            title: 'Placa en varias regionales',
+            text: `Existe en: ${res.coincidencias.map((c) => c.bodega || c.regional).join(', ')}. Diligencie manualmente o seleccione primero el centro de distribución.`,
+          });
+        }
+        return;  // sin coincidencia: silencioso (el catálogo es opcional)
+      }
+      const c = res.cuenta;
+      const mapa: [string, string][] = [
+        ['banco', c.banco], ['tipo_cuenta', c.tipo_cuenta], ['numero_cuenta', c.numero_cuenta],
+        ['cedula_titular', c.cedula], ['nombre_titular', c.nombre_beneficiario],
+      ];
+      // Calcular sobre el estado actual (closure): qué campos están vacíos.
+      const dbActual: any = form.datos_bancarios;
+      const aLlenar: Record<string, string> = {};
+      let llenados = 0, omitidos = 0;
+      mapa.forEach(([k, v]) => {
+        if (v && !String(dbActual[k] || '').trim()) { aLlenar[k] = v; llenados++; } else omitidos++; }
+      );
+      const conductorNombre = (c.nombre_conductor && !String(form.conductor.nombre || '').trim())
+        ? c.nombre_conductor : '';
+      if (conductorNombre) llenados++;
+      const conductorTelefono = (c.telefono && !String(form.conductor.telefono || '').trim())
+        ? c.telefono : '';
+      if (conductorTelefono) llenados++;
+      if (llenados > 0) {
+        setForm((f) => ({
+          ...f,
+          datos_bancarios: { ...f.datos_bancarios, ...aLlenar },
+          conductor: (conductorNombre || conductorTelefono)
+            ? { ...f.conductor, ...(conductorNombre ? { nombre: conductorNombre } : {}), ...(conductorTelefono ? { telefono: conductorTelefono } : {}) }
+            : f.conductor,
+        }));
+      }
+      Swal.fire({
+        toast: true, position: 'top-end', icon: llenados > 0 ? 'success' : 'info', timer: 3000, showConfirmButton: false,
+        title: llenados > 0 ? 'Datos cargados del catálogo' : 'Datos del catálogo',
+        text: llenados > 0
+          ? `${llenados} campo(s) autollenado(s)${omitidos ? `, ${omitidos} ya diligenciado(s) no se modificaron` : ''}. Puede editarlos.`
+          : 'Todos los campos ya estaban diligenciados; no se modificó nada.',
+      });
+    } catch { /* silencioso: la sugerencia no bloquea la edición */ }
+  };
+
   // ── Costos ─────────────────────────────────────────────────────────────────
   const valorTotal = form.costos.reduce((a, c) => a + (Number(c.valor) || 0), 0);
 
@@ -350,6 +428,8 @@ const OtrosCostosP: React.FC = () => {
     setBusqueda(null);
     setSeleccionados(new Set());
     setMotivoDevolucion('');
+    setAdjuntosExistentes([]);
+    setArchivosNuevos([]);
     setModalMode('form');
   };
 
@@ -370,6 +450,8 @@ const OtrosCostosP: React.FC = () => {
       const ultDev = (d.historial_movimientos || []).slice().reverse().find((m: any) => m.accion === 'devolucion');
       setMotivoDevolucion(ultDev?.observacion || '');
       setDetalle(d);  // disponibiliza el estado actual (ej. 'devuelto') en el modal de edición
+      setAdjuntosExistentes(d.adjuntos || []);
+      setArchivosNuevos([]);
       setBusqueda(null);
       setSeleccionados(new Set());
       setModalMode('form');
@@ -378,7 +460,43 @@ const OtrosCostosP: React.FC = () => {
     }
   };
 
-  const cerrarModal = () => { setModalMode(null); setDetalle(null); setMotivoDevolucion(''); };
+  const cerrarModal = () => {
+    setModalMode(null);
+    setDetalle(null);
+    setMotivoDevolucion('');
+    setAdjuntosExistentes([]);
+    setArchivosNuevos([]);
+  };
+
+  // ── Adjuntos del formulario ────────────────────────────────────────────────
+  const seleccionarArchivos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const elegidos = Array.from(e.target.files || []);
+    e.target.value = '';  // permite reelegir el mismo archivo tras quitarlo
+    if (!elegidos.length) return;
+    const validos: File[] = [];
+    for (const f of elegidos) {
+      if (!TIPOS_ADJUNTO.includes(f.type)) {
+        Swal.fire('Archivo no válido', `${f.name}: formato no permitido. Solo imágenes JPG/PNG o PDF.`, 'warning');
+        continue;
+      }
+      if (f.size > MAX_ADJUNTO_MB * 1024 * 1024) {
+        Swal.fire('Archivo muy grande', `${f.name} supera el máximo de ${MAX_ADJUNTO_MB} MB.`, 'warning');
+        continue;
+      }
+      validos.push(f);
+    }
+    if (!validos.length) return;
+    setArchivosNuevos((prev) => {
+      const disp = MAX_ADJUNTOS - adjuntosExistentes.length - prev.length;
+      if (validos.length > disp) {
+        Swal.fire('Límite de adjuntos', `Solo puede agregar ${disp} archivo(s) más (máximo ${MAX_ADJUNTOS} en total).`, 'warning');
+      }
+      return [...prev, ...validos].slice(0, MAX_ADJUNTOS - adjuntosExistentes.length);
+    });
+  };
+
+  const quitarArchivoNuevo = (i: number) =>
+    setArchivosNuevos((prev) => prev.filter((_, idx) => idx !== i));
 
   // ── Guardar (crear/editar) ──────────────────────────────────────────────────
   const validarForm = (enviar: boolean): string | null => {
@@ -421,14 +539,14 @@ const OtrosCostosP: React.FC = () => {
         conductor: form.conductor,
       };
       if (form.consecutivo) {
-        await editarSolicitud({ ...payload, consecutivo: form.consecutivo });
+        await editarSolicitud({ ...payload, consecutivo: form.consecutivo }, archivosNuevos);
         if (enviar) {
           Swal.fire('✅ Enviada', `Solicitud ${form.consecutivo} enviada a aprobación`, 'success');
         } else {
           Swal.fire('✅ Guardado', 'Solicitud actualizada', 'success');
         }
       } else {
-        const res: any = await crearSolicitud(payload);
+        const res: any = await crearSolicitud(payload, archivosNuevos);
         if (res.manifiesto_ya_usado) {
           const usos = (res.usos_manifiesto || []).map((u: any) =>
             `<li><b>${u.consecutivo}</b> (${u.origen === 'historico' ? 'pagada' : u.origen})</li>`,
@@ -902,6 +1020,20 @@ const OtrosCostosP: React.FC = () => {
               <Campo label="Teléfono conductor" v={detalle.conductor?.telefono} />
             </div>
 
+            {(detalle.adjuntos?.length ?? 0) > 0 && (
+              <>
+                <div className="OC-modalSection">Adjuntos ({detalle.adjuntos!.length})</div>
+                <div className="OC-adjList">
+                  {detalle.adjuntos!.map((a) => (
+                    <a key={a.url} className="OC-adjItem" href={a.url} target="_blank" rel="noopener noreferrer">
+                      <FaPaperclip /> <span className="OC-adjNombre">{a.nombre}</span>
+                      <span className="OC-adjMeta">{formatTamano(a.tamano)}</span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+
             {(detalle.aprobacion?.usuario || detalle.pago?.usuario) && (
               <>
                 <div className="OC-modalSection">Aprobación / Pago</div>
@@ -1058,7 +1190,14 @@ const OtrosCostosP: React.FC = () => {
                   )}
                 </select>
               </div>
-              <FieldText label="Placa" mayusculas value={form.datos_servicio.placa} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, placa: v } })} />
+              <FieldText
+                label="Placa"
+                mayusculas
+                maxLength={6}
+                value={form.datos_servicio.placa}
+                onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, placa: v.replace(/[^A-Za-z0-9]/g, '').toUpperCase() } })}
+                onBlur={() => autollenarPorPlaca(form.datos_servicio.placa)}
+              />
               <FieldText label="Municipio destino" mayusculas value={form.datos_servicio.municipio_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, municipio_destino: v } })} />
               <FieldText label="Departamento destino" mayusculas value={form.datos_servicio.departamento_destino} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, departamento_destino: v } })} />
               <FieldText label="Transportador / proveedor" mayusculas value={form.datos_servicio.transportador} onChange={(v) => setForm({ ...form, datos_servicio: { ...form.datos_servicio, transportador: v } })} />
@@ -1128,6 +1267,40 @@ const OtrosCostosP: React.FC = () => {
               <FieldText label="Nombre del titular *" mayusculas value={form.datos_bancarios.nombre_titular} onChange={(v) => setForm({ ...form, datos_bancarios: { ...form.datos_bancarios, nombre_titular: v } })} />
               <FieldText label="Nombre del conductor *" mayusculas value={form.conductor.nombre} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, nombre: v } })} />
               <FieldText label="Teléfono del conductor" soloNumeros value={form.conductor.telefono} onChange={(v) => setForm({ ...form, conductor: { ...form.conductor, telefono: v } })} />
+            </div>
+
+            {/* Sección 4: adjuntos */}
+            <div className="OC-modalSection">4. Archivos adjuntos (opcional)</div>
+            <div className="OC-field">
+              <label className="OC-label">
+                Adjuntos ({adjuntosExistentes.length + archivosNuevos.length} / {MAX_ADJUNTOS}) — imágenes JPG/PNG o PDF, máx. {MAX_ADJUNTO_MB} MB c/u
+              </label>
+              <input
+                ref={inputAdjuntosRef}
+                type="file"
+                multiple
+                className="OC-input"
+                accept={ACCEPT_ADJUNTOS}
+                onChange={seleccionarArchivos}
+                disabled={adjuntosExistentes.length + archivosNuevos.length >= MAX_ADJUNTOS}
+              />
+              {(adjuntosExistentes.length > 0 || archivosNuevos.length > 0) && (
+                <div className="OC-adjList">
+                  {adjuntosExistentes.map((a) => (
+                    <a key={a.url} className="OC-adjItem" href={a.url} target="_blank" rel="noopener noreferrer">
+                      <FaPaperclip /> <span className="OC-adjNombre">{a.nombre}</span>
+                      <span className="OC-adjMeta">{formatTamano(a.tamano)}</span>
+                    </a>
+                  ))}
+                  {archivosNuevos.map((f, i) => (
+                    <div key={`${f.name}-${f.size}-${i}`} className="OC-adjItem">
+                      <FaPaperclip /> <span className="OC-adjNombre">{f.name}</span>
+                      <span className="OC-adjMeta">{formatTamano(f.size)}</span>
+                      <button type="button" className="OC-adjRemove" title="Quitar" onClick={() => quitarArchivoNuevo(i)}><FaTrash /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="OC-actions">

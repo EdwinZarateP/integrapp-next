@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaSearch, FaFileExcel, FaCalendarAlt, FaTimes, FaUndo } from 'react-icons/fa';
+import { FaSearch, FaFileExcel, FaCalendarAlt, FaTimes, FaUndo, FaPaperclip } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
@@ -42,6 +42,13 @@ const formatFecha = (val: any): string => {
 };
 
 const formatMoney = (v: any) => `$${Number(v || 0).toLocaleString('es-CO')}`;
+
+const formatTamano = (bytes: number): string => {
+  const b = Number(bytes || 0);
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+  if (b >= 1024) return `${Math.round(b / 1024)} KB`;
+  return `${b} B`;
+};
 
 const estadoBadge = (estado: string) => {
   const map: Record<string, string> = {
@@ -319,6 +326,20 @@ const HistoricoOtrosCostosP: React.FC = () => {
               <Campo label="Valor tras retenciones" v={detalle.valor_despues_retenciones != null ? formatMoney(detalle.valor_despues_retenciones) : (detalle.pago?.valor_despues_retenciones != null ? formatMoney(detalle.pago.valor_despues_retenciones) : '-')} />
               <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
             </div>
+
+            {(detalle.adjuntos?.length ?? 0) > 0 && (
+              <>
+                <div className="OC-modalSection">Adjuntos ({detalle.adjuntos!.length})</div>
+                <div className="OC-adjList">
+                  {detalle.adjuntos!.map((a) => (
+                    <a key={a.url} className="OC-adjItem" href={a.url} target="_blank" rel="noopener noreferrer">
+                      <FaPaperclip /> <span className="OC-adjNombre">{a.nombre}</span>
+                      <span className="OC-adjMeta">{formatTamano(a.tamano)}</span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
 
             {detalle.devuelta_del_historico && (
               <div className="OC-warn" style={{ marginTop: '0.5rem' }}>

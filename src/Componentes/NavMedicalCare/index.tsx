@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
-  FaExchangeAlt, FaBan, FaWallet,
+  FaExchangeAlt, FaBan, FaWallet, FaIdCard,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca';
 
 interface Props {
   paginaActual: PaginaMC;
@@ -28,6 +28,7 @@ const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode
   { id: 'pedidosanulados', label: 'Pedidos Anulados',    ruta: '/PedidosAnulados',     icono: <FaBan /> },
   { id: 'otroscostos',    label: 'Otros Costos',          ruta: '/OtrosCostos',          icono: <FaWallet /> },
   { id: 'historicooc',    label: 'Histórico Otros Costos', ruta: '/HistoricoOtrosCostos', icono: <FaHistory /> },
+  { id: 'cuentasplaca',   label: 'Cuentas por Placa',      ruta: '/CuentasPlaca',         icono: <FaIdCard /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
@@ -135,6 +136,10 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 }
                 // Pedidos Anulados: visible solo para ADMIN
                 if (item.id === 'pedidosanulados' && perfil !== 'ADMIN') {
+                  return null;
+                }
+                // Cuentas por Placa: ADMIN, OPERATIVO y DESPACHADOR (catálogo regional)
+                if (item.id === 'cuentasplaca' && !['ADMIN', 'OPERATIVO', 'DESPACHADOR'].includes(perfil)) {
                   return null;
                 }
                 return (
