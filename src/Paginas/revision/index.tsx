@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState, useMemo } from "react";
 import Cookies from "js-cookie";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import { FaSearch, FaTimes } from "react-icons/fa";
 import BarraSuperiorSeguridad from "@/Componentes/Barra";
@@ -34,22 +34,26 @@ const RevisionVehiculos: React.FC = () => {
 
   /* --- ESTADO EN LA URL (query param) ----------------------------------
      /revision?bandeja=aprobados — misma convención de /PanelConductores:
-     sobrevive al refresh (F5), se puede compartir y marcar. */
-  const searchParams = useSearchParams();
+     sobrevive al refresh (F5), se puede compartir y marcar.
+     Escritura con history.replaceState NATIVO (no router.replace): la
+     navegación del App Router re-suspende el <Suspense> del page.tsx y la
+     bandeja parpadea al cambiar de pestaña. */
   const urlSincronizada = React.useRef(false);
 
   // Restaurar la bandeja desde la URL al montar.
   useEffect(() => {
     urlSincronizada.current = true;
-    const bandejaUrl = searchParams.get("bandeja") as PestanaBandeja | null;
+    const bandejaUrl = new URLSearchParams(window.location.search).get("bandeja") as PestanaBandeja | null;
     if (bandejaUrl && BANDEJAS_VALIDAS.includes(bandejaUrl)) setPestanaActiva(bandejaUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Espejo de la bandeja activa en la URL (replace: no ensucia el historial).
+  // Espejo de la bandeja activa en la URL (replaceState nativo: no ensucia
+  // el historial ni re-suspende el Suspense).
   useEffect(() => {
     if (!urlSincronizada.current) return; // No pisar la restauración inicial.
-    router.replace(`/revision?bandeja=${pestanaActiva}`, { scroll: false });
+    const ruta = `${window.location.pathname}?bandeja=${pestanaActiva}`;
+    window.history.replaceState(window.history.state, '', ruta);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pestanaActiva]);
 

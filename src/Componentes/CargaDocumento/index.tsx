@@ -32,6 +32,8 @@ interface CargaDocumentoProps {
   maximo?: number;
   /** Cuántos hay ya subidos (para respetar el tope con esta tanda). */
   cantidadActual?: number;
+  /** Solo PDF, sin cámara (RUT: se descarga de la DIAN, no se fotografía). */
+  soloPdf?: boolean;
   onClose: () => void;
   onUploadSuccess?: (result: string | string[], urlReverso?: string) => void;
 }
@@ -52,6 +54,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   replicarEn,
   maximo,
   cantidadActual,
+  soloPdf,
   onClose,
   onUploadSuccess,
 }) => {
@@ -68,6 +71,11 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   const esDosCaras = TIPOS_DOS_CARAS.includes(tipoDoc);
 
   const validarArchivo = (file: File): boolean => {
+    // soloPdf (RUT): únicamente PDF — se descarga de la DIAN, no se fotografía.
+    if (soloPdf && file.type !== 'application/pdf') {
+      Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'El RUT solo se puede subir en PDF (se descarga de la DIAN; no se admite foto).' });
+      return false;
+    }
     if (!['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)) {
       Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'Solo se permiten archivos de imagen (jpg, jpeg, png) o PDF.' });
       return false;
@@ -94,7 +102,8 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
       const comprimidos = await Promise.all(files.map(f => comprimirImagen(f)));
       e.target.value = '';
       const validFiles = comprimidos.filter(file =>
-        ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)
+        soloPdf ? file.type === 'application/pdf'
+                : ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)
       );
       if (validFiles.length === 0) {
         Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'Solo se permiten archivos de imagen (jpg, jpeg, png) o PDF.' });
@@ -278,19 +287,29 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             te pediremos el <b>reverso</b> — suben juntos.
           </p>
         )}
-        <p className="CargaDocumento-hint">
-          💡 Si al tomar la foto con la cámara el celular dice <b>«memoria insuficiente»</b>,
-          tómala primero con la app de cámara y adjúntala aquí desde la galería.
-        </p>
+        {soloPdf && (
+          <p className="CargaDocumento-hint">
+            📊 El RUT se descarga en <b>PDF desde la página de la DIAN</b> — solo se
+            admite el archivo PDF, no fotos.
+          </p>
+        )}
+        {!soloPdf && (
+          <p className="CargaDocumento-hint">
+            💡 Si al tomar la foto con la cámara el celular dice <b>«memoria insuficiente»</b>,
+            tómala primero con la app de cámara y adjúntala aquí desde la galería.
+          </p>
+        )}
         <div className="CargaDocumento-file-input-wrapper">
-          <button
-            type="button"
-            className="CargaDocumento-btn-file CargaDocumento-btn-camara"
-            onClick={() => setCamaraAbierta('frente')}
-            disabled={uploading}
-          >
-            📷 Tomar foto
-          </button>
+          {!soloPdf && (
+            <button
+              type="button"
+              className="CargaDocumento-btn-file CargaDocumento-btn-camara"
+              onClick={() => setCamaraAbierta('frente')}
+              disabled={uploading}
+            >
+              📷 Tomar foto
+            </button>
+          )}
           <label className="CargaDocumento-btn-file" htmlFor="file-upload">
             {documentName === "Fotos" ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
           </label>
@@ -300,7 +319,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           <input
             id="file-upload"
             type="file"
-            accept="image/jpeg, image/png, image/jpg, application/pdf"
+            accept={soloPdf ? 'application/pdf' : 'image/jpeg, image/png, image/jpg, application/pdf'}
             multiple={documentName === "Fotos"}
             onChange={handleFileChange}
             disabled={uploading}

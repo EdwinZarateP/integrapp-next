@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useContext } from 'react';
 import Cookies from "js-cookie";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import {
   FaCar, FaClipboardList, FaFileUpload, FaCheckCircle,
@@ -463,8 +463,11 @@ const PanelConductoresVista: React.FC = () => {
      El export es estático (GoDaddy): segmentos dinámicos como /datos-basicos/
      MVX48E serían 404 para placas desconocidas al build. En su lugar:
      /PanelConductores?vista=flujo&paso=2&placa=MVX48E — sobrevive al refresh,
-     se puede compartir y marcar. */
-  const searchParams = useSearchParams();
+     se puede compartir y marcar.
+     La escritura usa history.replaceState NATIVO (no router.replace): una
+     navegación del App Router re-suspende el <Suspense> del page.tsx y el
+     panel parpadea (se nota mucho en móvil). El estado nativo no notifica a
+     Next → cero re-render; al montar se lee window.location.search. */
   const urlSincronizada = React.useRef(false);
 
   // Restaurar vista/paso/placa desde la URL al montar (evita perder el paso
@@ -472,9 +475,10 @@ const PanelConductoresVista: React.FC = () => {
   useEffect(() => {
     if (urlSincronizada.current) return;
     urlSincronizada.current = true;
-    const pasoUrl = parseInt(searchParams.get('paso') || '', 10);
-    const placaUrl = (searchParams.get('placa') || '').trim().toUpperCase();
-    if (searchParams.get('vista') === 'flujo' && [1, 2, 3, 4].includes(pasoUrl)) {
+    const paramsUrl = new URLSearchParams(window.location.search);
+    const pasoUrl = parseInt(paramsUrl.get('paso') || '', 10);
+    const placaUrl = (paramsUrl.get('placa') || '').trim().toUpperCase();
+    if (paramsUrl.get('vista') === 'flujo' && [1, 2, 3, 4].includes(pasoUrl)) {
       if (placaUrl) setSelectedPlate(placaUrl);
       setVistaModulos(false);
       setCurrentStep(pasoUrl);
@@ -504,7 +508,8 @@ const PanelConductoresVista: React.FC = () => {
 
   const [selectedPlate, setSelectedPlate] = useState<string | null>(null);
 
-  // Espejo del estado en la URL (replace: no ensucia el historial con cada clic).
+  // Espejo del estado en la URL (replaceState nativo: no ensucia el historial
+  // ni re-suspende el Suspense — router.replace hacía parpadear el panel).
   useEffect(() => {
     if (!urlSincronizada.current) return; // No pisar la restauración inicial.
     const params = new URLSearchParams();
@@ -514,7 +519,8 @@ const PanelConductoresVista: React.FC = () => {
       if (selectedPlate) params.set('placa', selectedPlate);
     }
     const qs = params.toString();
-    router.replace(qs ? `/PanelConductores?${qs}` : '/PanelConductores', { scroll: false });
+    const ruta = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(window.history.state, '', ruta);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vistaModulos, currentStep, selectedPlate]);
   const [newPlate, setNewPlate] = useState<string>("");
@@ -1512,6 +1518,9 @@ const PanelConductoresVista: React.FC = () => {
           /* Tope de fotos del vehículo (mín. 1 · máx. 10): el modal avisa
              antes de subir si esta tanda se pasa del límite. */
           maximo={normalizeKey(selectedDocumento.documentName) === 'fotos' ? 10 : undefined}
+          /* RUT de tenedor/propietario: SOLO PDF (archivo descargado de la
+             DIAN), sin opción de tomar foto. */
+          soloPdf={['rut tenedor', 'rut propietario'].includes(normalizeKey(selectedDocumento.documentName))}
           cantidadActual={(() => {
             if (normalizeKey(selectedDocumento.documentName) !== 'fotos') return undefined;
             const it = secciones[selectedDocumento.sectionIndex]?.items[selectedDocumento.itemIndex];

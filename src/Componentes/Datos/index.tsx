@@ -550,15 +550,17 @@ const FORMATOS_ACEPTADOS_IA = ['image/jpeg', 'image/png', 'image/jpg', 'applicat
 // Botones de la tarjeta "Ahorra tiempo": tipo lectura → etiqueta y esquema backend.
 // Cédulas de propietario/tenedor = identidad; RUT = complemento (dirección,
 // ciudad, correo, celular, fechas, NIT). Ambos aportan; nunca pisan lo manual.
-const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string }> = [
+// soloPdf: documentos que SOLO se aceptan como PDF y sin cámara (el RUT se
+// descarga de la DIAN, no se fotografía — una foto lo deja ilegible para la IA).
+const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string; soloPdf?: boolean }> = [
   { tipo: 'cedula', esquema: 'cedula', etiqueta: '🪪 Cédula del conductor' },
   { tipo: 'licencia', esquema: 'licencia', etiqueta: '🎫 Licencia de conducción' },
   { tipo: 'tarjeta_propiedad', esquema: 'tarjeta_propiedad', etiqueta: '📄 Tarjeta de propiedad' },
   { tipo: 'soat', esquema: 'soat', etiqueta: '🛡️ SOAT' },
   { tipo: 'cedula_propietario', esquema: 'cedula', etiqueta: '🪪 Cédula del propietario' },
   { tipo: 'cedula_tenedor', esquema: 'cedula', etiqueta: '🪪 Cédula del tenedor' },
-  { tipo: 'rut_propietario', esquema: 'rut', etiqueta: '📊 RUT del propietario' },
-  { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor' },
+  { tipo: 'rut_propietario', esquema: 'rut', etiqueta: '📊 RUT del propietario', soloPdf: true },
+  { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor', soloPdf: true },
   { tipo: 'certificado_bancario_cond', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario conductor' },
   { tipo: 'certificado_bancario_tened', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario tenedor' },
   { tipo: 'certificado_bancario_prop', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario propietario' },
@@ -969,6 +971,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const manejarSeleccionDocumento = async () => {
     const archivoOriginal = inputDocumentoRef.current?.files?.[0];
     if (!archivoOriginal || !tipoLecturaPendiente) return;
+    const soloPdf = Boolean(OPCIONES_LECTURA_IA.find(o => o.tipo === tipoLecturaPendiente)?.soloPdf);
     // Comprimir apenas llega la foto: las fotos de cámara (12–50 MP) son las
     // que desbordan la memoria del navegador en móviles ("memoria
     // insuficiente"); comprimida (~1600px) baja el pico de RAM del flujo de
@@ -976,6 +979,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     const archivo = await comprimirImagen(archivoOriginal);
     // Vaciar el input ya: no retener el original en memoria más de lo necesario.
     if (inputDocumentoRef.current) inputDocumentoRef.current.value = '';
+    if (soloPdf && archivo.type !== 'application/pdf') {
+      Swal.fire('Formato no válido', 'El RUT solo se puede subir en PDF (se descarga de la DIAN; no se admite foto).', 'warning');
+      setTipoLecturaPendiente(null);
+      return;
+    }
     if (!validarArchivoIA(archivo)) {
       setTipoLecturaPendiente(null);
       return;
@@ -1021,6 +1029,80 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     );
   };
 
+  /** «Es la misma persona»: copia la cédula del CONDUCTOR como cédula del
+   * propietario/tenedor sin gastar otra lectura de IA. El backend copia el
+   * blob (frente+reverso) con nomenclatura propia de la figura destino y
+   * devuelve la lectura IA del conductor; con ella se autollena la identidad
+   * (respetando lo escrito a mano). */
+  const reutilizarCedulaConductor = async (figura: 'propietario' | 'tenedor', etiqueta: string) => {
+    setLeyendoCedula(true);
+    setEtiquetaLecturaIA(etiqueta);
+    try {
+      const body = new FormData();
+      body.append('placa', placa);
+      body.append('figura', figura);
+      if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
+      const resp = await fetch(`${API_BASE}/vehiculos/reutilizar-cedula`, { method: 'PUT', body });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo reutilizar la cédula.');
+
+      const tipoSubida = figura === 'propietario' ? 'documentoIdentidadPropietario' : 'documentoIdentidadTenedor';
+      setDocsSubidos(prev => ({
+        ...prev,
+        [tipoSubida]: data.url,
+        ...(data.url_reverso ? { [`${tipoSubida}Reverso`]: data.url_reverso } : {}),
+      }));
+
+      // Autollenar la identidad de la figura. Prioridad: lectura IA del
+      // conductor (la devolvió el backend); si no hay, los campos del
+      // formulario. Nunca pisa lo escrito a mano (regla de aplicarLecturaIA).
+      const prefijo = figura === 'propietario' ? 'prop' : 'tened';
+      const mapear = MAPEOS_IA[`cedula_${figura}`];
+      let aplicados = 0;
+      if (data.lectura_ia && data.lectura_ia.datos && mapear) {
+        const nuevos = mapear(data.lectura_ia.datos);
+        aplicarLecturaIA(nuevos);
+        aplicados = Object.keys(nuevos).length;
+      } else {
+        // Fallback sin lectura IA: clonar los campos de identidad del conductor.
+        const clones: Record<string, string> = {};
+        const nombreCompleto = [
+          formData['condPrimerApellido'], formData['condSegundoApellido'], formData['condNombres'],
+        ].filter(Boolean).join(' ').toUpperCase().replace(/\s+/g, ' ').trim();
+        if (nombreCompleto) clones[`${prefijo}Nombre`] = nombreCompleto;
+        if (formData['condCedulaCiudadania']) {
+          clones[`${prefijo}Documento`] = formData['condCedulaCiudadania'];
+          clones[`${prefijo}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
+        }
+        if (formData['condExpedidaEn']) {
+          clones[`${prefijo}CiudadExpDoc`] = formData['condExpedidaEn'];
+          const depto = buscarDepartamentoPorCiudad(formData['condExpedidaEn']);
+          if (depto) clones[`${prefijo}DeptoExpedida`] = depto;
+        }
+        if (Object.keys(clones).length > 0) {
+          aplicarLecturaIA(clones);
+          aplicados = Object.keys(clones).length;
+        }
+      }
+
+      setLeyendoCedula(false);
+      await Swal.fire({
+        icon: 'success',
+        title: 'Cédula reutilizada',
+        html: `Guardamos una copia del documento como <b>cédula del ${figura}</b> (${aplicados > 0 ? `${aplicados} campo(s) llenados` : 'sin datos para llenar — revisa el formulario'}).${data.url_reverso ? '<br/>Incluye el reverso.' : ''}`,
+        confirmButtonColor: '#27ae60',
+      });
+    } catch (error: any) {
+      setLeyendoCedula(false);
+      Swal.fire({
+        icon: 'error',
+        title: 'No pudimos reutilizar la cédula',
+        text: error?.message || 'Intenta de nuevo o carga la cédula de esa figura.',
+        confirmButtonColor: '#d33',
+      });
+    }
+  };
+
   // Al tocar un botón de documento de la tarjeta IA: elegir cómo cargar.
   // «Tomar foto» abre la cámara DENTRO de la página (getUserMedia) — en varios
   // celulares la entrada Cámara del selector de Android muere con «memoria
@@ -1031,6 +1113,42 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipo);
     if (!opcion) return;
     const etiqueta = opcion.etiqueta.replace(/^[^\s]+\s/, '');
+    // RUT (soloPdf): directo al selector de archivos con accept PDF — se
+    // descarga de la DIAN, no se fotografía; sin opción de cámara.
+    if (opcion.soloPdf) {
+      setTipoLecturaPendiente(tipo);
+      if (inputDocumentoRef.current) inputDocumentoRef.current.accept = 'application/pdf';
+      setTimeout(() => inputDocumentoRef.current?.click(), 0);
+      return;
+    }
+    if (inputDocumentoRef.current) inputDocumentoRef.current.accept = 'image/jpeg, image/png, image/jpg, application/pdf';
+    // Cédula de propietario/tenedor: si la del conductor ya está cargada,
+    // ofrecer reutilizarla (misma persona) — copia el archivo ya guardado y
+    // autollena la identidad SIN gastar otra lectura de IA.
+    if ((tipo === 'cedula_propietario' || tipo === 'cedula_tenedor') && docsSubidos['documentoIdentidadConductor']) {
+      const figura = tipo === 'cedula_propietario' ? 'propietario' : 'tenedor';
+      const figuraEtiqueta = tipo === 'cedula_propietario' ? 'propietario' : 'tenedor';
+      Swal.fire({
+        icon: 'question',
+        title: etiqueta,
+        html: `¿El ${figuraEtiqueta} es la <b>misma persona</b> que el conductor?<br/><span style="font-size:0.85em; color:#5a6472">Si es así, usamos la cédula que ya cargaste (con su reverso): <b>sin foto ni lectura IA</b>, y llenamos sus datos automáticamente.</span>`,
+        showDenyButton: true,
+        showCloseButton: true,
+        confirmButtonText: '♻️ Sí, es la misma persona',
+        denyButtonText: '📷 No, cargar otra cédula',
+        confirmButtonColor: '#27ae60',
+        denyButtonColor: '#2c5f9e',
+        reverseButtons: true,
+      }).then(async res => {
+        if (res.isConfirmed) {
+          await reutilizarCedulaConductor(figura, etiqueta);
+        } else if (res.isDenied) {
+          setTipoLecturaPendiente(tipo);
+          setTimeout(() => inputDocumentoRef.current?.click(), 0);
+        }
+      });
+      return;
+    }
     Swal.fire({
       icon: 'question',
       title: `${etiqueta}`,
@@ -1552,11 +1670,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           <span className="Datos-iaCedula-titulo">⚡ Ahorra tiempo</span>
           <span className="Datos-iaCedula-sub">
             Toma una foto (o sube el PDF) de un documento: lo <b>guardamos</b> y llenamos
-            los campos por ti con IA. Igual podrás revisar y editar todo. Las <b>cédulas</b>
-            (conductor, propietario y tenedor), la <b>licencia</b> y la <b>tarjeta de propiedad</b>
-            tienen <b>dos caras y ambas son obligatorias</b>: al subir el frente te pedimos el reverso.
-            <br/><b>Si al tomar la foto el celular dice «memoria insuficiente»</b>: tómala primero
-            con la app de cámara y adjúntala aquí desde la galería.
+            los campos por ti. Igual podrás revisar y editar todo. 
           </span>
         </div>
         <div className="Datos-iaCedula-acciones">
@@ -1606,7 +1720,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           {/* Input oculto para el resto de tipos de documento (foto o PDF).
               accept explícito (no image/*): en Android reduce el procesamiento
               de la foto al volver de la cámara y evita ofrecer HEIC/WebP que la
-              validación rechazaría. */}
+              validación rechazaría. Los tipos soloPdf (RUT) lo estrechan a
+              solo PDF desde el onClick del botón. */}
           <input
             ref={inputDocumentoRef}
             type="file"
