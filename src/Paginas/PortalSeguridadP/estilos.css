@@ -572,6 +572,13 @@
   gap: 8px;
 }
 
+/* Variante secundaria: anexo oficial de la Procuraduría (junto al informe). */
+.PS-boton-pdf.PS-boton-anexo {
+  background: #fff;
+  color: #c0392b;
+  border: 1px solid #e0b1aa;
+}
+
 /* Cupo */
 .PS-plan-nombre {
   font-size: 1.05rem;

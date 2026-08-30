@@ -748,9 +748,19 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
                             const activas = entradas.filter((p) => !p.retirada);
                             const retiradas = entradas.filter((p) => p.retirada);
                             const algunaIlimitada = activas.some((p) => p.ilimitado);
-                            const cupoAut = activas.reduce((s, p) => s + (p.cupo_autorizado ?? 0), 0);
-                            const cupoDisp = activas.reduce((s, p) => s + (p.cupo_disponible ?? 0), 0);
-                            const consumidas = entradas.reduce((s, p) => s + p.cupo_consumido, 0);
+                            // v3.5: el cupo del plan cuenta CONSULTAS; sus
+                            // entradas (una por fuente) drenan en lockstep →
+                            // mostrar el valor de las entradas (mín/máx), NO
+                            // la suma (4 fuentes × 50 = 50 consultas, no 200).
+                            const cupoAut = activas.length
+                              ? Math.min(...activas.map((p) => p.cupo_autorizado ?? 0))
+                              : 0;
+                            const cupoDisp = activas.length
+                              ? Math.min(...activas.map((p) => p.cupo_disponible ?? 0))
+                              : 0;
+                            const consumidas = entradas.length
+                              ? Math.max(...entradas.map((p) => p.cupo_consumido))
+                              : 0;
                             const pct = !algunaIlimitada && cupoAut > 0 ? Math.min(100, (consumidas / cupoAut) * 100) : 0;
                             const planId = entradas[0].id;
                             return (

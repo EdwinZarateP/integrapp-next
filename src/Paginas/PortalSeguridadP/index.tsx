@@ -21,6 +21,7 @@ import {
   EstudioDetalle,
   EstudioResumen,
   crearEstudio,
+  descargarAnexoProcuraduria,
   descargarPdfEstudio,
   haySesionCliente,
   listarEstudios,
@@ -236,6 +237,19 @@ export default function PortalSeguridadP() {
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
       Swal.fire("No se pudo abrir el PDF", mensajeError(e), "error");
+    }
+  };
+
+  // Certificado OFICIAL de la Procuraduría (anexo del estudio; solo existe
+  // si el estudio incluyó procuraduría y el portal entregó el PDF).
+  const abrirAnexoPgn = async (consultaId: string) => {
+    try {
+      const blob = await descargarAnexoProcuraduria(consultaId);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      Swal.fire("No se pudo abrir el certificado", mensajeError(e), "error");
     }
   };
 
@@ -472,6 +486,15 @@ export default function PortalSeguridadP() {
                   <FaFilePdf /> Descargar informe PDF
                 </button>
               )}
+              {estudioNuevo.anexo_procuraduria && (
+                <button
+                  className="PS-boton-pdf PS-boton-anexo"
+                  onClick={() => abrirAnexoPgn(estudioNuevo.consulta_id)}
+                  title="Certificado original expedido por la Procuraduría (anexo del estudio)"
+                >
+                  <FaFilePdf /> Certificado Procuraduría
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -558,7 +581,16 @@ export default function PortalSeguridadP() {
                     <td data-label="Informe">
                       <button className="PS-boton-pdf-chico" onClick={() => abrirPdf(h.consulta_id)}>
                         <FaFilePdf /> PDF
-                      </button>
+                      </button>{" "}
+                      {h.anexo_procuraduria && (
+                        <button
+                          className="PS-boton-pdf-chico"
+                          onClick={() => abrirAnexoPgn(h.consulta_id)}
+                          title="Certificado original de la Procuraduría"
+                        >
+                          <FaFilePdf /> PGN
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
