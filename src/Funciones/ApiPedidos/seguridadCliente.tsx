@@ -94,12 +94,22 @@ export interface EstudioResumen {
   usuario_nombre: string;
   empresa_nombre: string;
   costo_cop?: number; // suma de consumos − reembolsos de esta consulta
+  canal?: "portal" | "api"; // "api" = hecha por una integración con API key
+}
+
+// Vehículo validado por runt: el propietario puede ser OTRA persona (el dueño
+// del carro ≠ conductor evaluado).
+export interface VehiculoEstudio {
+  placa: string;
+  cedula_propietario: string;
+  propietario_es_evaluado: boolean;
 }
 
 export interface EstudioDetalle extends EstudioResumen {
   finalizado_en: string | null;
   duracion_s: number | null;
   fuentes?: Record<string, FuenteEstudio>;
+  vehiculos?: VehiculoEstudio[];
   pdf?: { gcs_ruta: string; version: number } | null;
 }
 
@@ -145,13 +155,17 @@ export const crearEstudio = async (
   cedula: string,
   fuentes?: string[],
   planId?: string,
-  placa?: string
+  placa?: string,
+  cedulaPropietario?: string
 ): Promise<EstudioDetalle> => {
   const res = await api.post<EstudioDetalle>("", {
     cedula,
     ...(fuentes ? { fuentes } : {}),
     ...(planId ? { plan_id: planId } : {}),
     ...(placa ? { placa } : {}),
+    // Solo runt: cédula del PROPIETARIO del vehículo cuando el conductor
+    // evaluado no es el dueño (vacía → se usa la cédula consultada).
+    ...(placa && cedulaPropietario ? { cedula_propietario: cedulaPropietario } : {}),
   });
   return res.data;
 };

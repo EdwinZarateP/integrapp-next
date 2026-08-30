@@ -11,10 +11,11 @@ import Swal from "sweetalert2";
 import { ClipLoader } from "react-spinners";
 import {
   FaBuilding, FaLayerGroup, FaExchangeAlt, FaFileInvoiceDollar,
-  FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaTimes, FaShieldAlt,
+  FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaTimes, FaShieldAlt, FaKey,
 } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
 import {
+  ApiKeySeguridad,
   EmpresaCobro,
   MovimientoCobro,
   PeriodoCobro,
@@ -24,11 +25,13 @@ import {
   quitarPlanCompleto,
   cerrarPeriodo,
   cambiarEstadoPeriodo,
+  crearApiKey,
   crearEmpresaCobro,
   crearPlan,
   actualizarPlan,
   desactivarPlan,
   descargarPdfCuenta,
+  listarApiKeys,
   listarEmpresasCobro,
   listarMovimientos,
   listarPeriodos,
@@ -37,6 +40,7 @@ import {
   registrarAjuste,
   registrarPago,
   reembolsarConsumo,
+  revocarApiKey,
   pesosColombianos,
 } from "@/Funciones/ApiPedidos/seguridadCobro";
 import "./estilos.css";
@@ -63,6 +67,8 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
   const [pagina, setPagina] = useState(0);
   // Fila de empresa desplegada (planes habilitados): id de empresa | null.
   const [empresaAbierta, setEmpresaAbierta] = useState<string | null>(null);
+  // API keys por empresa (se cargan al expandir la fila).
+  const [apiKeys, setApiKeys] = useState<Record<string, ApiKeySeguridad[]>>({});
 
   // Etiquetas legibles de las fuentes (catálogo: FUENTES del orquestador).
   const ETIQUETAS_FUENTE: Record<string, string> = {
@@ -261,6 +267,78 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
         cargar();
       } catch (e) {
         Swal.fire("No se pudo retirar", errorDe(e), "error");
+      }
+    });
+  };
+
+  // ── EMPRESAS: API keys (integraciones) ─────────────────────────────────
+
+  const cargarApiKeys = useCallback(async (empresaId: string) => {
+    try {
+      const items = await listarApiKeys(empresaId);
+      setApiKeys((prev) => ({ ...prev, [empresaId]: items }));
+    } catch (e) {
+      Swal.fire("Error", `No se pudieron cargar las API keys: ${errorDe(e)}`, "error");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const abrirCrearApiKey = (empresa: EmpresaCobro) => {
+    Swal.fire({
+      title: `Nueva API key · ${empresa.nombre}`,
+      showCancelButton: true,
+      confirmButtonText: "Crear",
+      confirmButtonColor: "#0F2A43",
+      html: `
+        <input id="sw-key-nombre" class="swal2-input" placeholder="Nombre de la integración (ej: Integración SILO)">
+        <p style="font-size:12px;color:#666;margin:6px 0 0">
+          El cliente la usa como <code>Authorization: Bearer sek_…</code>.
+          Sus consultas quedan marcadas como <b>API</b> (el portal sigue igual para los usuarios).
+        </p>`,
+      preConfirm: () => (document.getElementById("sw-key-nombre") as HTMLInputElement)?.value.trim() ?? "",
+    }).then(async (r) => {
+      if (!r.isConfirmed) return;
+      const nombre = r.value as string;
+      if (!nombre || nombre.length < 3) {
+        Swal.fire("Nombre inválido", "Debe tener al menos 3 caracteres", "error");
+        return;
+      }
+      try {
+        const creada = await crearApiKey(empresa.id, nombre);
+        await Swal.fire({
+          title: "API key creada",
+          html: `<p style="font-size:13px"><b>Guárdela AHORA</b>: por seguridad solo se muestra esta vez
+                 (en la base de datos queda su hash; no hay forma de recuperarla).</p>
+                 <code style="display:block;background:#f1f3f6;padding:10px;border-radius:6px;font-size:12px;word-break:break-all;user-select:all">${creada.api_key}</code>`,
+          icon: "success",
+          confirmButtonText: "Ya la guardé",
+          allowOutsideClick: false,
+        });
+        cargarApiKeys(empresa.id);
+      } catch (e) {
+        Swal.fire("No se pudo crear", errorDe(e), "error");
+      }
+    });
+  };
+
+  const confirmarRevocarApiKey = (empresa: EmpresaCobro, key: ApiKeySeguridad) => {
+    Swal.fire({
+      title: `¿Revocar ${key.nombre}?`,
+      html: `<code>${key.prefijo}</code><br>
+             <small style="color:#666">La integración del cliente deja de funcionar en su próximo request.
+             Si necesita reemplazarla, cree la nueva ANTES de revocar esta.</small>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Revocar",
+      confirmButtonColor: "#c0392b",
+    }).then(async (r) => {
+      if (!r.isConfirmed) return;
+      try {
+        await revocarApiKey(empresa.id, key.id);
+        Swal.fire("API key revocada", key.nombre, "success");
+        cargarApiKeys(empresa.id);
+      } catch (e) {
+        Swal.fire("No se pudo revocar", errorDe(e), "error");
       }
     });
   };
@@ -617,7 +695,10 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
                     <td className="AS-expandir">
                       <button
                         className={`AS-boton-flecha ${abierta ? "AS-boton-flecha-abierta" : ""}`}
-                        onClick={() => setEmpresaAbierta(abierta ? null : e.id)}
+                        onClick={() => {
+                          setEmpresaAbierta(abierta ? null : e.id);
+                          if (!abierta) cargarApiKeys(e.id);  // planes + API keys de una vez
+                        }}
                         title={abierta ? "Ocultar planes" : "Ver planes habilitados"}
                         aria-expanded={abierta}
                       >
@@ -704,6 +785,54 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
                             );
                           })}
                         </div>
+
+                        {/* ── API keys de la empresa (integraciones) ── */}
+                        <div className="AS-planes-detalle" style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #e3e8ee" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                            <FaKey style={{ color: "#0F2A43" }} />
+                            <strong style={{ fontSize: 13 }}>API keys (integraciones)</strong>
+                            <button className="AS-boton-primario-chico" onClick={() => abrirCrearApiKey(e)}>+ Nueva API key</button>
+                          </div>
+                          {(apiKeys[e.id]?.length ?? 0) === 0 ? (
+                            <small style={{ color: "#8a94a0" }}>
+                              Sin API keys. Cree una para que {e.nombre} consulte por API
+                              (sus consultas quedan marcadas como API y consumen cupo igual).
+                            </small>
+                          ) : (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                              {apiKeys[e.id]!.map((k) => (
+                                <div
+                                  key={k.id}
+                                  className="AS-plan-card"
+                                  style={{ opacity: k.activo ? 1 : 0.55, minWidth: 220 }}
+                                >
+                                  <div className="AS-plan-cab">
+                                    <strong>{k.nombre}</strong>
+                                    {k.activo
+                                      ? <span className="AS-badge AS-badge-verde">activa</span>
+                                      : <span className="AS-badge AS-badge-gris">revocada</span>}
+                                    {k.activo && (
+                                      <button
+                                        className="AS-boton-peligro"
+                                        onClick={() => confirmarRevocarApiKey(e, k)}
+                                        title={`Revocar ${k.nombre}`}
+                                        aria-label={`Revocar ${k.nombre}`}
+                                      >
+                                        <FaTimes />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <small style={{ color: "#57606a" }}>
+                                    <code>{k.prefijo}</code>
+                                    {k.ultimo_uso_en
+                                      ? ` · último uso ${new Date(k.ultimo_uso_en).toLocaleString("es-CO")}`
+                                      : " · sin uso aún"}
+                                  </small>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -779,6 +908,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
                   </td>
                   <td>
                     {m.consulta_id ? `${m.consulta_id}${m.cedula ? ` · ${m.cedula}` : ""}${m.estado_estudio ? ` · ${m.estado_estudio}` : ""}` : m.motivo || m.metodo || "—"}
+                    {m.canal === "api" && <span className="AS-badge AS-badge-azul"> API</span>}
                     {m.exento && <span className="AS-badge AS-badge-gris"> exento</span>}
                     {m.reembolsado && <span className="AS-badge AS-badge-ambar"> reembolsado</span>}
                   </td>

@@ -696,6 +696,8 @@
 .PS-badge.PS-verde { background: #e5f3ea; color: #1a7f37; }
 .PS-badge.PS-ambar { background: #fdf3d7; color: #8a6d00; }
 .PS-badge.PS-rojo  { background: #fbe4e1; color: #c0392b; }
+/* Consulta hecha por integración (API key), no por un usuario del portal. */
+.PS-badge.PS-badge-api { background: #e3ecfa; color: #1d4ed8; letter-spacing: 0.5px; }
 
 .PS-boton-pdf-chico {
   background: #fff;

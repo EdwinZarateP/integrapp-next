@@ -71,6 +71,7 @@ export interface MovimientoCobro {
   periodo_pagado?: string | null;
   estado_estudio?: string;
   cedula?: string;
+  canal?: "portal" | "api"; // origen del consumo: humano (portal) o integración
   actor_usuario: string;
   creado_en: string;
 }
@@ -170,6 +171,37 @@ export const quitarPlanCompleto = async (
 ): Promise<{ empresa: string; fuentes_retiradas: string[] }> => {
   const res = await api.delete<{ empresa: string; fuentes_retiradas: string[] }>(`/empresas/${empresaId}/plan/${planId}`);
   return res.data;
+};
+
+// ── API keys (integraciones de clientes) ─────────────────────────────────────
+
+export interface ApiKeySeguridad {
+  id: string;
+  nombre: string;
+  prefijo: string;
+  activo: boolean;
+  scopes: string[];
+  creado_en: string;
+  ultimo_uso_en: string | null;
+  revocada_en: string | null;
+}
+
+export const listarApiKeys = async (empresaId: string): Promise<ApiKeySeguridad[]> => {
+  const res = await api.get<{ empresa: string; items: ApiKeySeguridad[] }>(`/empresas/${empresaId}/api-keys`);
+  return res.data.items;
+};
+
+// La clave completa solo existe en la respuesta de crearla (guardarla ya).
+export const crearApiKey = async (
+  empresaId: string,
+  nombre: string
+): Promise<ApiKeySeguridad & { api_key: string }> => {
+  const res = await api.post<ApiKeySeguridad & { api_key: string }>(`/empresas/${empresaId}/api-keys`, { nombre });
+  return res.data;
+};
+
+export const revocarApiKey = async (empresaId: string, keyId: string): Promise<void> => {
+  await api.delete(`/empresas/${empresaId}/api-keys/${keyId}`);
 };
 
 export const obtenerDashboard = async (): Promise<DashboardCobro> => {

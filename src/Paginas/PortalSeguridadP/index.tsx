@@ -143,6 +143,9 @@ export default function PortalSeguridadP() {
   // ESE plan requiere (cédula siempre; placa solo si incluye la fuente runt).
   const [planAbierto, setPlanAbierto] = useState<string | null>(null);
   const [placa, setPlaca] = useState("");
+  // Cédula del PROPIETARIO del vehículo (solo runt): el RUNT valida contra el
+  // dueño ACTIVO de la placa, que muchas veces no es el conductor evaluado.
+  const [cedulaPropietario, setCedulaPropietario] = useState("");
 
   const nombreFuente = (f: string) =>
     f === "manifiestos_rndc" ? "Manifiestos RNDC"
@@ -179,17 +182,25 @@ export default function PortalSeguridadP() {
     }
     // Placa: requerida SOLO si el plan incluye la fuente runt.
     let placaNorm: string | undefined;
+    let propietarioNorm: string | undefined;
     if (requierePlaca) {
       placaNorm = placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
       if (!/^[A-Z]{3}\d{2}[\dA-Z]$|^[A-Z]{2}\d{4}$/.test(placaNorm)) {
         Swal.fire("Placa inválida", "Use el formato AAA123 (o AAA12A para moto)", "warning");
         return;
       }
+      // Cédula del propietario: OPCIONAL (vacía = el conductor es el dueño).
+      const prop = cedulaPropietario.replace(/\D/g, "");
+      if (prop && (prop.length < 3 || prop.length > 15)) {
+        Swal.fire("Cédula de propietario inválida", "Debe tener entre 3 y 15 dígitos (o déjela vacía si el conductor es el propietario)", "warning");
+        return;
+      }
+      propietarioNorm = prop || undefined;
     }
     setConsultando(true);
     setEstudioNuevo(null);
     try {
-      const estudio = await crearEstudio(digitos, undefined, planAbierto, placaNorm);
+      const estudio = await crearEstudio(digitos, undefined, planAbierto, placaNorm, propietarioNorm);
       setEstudioNuevo(estudio);
       let titulo = "Consulta completada";
       let icono: "success" | "warning" | "error" = "success";
@@ -371,12 +382,26 @@ export default function PortalSeguridadP() {
                             />
                           </div>
                         )}
+                        {pidePlaca && (
+                          <div className="PS-input-icono">
+                            <FaUserCircle />
+                            <input
+                              inputMode="numeric"
+                              placeholder="Cédula del propietario (vacía si es el conductor)"
+                              value={cedulaPropietario}
+                              onChange={(e) => setCedulaPropietario(e.target.value)}
+                              maxLength={15} disabled={consultando}
+                            />
+                          </div>
+                        )}
                         <button type="submit" className="PS-boton-primario" disabled={consultando || !cedula}>
                           {consultando ? <><ClipLoader size={14} color="#fff" /> Consultando…</> : "Consultar"}
                         </button>
                         {pidePlaca && (
                           <p className="PS-ayuda" style={{ marginTop: 8 }}>
                             La fuente RUNT consulta el vehículo por placa + cédula de su propietario.
+                            Si el conductor no es el dueño, diligencie la cédula del propietario para
+                            que la validación del vehículo salga en este mismo informe.
                           </p>
                         )}
                       </form>
@@ -414,6 +439,9 @@ export default function PortalSeguridadP() {
               <div className="PS-resultado-datos">
                 <span>Cédula {estudioNuevo.cedula}</span>
                 {estudioNuevo.placa && <span>Placa {estudioNuevo.placa}</span>}
+                {estudioNuevo.vehiculos?.[0] && !estudioNuevo.vehiculos[0].propietario_es_evaluado && (
+                  <span>Propietario del vehículo: cédula distinta a la evaluada (ver PDF)</span>
+                )}
                 <span>{new Date(estudioNuevo.creado_en).toLocaleString("es-CO")}</span>
                 <span>Procuraduría: {
                   estudioNuevo.fuentes?.procuraduria?.no_registra === true ? "✅ Sin anotaciones"
@@ -519,7 +547,12 @@ export default function PortalSeguridadP() {
                       <td data-label="Placa">{h.placa || "—"}</td>
                     )}
                     <td data-label="Persona">{h.nombre_consultado || "—"}</td>
-                    <td data-label="Estado"><span className={`PS-badge ${claseEstado(h.estado)}`}>{textoEstado(h.estado)}</span></td>
+                    <td data-label="Estado">
+                      <span className={`PS-badge ${claseEstado(h.estado)}`}>{textoEstado(h.estado)}</span>{" "}
+                      {h.canal === "api" && (
+                        <span className="PS-badge PS-badge-api" title="Hecha por una integración con API key">API</span>
+                      )}
+                    </td>
                     <td data-label="Costo">{h.costo_cop === 0 ? "Sin costo" : pesosColombianos(h.costo_cop ?? 0)}</td>
                     <td data-label="Consultó">{h.usuario_nombre}</td>
                     <td data-label="Informe">
