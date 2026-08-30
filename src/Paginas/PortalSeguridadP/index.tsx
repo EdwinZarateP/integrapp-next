@@ -14,7 +14,7 @@ import animationDetective from "@/Imagenes/AnimationDetective.json";
 import logo from "@/Imagenes/albatros.png";
 import {
   FaSearch, FaFilePdf, FaSignOutAlt, FaHistory, FaIdCard, FaChartPie,
-  FaUserCircle, FaChevronDown, FaBars, FaArrowLeft,
+  FaUserCircle, FaChevronDown, FaBars, FaArrowLeft, FaCarSide,
 } from "react-icons/fa";
 import {
   CupoCliente,
@@ -139,19 +139,20 @@ export default function PortalSeguridadP() {
   };
 
   // ── CONSULTA ────────────────────────────────────────────────────────────
-  // El usuario elige OBLIGATORIAMENTE un plan; sus fuentes van implícitas.
-  const [planElegido, setPlanElegido] = useState<string | null>(null);
+  // El plan se elige ABRRIENDO su acordeón: el formulario pide los campos que
+  // ESE plan requiere (cédula siempre; placa solo si incluye la fuente runt).
+  const [planAbierto, setPlanAbierto] = useState<string | null>(null);
+  const [placa, setPlaca] = useState("");
 
   const nombreFuente = (f: string) =>
     f === "manifiestos_rndc" ? "Manifiestos RNDC"
     : f === "procuraduria" ? "Procuraduría"
     : f === "policia" ? "Antecedentes Policía"
+    : f === "runt" ? "Vehículo RUNT"
     : f;
 
-  // Preseleccionar el primer plan al cargar el cupo (uno solo = sin elección).
-  useEffect(() => {
-    if (cupo?.planes?.length && !planElegido) setPlanElegido(cupo.planes[0].plan_id);
-  }, [cupo?.planes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
+  const requierePlaca = planActivo?.fuentes?.includes("runt") ?? false;
 
   const consultar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,15 +167,29 @@ export default function PortalSeguridadP() {
       Swal.fire("Sin plan activo", "Su empresa no tiene planes con cupo disponible. Contacte a Integra Logística.", "warning");
       return;
     }
-    // La elección de plan es OBLIGATORIA.
-    if (!planElegido) {
-      Swal.fire("Elija un plan", "Seleccione con qué plan realizar esta consulta.", "warning");
+    // La elección de plan es OBLIGATORIA (abrir el acordeón del plan).
+    if (!planAbierto || !planActivo) {
+      Swal.fire("Elija un plan", "Abra el plan con el que desea consultar.", "warning");
       return;
+    }
+    // El cupo pudo agotarse mientras el acordeón estaba abierto.
+    if (!planActivo.ilimitado && (planActivo.cupo_disponible ?? 0) <= 0) {
+      Swal.fire("Sin cupo", `El plan ${planActivo.nombre} no tiene consultas disponibles.`, "warning");
+      return;
+    }
+    // Placa: requerida SOLO si el plan incluye la fuente runt.
+    let placaNorm: string | undefined;
+    if (requierePlaca) {
+      placaNorm = placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      if (!/^[A-Z]{3}\d{2}[\dA-Z]$|^[A-Z]{2}\d{4}$/.test(placaNorm)) {
+        Swal.fire("Placa inválida", "Use el formato AAA123 (o AAA12A para moto)", "warning");
+        return;
+      }
     }
     setConsultando(true);
     setEstudioNuevo(null);
     try {
-      const estudio = await crearEstudio(digitos, undefined, planElegido);
+      const estudio = await crearEstudio(digitos, undefined, planAbierto, placaNorm);
       setEstudioNuevo(estudio);
       let titulo = "Consulta completada";
       let icono: "success" | "warning" | "error" = "success";
@@ -190,7 +205,7 @@ export default function PortalSeguridadP() {
         text:
           estudio.estado === "ERROR"
             ? "Las fuentes fallaron. La consulta no tiene costo — intente de nuevo en unos minutos."
-            : `Persona: ${estudio.nombre_consultado || "no identificada"} · Consulta ${estudio.consulta_id}`,
+            : `Persona: ${estudio.nombre_consultado || "no identificada"}${estudio.placa ? ` · Placa ${estudio.placa}` : ""} · Consulta ${estudio.consulta_id}`,
         icon: icono,
         timer: estudio.estado === "ERROR" ? 9000 : 5000,
       });
@@ -308,51 +323,73 @@ export default function PortalSeguridadP() {
         {/* ── Consulta ── */}
         <section className="PS-tarjeta PS-consulta">
           <h2><FaSearch /> Nueva consulta</h2>
-          <p className="PS-ayuda">Escriba la cédula y elija con qué plan consultar.</p>
-          {/* Plan con el que se cobra esta consulta (sus fuentes van implícitas) */}
-          {(cupo?.planes?.length ?? 0) > 0 && (
-            <div className="PS-selector-plan">
-              <label className="PS-plan-label">
-                <FaChartPie style={{ marginRight: 6, color: "#0F2A43" }} />
-                Plan para esta consulta
-              </label>
-              <div className="PS-opciones-plan">
-                {cupo!.planes!.map((p) => (
-                  <label
-                    key={p.plan_id}
-                    className={`PS-check-plan ${planElegido === p.plan_id ? "PS-plan-activo" : ""}`}
-                  >
-                    <input
-                      type="radio" name="ps-plan" checked={planElegido === p.plan_id}
-                      onChange={() => setPlanElegido(p.plan_id)} disabled={consultando}
-                    />
-                    <span>
-                      <strong>{p.nombre}</strong>
-                      <small>
-                        {p.fuentes.map(nombreFuente).join(" + ")}
-                        {" · "}
-                        {p.ilimitado
-                          ? "sin límite"
-                          : `quedan ${p.cupo_disponible ?? 0} · ${pesosColombianos(p.precio_por_estudio)}`}
-                      </small>
-                    </span>
-                  </label>
-                ))}
-              </div>
+          <p className="PS-ayuda">Abra el plan con el que desea consultar y diligencie los datos que pide.</p>
+          {/* Acordeón por plan: el formulario pide los campos que ESE plan
+              requiere (cédula siempre; placa solo si incluye la fuente runt) */}
+          {(cupo?.planes?.length ?? 0) > 0 ? (
+            <div className="PS-acordeon">
+              {cupo!.planes!.map((p) => {
+                const abierto = planAbierto === p.plan_id;
+                const pidePlaca = p.fuentes?.includes("runt");
+                return (
+                  <div key={p.plan_id} className={`PS-acordeon-item ${abierto ? "PS-acordeon-abierto" : ""}`}>
+                    <button
+                      type="button"
+                      className="PS-acordeon-cab"
+                      onClick={() => setPlanAbierto(abierto ? null : p.plan_id)}
+                      disabled={consultando}
+                      aria-expanded={abierto}
+                    >
+                      <span className="PS-acordeon-titulo">
+                        <strong>{p.nombre}</strong>
+                        <small>
+                          {p.fuentes.map(nombreFuente).join(" + ")}
+                          {" · "}
+                          {p.ilimitado
+                            ? "sin límite"
+                            : `quedan ${p.cupo_disponible ?? 0} · ${pesosColombianos(p.precio_por_estudio)}`}
+                        </small>
+                      </span>
+                      <FaChevronDown className={`PS-chevron ${abierto ? "PS-chevron-arriba" : ""}`} />
+                    </button>
+                    {abierto && (
+                      <form onSubmit={consultar} className="PS-acordeon-cuerpo">
+                        <div className="PS-input-icono">
+                          <FaIdCard />
+                          <input
+                            inputMode="numeric" placeholder="Cédula" value={cedula}
+                            onChange={(e) => setCedula(e.target.value)} disabled={consultando} autoFocus
+                          />
+                        </div>
+                        {pidePlaca && (
+                          <div className="PS-input-icono">
+                            <FaCarSide />
+                            <input
+                              placeholder="Placa del vehículo" value={placa}
+                              onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                              maxLength={6} autoCapitalize="characters" disabled={consultando}
+                            />
+                          </div>
+                        )}
+                        <button type="submit" className="PS-boton-primario" disabled={consultando || !cedula}>
+                          {consultando ? <><ClipLoader size={14} color="#fff" /> Consultando…</> : "Consultar"}
+                        </button>
+                        {pidePlaca && (
+                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
+                            La fuente RUNT consulta el vehículo por placa + cédula de su propietario.
+                          </p>
+                        )}
+                      </form>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          ) : (
+            <p className="PS-cupo-sin-plan">
+              Su empresa no tiene un plan activo. Contacte a Integra Logística para activar su servicio.
+            </p>
           )}
-          <form onSubmit={consultar} className="PS-form-consulta">
-            <div className="PS-input-icono">
-              <FaIdCard />
-              <input
-                inputMode="numeric" placeholder="Cédula" value={cedula}
-                onChange={(e) => setCedula(e.target.value)} disabled={consultando}
-              />
-            </div>
-            <button type="submit" className="PS-boton-primario" disabled={consultando || !cedula}>
-              {consultando ? <><ClipLoader size={14} color="#fff" /> Consultando…</> : "Consultar"}
-            </button>
-          </form>
           {consultando && (
             <div className="PS-investigando">
               <Lottie
@@ -376,6 +413,7 @@ export default function PortalSeguridadP() {
               </div>
               <div className="PS-resultado-datos">
                 <span>Cédula {estudioNuevo.cedula}</span>
+                {estudioNuevo.placa && <span>Placa {estudioNuevo.placa}</span>}
                 <span>{new Date(estudioNuevo.creado_en).toLocaleString("es-CO")}</span>
                 <span>Procuraduría: {
                   estudioNuevo.fuentes?.procuraduria?.no_registra === true ? "✅ Sin anotaciones"
@@ -390,6 +428,16 @@ export default function PortalSeguridadP() {
                   : "No disponible"}
                 </span>
                 <span>RNDC: {estudioNuevo.fuentes?.manifiestos_rndc?.total ?? 0} viaje(s)</span>
+                {(() => {
+                  const runt = estudioNuevo.fuentes?.runt;
+                  if (!runt) return null;
+                  if (runt.no_registra === true) return <span>RUNT: 🔍 Placa sin información</span>;
+                  if (runt.no_registra === false) return <span>RUNT: ⚠️ Cédula no es del propietario activo</span>;
+                  if (runt.soat?.vigente === true) return <span>RUNT: ✅ SOAT vigente (vence {runt.soat.fecha_fin_vigencia})</span>;
+                  if (runt.soat?.vigente === false) return <span>RUNT: ⛔ SOAT vencido</span>;
+                  const marca = runt.datos_vehiculo?.marca;
+                  return <span>RUNT: {marca ? `🚗 ${marca}` : "⚠️ Ver PDF"}</span>;
+                })()}
               </div>
               {estudioNuevo.pdf && (
                 <button className="PS-boton-pdf" onClick={() => abrirPdf(estudioNuevo.consulta_id)}>
@@ -454,19 +502,25 @@ export default function PortalSeguridadP() {
             <table className="PS-tabla">
               <thead>
                 <tr>
-                  <th>Fecha</th><th>Cédula</th><th>Persona</th><th>Estado</th><th>Consultó</th><th>Informe</th>
+                  <th>Fecha</th><th>Cédula</th>
+                  {historial.some((h) => h.placa) && <th>Placa</th>}
+                  <th>Persona</th><th>Estado</th><th>Costo</th><th>Consultó</th><th>Informe</th>
                 </tr>
               </thead>
               <tbody>
                 {historial.length === 0 && (
-                  <tr><td colSpan={6} className="PS-vacio">Aún no hay consultas registradas.</td></tr>
+                  <tr><td colSpan={historial.some((h) => h.placa) ? 8 : 7} className="PS-vacio">Aún no hay consultas registradas.</td></tr>
                 )}
                 {historial.map((h) => (
                   <tr key={h.consulta_id}>
                     <td data-label="Fecha">{new Date(h.creado_en).toLocaleString("es-CO")}</td>
                     <td data-label="Cédula">{h.cedula}</td>
+                    {historial.some((x) => x.placa) && (
+                      <td data-label="Placa">{h.placa || "—"}</td>
+                    )}
                     <td data-label="Persona">{h.nombre_consultado || "—"}</td>
                     <td data-label="Estado"><span className={`PS-badge ${claseEstado(h.estado)}`}>{textoEstado(h.estado)}</span></td>
+                    <td data-label="Costo">{h.costo_cop === 0 ? "Sin costo" : pesosColombianos(h.costo_cop ?? 0)}</td>
                     <td data-label="Consultó">{h.usuario_nombre}</td>
                     <td data-label="Informe">
                       <button className="PS-boton-pdf-chico" onClick={() => abrirPdf(h.consulta_id)}>

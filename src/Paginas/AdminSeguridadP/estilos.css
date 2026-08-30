@@ -12,23 +12,40 @@
 
 .AS-header-app {
   background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
-  height: 70px;
+  height: 64px;
   display: flex;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
+/* Patrón /Pedidos: contenido a ANCHO COMPLETO (sin max-width que dejaba una
+   franja encogida al centro en pantallas grandes), con el título del módulo
+   como tab central que empuja logo y usuario a los extremos. */
 .AS-header-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 28px;
+  padding: 0 24px;
+  gap: 16px;
+}
+
+/* Título del módulo como tab de navegación (como "Gestión de Pedidos"). */
+.AS-headerTab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e8a000;
+  background: rgba(232, 160, 0, 0.12);
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  white-space: nowrap;
+  flex: 1;
+  justify-content: center;
 }
 
 .AS-brand {
@@ -39,6 +56,8 @@
   border: none;
   cursor: pointer;
   padding: 0;
+  text-decoration: none;
+  flex-shrink: 0;
   transition: opacity 0.2s;
 }
 
@@ -176,6 +195,16 @@
   }
   .AS-brandName {
     font-size: 1.15rem;
+  }
+  /* Como el nav de Pedidos: sin tab central en pantallas angostas. */
+  .AS-headerTab {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .AS-headerTab {
+    display: none;
   }
 }
 

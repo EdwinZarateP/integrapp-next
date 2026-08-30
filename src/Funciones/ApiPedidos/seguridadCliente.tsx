@@ -70,16 +70,30 @@ export interface FuenteEstudio {
   no_registra?: boolean | null;
   mensaje?: string;
   nombre_certificado?: string;
+  // Fuente runt (vehículo por placa + cédula del propietario)
+  placa?: string;
+  datos_vehiculo?: Record<string, string>;
+  soat?: {
+    numero: string;
+    aseguradora: string;
+    fecha_inicio_vigencia?: string;
+    fecha_fin_vigencia?: string;
+    estado_portal?: string;
+    vigente?: boolean | null;
+  } | null;
+  polizas?: { numero: string; fecha_fin_vigencia?: string; aseguradora: string; estado: string }[];
 }
 
 export interface EstudioResumen {
   consulta_id: string;
   cedula: string;
+  placa?: string | null;
   nombre_consultado: string;
   estado: string;
   creado_en: string;
   usuario_nombre: string;
   empresa_nombre: string;
+  costo_cop?: number; // suma de consumos − reembolsos de esta consulta
 }
 
 export interface EstudioDetalle extends EstudioResumen {
@@ -130,12 +144,14 @@ export const obtenerCupo = async (): Promise<CupoCliente> => {
 export const crearEstudio = async (
   cedula: string,
   fuentes?: string[],
-  planId?: string
+  planId?: string,
+  placa?: string
 ): Promise<EstudioDetalle> => {
   const res = await api.post<EstudioDetalle>("", {
     cedula,
     ...(fuentes ? { fuentes } : {}),
     ...(planId ? { plan_id: planId } : {}),
+    ...(placa ? { placa } : {}),
   });
   return res.data;
 };

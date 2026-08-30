@@ -11,7 +11,7 @@ import Swal from "sweetalert2";
 import { ClipLoader } from "react-spinners";
 import {
   FaBuilding, FaLayerGroup, FaExchangeAlt, FaFileInvoiceDollar,
-  FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaTimes,
+  FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaTimes, FaShieldAlt,
 } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
 import {
@@ -69,6 +69,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
     manifiestos_rndc: "Manifiestos RNDC",
     procuraduria: "Procuraduría",
     policia: "Antecedentes Policía",
+    runt: "Vehículo RUNT",
   };
   const etiquetaFuente = (f: string) => ETIQUETAS_FUENTE[f] ?? f;
 
@@ -379,7 +380,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
   // ── PLANES: acciones ───────────────────────────────────────────────────
   const abrirPlan = async (plan?: PlanSeguridad) => {
     const esNuevo = !plan;
-    const fuentes = ["manifiestos_rndc", "procuraduria", "policia"];
+    const fuentes = ["manifiestos_rndc", "procuraduria", "policia", "runt"];
     const checks = fuentes
       .map(
         (f) =>
@@ -540,14 +541,16 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
 
   return (
     <div className="AS-pagina">
-      {/* Header de la app (mismo patrón que /indicadores): barra a ANCHO
-          COMPLETO fuera del contenedor; solo su contenido interno se centra. */}
+      {/* Header de la app (patrón /Pedidos): barra a ANCHO COMPLETO con el
+          título del módulo como tab central; logo y usuario a los extremos. */}
       <header className="AS-header-app">
         <div className="AS-header-inner">
           <button className="AS-brand" onClick={() => router.push("/")} title="Volver al inicio">
             <Image src={logo} alt="Integra" height={40} priority />
             <span className="AS-brandName">Integr<span className="AS-brandAccent">App</span></span>
           </button>
+
+          <span className="AS-headerTab"><FaShieldAlt /> Estudios de Seguridad</span>
 
           <div className="AS-userZone" ref={menuRef}>
             <button className="AS-userBtn" onClick={() => setMenuAbierto(o => !o)}>

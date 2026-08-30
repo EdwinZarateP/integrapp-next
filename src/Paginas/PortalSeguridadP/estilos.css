@@ -106,14 +106,13 @@
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
 }
 
+/* Patrón /Pedidos: ancho completo (sin max-width — la franja encogida al
+   centro se veía distinta a la Torre de Control en pantallas grandes). */
 .PS-header-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
   padding: 0 20px;
 }
 
@@ -140,12 +139,14 @@
   color: #e8a000;
 }
 
-/* Título del portal en el header (oculto en móvil: la info vive en el menú). */
+/* Título del portal en el header (patrón /Pedidos: centrado como tab entre
+   logo y usuario; oculto en móvil: la info vive en el menú). */
 .PS-header-info {
   display: flex;
   flex-direction: column;
+  align-items: center;
   line-height: 1.25;
-  margin-right: auto;
+  flex: 1;
   margin-left: 18px;
   overflow: hidden;
 }
@@ -862,5 +863,94 @@
     gap: 8px;
     flex-wrap: wrap;
     font-size: 0.78rem;
+  }
+}
+
+/* ── Acordeón de planes (el formulario vive DENTRO del plan elegido) ──
+   Cada plan se abre con click; el cuerpo pide los campos que ese plan
+   requiere (cédula siempre; placa solo si incluye la fuente runt). */
+.PS-acordeon {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.PS-acordeon-item {
+  border: 1.5px solid #c8d2de;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.PS-acordeon-item.PS-acordeon-abierto {
+  border-color: #0f2a43;
+}
+
+.PS-acordeon-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.PS-acordeon-cab:hover:not(:disabled) {
+  background: #f0f4f9;
+}
+
+.PS-acordeon-cab:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.PS-acordeon-titulo strong {
+  display: block;
+  font-size: 0.84rem;
+  color: #14202e;
+}
+
+.PS-acordeon-titulo small {
+  display: block;
+  color: #57606a;
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
+.PS-chevron {
+  flex-shrink: 0;
+  color: #0f2a43;
+  transition: transform 0.2s;
+}
+
+.PS-chevron.PS-chevron-arriba {
+  transform: rotate(180deg);
+}
+
+.PS-acordeon-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid #e3e9f0;
+  background: #f8fafc;
+}
+
+@media (max-width: 640px) {
+  .PS-acordeon-cab {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .PS-acordeon-titulo small {
+    line-height: 1.35;
   }
 }
