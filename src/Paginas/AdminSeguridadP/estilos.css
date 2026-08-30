@@ -1,0 +1,501 @@
+/* Panel de administración de cobro — prefijo AS- (CSS plano, patrón del proyecto) */
+
+/* ── Header de la app (mismo diseño que /indicadores) ── */
+.AS-pagina {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: "Segoe UI", Inter, sans-serif;
+  color: #14202e;
+  background: #f0f2f5;
+}
+
+.AS-header-app {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 70px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+}
+
+.AS-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.AS-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+
+.AS-brand:hover {
+  opacity: 0.8;
+}
+
+.AS-brandName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.AS-brandAccent {
+  color: #e8a000;
+}
+
+.AS-userZone {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.AS-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.AS-userBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.AS-userIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.AS-userInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.AS-userName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.AS-userPerfil {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+}
+
+.AS-chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.AS-chevronOpen {
+  transform: rotate(180deg);
+}
+
+.AS-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
+  z-index: 999;
+  overflow: hidden;
+  animation: AS-fadeDown 0.15s ease;
+}
+
+@keyframes AS-fadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.AS-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 0.88rem;
+  color: #0f1928;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  font-family: inherit;
+}
+
+.AS-dropItem:hover {
+  background: #f8fafc;
+}
+
+.AS-dropItemDanger {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.AS-dropItemDanger:hover {
+  background: #fef2f2;
+}
+
+.AS-dropDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+@media (max-width: 600px) {
+  .AS-userInfo {
+    display: none; /* móvil: solo avatar + chevron */
+  }
+  .AS-brandName {
+    font-size: 1.15rem;
+  }
+}
+
+.AS-contenedor {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+  flex: 1;
+}
+
+.AS-cargando {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  color: #57606a;
+}
+
+.AS-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.AS-header h1 {
+  font-size: 1.25rem;
+  color: #0f2a43;
+  margin: 0;
+}
+
+.AS-pestanas {
+  display: flex;
+  gap: 6px;
+  border-bottom: 2px solid #e3e8ef;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.AS-pestaña {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  color: #57606a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+
+.AS-pestaña-activa {
+  color: #0f2a43;
+  border-bottom-color: #0f2a43;
+}
+
+.AS-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.85rem;
+}
+
+.AS-tabla th {
+  background: #0f2a43;
+  color: #fff;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.AS-tabla td {
+  padding: 10px 12px;
+  border-top: 1px solid #edf1f6;
+  vertical-align: middle;
+}
+
+.AS-tabla tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.AS-inactiva {
+  opacity: 0.55;
+}
+
+.AS-acciones {
+  white-space: nowrap;
+}
+
+.AS-acciones button {
+  margin: 2px 4px 2px 0;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f2a43;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.AS-acciones button:hover {
+  background: #eef2f7;
+}
+
+.AS-boton-primario {
+  background: #0f2a43;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Variante compacta para tablas (columna Acciones). */
+.AS-boton-primario-chico {
+  background: #0f2a43;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.AS-boton-primario-chico:hover {
+  background: #1a3a5c;
+}
+
+/* ── Fila expandible de empresas (planes habilitados) ── */
+.AS-expandir {
+  text-align: center;
+  width: 36px;
+}
+
+.AS-boton-flecha {
+  background: transparent;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  color: #0f2a43;
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: transform 0.15s ease, background 0.15s;
+}
+
+.AS-boton-flecha:hover {
+  background: #eef2f7;
+}
+
+.AS-boton-flecha-abierta {
+  transform: rotate(90deg); /* ▸ apuntando hacia abajo */
+  background: #0f2a43;
+  color: #fff;
+  border-color: #0f2a43;
+}
+
+.AS-resumen-planes {
+  font-size: 0.8rem;
+  color: #14202e;
+}
+
+.AS-fila-desplegada > td {
+  background: #f6f8fb;
+  border-bottom: 1px solid #e3e8ef;
+  padding: 10px 12px 14px;
+}
+
+.AS-planes-detalle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.AS-plan-card {
+  border: 1px solid #d8e0ea;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+  min-width: 240px;
+  flex: 1;
+  max-width: 340px;
+}
+
+.AS-plan-cab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.AS-plan-cab strong {
+  font-size: 0.85rem;
+  color: #0f2a43;
+}
+
+.AS-plan-cab .AS-boton-peligro {
+  margin-left: auto;
+}
+
+.AS-boton-secundario {
+  background: #fff;
+  color: #0f2a43;
+  border: 1px solid #c8d2de;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.AS-boton-peligro {
+  border-color: #c0392b !important;
+  color: #c0392b !important;
+}
+
+/* Botón de solo ícono (retirar plan en la tarjeta desplegada). */
+.AS-plan-cab .AS-boton-peligro {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.AS-plan-cab .AS-boton-peligro:hover {
+  background: #fdecea;
+  border-color: #e74c3c !important;
+}
+
+.AS-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.AS-toolbar select {
+  padding: 8px 12px;
+  border: 1px solid #c8d2de;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.85rem;
+}
+
+.AS-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.AS-badge-verde { background: #e5f3ea; color: #1a7f37; }
+.AS-badge-ambar { background: #fdf3d7; color: #8a6d00; }
+.AS-badge-gris  { background: #edf1f6; color: #57606a; }
+.AS-badge-azul  { background: #e3edf8; color: #14549c; }
+
+.AS-barra {
+  height: 6px;
+  border-radius: 4px;
+  background: #e3e8ef;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.AS-barra-llena {
+  height: 100%;
+  background: #1a7f37;
+}
+
+.AS-negativo { color: #c0392b; font-weight: 600; }
+.AS-positivo { color: #1a7f37; }
+
+.AS-vacio {
+  text-align: center;
+  color: #57606a;
+  padding: 26px !important;
+}
+
+.AS-paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 16px;
+  color: #57606a;
+  font-size: 0.85rem;
+}
+
+.AS-paginacion button {
+  padding: 6px 14px;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.AS-paginacion button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

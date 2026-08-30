@@ -6,6 +6,7 @@ import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey,
 } from 'react-icons/fa';
 import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { listarEmpresasCobro } from '@/Funciones/ApiPedidos/seguridadCobro';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
@@ -38,7 +39,7 @@ const NOTIFICACIONES_MC = [
   },
 ];
 
-const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CONDUCTOR', 'CONTROL', 'COORDINADOR', 'DESPACHADOR', 'FINANCIERO', 'OPERADOR', 'OPERATIVO', 'SEGURIDAD'];
+const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CLIENTE_ESTUDIOS', 'CONDUCTOR', 'CONTROL', 'COORDINADOR', 'DESPACHADOR', 'FINANCIERO', 'OPERADOR', 'OPERATIVO', 'SEGURIDAD'];
 
 const USUARIO_VACIO: BaseUsuario = {
   nombre: '', correo: '', regional: '', celular: '',
@@ -73,6 +74,8 @@ const GestionUsuariosP: React.FC = () => {
   const [clavePerfil, setClavePerfil] = useState('');
   const [guardandoClavePerfil, setGuardandoClavePerfil] = useState(false);
   const [errorClavePerfil, setErrorClavePerfil] = useState('');
+  // Empresas del módulo de Estudios de Seguridad (selector cuando perfil=CLIENTE_ESTUDIOS)
+  const [empresasSeguridad, setEmpresasSeguridad] = useState<{ id: string; nombre: string }[]>([]);
 
   useEffect(() => {
     const perfil = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
@@ -84,6 +87,11 @@ const GestionUsuariosP: React.FC = () => {
         if (prfs.length > 0) setPerfiles(prfs);
       })
       .finally(() => setCargando(false));
+    // Empresas de Seguridad para el selector (best-effort: si falla, el
+    // selector quedará vacío y el backend rechazará con 422 explicativo).
+    listarEmpresasCobro()
+      .then(emps => setEmpresasSeguridad(emps.map(e => ({ id: e.id, nombre: e.nombre }))))
+      .catch(() => {});
   }, [router]);
 
   const toggleCliente = async (usuario: BaseUsuario, clienteKey: string) => {
@@ -282,8 +290,12 @@ const GestionUsuariosP: React.FC = () => {
   const guardarUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (form.perfil !== 'CLIENTE_FMC' && (!form.clientes || form.clientes.length === 0)) {
+    if (form.perfil !== 'CLIENTE_FMC' && form.perfil !== 'CLIENTE_ESTUDIOS' && (!form.clientes || form.clientes.length === 0)) {
       setError('Selecciona al menos un cliente.');
+      return;
+    }
+    if (form.perfil === 'CLIENTE_ESTUDIOS' && !form.empresa_id_seguridad) {
+      setError('Selecciona la empresa de Estudios de Seguridad a la que pertenece el usuario.');
       return;
     }
     setGuardando(true);
@@ -293,7 +305,8 @@ const GestionUsuariosP: React.FC = () => {
         usuario: form.usuario.toUpperCase().trim(),
         nombre: form.nombre.toUpperCase().trim(),
         clave: form.perfil === 'CLIENTE_FMC' ? 'SIN_ACCESO' : form.clave,
-        clientes: form.perfil === 'CLIENTE_FMC' ? [] : form.clientes,
+        // CLIENTE_ESTUDIOS no usa portales FMC: sin clientes.
+        clientes: form.perfil === 'CLIENTE_FMC' || form.perfil === 'CLIENTE_ESTUDIOS' ? [] : form.clientes,
       });
       setUsuarios(prev => [...prev, res.usuario]);
       setModal(false);
@@ -522,7 +535,29 @@ const GestionUsuariosP: React.FC = () => {
                   <input className="GU-formInput" type="text" placeholder="3001234567"
                     value={form.celular || ''} onChange={e => setForm(f => ({ ...f, celular: e.target.value }))} />
                 </div>
-                {form.perfil !== 'CLIENTE_FMC' && (
+                {form.perfil === 'CLIENTE_ESTUDIOS' && (
+                <>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Empresa de Estudios de Seguridad *</label>
+                  <select className="GU-formInput" required
+                    value={form.empresa_id_seguridad || ''}
+                    onChange={e => setForm(f => ({ ...f, empresa_id_seguridad: e.target.value }))}>
+                    <option value="">Seleccionar...</option>
+                    {empresasSeguridad.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="GU-formGrupo">
+                  <label className="GU-formLabel">Rol en Seguridad</label>
+                  <select className="GU-formInput"
+                    value={form.rol_seguridad || 'CONSULTADOR'}
+                    onChange={e => setForm(f => ({ ...f, rol_seguridad: e.target.value }))}>
+                    <option value="CONSULTADOR">CONSULTADOR (consulta)</option>
+                    <option value="ADMIN_EMPRESA">ADMIN_EMPRESA (administra su empresa)</option>
+                  </select>
+                </div>
+                </>
+                )}
+                {form.perfil !== 'CLIENTE_FMC' && form.perfil !== 'CLIENTE_ESTUDIOS' && (
                 <div className="GU-formGrupo GU-formGrupo--full">
                   <label className="GU-formLabel">Acceso a clientes</label>
                   <div className="GU-checkGrupo">

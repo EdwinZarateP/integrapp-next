@@ -10,6 +10,9 @@ export interface BaseUsuario {
   clientes?: string[];
   activo?: boolean;
   notificaciones_mc?: string[];
+  // Módulo Estudios de Seguridad (solo perfil SEGURIDAD)
+  empresa_id_seguridad?: string;
+  rol_seguridad?: string;
 }
 
 export interface LoginRespuesta {

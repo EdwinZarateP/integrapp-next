@@ -1,0 +1,547 @@
+/* Portal CLIENTE de Estudios de Seguridad — prefijo PS- */
+
+/* ── Login ── */
+.PS-login-fondo {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f2a43 0%, #1d3f63 60%, #274b76 100%);
+  padding: 20px;
+}
+
+.PS-login-caja {
+  background: #fff;
+  border-radius: 14px;
+  padding: 38px 34px;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.PS-login-logo {
+  font-size: 2.4rem;
+}
+
+.PS-login-caja h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #0f2a43;
+}
+
+.PS-login-sub {
+  margin: 0 0 8px;
+  color: #57606a;
+  font-size: 0.88rem;
+}
+
+.PS-login-caja input {
+  padding: 12px 14px;
+  border: 1px solid #c8d2de;
+  border-radius: 9px;
+  font-size: 0.95rem;
+}
+
+.PS-login-caja input:focus {
+  outline: 2px solid #274b76;
+  border-color: transparent;
+}
+
+.PS-login-caja button {
+  background: #0f2a43;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.PS-login-caja button:disabled {
+  opacity: 0.7;
+}
+
+.PS-login-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.PS-login-pie {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: #8a95a3;
+}
+
+/* ── Portal ── */
+.PS-contenedor {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 22px 18px 70px;
+  font-family: "Segoe UI", Inter, sans-serif;
+  color: #14202e;
+  background: #f4f6fa;
+  min-height: 100vh;
+}
+
+.PS-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.PS-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #0f2a43;
+}
+
+.PS-header p {
+  margin: 2px 0 0;
+  color: #57606a;
+  font-size: 0.85rem;
+}
+
+.PS-header-derecha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.PS-usuario {
+  font-size: 0.85rem;
+  color: #57606a;
+}
+
+.PS-boton-salir {
+  background: #fff;
+  border: 1px solid #c8d2de;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #c0392b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.PS-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 800px) {
+  .PS-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.PS-tarjeta {
+  background: #fff;
+  border: 1px solid #e3e8ef;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.PS-tarjeta h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: #0f2a43;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.PS-ayuda {
+  color: #57606a;
+  font-size: 0.85rem;
+  margin: 0 0 14px;
+}
+
+/* ── Selector de plan (bajo qué plan se cobra la consulta) ── */
+.PS-selector-plan {
+  margin-bottom: 16px;
+}
+
+.PS-plan-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f2a43;
+  margin-bottom: 8px;
+}
+
+.PS-opciones-plan {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.PS-check-plan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1.5px solid #c8d2de;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fff;
+}
+
+.PS-check-plan.PS-plan-activo {
+  border-color: #0f2a43;
+  background: #f0f4f9;
+}
+
+.PS-check-plan input {
+  accent-color: #0f2a43;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.PS-check-plan strong {
+  display: block;
+  font-size: 0.84rem;
+  color: #14202e;
+}
+
+.PS-check-plan small {
+  display: block;
+  color: #57606a;
+  font-size: 0.72rem;
+}
+
+/* Selector de fuentes a consultar (multi-plan) */
+.PS-selector-fuentes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.PS-check-fuente {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1.5px solid #c8d2de;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.PS-check-fuente.PS-check-activo {
+  border-color: #0f2a43;
+  background: #f0f4f9;
+}
+
+.PS-check-fuente input {
+  accent-color: #0f2a43;
+  width: 16px;
+  height: 16px;
+}
+
+.PS-check-fuente strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #14202e;
+}
+
+.PS-check-fuente small {
+  color: #57606a;
+  font-size: 0.72rem;
+}
+
+.PS-form-consulta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.PS-input-icono {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #c8d2de;
+  border-radius: 10px;
+  padding: 0 14px;
+  color: #8a95a3;
+}
+
+.PS-input-icono input {
+  flex: 1;
+  border: none;
+  padding: 13px 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+}
+
+.PS-input-icono input:focus {
+  outline: none;
+}
+
+.PS-boton-primario {
+  background: #0f2a43;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.PS-boton-primario:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Animación de consulta (detective lottie) */
+.PS-investigando {
+  margin-top: 14px;
+  padding: 14px 12px 10px;
+  border-radius: 12px;
+  background: #f4f6fa;
+  border: 1px dashed #c8d2de;
+  text-align: center;
+}
+
+.PS-investigando-mensaje {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f2a43;
+  min-height: 1.4em;
+  transition: opacity 0.3s;
+}
+
+.PS-investigando-sub {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: #8a95a3;
+}
+
+/* Resultado */
+.PS-resultado {
+  margin-top: 16px;
+  border-radius: 10px;
+  border: 1px solid #e3e8ef;
+  border-left: 5px solid #57606a;
+  padding: 14px 16px;
+}
+
+.PS-resultado.PS-verde { border-left-color: #1a7f37; }
+.PS-resultado.PS-ambar { border-left-color: #b58900; }
+.PS-resultado.PS-rojo  { border-left-color: #c0392b; }
+
+.PS-resultado-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.PS-resultado-datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 0.85rem;
+  color: #57606a;
+  margin-bottom: 12px;
+}
+
+.PS-boton-pdf {
+  background: #c0392b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Cupo */
+.PS-plan-nombre {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f2a43;
+  margin: 0;
+}
+
+.PS-plan-precio {
+  color: #57606a;
+  font-size: 0.85rem;
+  margin: 2px 0 14px;
+}
+
+.PS-barra {
+  height: 8px;
+  border-radius: 5px;
+  background: #e3e8ef;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.PS-barra-llena {
+  height: 100%;
+  background: #1a7f37;
+  transition: width 0.4s;
+}
+
+.PS-cupo-texto {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.PS-cupo-mes {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #57606a;
+}
+
+.PS-cupo-ilimitado {
+  font-size: 0.9rem;
+  color: #1a7f37;
+  background: #e5f3ea;
+  border-radius: 8px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+/* Desglose por fuente (multi-plan) */
+.PS-fuente-cupo {
+  margin-bottom: 14px;
+}
+
+.PS-fuente-nombre {
+  margin: 0 0 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f2a43;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.PS-fuente-precio {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #57606a;
+}
+
+.PS-cupo-sin-plan {
+  color: #8a6d00;
+  background: #fdf3d7;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+/* Historial */
+.PS-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.PS-tabla th {
+  text-align: left;
+  color: #57606a;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  border-bottom: 2px solid #e3e8ef;
+}
+
+.PS-tabla td {
+  padding: 10px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.PS-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #edf1f6;
+  color: #57606a;
+  white-space: nowrap;
+}
+
+.PS-badge.PS-verde { background: #e5f3ea; color: #1a7f37; }
+.PS-badge.PS-ambar { background: #fdf3d7; color: #8a6d00; }
+.PS-badge.PS-rojo  { background: #fbe4e1; color: #c0392b; }
+
+.PS-boton-pdf-chico {
+  background: #fff;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #c0392b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.PS-vacio {
+  text-align: center;
+  color: #8a95a3;
+  padding: 22px !important;
+}
+
+.PS-paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 14px;
+  color: #57606a;
+  font-size: 0.83rem;
+}
+
+.PS-paginacion button {
+  padding: 6px 14px;
+  border: 1px solid #c8d2de;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.PS-paginacion button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

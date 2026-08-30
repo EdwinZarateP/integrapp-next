@@ -49,13 +49,22 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
     color: "#dc2626",
     ruta: "/revision",
   },
+  ADMIN_SEGURIDAD: {
+    label: "Estudios de Seguridad",
+    desc: "Planes, cupos y cuentas de cobro del servicio",
+    color: "#7c3aed",
+    ruta: "/AdminSeguridad",
+  },
 };
 
 // Perfiles que pueden ver el portal de Seguridad (/revision).
 const PERFILES_SEGURIDAD = ["ADMIN", "SEGURIDAD"];
 
+// Perfiles que pueden administrar el cobro de Estudios de Seguridad (/AdminSeguridad).
+const PERFILES_ADMIN_SEGURIDAD = ["ADMIN"];
+
 // Orden visual de los portales en el selector (Flota va justo después de Medical Care).
-const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES", "SICETAC", "SEGURIDAD"];
+const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES", "SICETAC", "SEGURIDAD", "ADMIN_SEGURIDAD"];
 
 const LoginUsuario: React.FC = () => {
   const [usuario, setUsuario] = useState("");
@@ -75,9 +84,14 @@ const LoginUsuario: React.FC = () => {
       const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
       // FINANCIERO es un micro-portal aislado: aterriza directo en Otros Costos.
       if (perfilCookie === 'FINANCIERO') { router.replace('/OtrosCostos'); return; }
+      // CLIENTE_ESTUDIOS es cliente externo del portal de Estudios de
+      // Seguridad: jamás entra a la Torre de Control ni a /revision.
+      if (perfilCookie === 'CLIENTE_ESTUDIOS') { router.replace('/PortalSeguridad'); return; }
       const cliente = clienteCookie[2];
       // Seguridad entró desde la Torre de Control: vuelve a /revision.
       if (cliente === 'SEGURIDAD') { router.replace('/revision'); return; }
+      // El admin del cobro de estudios vuelve a su panel.
+      if (cliente === 'ADMIN_SEGURIDAD') { router.replace('/AdminSeguridad'); return; }
       router.replace(CLIENTES_CONFIG[cliente]?.ruta || "/Pedidos");
     }
   }, [router]);
@@ -110,10 +124,18 @@ const LoginUsuario: React.FC = () => {
         return;
       }
 
+      // CLIENTE_ESTUDIOS: cliente externo → directo al portal de consultas,
+      // sin pasar por el selector de portales (no ve nada de la Torre).
+      if (perfilUpper === 'CLIENTE_ESTUDIOS') {
+        setTimeout(() => router.replace('/PortalSeguridad'), 200);
+        return;
+      }
+
       const extras = ["INDICADORES"];
       if (PERFILES_FLOTA.includes(perfilUpper)) extras.push("FLOTA");
       if (["ADMIN", "ADMINISTRADOR"].includes(perfilUpper)) extras.push("SICETAC");
       if (PERFILES_SEGURIDAD.includes(perfilUpper)) extras.push("SEGURIDAD");
+      if (PERFILES_ADMIN_SEGURIDAD.includes(perfilUpper)) extras.push("ADMIN_SEGURIDAD");
 
       // Reordenar según el orden canónico del selector (Flota después de Medical Care).
       const keys = Array.from(new Set([...clientes, ...extras]));
