@@ -83,59 +83,242 @@
 }
 
 /* ── Portal ── */
-.PS-contenedor {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 22px 18px 70px;
+/* Página completa con header de app fijo (patrón AdminSeguridad/indicadores). */
+.PS-pagina {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: "Segoe UI", Inter, sans-serif;
   color: #14202e;
   background: #f4f6fa;
-  min-height: 100vh;
 }
 
-.PS-header {
+/* El header reutiliza las clases AS- de AdminSeguridad (mismo archivo no:
+   se duplican aquí los mínimos para no depender de import cruzado). */
+.PS-header-app {
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  height: 70px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+}
+
+.PS-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 20px;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
-.PS-header h1 {
-  margin: 0;
-  font-size: 1.25rem;
+/* Marca IntegrApp (misma base visual que AS-brand). */
+.PS-header-app .AS-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+
+.PS-header-app .AS-brandName {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.PS-header-app .AS-brandAccent {
+  color: #e8a000;
+}
+
+/* Título del portal en el header (oculto en móvil: la info vive en el menú). */
+.PS-header-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  margin-right: auto;
+  margin-left: 18px;
+  overflow: hidden;
+}
+
+.PS-header-titulo {
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.PS-header-empresa {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* Zona de usuario (reusa AS-userZone/AS-userBtn base + ajustes PS). */
+.PS-header-app .AS-userZone {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.PS-header-app .AS-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px 6px 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.PS-header-app .AS-userBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.PS-header-app .AS-userIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.PS-header-app .AS-userInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.PS-header-app .AS-userName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1;
+}
+
+.PS-header-app .AS-userPerfil {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+}
+
+.PS-header-app .AS-chevron {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.PS-header-app .AS-chevronOpen {
+  transform: rotate(180deg);
+}
+
+.PS-header-app .AS-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 210px;
+  z-index: 999;
+  overflow: hidden;
+}
+
+.PS-header-app .AS-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 0.88rem;
+  color: #0f1928;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  font-family: inherit;
+}
+
+.PS-header-app .AS-dropItem:hover {
+  background: #f8fafc;
+}
+
+.PS-header-app .AS-dropItemDanger {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.PS-header-app .AS-dropItemDanger:hover {
+  background: #fef2f2;
+}
+
+.PS-header-app .AS-dropDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+/* Encabezado del menú (visible sobre todo en móvil, donde no hay botón
+   usuario con nombre: identifica quién está logueado). */
+.PS-menu-encabezado {
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.PS-menu-encabezado strong {
+  font-size: 0.9rem;
   color: #0f2a43;
 }
 
-.PS-header p {
-  margin: 2px 0 0;
+.PS-menu-encabezado small {
+  font-size: 0.75rem;
   color: #57606a;
-  font-size: 0.85rem;
 }
 
-.PS-header-derecha {
-  display: flex;
+/* Hamburguesa: SOLO móvil (desktop usa el botón de usuario). */
+.PS-hamburguesa {
+  display: none;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1.15rem;
+  width: 42px;
+  height: 42px;
   align-items: center;
-  gap: 12px;
-}
-
-.PS-usuario {
-  font-size: 0.85rem;
-  color: #57606a;
-}
-
-.PS-boton-salir {
-  background: #fff;
-  border: 1px solid #c8d2de;
-  border-radius: 8px;
-  padding: 8px 14px;
+  justify-content: center;
   cursor: pointer;
-  font-weight: 600;
-  color: #c0392b;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
+}
+
+/* Contenido del portal (debajo del header). */
+.PS-contenedor {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 22px 18px 70px;
+  flex: 1;
 }
 
 .PS-grid {
@@ -467,6 +650,15 @@
 }
 
 /* Historial */
+/* Envoltura: en pantallas angostas la tabla NO desborda la tarjeta — se
+   desplaza horizontalmente dentro de la envoltura (y bajo 640px colapsa
+   a tarjetas con data-label, donde no hay desplazamiento en absoluto). */
+.PS-tabla-envoltura {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .PS-tabla {
   width: 100%;
   border-collapse: collapse;
@@ -481,6 +673,7 @@
   letter-spacing: 0.04em;
   padding: 8px 10px;
   border-bottom: 2px solid #e3e8ef;
+  white-space: nowrap;
 }
 
 .PS-tabla td {
@@ -544,4 +737,130 @@
 .PS-paginacion button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .PS-header-info {
+    display: none; /* la empresa/empleado viven en el menú de usuario */
+  }
+}
+
+@media (max-width: 800px) {
+  .PS-contenedor {
+    padding: 16px 12px 60px;
+  }
+
+  .PS-tarjeta {
+    padding: 16px 14px;
+  }
+
+  /* Selector de plan: tarjetas apiladas a lo ancho completo. */
+  .PS-opciones-plan {
+    flex-direction: column;
+  }
+
+  .PS-check-plan {
+    width: 100%;
+  }
+
+  .PS-form-consulta {
+    flex-direction: column;
+  }
+
+  .PS-input-icono {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .PS-boton-primario {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .PS-header-app .AS-brandName {
+    font-size: 1.1rem;
+  }
+}
+
+/* Móvil: botón usuario → solo icono + hamburguesa visible. */
+@media (max-width: 600px) {
+  .PS-header-app .AS-userInfo {
+    display: none;
+  }
+
+  .PS-hamburguesa {
+    display: flex;
+  }
+
+  .PS-header-inner {
+    padding: 0 12px;
+    gap: 8px;
+  }
+}
+
+/* Móvil angosto: el historial colapsa a TARJETAS (una por consulta) —
+   sin scroll horizontal ni desborde. Requiere td[data-label]. */
+@media (max-width: 640px) {
+  .PS-tabla-envoltura {
+    overflow-x: visible;
+  }
+
+  .PS-tabla thead {
+    display: none;
+  }
+
+  .PS-tabla,
+  .PS-tabla tbody {
+    display: block;
+  }
+
+  .PS-tabla tr {
+    display: block;
+    border: 1px solid #e3e8ef;
+    border-radius: 10px;
+    padding: 6px 4px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+
+  .PS-tabla td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 10px;
+    border-bottom: 1px dashed #edf1f6;
+    text-align: right;
+  }
+
+  .PS-tabla td:last-child {
+    border-bottom: none;
+  }
+
+  .PS-tabla td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8a95a3;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .PS-tabla td.PS-vacio {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .PS-tabla td.PS-vacio::before {
+    content: none;
+  }
+
+  .PS-paginacion {
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+  }
 }

@@ -6,12 +6,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Swal from "sweetalert2";
 import { ClipLoader } from "react-spinners";
 import Lottie from "lottie-react";
 import animationDetective from "@/Imagenes/AnimationDetective.json";
+import logo from "@/Imagenes/albatros.png";
 import {
   FaSearch, FaFilePdf, FaSignOutAlt, FaHistory, FaIdCard, FaChartPie,
+  FaUserCircle, FaChevronDown, FaBars, FaArrowLeft,
 } from "react-icons/fa";
 import {
   CupoCliente,
@@ -32,6 +35,8 @@ import "./estilos.css";
 
 export default function PortalSeguridadP() {
   const router = useRouter();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuAbierto, setMenuAbierto] = useState(false);
   const [sesion, setSesion] = useState<ReturnType<typeof usuarioCliente>>(null);
   const [cupo, setCupo] = useState<CupoCliente | null>(null);
   const [cedula, setCedula] = useState("");
@@ -54,6 +59,7 @@ export default function PortalSeguridadP() {
   const mensajesConsulta = [
     "Investigando en Manifiestos RNDC…",
     "Revisando antecedentes en Procuraduría…",
+    "Consultando antecedentes judiciales en la Policía…",
     "Cruzando fuentes y verificando datos…",
     "Casi listo: preparando su informe…",
   ];
@@ -93,6 +99,17 @@ export default function PortalSeguridadP() {
     }
   }, [esSesionValida]);
 
+  // Cerrar el menú de usuario al hacer click fuera (patrón AdminSeguridad).
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuAbierto(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   useEffect(() => {
     if (sesion) cargarPortal();
   }, [sesion, cargarPortal]);
@@ -126,7 +143,10 @@ export default function PortalSeguridadP() {
   const [planElegido, setPlanElegido] = useState<string | null>(null);
 
   const nombreFuente = (f: string) =>
-    f === "manifiestos_rndc" ? "Manifiestos RNDC" : f === "procuraduria" ? "Procuraduría" : f;
+    f === "manifiestos_rndc" ? "Manifiestos RNDC"
+    : f === "procuraduria" ? "Procuraduría"
+    : f === "policia" ? "Antecedentes Policía"
+    : f;
 
   // Preseleccionar el primer plan al cargar el cupo (uno solo = sin elección).
   useEffect(() => {
@@ -234,20 +254,56 @@ export default function PortalSeguridadP() {
   // ══════════════════ PANTALLA 2: PORTAL ══════════════════
 
   return (
-    <div className="PS-contenedor">
-      <header className="PS-header">
-        <div>
-          <h1>Consultas de Seguridad</h1>
-          <p>{sesion?.empresa?.nombre ?? sesion.nombre}</p>
-        </div>
-        <div className="PS-header-derecha">
-          <span className="PS-usuario">{sesion?.nombre}</span>
-          <button className="PS-boton-salir" onClick={salir} title="Cerrar sesión">
-            <FaSignOutAlt /> Salir
+    <div className="PS-pagina">
+      {/* Header de la app (mismo patrón que AdminSeguridad): barra a ANCHO
+          COMPLETO; hamburguesa en móvil para el menú del usuario. */}
+      <header className="AS-header-app PS-header-app">
+        <div className="AS-header-inner PS-header-inner">
+          <button className="AS-brand" onClick={() => router.push("/")} title="Volver al inicio">
+            <Image src={logo} alt="Integra" height={40} priority />
+            <span className="AS-brandName">Integr<span className="AS-brandAccent">App</span></span>
           </button>
+
+          <div className="PS-header-info">
+            <span className="PS-header-titulo">Consultas de Seguridad</span>
+            <span className="PS-header-empresa">{sesion?.empresa?.nombre ?? sesion.nombre}</span>
+          </div>
+
+          <div className="AS-userZone" ref={menuRef}>
+            <button className="AS-userBtn PS-userBtn" onClick={() => setMenuAbierto(o => !o)} aria-label="Menú de usuario">
+              <FaUserCircle className="AS-userIcon PS-menu-icono" />
+              <div className="AS-userInfo PS-userInfo">
+                <span className="AS-userName">{sesion?.nombre}</span>
+                <span className="AS-userPerfil">{sesion?.empresa?.nombre ?? "Cliente"}</span>
+              </div>
+              <FaChevronDown className={`AS-chevron ${menuAbierto ? "AS-chevronOpen" : ""}`} />
+            </button>
+            {/* Hamburguesa (solo móvil): alterna el mismo menú desplegable. */}
+            <button className="PS-hamburguesa" onClick={() => setMenuAbierto(o => !o)} aria-label="Abrir menú">
+              <FaBars />
+            </button>
+
+            {menuAbierto && (
+              <div className="AS-dropdown">
+                <div className="PS-menu-encabezado">
+                  <strong>{sesion?.nombre}</strong>
+                  <small>{sesion?.empresa?.nombre ?? ""}</small>
+                </div>
+                <div className="AS-dropDivider" />
+                <button className="AS-dropItem" onClick={() => { setMenuAbierto(false); router.push("/"); }}>
+                  <FaArrowLeft /> Volver al inicio
+                </button>
+                <div className="AS-dropDivider" />
+                <button className="AS-dropItem AS-dropItemDanger" onClick={() => { setMenuAbierto(false); salir(); }}>
+                  <FaSignOutAlt /> Cerrar sesión
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
+      <div className="PS-contenedor">
       <div className="PS-grid">
         {/* ── Consulta ── */}
         <section className="PS-tarjeta PS-consulta">
@@ -327,6 +383,12 @@ export default function PortalSeguridadP() {
                   : estudioNuevo.fuentes?.procuraduria ? "⚠️ Ver PDF"
                   : "No disponible"}
                 </span>
+                <span>Policía: {
+                  estudioNuevo.fuentes?.policia?.no_registra === true ? "✅ Sin antecedentes"
+                  : estudioNuevo.fuentes?.policia?.no_registra === false ? "⛔ Requerido por autoridad judicial"
+                  : estudioNuevo.fuentes?.policia ? "⚠️ Ver PDF"
+                  : "No disponible"}
+                </span>
                 <span>RNDC: {estudioNuevo.fuentes?.manifiestos_rndc?.total ?? 0} viaje(s)</span>
               </div>
               {estudioNuevo.pdf && (
@@ -388,32 +450,34 @@ export default function PortalSeguridadP() {
         {cargandoHistorial ? (
           <ClipLoader size={20} color="#0F2A43" />
         ) : (
-          <table className="PS-tabla">
-            <thead>
-              <tr>
-                <th>Fecha</th><th>Cédula</th><th>Persona</th><th>Estado</th><th>Consultó</th><th>Informe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historial.length === 0 && (
-                <tr><td colSpan={6} className="PS-vacio">Aún no hay consultas registradas.</td></tr>
-              )}
-              {historial.map((h) => (
-                <tr key={h.consulta_id}>
-                  <td>{new Date(h.creado_en).toLocaleString("es-CO")}</td>
-                  <td>{h.cedula}</td>
-                  <td>{h.nombre_consultado || "—"}</td>
-                  <td><span className={`PS-badge ${claseEstado(h.estado)}`}>{textoEstado(h.estado)}</span></td>
-                  <td>{h.usuario_nombre}</td>
-                  <td>
-                    <button className="PS-boton-pdf-chico" onClick={() => abrirPdf(h.consulta_id)}>
-                      <FaFilePdf /> PDF
-                    </button>
-                  </td>
+          <div className="PS-tabla-envoltura">
+            <table className="PS-tabla">
+              <thead>
+                <tr>
+                  <th>Fecha</th><th>Cédula</th><th>Persona</th><th>Estado</th><th>Consultó</th><th>Informe</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {historial.length === 0 && (
+                  <tr><td colSpan={6} className="PS-vacio">Aún no hay consultas registradas.</td></tr>
+                )}
+                {historial.map((h) => (
+                  <tr key={h.consulta_id}>
+                    <td data-label="Fecha">{new Date(h.creado_en).toLocaleString("es-CO")}</td>
+                    <td data-label="Cédula">{h.cedula}</td>
+                    <td data-label="Persona">{h.nombre_consultado || "—"}</td>
+                    <td data-label="Estado"><span className={`PS-badge ${claseEstado(h.estado)}`}>{textoEstado(h.estado)}</span></td>
+                    <td data-label="Consultó">{h.usuario_nombre}</td>
+                    <td data-label="Informe">
+                      <button className="PS-boton-pdf-chico" onClick={() => abrirPdf(h.consulta_id)}>
+                        <FaFilePdf /> PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         {totalHistorial > 10 && (
           <div className="PS-paginacion">
@@ -423,6 +487,7 @@ export default function PortalSeguridadP() {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }

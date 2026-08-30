@@ -43,13 +43,17 @@ import "./estilos.css";
 
 type Pestana = "empresas" | "planes" | "movimientos" | "cuentas";
 
-export default function AdminSeguridadP() {
+const PESTANAS_VALIDAS: Pestana[] = ["empresas", "planes", "movimientos", "cuentas"];
+
+export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pestanaInicial?: Pestana }) {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [datosUsuario, setDatosUsuario] = useState<{ usuario: string; perfil?: string } | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [pestana, setPestana] = useState<Pestana>("empresas");
+  const [pestana, setPestana] = useState<Pestana>(
+    PESTANAS_VALIDAS.includes(pestanaInicial) ? pestanaInicial : "empresas",
+  );
   const [empresas, setEmpresas] = useState<EmpresaCobro[]>([]);
   const [planes, setPlanes] = useState<PlanSeguridad[]>([]);
   const [movimientos, setMovimientos] = useState<MovimientoCobro[]>([]);
@@ -59,6 +63,14 @@ export default function AdminSeguridadP() {
   const [pagina, setPagina] = useState(0);
   // Fila de empresa desplegada (planes habilitados): id de empresa | null.
   const [empresaAbierta, setEmpresaAbierta] = useState<string | null>(null);
+
+  // Etiquetas legibles de las fuentes (catálogo: FUENTES del orquestador).
+  const ETIQUETAS_FUENTE: Record<string, string> = {
+    manifiestos_rndc: "Manifiestos RNDC",
+    procuraduria: "Procuraduría",
+    policia: "Antecedentes Policía",
+  };
+  const etiquetaFuente = (f: string) => ETIQUETAS_FUENTE[f] ?? f;
 
   // ── Gate de sesión: solo ADMIN con token ───────────────────────────────
   useEffect(() => {
@@ -82,6 +94,18 @@ export default function AdminSeguridadP() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // ── Pestaña en la URL (patrón /revision y /PanelConductores) ──────────
+  /* replaceState NATIVO (no router.replace): la navegación del App Router
+     re-suspende el <Suspense> del page.tsx y la pestaña parpadea. Cada
+     pestaña tiene su carpeta estática (/AdminSeguridad/empresas/ etc.) para
+     que el F5 aterrice en la pestaña correcta; la raíz sigue siendo empresas. */
+  useEffect(() => {
+    const base = window.location.pathname
+      .replace(/\/(empresas|planes|movimientos|cuentas)\/?$/, "")
+      .replace(/\/+$/, ""); // trailingSlash: la raíz queda con "/" final → "//planes"
+    window.history.replaceState(window.history.state, "", `${base}/${pestana}`);
+  }, [pestana]);
 
   const cerrarSesion = () => {
     document.cookie.split(";").forEach((cookie) => {
@@ -164,8 +188,6 @@ export default function AdminSeguridadP() {
 
   // Asignación NATURAL: un plan cubre todas las fuentes que incluye.
   const abrirAsignarPlanCompleto = (empresa: EmpresaCobro) => {
-    const etiquetaFuente = (f: string) =>
-      f === "manifiestos_rndc" ? "Manifiestos RNDC" : f === "procuraduria" ? "Procuraduría" : f;
     Swal.fire({
       title: `Asignar plan · ${empresa.nombre}`,
       html: `
@@ -357,13 +379,13 @@ export default function AdminSeguridadP() {
   // ── PLANES: acciones ───────────────────────────────────────────────────
   const abrirPlan = async (plan?: PlanSeguridad) => {
     const esNuevo = !plan;
-    const fuentes = ["manifiestos_rndc", "procuraduria"];
+    const fuentes = ["manifiestos_rndc", "procuraduria", "policia"];
     const checks = fuentes
       .map(
         (f) =>
           `<label style="display:block;text-align:left;margin:4px 24px"><input type="checkbox" class="sw-fuente" value="${f}" ${
             esNuevo || plan!.fuentes_incluidas.includes(f) ? "checked" : ""
-          }> ${f}</label>`
+          }> ${etiquetaFuente(f)}</label>`
       )
       .join("");
     Swal.fire({
@@ -636,9 +658,14 @@ export default function AdminSeguridadP() {
                               return acc;
                             }, {})
                           ).map(([nombrePlan, entradas]) => {
-                            const algunaIlimitada = entradas.some((p) => p.ilimitado);
-                            const cupoAut = entradas.reduce((s, p) => s + (p.cupo_autorizado ?? 0), 0);
-                            const cupoDisp = entradas.reduce((s, p) => s + (p.cupo_disponible ?? 0), 0);
+                            // Retiradas: la fuente salió del catálogo del plan —
+                            // la entrada sobrevive (historial de cobro) pero su
+                            // cupo ya no es consumible → fuera de barras/totales.
+                            const activas = entradas.filter((p) => !p.retirada);
+                            const retiradas = entradas.filter((p) => p.retirada);
+                            const algunaIlimitada = activas.some((p) => p.ilimitado);
+                            const cupoAut = activas.reduce((s, p) => s + (p.cupo_autorizado ?? 0), 0);
+                            const cupoDisp = activas.reduce((s, p) => s + (p.cupo_disponible ?? 0), 0);
                             const consumidas = entradas.reduce((s, p) => s + p.cupo_consumido, 0);
                             const pct = !algunaIlimitada && cupoAut > 0 ? Math.min(100, (consumidas / cupoAut) * 100) : 0;
                             const planId = entradas[0].id;
@@ -648,16 +675,26 @@ export default function AdminSeguridadP() {
                                   <strong>{nombrePlan}</strong>
                                   {algunaIlimitada
                                     ? <span className="AS-badge AS-badge-verde">sin tope</span>
-                                    : <span className="AS-badge AS-badge-azul">{cupoDisp} de {cupoAut} disp.</span>}
+                                    : activas.length > 0
+                                      ? <span className="AS-badge AS-badge-azul">{cupoDisp} de {cupoAut} disp.</span>
+                                      : <span className="AS-badge AS-badge-gris">sin cupo activo</span>}
                                   <button className="AS-boton-peligro" onClick={() => confirmarQuitarPlan(e, planId, nombrePlan)} title={`Retirar ${nombrePlan}`} aria-label={`Retirar ${nombrePlan}`}>
                                     <FaTimes />
                                   </button>
                                 </div>
                                 <small style={{ color: "#57606a" }}>
-                                  {entradas.map((p) => p.fuente).join(" + ")} · {pesosColombianos(entradas[0].precio_por_estudio)}/consulta
+                                  {activas.map((p) => etiquetaFuente(p.fuente)).join(" + ") || "—"}
+                                  {activas.length > 0 && ` · ${pesosColombianos(activas[0].precio_por_estudio)}/consulta`}
                                   {consumidas > 0 && ` · ${consumidas} consumida(s)`}
                                 </small>
-                                {!algunaIlimitada && (
+                                {retiradas.length > 0 && (
+                                  <small style={{ color: "#8a94a0" }}>
+                                    {retiradas.map((p) => etiquetaFuente(p.fuente)).join(", ")}{" "}
+                                    <span className="AS-badge AS-badge-gris">retirada del plan</span>
+                                    {retiradas.some((p) => p.cupo_consumido > 0) && " (historial de cobro conservado)"}
+                                  </small>
+                                )}
+                                {!algunaIlimitada && activas.length > 0 && (
                                   <div className="AS-barra" style={{ height: 5 }}><div className="AS-barra-llena" style={{ width: `${pct}%` }} /></div>
                                 )}
                               </div>
@@ -689,7 +726,7 @@ export default function AdminSeguridadP() {
                 <tr key={p.id} className={p.activo ? "" : "AS-inactiva"}>
                   <td>{p.nombre}<br /><small>{p.descripcion}</small></td>
                   <td>{pesosColombianos(p.precio_por_estudio)}</td>
-                  <td>{p.fuentes_incluidas.join(", ")}</td>
+                  <td>{p.fuentes_incluidas.map(etiquetaFuente).join(", ")}</td>
                   <td>{p.vigencia_dias ? `${p.vigencia_dias} días` : "sin vencimiento"}</td>
                   <td>{p.activo ? <span className="AS-badge AS-badge-verde">activo</span> : <span className="AS-badge AS-badge-gris">inactivo</span>}</td>
                   <td className="AS-acciones">

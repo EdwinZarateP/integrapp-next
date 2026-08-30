@@ -36,6 +36,7 @@ export interface PlanPorFuente {
   precio_por_estudio: number;
   fuentes_incluidas: string[];
   fuente: string;
+  retirada?: boolean; // fuente retirada del catálogo: sobrevive (historial) pero no se consume
   ilimitado: boolean;
   cupo_autorizado: number | null;
   cupo_consumido: number;
