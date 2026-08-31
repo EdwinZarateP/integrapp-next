@@ -8,6 +8,7 @@ import { calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentCo
 import { comprimirImagen } from '@/Funciones/comprimirImagen';
 import VerCaraDocumento from '@/Componentes/VerCaraDocumento';
 import CamaraInterna from '@/Componentes/CamaraInterna';
+import PhoneFieldCompartido from '@/Componentes/PhoneField';
 import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -120,45 +121,22 @@ const PhoneField: React.FC<{
   disabled?: boolean;
   required?: boolean;
   error?: boolean;
-}> = ({ label, name, value, onChange, disabled, required, error }) => {
-  const codigo = regionDeValor(value);
-  const numero = numeroDeValor(value);
-
-  // Despacha el valor completo (prefijo + número) por el handleChange central,
-  // que valida dígitos y longitud según tenga o no prefijo internacional.
-  const despachar = (cod: string, num: string) => {
-    const digitos = num.replace(/\D/g, '');
-    const completo = cod === '57' ? digitos.slice(0, 10) : `+${cod} ${digitos.slice(0, 12)}`;
-    onChange({ target: { name, value: completo } } as React.ChangeEvent<HTMLInputElement>);
-  };
-
-  return (
-    <div className={`Datos-input-container ${error ? 'Datos-input-container--error' : ''}`} data-campo={name}>
-      <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
-      <div className="Datos-phone">
-        <select
-          className="Datos-phone-region"
-          value={codigo}
-          disabled={disabled}
-          onChange={(e) => despachar(e.target.value, numero)}
-          title="Región del número"
-        >
-          {REGIONES_CELULAR.map((r, i) => (
-            <option key={`${r.code}-${i}`} value={r.code}>{r.label}</option>
-          ))}
-        </select>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={numero}
-          disabled={disabled}
-          placeholder={codigo === '57' ? 'Ej: 3001234567' : 'Número local'}
-          onChange={(e) => despachar(codigo, e.target.value)}
-        />
-      </div>
-    </div>
-  );
-};
+}> = ({ label, name, value, onChange, disabled, required, error }) => (
+  // Envoltorio local sobre el PhoneField compartido: aporta el contenedor
+  // etiqueta+error del formulario Datos; la fila select+número y el catálogo
+  // de regiones viven en Componentes/PhoneField (2026-08-31).
+  <div className={`Datos-input-container ${error ? 'Datos-input-container--error' : ''}`} data-campo={name}>
+    <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
+    <PhoneFieldCompartido
+      name={name}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      className="Datos-phone"
+      selectClassName="Datos-phone-region"
+    />
+  </div>
+);
 
 interface FormSectionProps {
   title: string;
@@ -184,45 +162,11 @@ const categoriasLicencia = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3"];
 // Año en curso (Colombia): tope del Año de Repotenciación — nunca futuro.
 const ANIO_ACTUAL = new Date().getFullYear();
 
-/* ── Celular con región: selector de país (default +57 Colombia) + número.
-   Almacenamiento: +57 → solo dígitos (formato histórico, ej: 3001234567);
-   otra región → "+<código> <número>" (ej: "+54 3794123456"). Los consumidores
-   (wa.me, HV, revisión) muestran/usan el valor tal cual. ── */
+/* ── Celular con región (selector de país +57 default): el componente y el
+   catálogo de regiones viven en Componentes/PhoneField (compartido desde
+   2026-08-31 con /RegistroConductor). Almacenamiento: +57 → solo dígitos
+   (formato histórico, ej: 3001234567); otra región → "+<código> <número>". ── */
 const PHONE_FIELDS = ['condCelular', 'condCelularEmergencia', 'condCelularRef', 'propCelular', 'tenedCelular'];
-
-const REGIONES_CELULAR: Array<{ code: string; label: string }> = [
-  { code: '57', label: '🇨🇴 +57 Colombia' },
-  { code: '1', label: '🇺🇸 +1 EE.UU. / Canadá' },
-  { code: '1', label: '🇩🇴 +1 Rep. Dominicana' },
-  { code: '52', label: '🇲🇽 +52 México' },
-  { code: '51', label: '🇵🇪 +51 Perú' },
-  { code: '56', label: '🇨🇱 +56 Chile' },
-  { code: '54', label: '🇦🇷 +54 Argentina' },
-  { code: '55', label: '🇧🇷 +55 Brasil' },
-  { code: '58', label: '🇻🇪 +58 Venezuela' },
-  { code: '593', label: '🇪🇨 +593 Ecuador' },
-  { code: '591', label: '🇧🇴 +591 Bolivia' },
-  { code: '595', label: '🇵🇾 +595 Paraguay' },
-  { code: '598', label: '🇺🇾 +598 Uruguay' },
-  { code: '507', label: '🇵🇦 +507 Panamá' },
-  { code: '506', label: '🇨🇷 +506 Costa Rica' },
-  { code: '505', label: '🇳🇮 +505 Nicaragua' },
-  { code: '504', label: '🇭🇳 +504 Honduras' },
-  { code: '503', label: '🇸🇻 +503 El Salvador' },
-  { code: '502', label: '🇬🇹 +502 Guatemala' },
-  { code: '501', label: '🇧🇿 +501 Belice' },
-  { code: '509', label: '🇭🇹 +509 Haití' },
-  { code: '53', label: '🇨🇺 +53 Cuba' },
-  { code: '1', label: '🇯🇲 +1 Jamaica' },
-];
-
-const regionDeValor = (valor: string): string => {
-  const m = (valor || '').match(/^\+(\d{1,3})\s/);
-  return m ? m[1] : '57';
-};
-
-const numeroDeValor = (valor: string): string =>
-  (valor || '').replace(/^\+\d{1,3}\s?/, '');
 
 /* Fechas que provienen del RUT del propietario/tenedor: NO son clon del
    conductor, así que siguen editables aunque los toggles de figura estén
@@ -1883,7 +1827,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           <div className="Datos-iaLeyendo-caja">
             <Lottie animationData={animationData} style={{ height: 140, width: 180, margin: 'auto' }} />
             <div className="Datos-iaLeyendo-titulo">Leyendo {etiquetaLecturaIA || 'el documento'}…</div>
-            <div className="Datos-iaLeyendo-sub">Estamos guardando el archivo y extrayendo los datos con IA</div>
+            <div className="Datos-iaLeyendo-sub">Estamos guardando el archivo y extrayendo los datos</div>
             <div className="Datos-iaLeyendo-barra"><div className="Datos-iaLeyendo-barra-fill" /></div>
           </div>
         </div>

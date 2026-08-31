@@ -6,6 +6,7 @@ import Link from 'next/link';
 import confetti from 'canvas-confetti';
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
+import PhoneField from '@/Componentes/PhoneField';
 // Mismo sistema visual que el login de conductores (LC-*): header, card, footer.
 import '../LoginConductores/estilos.css';
 import './estilos.css';
@@ -194,11 +195,18 @@ const RegistroConductor: React.FC = () => {
 
                 <div className="LC-grupo">
                   <label className="LC-label" htmlFor="telefono">Celular</label>
-                  <input
-                    id="telefono" name="telefono" type="tel" placeholder="Ej: 3001234567"
-                    className="LC-input"
-                    value={formData.telefono} onChange={manejarCambio} required disabled={cargando}
-                    autoComplete="tel"
+                  {/* Selector de región (+57 Colombia por defecto) + número.
+                      Mismo componente y formato de storage que el paso 2 del
+                      panel: +57 → solo dígitos; otra región → "+<código> <número>". */}
+                  <PhoneField
+                    id="telefono"
+                    name="telefono"
+                    value={formData.telefono}
+                    onChange={manejarCambio}
+                    disabled={cargando}
+                    required
+                    selectClassName="LC-input"
+                    inputClassName="LC-input"
                   />
                 </div>
 

@@ -1,0 +1,38 @@
+/* PhoneField compartido: fila select de región + número.
+   Estilo base neutro (hereda tipografía del contexto); cada página amolda el
+   look con sus propias clases vía selectClassName/inputClassName/className
+   (LC-input del registro, Datos-phone del paso 2). Anti-desborde: min-width 0
+   en flex para que el número nunca empuje el layout. */
+.PF-phone {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.PF-phone .PF-region {
+  width: auto;
+  min-width: 110px;
+  max-width: 55%;
+  flex: 0 1 auto;
+  font-size: 0.85rem;
+}
+
+.PF-phone > input[type="text"] {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+/* iOS no hace zoom al enfocar si la fuente es ≥16px. */
+@media (max-width: 600px) {
+  .PF-phone input,
+  .PF-phone .PF-region {
+    font-size: 16px;
+  }
+
+  .PF-phone .PF-region {
+    min-width: 96px;
+  }
+}
