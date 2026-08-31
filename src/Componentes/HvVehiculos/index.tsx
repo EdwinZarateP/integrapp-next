@@ -70,6 +70,11 @@ const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null 
 
     const imagenFirma = firmaBlob || veh.firmaUrl;
 
+    // Referencias laborales adicionales (2026-08-31): filas extra bajo la
+    // referencia principal; históricos sin el array no pintan nada.
+    const refsAdicionales: Array<{ empresa?: string; celular?: string; mercancia?: string }> =
+        Array.isArray(veh.referenciasAdicionales) ? veh.referenciasAdicionales : [];
+
     return (
         <Document>
             <Page size="A4" style={styles.page}>
@@ -166,11 +171,18 @@ const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null 
                          <View style={[styles.col, styles.w25]}><Text style={styles.label}>PARENTESCO</Text><Text style={styles.value}>{upper(veh.condParentescoEmergencia)}</Text></View>
                          <View style={[styles.col, styles.w25, { borderRight: 'none' }]}><Text style={styles.label}>CELULAR</Text><Text style={styles.value}>{upper(veh.condCelularEmergencia)}</Text></View>
                     </View>
-                    <View style={[styles.row, { borderBottom: 'none' }]}>
+                    <View style={[styles.row, { borderBottom: refsAdicionales.length > 0 ? undefined : 'none' }]}>
                          <View style={[styles.col, styles.w33]}><Text style={styles.label}>EMPRESA REF.</Text><Text style={styles.value}>{upper(veh.condEmpresaRef)}</Text></View>
                          <View style={[styles.col, styles.w33]}><Text style={styles.label}>CONTACTO</Text><Text style={styles.value}>{upper(veh.condCelularRef)}</Text></View>
                          <View style={[styles.col, styles.w33, { borderRight: 'none' }]}><Text style={styles.label}>MERCANCÍA</Text><Text style={styles.value}>{upper(veh.condMercTransportada)}</Text></View>
                     </View>
+                    {refsAdicionales.map((ref, i) => (
+                        <View key={`ref-hv-${i}`} style={[styles.row, { borderBottom: i === refsAdicionales.length - 1 ? 'none' : undefined }]}>
+                             <View style={[styles.col, styles.w33]}><Text style={styles.label}>EMPRESA REF. {i + 2}</Text><Text style={styles.value}>{upper(ref.empresa)}</Text></View>
+                             <View style={[styles.col, styles.w33]}><Text style={styles.label}>CONTACTO {i + 2}</Text><Text style={styles.value}>{upper(ref.celular)}</Text></View>
+                             <View style={[styles.col, styles.w33, { borderRight: 'none' }]}><Text style={styles.label}>MERCANCÍA {i + 2}</Text><Text style={styles.value}>{upper(ref.mercancia)}</Text></View>
+                        </View>
+                    ))}
                 </View>
 
                 {/* PROPIETARIO Y TENEDOR */}

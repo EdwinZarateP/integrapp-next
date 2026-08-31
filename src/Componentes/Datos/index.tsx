@@ -510,6 +510,23 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
   { tipo: 'certificado_bancario_prop', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario propietario' },
 ];
 
+/* Documentos del conductor que pueden REUTILIZARSE como documento del
+   propietario/tenedor («es la misma persona», 2026-08-31 — cédula y
+   certificado bancario): si el del conductor ya está cargado, el botón de la
+   figura ofrece copiarlo server-side SIN gastar otra lectura de IA. */
+const REUTILIZABLES_CONDUCTOR: Record<string, {
+  figura: 'propietario' | 'tenedor';
+  documento: 'cedula' | 'certificado_bancario';
+  campoConductor: string;
+  nombreDoc: string;
+  femenino: boolean;
+}> = {
+  cedula_propietario: { figura: 'propietario', documento: 'cedula', campoConductor: 'documentoIdentidadConductor', nombreDoc: 'cédula', femenino: true },
+  cedula_tenedor: { figura: 'tenedor', documento: 'cedula', campoConductor: 'documentoIdentidadConductor', nombreDoc: 'cédula', femenino: true },
+  certificado_bancario_prop: { figura: 'propietario', documento: 'certificado_bancario', campoConductor: 'condCertificacionBancaria', nombreDoc: 'certificado bancario', femenino: false },
+  certificado_bancario_tened: { figura: 'tenedor', documento: 'certificado_bancario', campoConductor: 'condCertificacionBancaria', nombreDoc: 'certificado bancario', femenino: false },
+};
+
 interface DatosProps {
   placa: string;
   idUsuario?: string;
@@ -520,8 +537,26 @@ interface DatosProps {
   onSavedSuccess: () => void;
 }
 
+/* ── Referencias laborales ADICIONALES (2026-08-31): la referencia #1 sigue
+   siendo los campos planos cond*Ref (obligatoria, compat histórico/HV) y las
+   extra viven en el array `referenciasAdicionales` del vehículo. Opcionales. ── */
+const MAX_REFERENCIAS_ADICIONALES = 5;
+const CAMPOS_REF_ADICIONAL: Array<{ label: string; clave: string; type?: string }> = [
+  { label: 'Empresa', clave: 'empresa' },
+  { label: 'Celular', clave: 'celular', type: 'text' },
+  { label: 'Nro. Viajes', clave: 'nroViajes', type: 'number' },
+  { label: 'Años Antigüedad', clave: 'antiguedad', type: 'number' },
+  { label: 'Merc. Transportada', clave: 'mercancia' },
+];
+const refAdicionalVacia = (): Record<string, string> => ({
+  empresa: '', celular: '', departamento: '', ciudad: '', nroViajes: '', antiguedad: '', mercancia: '',
+});
+
 const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
+  // Referencias laborales adicionales (opcionales): el array vive aparte del
+  // formData plano y se persiste como `referenciasAdicionales` en el vehículo.
+  const [refsAdicionales, setRefsAdicionales] = useState<Array<Record<string, string>>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editandoFirma, setEditandoFirma] = useState(false);
   const sigCanvas = useRef<any>(null);
@@ -566,6 +601,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   const cargandoInicialRef = useRef(true);
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
+  const refsAdicionalesRef = useRef(refsAdicionales);
+  refsAdicionalesRef.current = refsAdicionales;
   const estadoAutoguardadoRef = useRef(estadoAutoguardado);
   estadoAutoguardadoRef.current = estadoAutoguardado;
 
@@ -624,6 +661,17 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             if (typeof url === 'string' && url && url !== 'null' && url !== 'undefined') subidos[tipo] = url;
           });
           setDocsSubidos(subidos);
+
+          // Referencias adicionales guardadas (array; tolera históricos sin él).
+          const refsGuardadas = Array.isArray(loadedData.referenciasAdicionales)
+            ? loadedData.referenciasAdicionales
+                .filter((r: any) => r && typeof r === 'object')
+                .slice(0, MAX_REFERENCIAS_ADICIONALES)
+                .map((r: any) => ({ ...refAdicionalVacia(), ...Object.fromEntries(
+                  Object.entries(r).map(([k, v]) => [k, v == null ? '' : String(v)]),
+                ) }))
+            : [];
+          setRefsAdicionales(refsGuardadas);
 
           const departamentosCalculados: Record<string, string> = {};
           const cityToDeptoMap: Record<string, string> = {
@@ -973,75 +1021,103 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     );
   };
 
-  /** «Es la misma persona»: copia la cédula del CONDUCTOR como cédula del
-   * propietario/tenedor sin gastar otra lectura de IA. El backend copia el
-   * blob (frente+reverso) con nomenclatura propia de la figura destino y
-   * devuelve la lectura IA del conductor; con ella se autollena la identidad
-   * (respetando lo escrito a mano). */
-  const reutilizarCedulaConductor = async (figura: 'propietario' | 'tenedor', etiqueta: string) => {
+  /** «Es la misma persona»: copia un documento del CONDUCTOR (cédula o
+   * certificado bancario) al propietario/tenedor sin gastar otra lectura de
+   * IA. El backend copia el blob (frente+reverso si aplica) con nomenclatura
+   * propia de la figura destino y devuelve la lectura IA del conductor; con
+   * ella se autollenan los datos de la figura (respetando lo escrito a mano). */
+  const reutilizarDocumentoConductor = async (
+    documento: 'cedula' | 'certificado_bancario',
+    figura: 'propietario' | 'tenedor',
+    etiqueta: string,
+  ) => {
     setLeyendoCedula(true);
     setEtiquetaLecturaIA(etiqueta);
     try {
       const body = new FormData();
       body.append('placa', placa);
       body.append('figura', figura);
+      body.append('documento', documento);
       if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
-      const resp = await fetch(`${API_BASE}/vehiculos/reutilizar-cedula`, { method: 'PUT', body });
+      const resp = await fetch(`${API_BASE}/vehiculos/reutilizar-documento`, { method: 'PUT', body });
       const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.detail || 'No se pudo reutilizar la cédula.');
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo reutilizar el documento.');
 
-      const tipoSubida = figura === 'propietario' ? 'documentoIdentidadPropietario' : 'documentoIdentidadTenedor';
+      const tipoSubida = documento === 'cedula'
+        ? (figura === 'propietario' ? 'documentoIdentidadPropietario' : 'documentoIdentidadTenedor')
+        : (figura === 'propietario' ? 'propCertificacionBancaria' : 'tenedCertificacionBancaria');
       setDocsSubidos(prev => ({
         ...prev,
         [tipoSubida]: data.url,
         ...(data.url_reverso ? { [`${tipoSubida}Reverso`]: data.url_reverso } : {}),
       }));
 
-      // Autollenar la identidad de la figura. Prioridad: lectura IA del
+      // Autollenar los datos de la figura. Prioridad: lectura IA del
       // conductor (la devolvió el backend); si no hay, los campos del
       // formulario. Nunca pisa lo escrito a mano (regla de aplicarLecturaIA).
       const prefijo = figura === 'propietario' ? 'prop' : 'tened';
-      const mapear = MAPEOS_IA[`cedula_${figura}`];
       let aplicados = 0;
-      if (data.lectura_ia && data.lectura_ia.datos && mapear) {
-        const nuevos = mapear(data.lectura_ia.datos);
-        aplicarLecturaIA(nuevos);
-        aplicados = Object.keys(nuevos).length;
+      if (documento === 'cedula') {
+        const mapear = MAPEOS_IA[`cedula_${figura}`];
+        if (data.lectura_ia && data.lectura_ia.datos && mapear) {
+          const nuevos = mapear(data.lectura_ia.datos);
+          aplicarLecturaIA(nuevos);
+          aplicados = Object.keys(nuevos).length;
+        } else {
+          // Fallback sin lectura IA: clonar los campos de identidad del conductor.
+          const clones: Record<string, string> = {};
+          const nombreCompleto = [
+            formData['condPrimerApellido'], formData['condSegundoApellido'], formData['condNombres'],
+          ].filter(Boolean).join(' ').toUpperCase().replace(/\s+/g, ' ').trim();
+          if (nombreCompleto) clones[`${prefijo}Nombre`] = nombreCompleto;
+          if (formData['condCedulaCiudadania']) {
+            clones[`${prefijo}Documento`] = formData['condCedulaCiudadania'];
+            clones[`${prefijo}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
+          }
+          if (formData['condExpedidaEn']) {
+            clones[`${prefijo}CiudadExpDoc`] = formData['condExpedidaEn'];
+            const depto = buscarDepartamentoPorCiudad(formData['condExpedidaEn']);
+            if (depto) clones[`${prefijo}DeptoExpedida`] = depto;
+          }
+          if (Object.keys(clones).length > 0) {
+            aplicarLecturaIA(clones);
+            aplicados = Object.keys(clones).length;
+          }
+        }
       } else {
-        // Fallback sin lectura IA: clonar los campos de identidad del conductor.
-        const clones: Record<string, string> = {};
-        const nombreCompleto = [
-          formData['condPrimerApellido'], formData['condSegundoApellido'], formData['condNombres'],
-        ].filter(Boolean).join(' ').toUpperCase().replace(/\s+/g, ' ').trim();
-        if (nombreCompleto) clones[`${prefijo}Nombre`] = nombreCompleto;
-        if (formData['condCedulaCiudadania']) {
-          clones[`${prefijo}Documento`] = formData['condCedulaCiudadania'];
-          clones[`${prefijo}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
-        }
-        if (formData['condExpedidaEn']) {
-          clones[`${prefijo}CiudadExpDoc`] = formData['condExpedidaEn'];
-          const depto = buscarDepartamentoPorCiudad(formData['condExpedidaEn']);
-          if (depto) clones[`${prefijo}DeptoExpedida`] = depto;
-        }
-        if (Object.keys(clones).length > 0) {
-          aplicarLecturaIA(clones);
-          aplicados = Object.keys(clones).length;
+        // Certificado bancario: lectura IA (banco/tipo/número) o clon de los
+        // campos del conductor.
+        const mapear = MAPEOS_IA[`certificado_bancario_${figura}`];
+        if (data.lectura_ia && data.lectura_ia.datos && mapear) {
+          const nuevos = mapear(data.lectura_ia.datos);
+          aplicarLecturaIA(nuevos);
+          aplicados = Object.keys(nuevos).length;
+        } else {
+          const clones: Record<string, string> = {};
+          if (formData['condBanco']) clones[`${prefijo}Banco`] = formData['condBanco'];
+          if (formData['condTipoCuenta']) clones[`${prefijo}TipoCuenta`] = formData['condTipoCuenta'];
+          if (formData['condNumeroCuenta']) clones[`${prefijo}NumeroCuenta`] = formData['condNumeroCuenta'];
+          if (Object.keys(clones).length > 0) {
+            aplicarLecturaIA(clones);
+            aplicados = Object.keys(clones).length;
+          }
         }
       }
 
+      const nombreDoc = documento === 'cedula' ? 'cédula' : 'certificado bancario';
       setLeyendoCedula(false);
       await Swal.fire({
         icon: 'success',
-        title: 'Cédula reutilizada',
-        html: `Guardamos una copia del documento como <b>cédula del ${figura}</b> (${aplicados > 0 ? `${aplicados} campo(s) llenados` : 'sin datos para llenar — revisa el formulario'}).${data.url_reverso ? '<br/>Incluye el reverso.' : ''}`,
+        title: 'Documento reutilizado',
+        html: `Guardamos una copia como <b>${nombreDoc} del ${figura}</b> (${aplicados > 0 ? `${aplicados} campo(s) llenados` : 'sin datos para llenar — revisa el formulario'}).${data.url_reverso ? '<br/>Incluye el reverso.' : ''}`,
         confirmButtonColor: '#27ae60',
       });
     } catch (error: any) {
       setLeyendoCedula(false);
       Swal.fire({
         icon: 'error',
-        title: 'No pudimos reutilizar la cédula',
-        text: error?.message || 'Intenta de nuevo o carga la cédula de esa figura.',
+        title: 'No pudimos reutilizar el documento',
+        text: error?.message || 'Intenta de nuevo o carga el documento de esa figura.',
         confirmButtonColor: '#d33',
       });
     }
@@ -1066,26 +1142,26 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       return;
     }
     if (inputDocumentoRef.current) inputDocumentoRef.current.accept = 'image/jpeg, image/png, image/jpg, application/pdf';
-    // Cédula de propietario/tenedor: si la del conductor ya está cargada,
-    // ofrecer reutilizarla (misma persona) — copia el archivo ya guardado y
-    // autollena la identidad SIN gastar otra lectura de IA.
-    if ((tipo === 'cedula_propietario' || tipo === 'cedula_tenedor') && docsSubidos['documentoIdentidadConductor']) {
-      const figura = tipo === 'cedula_propietario' ? 'propietario' : 'tenedor';
-      const figuraEtiqueta = tipo === 'cedula_propietario' ? 'propietario' : 'tenedor';
+    // Cédula o certificado bancario de propietario/tenedor: si el del
+    // conductor ya está cargado, ofrecer reutilizarlo (misma persona) — copia
+    // el archivo ya guardado y autollena SIN gastar otra lectura de IA.
+    const reutilizable = REUTILIZABLES_CONDUCTOR[tipo];
+    if (reutilizable && docsSubidos[reutilizable.campoConductor]) {
+      const { figura, documento, nombreDoc, femenino } = reutilizable;
       Swal.fire({
         icon: 'question',
         title: etiqueta,
-        html: `¿El ${figuraEtiqueta} es la <b>misma persona</b> que el conductor?<br/><span style="font-size:0.85em; color:#5a6472">Si es así, usamos la cédula que ya cargaste (con su reverso): <b>sin foto ni lectura IA</b>, y llenamos sus datos automáticamente.</span>`,
+        html: `¿El ${figura} es la <b>misma persona</b> que el conductor?<br/><span style="font-size:0.85em; color:#5a6472">Si es así, usamos el ${nombreDoc} que ya cargaste${documento === 'cedula' ? ' (con su reverso)' : ''}: <b>sin foto ni lectura IA</b>, y llenamos sus datos automáticamente.</span>`,
         showDenyButton: true,
         showCloseButton: true,
         confirmButtonText: '♻️ Sí, es la misma persona',
-        denyButtonText: '📷 No, cargar otra cédula',
+        denyButtonText: `📷 No, cargar ${femenino ? 'otra' : 'otro'}`,
         confirmButtonColor: '#27ae60',
         denyButtonColor: '#2c5f9e',
         reverseButtons: true,
       }).then(async res => {
         if (res.isConfirmed) {
-          await reutilizarCedulaConductor(figura, etiqueta);
+          await reutilizarDocumentoConductor(documento, figura, etiqueta);
         } else if (res.isDenied) {
           setTipoLecturaPendiente(tipo);
           setTimeout(() => inputDocumentoRef.current?.click(), 0);
@@ -1272,6 +1348,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         .map(([key, value]) => [key, value || ""])
     );
 
+    // Referencias adicionales: solo las que tengan algo diligenciado (empresa
+    // o celular) — una tarjeta vacía no debe dejar basura en el doc. El array
+    // se envía SIEMPRE (vacío incluido) para que QUITAR referencias también
+    // persista; el backend iguala «vacío» con «ausente» en el diff.
+    const refsLimpias = refsAdicionalesRef.current
+      .map(r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, (v || '').toString().trim()])))
+      .filter(r => r.empresa || r.celular);
+    cleanedFormData.referenciasAdicionales = refsLimpias;
+
     // Los flags de figuras ya no se envían: la igualdad se infiere por dígitos
     // (los históricos que los tengan en BD siguen respetándose en el backend).
     const urlGuardado = new URL(`${API_BASE}/vehiculos/actualizar-informacion/${placa}`);
@@ -1304,7 +1389,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData]);
+  }, [formData, refsAdicionales]);
 
   // Guardado pendiente al desmontar/salir (mejor esfuerzo).
   useEffect(() => {
@@ -1316,6 +1401,18 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Referencias adicionales: editar un campo de la referencia N. Cambiar el
+   * departamento reinicia la ciudad (dependencia depto→ciudad, como la ref #1). */
+  const cambiarRefAdicional = (indice: number, clave: string, valor: string) => {
+    setRefsAdicionales(prev => prev.map((r, i) => {
+      if (i !== indice) return r;
+      if (clave === 'antiguedad' && parseInt(valor) > 30) return r;
+      const nueva = { ...r, [clave]: valor };
+      if (clave === 'departamento') nueva.ciudad = '';
+      return nueva;
+    }));
+  };
 
   const procesarGuardado = async (esFinalizar: boolean, e: React.MouseEvent) => {
     e.preventDefault();
@@ -1639,7 +1736,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                   disabled={leyendoCedula}
                   title={listo ? 'Documento cargado — toca para reemplazarlo' : (dosCaras ? 'Frente y reverso (opcional)' : undefined)}
                 >
-                  {listo ? opcion.etiqueta.replace(/^[^\s]+\s/, '') : opcion.etiqueta}
+                  <span className="Datos-iaDoc-texto">{opcion.etiqueta}</span>
                   {listo && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
                 </button>
                 {listo && (
@@ -1733,6 +1830,68 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                 camposError={camposError}
                 requiredFields={requiredFields}
               />
+            )}
+            {title === 'Referencias Laborales' && (
+              <div className="Datos-refs-adicionales">
+                {refsAdicionales.map((ref, indice) => (
+                  <div key={`ref-adicional-${indice}`} className="Datos-ref-adicional">
+                    <div className="Datos-ref-adicional-header">
+                      <h4>Referencia adicional {indice + 2}</h4>
+                      <button
+                        type="button"
+                        className="Datos-ref-adicional-quitar"
+                        onClick={() => setRefsAdicionales(prev => prev.filter((_, i) => i !== indice))}
+                        title="Quitar esta referencia"
+                      >
+                        ✕ Quitar
+                      </button>
+                    </div>
+                    <div className="Datos-fields-container">
+                      {CAMPOS_REF_ADICIONAL.map(({ label, clave, type }) => (
+                        <div key={clave} className="Datos-input-container">
+                          <label>{label}</label>
+                          <input
+                            type={type || 'text'}
+                            inputMode={clave === 'celular' || clave === 'nroViajes' || clave === 'antiguedad' ? 'numeric' : undefined}
+                            value={ref[clave] || ''}
+                            onChange={(e) => cambiarRefAdicional(indice, clave, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                      <div className="Datos-input-container">
+                        <label>Departamento</label>
+                        <select
+                          value={ref.departamento || ''}
+                          onChange={(e) => cambiarRefAdicional(indice, 'departamento', e.target.value)}
+                        >
+                          <option value="">Seleccione…</option>
+                          {departamentosUnicos.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      </div>
+                      <div className="Datos-input-container">
+                        <label>Ciudad</label>
+                        <select
+                          value={ref.ciudad || ''}
+                          onChange={(e) => cambiarRefAdicional(indice, 'ciudad', e.target.value)}
+                          disabled={!ref.departamento}
+                        >
+                          <option value="">{ref.departamento ? 'Seleccione…' : 'Elige departamento primero'}</option>
+                          {getCiudadesPorDepto(ref.departamento || '').map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {refsAdicionales.length < MAX_REFERENCIAS_ADICIONALES && (
+                  <button
+                    type="button"
+                    className="Datos-ref-agregar"
+                    onClick={() => setRefsAdicionales(prev => [...prev, refAdicionalVacia()])}
+                  >
+                    ➕ Agregar otra referencia
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ))}

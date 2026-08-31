@@ -505,13 +505,51 @@
   line-height: 1.4;
 }
 
+/* Botones de la tarjeta IA: grid uniforme en pantallas grandes (2026-08-31)
+   — todos del MISMO tamaño. Mínimo 2 columnas desde tablet; máximo 3 en
+   pantallas anchas. En móvil (≤600px) sigue columna a ancho completo. */
 .Datos-iaCedula-acciones {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-/* En celular: TODOS los botones a ancho completo de la pantalla. */
+@media (min-width: 601px) {
+  .Datos-iaCedula-acciones {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  /* Cada celda: botón estirado + 👁 fijo al lado. */
+  .Datos-iaCedula-acciones > span,
+  .Datos-iaCedula-acciones > label {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .Datos-iaCedula-acciones .Datos-iaDoc-boton,
+  .Datos-iaCedula-acciones .Datos-iaCedula-file {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .Datos-iaCedula-acciones .Datos-iaDoc-ver {
+    flex: 0 0 auto;
+    align-self: stretch;
+  }
+}
+
+@media (min-width: 1024px) {
+  .Datos-iaCedula-acciones {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* En celular: TODOS los botones a ancho completo de la pantalla (solo cambia
+  el layout: el ✓ a la derecha lo hereda del space-between del botón). */
 @media (max-width: 600px) {
   .Datos-iaCedula-acciones {
     display: flex;
@@ -530,8 +568,6 @@
     flex: 1;
     width: 100%;
     min-width: 0;
-    justify-content: center;
-    text-align: center;
     padding: 12px 10px;
   }
 
@@ -570,9 +606,12 @@
 }
 
 /* Botones de lectura IA para el resto de documentos (licencia, RUT, bancario...) */
+/* Botón de documento de la tarjeta IA: texto a la izquierda y el ✓ (si hay)
+   SIEMPRE anclado al borde derecho, dentro del botón (2026-08-31). */
 .Datos-iaDoc-boton {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 9px 14px;
   background: #fff;
@@ -583,6 +622,13 @@
   color: #1e2f45;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
+  min-width: 0;
+}
+
+.Datos-iaDoc-texto {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .Datos-iaDoc-boton:hover {
@@ -602,18 +648,18 @@
   color: #1d7a45;
 }
 
-/* Badge "✓" (documento cargado) dentro del botón. */
+/* Badge "✓" (documento cargado) dentro del botón, pegado al borde derecho. */
 .Datos-iaDoc-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   background: #27ae60;
   color: #fff;
   font-size: 0.7rem;
   font-weight: 800;
   border-radius: 999px;
   padding: 2px 7px;
-  margin-left: 7px;
   box-shadow: 0 1px 4px rgba(39, 174, 96, 0.4);
 }
 
@@ -848,5 +894,78 @@
 
   .Datos-phone-region {
     min-width: 96px;
+  }
+}
+
+/* ── Referencias laborales adicionales (2026-08-31): tarjetas repetibles
+   debajo de la sección Referencias Laborales. La #1 sigue siendo los campos
+   planos obligatorios; estas son opcionales (máx 5). ── */
+.Datos-refs-adicionales {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.Datos-ref-adicional {
+  border: 1px dashed #c7d0dd;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fbfcfe;
+}
+
+.Datos-ref-adicional-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.Datos-ref-adicional-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #1e2f45;
+}
+
+.Datos-ref-adicional-quitar {
+  border: none;
+  background: #fdecea;
+  color: #c0392b;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 34px;
+}
+
+.Datos-ref-adicional-quitar:hover {
+  background: #f9d5d2;
+}
+
+.Datos-ref-agregar {
+  align-self: flex-start;
+  border: 1.5px dashed #9db3cc;
+  background: transparent;
+  color: #2c5f9e;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.Datos-ref-agregar:hover {
+  background: #eef4fb;
+  border-style: solid;
+}
+
+@media (max-width: 600px) {
+  .Datos-ref-adicional-quitar,
+  .Datos-ref-agregar {
+    align-self: stretch;
+    width: 100%;
   }
 }

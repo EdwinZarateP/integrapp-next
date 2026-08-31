@@ -179,6 +179,19 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
         <p><strong>Antigüedad Ref:</strong> {veh.condAntiguedadRef}</p>
         <p><strong>Mercancía:</strong> {veh.condMercTransportada}</p>
       </div>
+      {Array.isArray(veh.referenciasAdicionales) && veh.referenciasAdicionales.length > 0 && (
+        veh.referenciasAdicionales.map((ref: any, i: number) => (
+          <div key={`ref-adicional-${i}`} className="datos-grid datos-grid--suave">
+            <p><strong>Empresa Ref {i + 2}:</strong> {ref.empresa}</p>
+            <p><strong>Celular Ref {i + 2}:</strong> {ref.celular}</p>
+            <p><strong>Ciudad Ref {i + 2}:</strong>{' '}
+              {[ref.ciudad, ref.departamento].filter(Boolean).join(' / ')}</p>
+            <p><strong>Nro Viajes:</strong> {ref.nroViajes}</p>
+            <p><strong>Antigüedad:</strong> {ref.antiguedad}</p>
+            <p><strong>Mercancía:</strong> {ref.mercancia}</p>
+          </div>
+        ))
+      )}
 
       <h4 className="titulo-seccion">🔑 Datos del Propietario</h4>
       <div className="datos-grid">
