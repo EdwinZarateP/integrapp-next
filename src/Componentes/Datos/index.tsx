@@ -168,6 +168,24 @@ const ANIO_ACTUAL = new Date().getFullYear();
    (formato histórico, ej: 3001234567); otra región → "+<código> <número>". ── */
 const PHONE_FIELDS = ['condCelular', 'condCelularEmergencia', 'condCelularRef', 'propCelular', 'tenedCelular'];
 
+/* Nombre entendible de cada celular (para el Swal y saber de quién es el
+   número; el label del formulario es solo "Celular" en varias secciones). */
+const ETIQUETAS_CELULAR: Record<string, string> = {
+  condCelular: 'Celular del conductor',
+  condCelularEmergencia: 'Celular del contacto de emergencia',
+  condCelularRef: 'Celular de la referencia laboral del conductor',
+  propCelular: 'Celular del propietario',
+  tenedCelular: 'Celular del tenedor',
+};
+
+/* Colombia (sin prefijo): 10 dígitos. Internacional (+código): 6-13. */
+const celularEsValido = (valor: string): boolean => {
+  const digitos = valor.replace(/\D/g, '');
+  return valor.startsWith('+')
+    ? digitos.length >= 6 && digitos.length <= 13
+    : digitos.length === 10;
+};
+
 /* Fechas que provienen del RUT del propietario/tenedor: NO son clon del
    conductor, así que siguen editables aunque los toggles de figura estén
    activos (el RUT se exige igual aunque las figuras coincidan). */
@@ -503,11 +521,13 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
   { tipo: 'soat', esquema: 'soat', etiqueta: '🛡️ SOAT' },
   { tipo: 'cedula_propietario', esquema: 'cedula', etiqueta: '🪪 Cédula del propietario' },
   { tipo: 'cedula_tenedor', esquema: 'cedula', etiqueta: '🪪 Cédula del tenedor' },
-  { tipo: 'rut_propietario', esquema: 'rut', etiqueta: '📊 RUT del propietario', soloPdf: true },
   { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor', soloPdf: true },
+  // (2026-08-31) Sin «RUT del propietario»: ese documento dejó de pedirse
+  // por completo (orden del usuario).
   { tipo: 'certificado_bancario_cond', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario conductor' },
   { tipo: 'certificado_bancario_tened', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario tenedor' },
-  { tipo: 'certificado_bancario_prop', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario propietario' },
+  // (2026-08-31) Sin «Cert. bancario propietario»: ese documento dejó de
+  // pedirse por completo (orden del usuario).
 ];
 
 /* Documentos del conductor que pueden REUTILIZARSE como documento del
@@ -523,7 +543,6 @@ const REUTILIZABLES_CONDUCTOR: Record<string, {
 }> = {
   cedula_propietario: { figura: 'propietario', documento: 'cedula', campoConductor: 'documentoIdentidadConductor', nombreDoc: 'cédula', femenino: true },
   cedula_tenedor: { figura: 'tenedor', documento: 'cedula', campoConductor: 'documentoIdentidadConductor', nombreDoc: 'cédula', femenino: true },
-  certificado_bancario_prop: { figura: 'propietario', documento: 'certificado_bancario', campoConductor: 'condCertificacionBancaria', nombreDoc: 'certificado bancario', femenino: false },
   certificado_bancario_tened: { figura: 'tenedor', documento: 'certificado_bancario', campoConductor: 'condCertificacionBancaria', nombreDoc: 'certificado bancario', femenino: false },
 };
 
@@ -588,9 +607,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
   // Visor de documento de dos caras (botón 👁 de la tarjeta IA): frente +
   // «Girar para ver el respaldo», sin tener que elegir la cara de antemano.
   const [verCaraIA, setVerCaraIA] = useState<{ frente: string; reverso?: string; etiqueta: string } | null>(null);
-  // Se limpian solos conforme el usuario va llenando.
+  // Se limpian solos conforme el usuario va llenando. Los celulares marcados
+  // por número inválido siguen en rojo hasta que el número quede bien.
   useEffect(() => {
-    setCamposError(prev => prev.filter(c => !formData[c] || formData[c].trim() === ''));
+    setCamposError(prev => prev.filter(c => {
+      const valor = formData[c] || '';
+      if (!valor.trim()) return true; // sigue vacío → sigue en rojo
+      if (PHONE_FIELDS.includes(c)) return !celularEsValido(valor); // válido → quitar rojo
+      return false;
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData]);
 
@@ -862,7 +887,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             });
             return; // NO subir el archivo.
           }
-          lecturaFallida = true; // Ilegible: se sube igual.
+          // Ilegible: se sube igual. Si el backend dejó un motivo legible
+          // (ej. PDF con contraseña), viaja como aviso al Swal de resultado.
+          if (error?.message) avisos = [error.message];
+          lecturaFallida = true;
         }
 
         // 2) Subir el FRENTE como documento oficial (+ REVERSO si lo hay).
@@ -1435,22 +1463,22 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
             return;
         }
     }
-    for (const field of phoneFields) {
-        const valor = formData[field] || '';
-        if (!valor) continue;
-        const digitos = valor.replace(/\D/g, '');
-        // Colombia (sin prefijo): 10 dígitos. Internacional (+código): 6-12.
-        const esValido = valor.startsWith('+')
-          ? digitos.length >= 6 && digitos.length <= 13
-          : digitos.length === 10;
-        if (!esValido) {
-            Swal.fire({
-                title: "Número incorrecto",
-                text: `Revisa el celular "${field}": Colombia debe tener 10 dígitos; con otra región, elige el prefijo (+) y escribe el número local.`,
-                icon: "warning",
-            });
-            return;
-        }
+    // Celulares: los inválidos se marcan en rojo (mismo mecanismo que los
+    // obligatorios faltantes) y se lista de quién es cada número.
+    const celularesInvalidos = phoneFields.filter(field => (formData[field] || '') && !celularEsValido(formData[field]));
+    if (celularesInvalidos.length > 0) {
+        setCamposError(prev => [...new Set([...prev, ...celularesInvalidos])]);
+        const primero = document.querySelector(`[data-campo="${celularesInvalidos[0]}"]`);
+        if (primero) primero.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const etiquetas = celularesInvalidos.map(f => `<li>${ETIQUETAS_CELULAR[f] || etiquetaDeCampo(f)}</li>`).join('');
+        const plural = celularesInvalidos.length > 1 ? 's' : '';
+        Swal.fire({
+            title: `Número${plural} incorrecto${plural}`,
+            html: `Revisa el celular de:<ul style="text-align:left; margin:10px 0 0; padding-left:20px;">${etiquetas}</ul>Quedó marcado en <b style="color:#e74c3c">rojo</b> en el formulario. Colombia debe tener 10 dígitos; con otra región, elige el prefijo (+) y escribe el número local.`,
+            icon: "warning",
+            confirmButtonColor: '#e67e22',
+        });
+        return;
     }
     setIsLoading(true);
 

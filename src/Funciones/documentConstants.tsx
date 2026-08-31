@@ -24,11 +24,11 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     "Planilla de ARL": `${API_BASE_URL}/subir-documento`,
     "Foto Conductor": `${API_BASE_URL}/subir-documento`,
     "Certificación Bancaria Conductor": `${API_BASE_URL}/subir-documento`,
-    "Certificación Bancaria Propietario": `${API_BASE_URL}/subir-documento`,
     "Certificación Bancaria Tenedor": `${API_BASE_URL}/subir-documento`,
+    // (2026-08-31) «Certificación Bancaria Propietario» ELIMINADA del pedido.
     "Documento que lo acredite como Tenedor": `${API_BASE_URL}/subir-documento`,
-    "RUT Tenedor": `${API_BASE_URL}/subir-documento`,
-    "RUT Propietario": `${API_BASE_URL}/subir-documento`
+    "RUT Tenedor": `${API_BASE_URL}/subir-documento`
+    // (2026-08-31) «RUT Propietario» ELIMINADO del pedido.
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 
@@ -50,11 +50,10 @@ export const tiposMapping: Record<string, string> = Object.fromEntries(
     "Planilla de EPS y ARL": "planillaEpsArl",
     "Foto Conductor": "condFoto",
     "Certificación Bancaria Conductor": "condCertificacionBancaria",
-    "Certificación Bancaria Propietario": "propCertificacionBancaria",
     "Certificación Bancaria Tenedor": "tenedCertificacionBancaria",
     "Documento que lo acredite como Tenedor": "documentoAcreditacionTenedor",
-    "RUT Tenedor": "rutTenedor",
-    "RUT Propietario": "rutPropietario"
+    "RUT Tenedor": "rutTenedor"
+    // (2026-08-31) «RUT Propietario» ELIMINADO del pedido.
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 
@@ -73,10 +72,16 @@ export const FAMILIAS_FIGURA: Record<string, Record<string, string>> = {
   },
   bancaria: {
     conductor: "condCertificacionBancaria",
+    // (2026-08-31) La cert. bancaria del PROPIETARIO dejó de PEDIRSE: se
+    // conserva aquí solo para que la deduplicación cond↔tened de la familia
+    // siga funcionando (figuraQueCubre exige que la familia esté completa).
     propietario: "propCertificacionBancaria",
     tenedor: "tenedCertificacionBancaria",
   },
   rut: {
+    // (2026-08-31) El RUT del PROPIETARIO dejó de PEDIRSE: se conserva aquí
+    // como campo gemelo solo por compatibilidad (el backend sigue aceptando
+    // el tipo y replicándolo con históricos); ninguna UI lo pide ya.
     propietario: "rutPropietario",
     tenedor: "rutTenedor",
   },

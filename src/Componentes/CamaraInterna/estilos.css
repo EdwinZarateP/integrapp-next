@@ -67,6 +67,38 @@
   display: block;
 }
 
+/* Procesando/capturada: el preview se atenúa para acompañar el chip de estado. */
+.Camara-video--pausada {
+  filter: brightness(0.65);
+}
+
+/* Chip de estado del proceso post-click (2026-08-31): antes la compresión de
+   la foto transcurría sin señal y la cámara «se quedaba pausada». */
+.Camara-estado {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  animation: CamaraAparece 0.15s ease-out;
+}
+
+.Camara-estado--ok {
+  background: rgba(21, 128, 61, 0.92);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+@keyframes CamaraAparece {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 /* Marco guía sutil para documentos. */
 .Camara-marco {
   position: absolute;
@@ -118,10 +150,12 @@
   background: rgba(255, 255, 255, 0.15);
   border: none;
   color: #fff;
-  width: 46px;
-  height: 46px;
+  /* Botón de cambiar cámara (frontal/trasera) más grande (2026-08-31, orden
+     del usuario): era chico frente al de captura y costaba atinarle. */
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  font-size: 1.15rem;
+  font-size: 1.55rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;

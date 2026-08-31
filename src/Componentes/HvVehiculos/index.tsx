@@ -131,8 +131,6 @@ const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null 
                         <Text style={[styles.headerGreen, { borderTop: '1px solid #000' }]}>4. PROPIETARIO</Text>
                         <View style={styles.docColContent}>
                             <CheckItem label="Doc. Identidad Propietario" checked={hasDoc(['documentoIdentidadPropietario'])} />
-                            <CheckItem label="Cert. Bancaria Propietario" checked={hasDoc(['certificacionBancariaPropietario'])} />
-                            <CheckItem label="RUT Propietario" checked={hasDoc(['rutPropietario'])} />
                         </View>
                     </View>
                 </View>

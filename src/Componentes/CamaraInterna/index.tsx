@@ -44,6 +44,11 @@ const CamaraInterna: React.FC<CamaraInternaProps> = ({
   const [facing, setFacing] = useState<'environment' | 'user'>('environment');
   const [capturando, setCapturando] = useState(false);
   const [flash, setFlash] = useState(false);
+  // Retroalimentación del proceso post-click (2026-08-31): la compresión de la
+  // foto (canvas.toBlob a ~1600px) puede tardar cientos de ms en equipos
+  // económicos y antes no había señal alguna — el usuario sentía que la
+  // cámara se quedaba pausada.
+  const [fase, setFase] = useState<'viva' | 'procesando' | 'capturada'>('viva');
 
   const detener = useCallback(() => {
     if (streamRef.current) {
@@ -96,6 +101,7 @@ const CamaraInterna: React.FC<CamaraInternaProps> = ({
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight || capturando) return;
     setCapturando(true);
+    setFase('procesando');
     try {
       // Limitar el lado mayor: la captura de documento no necesita más de
       // ~1600px y así el JPEG sale liviano de una vez (sin re-encode luego).
@@ -115,14 +121,17 @@ const CamaraInterna: React.FC<CamaraInternaProps> = ({
       canvas.height = 0;
       if (!blob) throw new Error('blob');
       const archivo = new File([blob], `foto_${Date.now()}.jpg`, { type: 'image/jpeg' });
-      // Flash visual de confirmación antes de cerrar.
+      // Confirmación visible ANTES de cerrar: flash + «Foto capturada»
+      // (antes el cierre era tan rápido que parecía que no pasó nada).
+      setFase('capturada');
       setFlash(true);
       setTimeout(() => {
         setFlash(false);
         detener();
         onCaptura(archivo);
-      }, 180);
+      }, 500);
     } catch {
+      setFase('viva');
       setError('No pudimos tomar la foto. Intenta de nuevo o usa «Adjuntar».');
     } finally {
       setCapturando(false);
@@ -138,9 +147,20 @@ const CamaraInterna: React.FC<CamaraInternaProps> = ({
         </div>
 
         <div className="Camara-zona-video">
-          <video ref={videoRef} playsInline muted className="Camara-video" />
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            className={`Camara-video ${fase !== 'viva' ? 'Camara-video--pausada' : ''}`}
+          />
           {/* Guía para documentos: marco centrado sutil. */}
           <div className="Camara-marco" aria-hidden="true" />
+          {/* Estado del proceso post-click: «procesando» / «capturada». */}
+          {fase !== 'viva' && (
+            <div className={`Camara-estado ${fase === 'capturada' ? 'Camara-estado--ok' : ''}`}>
+              {fase === 'procesando' ? '⏳ Procesando foto…' : '✓ Foto capturada'}
+            </div>
+          )}
           {flash && <div className="Camara-flash" aria-hidden="true" />}
           {error && (
             <div className="Camara-error">
@@ -154,6 +174,7 @@ const CamaraInterna: React.FC<CamaraInternaProps> = ({
             type="button"
             className="Camara-btn-flip"
             onClick={() => setFacing(f => (f === 'environment' ? 'user' : 'environment'))}
+            disabled={fase !== 'viva'}
             aria-label="Cambiar cámara"
             title="Cambiar cámara"
           >
@@ -163,7 +184,7 @@ const CamaraInterna: React.FC<CamaraInternaProps> = ({
             type="button"
             className="Camara-btn-capturar"
             onClick={capturar}
-            disabled={Boolean(error) || capturando}
+            disabled={Boolean(error) || capturando || fase !== 'viva'}
             aria-label="Tomar foto"
           >
             <span className="Camara-btn-capturar-inner" />
@@ -172,7 +193,11 @@ const CamaraInterna: React.FC<CamaraInternaProps> = ({
           <span className="Camara-btn-flip" style={{ visibility: 'hidden' }}>🔄</span>
         </div>
         <p className="Camara-pie">
-          Enfoca el documento ocupando el marco y toma la foto. Necesita el permiso de cámara del navegador (🔒 en la barra de direcciones).
+          {fase === 'procesando'
+            ? 'Procesando la foto, no cierres esta pantalla…'
+            : fase === 'capturada'
+              ? '¡Listo! Continuando con el documento…'
+              : 'Enfoca el documento ocupando el marco y toma la foto. Necesita el permiso de cámara del navegador (🔒 en la barra de direcciones).'}
         </p>
       </div>
     </div>

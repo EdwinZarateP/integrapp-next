@@ -83,7 +83,7 @@ const initialSecciones: SeccionDocumentos[] = [
         { nombre: "Fotos", progreso: 0, hint: "Mínimo 1 · máximo 10 fotos" },
         { nombre: "Revisión Tecnomecánica", progreso: 0 },
         { nombre: "Tarjeta de Remolque", progreso: 0, opcional: true },
-        { nombre: "Póliza de Responsabilidad Civil", progreso: 0 },
+        { nombre: "Póliza de Responsabilidad Civil", progreso: 0, opcional: true },
       ]
     },
     {
@@ -109,8 +109,8 @@ const initialSecciones: SeccionDocumentos[] = [
         subtitulo: "4. Documentos del Propietario",
         items: [
           { nombre: "Documento de Identidad del Propietario", progreso: 0 },
-          { nombre: "Certificación Bancaria Propietario", progreso: 0 },
-          { nombre: "RUT Propietario", progreso: 0 }
+          // (2026-08-31) Sin RUT ni Cert. Bancaria del propietario: dejaron de
+          // pedirse por completo (orden del usuario).
         ]
     }
 ];
@@ -141,10 +141,17 @@ const getOverallDocumentProgress = (secciones: SeccionDocumentos[]) => {
    Reutilizada por el flujo de edición (selectedPlate) y por el modal "Ver mis datos". */
 const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => {
   const limpias: SeccionDocumentos[] = JSON.parse(JSON.stringify(initialSecciones));
+  // Tenedor = propietario: la tarjeta de propiedad ya lo acredita → el
+  // «Documento que lo acredite como Tenedor» deja de ser obligatorio
+  // (espejo de _documentos_faltantes del backend).
+  const { tenedIgualProp } = calcularFigurasIguales(vehiculo || {});
   return limpias.map((sec: SeccionDocumentos) => ({
     ...sec,
     items: sec.items.map((item: DocumentoItem) => {
       const field = tiposMapping[normalizeKey(item.nombre)] || "";
+      const opcionalFinal = Boolean(item.opcional) || (
+        field === 'documentoAcreditacionTenedor' && tenedIgualProp
+      );
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
       // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
       // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.
@@ -165,6 +172,7 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
           if (valor.length === 0) {
             return {
               ...item,
+              opcional: opcionalFinal,
               progreso: 0,
               url: undefined,
               cubiertoPor: figuraQueCubre(field, vehiculo),
@@ -174,6 +182,7 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
         }
         return {
           ...item,
+          opcional: opcionalFinal,
           progreso: 100,
           url: valor,
           reversoUrl,
@@ -181,7 +190,7 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
           hint: requiereReverso && !reversoUrl ? 'Falta el reverso' : item.hint,
         };
       }
-      return { ...item, progreso: 0, url: undefined, cubiertoPor: figuraQueCubre(field, vehiculo), reversoUrl };
+      return { ...item, opcional: opcionalFinal, progreso: 0, url: undefined, cubiertoPor: figuraQueCubre(field, vehiculo), reversoUrl };
     })
   }));
 };
@@ -1518,9 +1527,9 @@ const PanelConductoresVista: React.FC = () => {
           /* Tope de fotos del vehículo (mín. 1 · máx. 10): el modal avisa
              antes de subir si esta tanda se pasa del límite. */
           maximo={normalizeKey(selectedDocumento.documentName) === 'fotos' ? 10 : undefined}
-          /* RUT de tenedor/propietario: SOLO PDF (archivo descargado de la
-             DIAN), sin opción de tomar foto. */
-          soloPdf={['rut tenedor', 'rut propietario'].includes(normalizeKey(selectedDocumento.documentName))}
+          /* RUT del tenedor: SOLO PDF (archivo descargado de la DIAN), sin
+             opción de tomar foto. */
+          soloPdf={normalizeKey(selectedDocumento.documentName) === 'rut tenedor'}
           cantidadActual={(() => {
             if (normalizeKey(selectedDocumento.documentName) !== 'fotos') return undefined;
             const it = secciones[selectedDocumento.sectionIndex]?.items[selectedDocumento.itemIndex];

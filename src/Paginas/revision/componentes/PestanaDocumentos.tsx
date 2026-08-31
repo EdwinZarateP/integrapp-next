@@ -19,10 +19,8 @@ const DOCUMENTOS_DISPLAY = [
   { key: "planillaEpsArl", label: "Planilla EPS/ARL" },
   { key: "documentoIdentidadTenedor", label: "Cédula Tenedor", dosCaras: true },
   { key: "documentoIdentidadPropietario", label: "Cédula Propietario", dosCaras: true },
-  { key: "rutPropietario", label: "RUT Propietario" },
   { key: "rutTenedor", label: "RUT Tenedor" },
   { key: "condCertificacionBancaria", label: "Cert. Bancaria Cond." },
-  { key: "propCertificacionBancaria", label: "Cert. Bancaria Prop." },
   { key: "tenedCertificacionBancaria", label: "Cert. Bancaria Tened." },
 ];
 

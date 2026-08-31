@@ -60,6 +60,10 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  // Preparando archivos (2026-08-31): comprimir fotos de galería puede tardar
+  // varios segundos en móvil; antes no había señal entre elegir el archivo y
+  // ver «Subiendo…» — el modal parecía congelado.
+  const [preparando, setPreparando] = useState(false);
   const [selectedFileNames, setSelectedFileNames] = useState<string>("Ningún archivo seleccionado");
   // Dos caras: frente elegido esperando que se elija el reverso.
   const frentePendienteRef = useRef<File | null>(null);
@@ -99,30 +103,36 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
       // desbordan la memoria del navegador en móviles y bloquean la carga
       // ("memoria insuficiente"); comprimidas (~1600px) suben rápido y sin
       // rechazos por tamaño. Ante fallo devuelve el archivo original.
-      const comprimidos = await Promise.all(files.map(f => comprimirImagen(f)));
+      setPreparando(true);
+      let validFiles: File[] = [];
+      try {
+        const comprimidos = await Promise.all(files.map(f => comprimirImagen(f)));
+        validFiles = comprimidos.filter(file =>
+          soloPdf ? file.type === 'application/pdf'
+                  : ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)
+        );
+        if (validFiles.length === 0) {
+          Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'Solo se permiten archivos de imagen (jpg, jpeg, png) o PDF.' });
+          return;
+        }
+        const tooBig = validFiles.filter(file => file.size > MAX_SIZE_BYTES);
+        if (tooBig.length > 0) {
+          Swal.fire({ icon: 'error', title: 'Archivo muy pesado', text: `Cada archivo debe pesar máximo ${MAX_SIZE_MB} MB. Revisa: ${tooBig.map(f => f.name).join(', ')}` });
+          return;
+        }
+        // Tope total (fotos del vehículo): las ya subidas + esta tanda.
+        if (maximo != null && (cantidadActual ?? 0) + validFiles.length > maximo) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Demasiadas fotos',
+            text: `Máximo ${maximo} fotos del vehículo. Ya tienes ${cantidadActual ?? 0}; puedes subir hasta ${Math.max(maximo - (cantidadActual ?? 0), 0)} más.`,
+          });
+          return;
+        }
+      } finally {
+        setPreparando(false);
+      }
       e.target.value = '';
-      const validFiles = comprimidos.filter(file =>
-        soloPdf ? file.type === 'application/pdf'
-                : ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)
-      );
-      if (validFiles.length === 0) {
-        Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'Solo se permiten archivos de imagen (jpg, jpeg, png) o PDF.' });
-        return;
-      }
-      const tooBig = validFiles.filter(file => file.size > MAX_SIZE_BYTES);
-      if (tooBig.length > 0) {
-        Swal.fire({ icon: 'error', title: 'Archivo muy pesado', text: `Cada archivo debe pesar máximo ${MAX_SIZE_MB} MB. Revisa: ${tooBig.map(f => f.name).join(', ')}` });
-        return;
-      }
-      // Tope total (fotos del vehículo): las ya subidas + esta tanda.
-      if (maximo != null && (cantidadActual ?? 0) + validFiles.length > maximo) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Demasiadas fotos',
-          text: `Máximo ${maximo} fotos del vehículo. Ya tienes ${cantidadActual ?? 0}; puedes subir hasta ${Math.max(maximo - (cantidadActual ?? 0), 0)} más.`,
-        });
-        return;
-      }
       // Dos caras (licencia/tarjeta): el FRENTE queda listo y se pide el
       // REVERSO a continuación — ambos suben juntos en un solo request.
       if (esDosCaras) {
@@ -158,7 +168,13 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     const frente = frentePendienteRef.current;
     frentePendienteRef.current = null;
     if (!frente) return;
-    const reverso = reversoOriginal ? await comprimirImagen(reversoOriginal) : null;
+    setPreparando(true);
+    let reverso: File | null = null;
+    try {
+      reverso = reversoOriginal ? await comprimirImagen(reversoOriginal) : null;
+    } finally {
+      setPreparando(false);
+    }
     if (reverso && !validarArchivo(reverso)) {
       await handleUpload([frente]);
       return;
@@ -259,6 +275,15 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             confirmButtonColor: '#27ae60',
             timer: 6000,
           });
+        } else if (lectura && (lectura.avisos || []).length > 0) {
+          // Sin datos pero con aviso (ej. PDF con contraseña): el documento
+          // quedó guardado; se explica por qué la IA no leyó nada.
+          Swal.fire({
+            icon: 'info',
+            title: 'Documento guardado',
+            html: (lectura.avisos || []).map(a => `<div>${a}</div>`).join(''),
+            confirmButtonColor: '#2c5f9e',
+          });
         }
       } else {
         Swal.fire({ icon: 'error', title: 'Error', text: 'Error al subir el documento.' });
@@ -305,7 +330,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
               type="button"
               className="CargaDocumento-btn-file CargaDocumento-btn-camara"
               onClick={() => setCamaraAbierta('frente')}
-              disabled={uploading}
+              disabled={uploading || preparando}
             >
               📷 Tomar foto
             </button>
@@ -322,7 +347,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             accept={soloPdf ? 'application/pdf' : 'image/jpeg, image/png, image/jpg, application/pdf'}
             multiple={documentName === "Fotos"}
             onChange={handleFileChange}
-            disabled={uploading}
+            disabled={uploading || preparando}
             className="CargaDocumento-input-hidden"
           />
           {/* Reverso del documento de dos caras (elegido tras el frente). */}
@@ -336,9 +361,11 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             style={{ display: 'none' }}
           />
         </div>
-        {uploading && (
+        {(uploading || preparando) && (
           <div className="CargaDocumento-uploading-container">
-            <p className="CargaDocumento-mensaje-subiendo">Subiendo...</p>
+            <p className="CargaDocumento-mensaje-subiendo">
+              {preparando && !uploading ? 'Preparando el archivo…' : 'Subiendo...'}
+            </p>
             <Lottie animationData={animationData} style={{ height: 200, width: '100%', margin: 'auto' }} />
           </div>
         )}

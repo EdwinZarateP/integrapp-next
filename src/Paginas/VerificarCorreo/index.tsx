@@ -8,6 +8,12 @@ import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 
+/* Declaración que NO bloquea la activación (2026-08-31): si no se marca, el
+   flujo continúa igual; si se marca, viaja al backend para dejar evidencia.
+   En la UI se ve idéntica a las demás (no se comunica como opcional). Debe
+   coincidir con DECLARACIONES_NO_EXIGIDAS del backend (conductores.py). */
+const DECLARACION_NO_EXIGIDA = 'tratamiento_datos';
+
 type Estado = 'verificando' | 'pendiente_aceptacion' | 'exito' | 'error';
 
 interface Declaracion {
@@ -41,8 +47,9 @@ const VerificarCorreo: React.FC = () => {
   const [errorAceptacion, setErrorAceptacion] = useState('');
 
   const declaraciones = politica?.declaraciones || [];
+  const declaracionesExigidas = declaraciones.filter((d) => d.id !== DECLARACION_NO_EXIGIDA);
   const todasAceptadas = declaraciones.length > 0
-    ? declaraciones.every((d) => aceptadas[d.id])
+    ? declaracionesExigidas.every((d) => aceptadas[d.id])
     : aceptado;
 
   useEffect(() => {
@@ -94,7 +101,7 @@ const VerificarCorreo: React.FC = () => {
           token,
           version_politica: politica.version,
           acepta: true,
-          declaraciones_aceptadas: declaraciones.map((d) => d.id),
+          declaraciones_aceptadas: declaraciones.filter((d) => aceptadas[d.id]).map((d) => d.id),
         }),
       });
       const data = await resp.json().catch(() => ({}));
@@ -199,8 +206,8 @@ const VerificarCorreo: React.FC = () => {
                     </div>
                   ))}
                   <p className="VC-progresoDeclaraciones">
-                    {declaraciones.filter((d) => aceptadas[d.id]).length} de{' '}
-                    {declaraciones.length} declaraciones aceptadas
+                    {declaracionesExigidas.filter((d) => aceptadas[d.id]).length} de{' '}
+                    {declaracionesExigidas.length} declaraciones aceptadas
                   </p>
                 </>
               ) : (

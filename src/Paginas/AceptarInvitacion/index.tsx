@@ -9,6 +9,12 @@ import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 
+/* Declaración que NO bloquea la activación (2026-08-31): si no se marca, el
+   flujo continúa igual; si se marca, viaja al backend para dejar evidencia.
+   En la UI se ve idéntica a las demás (no se comunica como opcional). Debe
+   coincidir con DECLARACIONES_NO_EXIGIDAS del backend (conductores.py). */
+const DECLARACION_NO_EXIGIDA = 'tratamiento_datos';
+
 type Estado = 'verificando' | 'pendiente_aceptacion' | 'exito' | 'error';
 
 interface Declaracion {
@@ -47,8 +53,9 @@ const AceptarInvitacion: React.FC = () => {
   const [errorForm, setErrorForm] = useState('');
 
   const declaraciones = politica?.declaraciones || [];
+  const declaracionesExigidas = declaraciones.filter((d) => d.id !== DECLARACION_NO_EXIGIDA);
   const todasAceptadas = declaraciones.length > 0
-    ? declaraciones.every((d) => aceptadas[d.id])
+    ? declaracionesExigidas.every((d) => aceptadas[d.id])
     : aceptado;
 
   // 1. Validar el token contra /verificar-correo (mismo token de verificación).
@@ -125,7 +132,7 @@ const AceptarInvitacion: React.FC = () => {
           clave: clave.trim(),
           version_politica: politica.version,
           acepta: true,
-          declaraciones_aceptadas: declaraciones.map((d) => d.id),
+          declaraciones_aceptadas: declaraciones.filter((d) => aceptadas[d.id]).map((d) => d.id),
           celular: celular || null,
         }),
       });
@@ -241,8 +248,8 @@ const AceptarInvitacion: React.FC = () => {
                     Declaraciones de vinculación
                   </h3>
                   <p className="VC-progresoDeclaraciones" style={{ alignSelf: 'flex-start' }}>
-                    Lee y acepta cada declaración ({declaraciones.filter((d) => aceptadas[d.id]).length} de{' '}
-                    {declaraciones.length} aceptadas)
+                    Lee y acepta cada declaración ({declaracionesExigidas.filter((d) => aceptadas[d.id]).length} de{' '}
+                    {declaracionesExigidas.length} aceptadas)
                   </p>
                   {declaraciones.map((decl) => (
                     <div key={decl.id} className="VC-politicaCaja">
