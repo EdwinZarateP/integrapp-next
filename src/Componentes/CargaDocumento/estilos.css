@@ -63,12 +63,24 @@
   color: #555555;
 }
 
-/* Mensaje de éxito al completar la carga */
+/* Mensaje de éxito al completar la carga: chip VERDE con el mismo estilo del
+   «✓ Foto capturada» de la cámara (2026-08-31, orden del usuario). */
 .CargaDocumento-mensaje-progreso {
-  font-size: 1.1rem;
-  font-weight: bold;
-  margin-top: 1.5rem;
-  color: #2F6B3E;
+  width: fit-content;
+  margin: 1.5rem auto 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(21, 128, 61, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  animation: CargaDocumentoAparece 0.18s ease-out;
+}
+
+@keyframes CargaDocumentoAparece {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Botón de cierre con efecto hover encantador */

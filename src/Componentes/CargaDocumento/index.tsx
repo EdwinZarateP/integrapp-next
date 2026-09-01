@@ -370,7 +370,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           </div>
         )}
         {progress === 100 && !uploading && (
-          <div className="CargaDocumento-mensaje-progreso">¡Carga completa!</div>
+          <div className="CargaDocumento-mensaje-progreso">✓ ¡Carga completa!</div>
         )}
         <button className="CargaDocumento-btn-cerrar" onClick={onClose}>
           Cerrar
