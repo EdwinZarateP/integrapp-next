@@ -570,6 +570,13 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-top: 10px;
+}
+
+/* Separación cuando hay dos botones juntos (informe + anexo PGN) o al
+   envolver en pantallas angostas. */
+.PS-boton-pdf + .PS-boton-pdf {
+  margin-left: 10px;
 }
 
 /* Variante secundaria: anexo oficial de la Procuraduría (junto al informe). */

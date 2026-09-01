@@ -153,12 +153,43 @@ export default function PortalSeguridadP() {
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
 
+  // Sonido de notificación al terminar la consulta (2026-09-01, pedido del
+  // usuario): el mismo "ding" de SolicitudVehiculos al cargar planillas —
+  // Web Audio API, sin archivo. La consulta tarda hasta ~2 min: el aviso
+  // sonoro permite atender otra cosa mientras tanto.
+  const playNotificationSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Sonido tipo "ding" agradable
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
+      oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.3);
+
+      // Envelope suave
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.4);
+    } catch (error) {
+      console.warn("No se pudo reproducir el sonido:", error);
+    }
+  };
+
   const nombreFuente = (f: string) =>
     f === "manifiestos_rndc" ? "Manifiestos RNDC"
     : f === "procuraduria" ? "Procuraduría"
     : f === "policia" ? "Antecedentes Policía"
     : f === "runt" ? "Vehículo RUNT"
     : f === "simit" ? "Comparendos SIMIT"
+    : f === "sena" ? "Formación SENA"
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
@@ -179,6 +210,7 @@ export default function PortalSeguridadP() {
     policia: 110,
     runt: 75,
     simit: 20,
+    sena: 70, // portal rápido (~5 s) + solve del captcha de imagen (10-60 s)
   };
   const estimacionSegundos = (() => {
     const fs = planActivo?.fuentes ?? [];
@@ -249,6 +281,7 @@ export default function PortalSeguridadP() {
     setEstudioNuevo(null);
     try {
       const estudio = await crearEstudio(digitos, undefined, planAbierto, placaNorm, propietarioNorm, nombresNorm, apellidosNorm);
+      playNotificationSound(); // la consulta terminó
       setEstudioNuevo(estudio);
       // Mismo criterio del backend (2026-09-01): la consulta NO se cobra solo
       // si >51% de las fuentes corridas fallaron.
@@ -280,6 +313,7 @@ export default function PortalSeguridadP() {
       });
       cargarPortal();
     } catch (e: any) {
+      playNotificationSound(); // también terminó (con error): avisar igual
       Swal.fire("No se pudo consultar", mensajeError(e), "error");
     } finally {
       setConsultando(false);
@@ -604,6 +638,12 @@ export default function PortalSeguridadP() {
                   }
                   return <span>SIMIT: ✅ Sin comparendos ni multas</span>;
                       })()}
+                      {(() => {
+                        const sena = f.sena;
+                        if (!corrio(sena)) return null;
+                        const total = sena.total_certificados ?? 0;
+                        return <span>SENA: 🎓 {total > 0 ? `${total} certificado(s) de formación` : "Sin certificados registrados"}</span>;
+                      })()}
                     </>
                   );
                 })()}
@@ -632,29 +672,16 @@ export default function PortalSeguridadP() {
           {cupo ? (
             cupo.planes?.length ? (
               <>
-                {cupo.planes.map((p) => {
-                  const pct = !p.ilimitado && p.cupo_autorizado && p.cupo_autorizado > 0
-                    ? Math.min(100, (p.cupo_consumido / p.cupo_autorizado) * 100) : 0;
-                  return (
-                    <div key={p.plan_id} className="PS-fuente-cupo">
-                      <p className="PS-fuente-nombre">
-                        {p.nombre}
-                        <span className="PS-fuente-precio">{pesosColombianos(p.precio_por_estudio)}</span>
-                      </p>
-                      <small style={{ color: "#57606a" }}>{p.fuentes.map(nombreFuente).join(" + ")}</small>
-                      {p.ilimitado ? (
-                        <p className="PS-cupo-texto PS-cupo-ilimitado">Sin límite</p>
-                      ) : (
-                        <>
-                          <div className="PS-barra"><div className="PS-barra-llena" style={{ width: `${pct}%` }} /></div>
-                          <p className="PS-cupo-texto">
-                            Quedan <strong>{p.cupo_disponible ?? 0}</strong> de {p.cupo_autorizado}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                {/* Solo nombre y costo (2026-09-01, pedido del usuario): el
+                    desglose de cupo/fuentes vive en el acordeón de consulta. */}
+                {cupo.planes.map((p) => (
+                  <div key={p.plan_id} className="PS-fuente-cupo">
+                    <p className="PS-fuente-nombre">
+                      {p.nombre}
+                      <span className="PS-fuente-precio">{pesosColombianos(p.precio_por_estudio)}</span>
+                    </p>
+                  </div>
+                ))}
                 <p className="PS-cupo-mes">
                   Este mes: {cupo.consumo_mes.unidades} consulta(s) · {pesosColombianos(cupo.consumo_mes.cop)}
                 </p>

@@ -98,6 +98,16 @@ export interface FuenteEstudio {
     valor?: number | null;
     valor_a_pagar?: number | null;
   }[];
+  // Fuente sena (certificados de formación por cédula — informativo, sin semáforo)
+  total_certificados?: number | null;
+  certificados?: {
+    registro: string;
+    titulo?: string;
+    tipo?: string; // Acta / Título / Certificado Aprobación / Certificado de Notas…
+    programa?: string;
+    fecha_certificacion?: string | null;
+    fecha_firma?: string | null;
+  }[];
 }
 
 export interface EstudioResumen {
