@@ -190,6 +190,7 @@ export default function PortalSeguridadP() {
     : f === "runt" ? "Vehículo RUNT"
     : f === "simit" ? "Comparendos SIMIT"
     : f === "sena" ? "Formación SENA"
+    : f === "ofac" ? "Lista OFAC (SDN)"
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
@@ -211,6 +212,7 @@ export default function PortalSeguridadP() {
     runt: 75,
     simit: 20,
     sena: 70, // portal rápido (~5 s) + solve del captcha de imagen (10-60 s)
+    ofac: 15, // dataset oficial indexado; la primera descarga puede tardar
   };
   const estimacionSegundos = (() => {
     const fs = planActivo?.fuentes ?? [];

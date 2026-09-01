@@ -108,6 +108,22 @@ export interface FuenteEstudio {
     fecha_certificacion?: string | null;
     fecha_firma?: string | null;
   }[];
+  // Fuente OFAC: coincidencia exacta por identificación en la lista SDN.
+  aplica?: boolean;
+  total_coincidencias?: number;
+  fecha_publicacion?: string;
+  total_registros_lista?: number;
+  sha256_dataset?: string;
+  coincidencias?: {
+    uid: string;
+    nombre: string;
+    tipo?: string;
+    programas: string[];
+    lista: string;
+    tipo_documento?: string;
+    numero_documento?: string;
+    pais_documento?: string;
+  }[];
 }
 
 export interface EstudioResumen {
