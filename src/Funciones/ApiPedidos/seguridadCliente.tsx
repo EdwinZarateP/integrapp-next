@@ -129,6 +129,7 @@ export interface FuenteEstudio {
 export interface EstudioResumen {
   consulta_id: string;
   cedula: string;
+  nit?: string;
   placa?: string | null;
   nombre_consultado: string;
   estado: string;
@@ -197,16 +198,18 @@ export const obtenerCupo = async (): Promise<CupoCliente> => {
 };
 
 export const crearEstudio = async (
-  cedula: string,
+  cedula: string | undefined,
   fuentes?: string[],
   planId?: string,
   placa?: string,
   cedulaPropietario?: string,
   nombres?: string,
-  apellidos?: string
+  apellidos?: string,
+  nit?: string
 ): Promise<EstudioDetalle> => {
   const res = await api.post<EstudioDetalle>("", {
-    cedula,
+    ...(cedula ? { cedula } : {}),
+    ...(nit ? { nit } : {}),
     ...(fuentes ? { fuentes } : {}),
     ...(planId ? { plan_id: planId } : {}),
     ...(placa ? { placa } : {}),

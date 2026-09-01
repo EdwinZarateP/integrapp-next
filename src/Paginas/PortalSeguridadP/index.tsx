@@ -152,6 +152,7 @@ export default function PortalSeguridadP() {
   // que está consultando?"). Se envían SIN tildes (el backend normaliza).
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
+  const [nit, setNit] = useState("");
 
   // Sonido de notificación al terminar la consulta (2026-09-01, pedido del
   // usuario): el mismo "ding" de SolicitudVehiculos al cargar planillas —
@@ -190,7 +191,8 @@ export default function PortalSeguridadP() {
     : f === "runt" ? "Vehículo RUNT"
     : f === "simit" ? "Comparendos SIMIT"
     : f === "sena" ? "Formación SENA"
-    : f === "ofac" ? "Lista OFAC (SDN)"
+    : f === "ofac" ? "OFAC personas (cédula)"
+    : f === "ofac_nit" ? "OFAC empresas (NIT)"
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
@@ -202,6 +204,8 @@ export default function PortalSeguridadP() {
   // Procuraduría: el captcha de la PGN pregunta por el NOMBRE de la persona
   // consultada — el portal lo exige para poder responderla.
   const requiereNombres = planActivo?.fuentes?.includes("procuraduria") ?? false;
+  const requiereNit = planActivo?.fuentes?.includes("ofac_nit") ?? false;
+  const requiereCedula = planActivo?.fuentes?.some((f) => f !== "ofac_nit") ?? false;
   // Las fuentes del plan se consultan EN PARALELO: el tiempo total es el de
   // la MÁS LENTA (no la suma). Presupuesto orientativo por fuente (portal
   // vivo + reintento), tope del backend 150 s por fuente.
@@ -213,6 +217,7 @@ export default function PortalSeguridadP() {
     simit: 20,
     sena: 70, // portal rápido (~5 s) + solve del captcha de imagen (10-60 s)
     ofac: 15, // dataset oficial indexado; la primera descarga puede tardar
+    ofac_nit: 15,
   };
   const estimacionSegundos = (() => {
     const fs = planActivo?.fuentes ?? [];
@@ -223,8 +228,13 @@ export default function PortalSeguridadP() {
   const consultar = async (e: React.FormEvent) => {
     e.preventDefault();
     const digitos = cedula.replace(/\D/g, "");
-    if (digitos.length < 3 || digitos.length > 15) {
+    if (requiereCedula && (digitos.length < 3 || digitos.length > 15)) {
       Swal.fire("Cédula inválida", "Debe tener entre 3 y 15 dígitos", "warning");
+      return;
+    }
+    const nitNorm = nit.replace(/\D/g, "");
+    if (requiereNit && (nitNorm.length < 6 || nitNorm.length > 15)) {
+      Swal.fire("NIT inválido", "Ingrese el NIT completo con dígito de verificación", "warning");
       return;
     }
     // Sin planes elegibles no hay nada que consultar (la tarjeta de plan ya
@@ -282,7 +292,7 @@ export default function PortalSeguridadP() {
     setConsultando(true);
     setEstudioNuevo(null);
     try {
-      const estudio = await crearEstudio(digitos, undefined, planAbierto, placaNorm, propietarioNorm, nombresNorm, apellidosNorm);
+      const estudio = await crearEstudio(requiereCedula ? digitos : undefined, undefined, planAbierto, placaNorm, propietarioNorm, nombresNorm, apellidosNorm, requiereNit ? nitNorm : undefined);
       playNotificationSound(); // la consulta terminó
       setEstudioNuevo(estudio);
       // Mismo criterio del backend (2026-09-01): la consulta NO se cobra solo
@@ -451,6 +461,8 @@ export default function PortalSeguridadP() {
                 const pidePlaca = p.fuentes?.some((f) => f === "runt" || f === "simit");
                 const pidePropietario = p.fuentes?.includes("runt");
                 const pideNombres = p.fuentes?.includes("procuraduria");
+                const pideNit = p.fuentes?.includes("ofac_nit");
+                const pideCedula = p.fuentes?.some((f) => f !== "ofac_nit");
                 return (
                   <div key={p.plan_id} className={`PS-acordeon-item ${abierto ? "PS-acordeon-abierto" : ""}`}>
                     <button
@@ -474,13 +486,23 @@ export default function PortalSeguridadP() {
                     </button>
                     {abierto && (
                       <form onSubmit={consultar} className="PS-acordeon-cuerpo">
-                        <div className="PS-input-icono">
+                        {pideCedula && <div className="PS-input-icono">
                           <FaIdCard />
                           <input
                             inputMode="numeric" placeholder="Cédula" value={cedula}
                             onChange={(e) => setCedula(e.target.value)} disabled={consultando} autoFocus
                           />
-                        </div>
+                        </div>}
+                        {pideNit && (
+                          <div className="PS-input-icono">
+                            <FaIdCard />
+                            <input
+                              inputMode="numeric" placeholder="NIT con dígito de verificación"
+                              value={nit} onChange={(e) => setNit(e.target.value)}
+                              maxLength={20} disabled={consultando} autoFocus={!pideCedula}
+                            />
+                          </div>
+                        )}
                         {pideNombres && (
                           <>
                             <div className="PS-input-icono">
@@ -532,7 +554,7 @@ export default function PortalSeguridadP() {
                         <button
                           type="submit" className="PS-boton-primario"
                           disabled={
-                            consultando || !cedula
+                            consultando || (pideCedula && !cedula) || (pideNit && !nit)
                             || (pideNombres && (nombres.trim().length < 2 || apellidos.trim().length < 2))
                           }
                         >
