@@ -82,6 +82,22 @@ export interface FuenteEstudio {
     vigente?: boolean | null;
   } | null;
   polizas?: { numero: string; fecha_fin_vigencia?: string; aseguradora: string; estado: string }[];
+  // Fuente simit (comparendos de la placa — sin cédula ni propietario)
+  total_comparendos?: number | null;
+  total_multas?: number | null;
+  total_acuerdos?: number | null;
+  total_deuda?: number | null;
+  total_a_pagar?: number | null; // saldo EXIGIBLE: >0 → fuente ADVERTENCIA
+  comparendos?: {
+    numero: string;
+    tipo?: string;
+    fecha_imposicion?: string | null;
+    secretaria?: string;
+    infraccion?: string;
+    estado?: string;
+    valor?: number | null;
+    valor_a_pagar?: number | null;
+  }[];
 }
 
 export interface EstudioResumen {
@@ -159,7 +175,9 @@ export const crearEstudio = async (
   fuentes?: string[],
   planId?: string,
   placa?: string,
-  cedulaPropietario?: string
+  cedulaPropietario?: string,
+  nombres?: string,
+  apellidos?: string
 ): Promise<EstudioDetalle> => {
   const res = await api.post<EstudioDetalle>("", {
     cedula,
@@ -167,8 +185,14 @@ export const crearEstudio = async (
     ...(planId ? { plan_id: planId } : {}),
     ...(placa ? { placa } : {}),
     // Solo runt: cédula del PROPIETARIO del vehículo cuando el conductor
-    // evaluado no es el dueño (vacía → se usa la cédula consultada).
+    // evaluado no es el dueño (vacía → se usa la cédula consultada). simit
+    // consulta solo por placa y NO envía propietario.
     ...(placa && cedulaPropietario ? { cedula_propietario: cedulaPropietario } : {}),
+    // Solo procuraduria: el captcha de la PGN pregunta por el NOMBRE de la
+    // persona consultada ("¿cuál es su primer nombre?") — sin esto esa
+    // variante falla.
+    ...(nombres ? { nombres } : {}),
+    ...(apellidos ? { apellidos } : {}),
   });
   return res.data;
 };

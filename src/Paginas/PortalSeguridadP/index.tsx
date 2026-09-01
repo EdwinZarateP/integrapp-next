@@ -147,16 +147,44 @@ export default function PortalSeguridadP() {
   // Cédula del PROPIETARIO del vehículo (solo runt): el RUNT valida contra el
   // dueño ACTIVO de la placa, que muchas veces no es el conductor evaluado.
   const [cedulaPropietario, setCedulaPropietario] = useState("");
+  // Nombres/apellidos de la persona evaluada (solo procuraduria): el captcha
+  // de la PGN pregunta por ellos ("¿cuál es el primer nombre de la persona
+  // que está consultando?"). Se envían SIN tildes (el backend normaliza).
+  const [nombres, setNombres] = useState("");
+  const [apellidos, setApellidos] = useState("");
 
   const nombreFuente = (f: string) =>
     f === "manifiestos_rndc" ? "Manifiestos RNDC"
     : f === "procuraduria" ? "Procuraduría"
     : f === "policia" ? "Antecedentes Policía"
     : f === "runt" ? "Vehículo RUNT"
+    : f === "simit" ? "Comparendos SIMIT"
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
-  const requierePlaca = planActivo?.fuentes?.includes("runt") ?? false;
+  // Placa la piden runt Y simit (ambas consultan por vehículo); la cédula del
+  // propietario es SOLO de runt (simit no conoce propietario).
+  const requierePlaca =
+    planActivo?.fuentes?.some((f) => f === "runt" || f === "simit") ?? false;
+  const requierePropietario = planActivo?.fuentes?.includes("runt") ?? false;
+  // Procuraduría: el captcha de la PGN pregunta por el NOMBRE de la persona
+  // consultada — el portal lo exige para poder responderla.
+  const requiereNombres = planActivo?.fuentes?.includes("procuraduria") ?? false;
+  // Las fuentes del plan se consultan EN PARALELO: el tiempo total es el de
+  // la MÁS LENTA (no la suma). Presupuesto orientativo por fuente (portal
+  // vivo + reintento), tope del backend 150 s por fuente.
+  const SEGUNDOS_FUENTE: Record<string, number> = {
+    manifiestos_rndc: 45,
+    procuraduria: 120,
+    policia: 110,
+    runt: 75,
+    simit: 20,
+  };
+  const estimacionSegundos = (() => {
+    const fs = planActivo?.fuentes ?? [];
+    if (!fs.length) return 60;
+    return Math.max(...fs.map((f) => SEGUNDOS_FUENTE[f] ?? 60));
+  })();
 
   const consultar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,16 +209,21 @@ export default function PortalSeguridadP() {
       Swal.fire("Sin cupo", `El plan ${planActivo.nombre} no tiene consultas disponibles.`, "warning");
       return;
     }
-    // Placa: requerida SOLO si el plan incluye la fuente runt.
+    // Placa: requerida si el plan incluye runt o simit (consultas de vehículo).
     let placaNorm: string | undefined;
     let propietarioNorm: string | undefined;
+    let nombresNorm: string | undefined;
+    let apellidosNorm: string | undefined;
     if (requierePlaca) {
       placaNorm = placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
       if (!/^[A-Z]{3}\d{2}[\dA-Z]$|^[A-Z]{2}\d{4}$/.test(placaNorm)) {
         Swal.fire("Placa inválida", "Use el formato AAA123 (o AAA12A para moto)", "warning");
         return;
       }
-      // Cédula del propietario: OPCIONAL (vacía = el conductor es el dueño).
+    }
+    if (requierePropietario) {
+      // Cédula del propietario (solo runt): OPCIONAL (vacía = el conductor es
+      // el dueño).
       const prop = cedulaPropietario.replace(/\D/g, "");
       if (prop && (prop.length < 3 || prop.length > 15)) {
         Swal.fire("Cédula de propietario inválida", "Debe tener entre 3 y 15 dígitos (o déjela vacía si el conductor es el propietario)", "warning");
@@ -198,17 +231,41 @@ export default function PortalSeguridadP() {
       }
       propietarioNorm = prop || undefined;
     }
+    // Nombres/apellidos (solo procuraduria): OBLIGATORIOS — el captcha de la
+    // PGN pregunta por el nombre de la persona consultada.
+    if (requiereNombres) {
+      nombresNorm = nombres.trim();
+      apellidosNorm = apellidos.trim();
+      if (nombresNorm.length < 2 || apellidosNorm.length < 2) {
+        Swal.fire(
+          "Faltan los nombres",
+          "El plan incluye Procuraduría: diligencie los nombres y apellidos de la persona a consultar (el portal de la Procuraduría los exige).",
+          "warning"
+        );
+        return;
+      }
+    }
     setConsultando(true);
     setEstudioNuevo(null);
     try {
-      const estudio = await crearEstudio(digitos, undefined, planAbierto, placaNorm, propietarioNorm);
+      const estudio = await crearEstudio(digitos, undefined, planAbierto, placaNorm, propietarioNorm, nombresNorm, apellidosNorm);
       setEstudioNuevo(estudio);
+      // Mismo criterio del backend (2026-09-01): la consulta NO se cobra solo
+      // si >51% de las fuentes corridas fallaron.
+      const corridas = Object.values(estudio.fuentes ?? {}).filter(
+        (f: any) => f?.estado && f.estado !== "DESHABILITADA"
+      );
+      const fallidas = corridas.filter((f: any) => f.estado === "NO_DISPONIBLE" || f.estado === "ERROR");
+      const sinCobro = corridas.length === 0 || fallidas.length / corridas.length > 0.51;
       let titulo = "Consulta completada";
       let icono: "success" | "warning" | "error" = "success";
       if (estudio.estado === "COMPLETADA_CON_ADVERTENCIAS") {
         titulo = "Completada con advertencias"; icono = "warning";
       } else if (estudio.estado === "PARCIAL") {
-        titulo = "Parcial: una fuente no respondió"; icono = "warning";
+        titulo = sinCobro
+          ? "Parcial: la mayoría de las fuentes falló (no se cobra)"
+          : "Parcial: una fuente no respondió";
+        icono = "warning";
       } else if (estudio.estado === "ERROR") {
         titulo = "Sin resultados (no se cobra)"; icono = "error";
       }
@@ -355,7 +412,9 @@ export default function PortalSeguridadP() {
             <div className="PS-acordeon">
               {cupo!.planes!.map((p) => {
                 const abierto = planAbierto === p.plan_id;
-                const pidePlaca = p.fuentes?.includes("runt");
+                const pidePlaca = p.fuentes?.some((f) => f === "runt" || f === "simit");
+                const pidePropietario = p.fuentes?.includes("runt");
+                const pideNombres = p.fuentes?.includes("procuraduria");
                 return (
                   <div key={p.plan_id} className={`PS-acordeon-item ${abierto ? "PS-acordeon-abierto" : ""}`}>
                     <button
@@ -386,6 +445,26 @@ export default function PortalSeguridadP() {
                             onChange={(e) => setCedula(e.target.value)} disabled={consultando} autoFocus
                           />
                         </div>
+                        {pideNombres && (
+                          <>
+                            <div className="PS-input-icono">
+                              <FaUserCircle />
+                              <input
+                                placeholder="Nombres (sin tildes)" value={nombres}
+                                onChange={(e) => setNombres(e.target.value)}
+                                maxLength={60} disabled={consultando} autoCapitalize="characters"
+                              />
+                            </div>
+                            <div className="PS-input-icono">
+                              <FaUserCircle />
+                              <input
+                                placeholder="Apellidos (sin tildes)" value={apellidos}
+                                onChange={(e) => setApellidos(e.target.value)}
+                                maxLength={60} disabled={consultando} autoCapitalize="characters"
+                              />
+                            </div>
+                          </>
+                        )}
                         {pidePlaca && (
                           <div className="PS-input-icono">
                             <FaCarSide />
@@ -396,7 +475,7 @@ export default function PortalSeguridadP() {
                             />
                           </div>
                         )}
-                        {pidePlaca && (
+                        {pidePropietario && (
                           <div className="PS-input-icono">
                             <FaUserCircle />
                             <input
@@ -408,10 +487,29 @@ export default function PortalSeguridadP() {
                             />
                           </div>
                         )}
-                        <button type="submit" className="PS-boton-primario" disabled={consultando || !cedula}>
+                        {pidePlaca && !pidePropietario && (
+                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
+                            La fuente SIMIT consulta los comparendos y multas de la
+                            placa ante el SIMIT (no requiere cédula del propietario).
+                          </p>
+                        )}
+                        <button
+                          type="submit" className="PS-boton-primario"
+                          disabled={
+                            consultando || !cedula
+                            || (pideNombres && (nombres.trim().length < 2 || apellidos.trim().length < 2))
+                          }
+                        >
                           {consultando ? <><ClipLoader size={14} color="#fff" /> Consultando…</> : "Consultar"}
                         </button>
-                        {pidePlaca && (
+                        {pideNombres && (
+                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
+                            La Procuraduría valida la consulta preguntando por el nombre de la
+                            persona: diligencie sus <strong>nombres y apellidos sin tildes</strong> tal
+                            como aparecen en su cédula.
+                          </p>
+                        )}
+                        {pidePropietario && (
                           <p className="PS-ayuda" style={{ marginTop: 8 }}>
                             La fuente RUNT consulta el vehículo por placa + cédula de su propietario.
                             Si el conductor no es el dueño, diligencie la cédula del propietario para
@@ -439,7 +537,8 @@ export default function PortalSeguridadP() {
               />
               <p className="PS-investigando-mensaje">{mensajesConsulta[indiceMensaje]}</p>
               <p className="PS-investigando-sub">
-                Esto puede tomar de 3 a 60 segundos. No cierre la ventana.
+                Las fuentes del plan se consultan en paralelo: esto puede tomar
+                de 3 a {estimacionSegundos} segundos (según la fuente más lenta). No cierre la ventana.
               </p>
             </div>
           )}
@@ -457,28 +556,56 @@ export default function PortalSeguridadP() {
                   <span>Propietario del vehículo: cédula distinta a la evaluada (ver PDF)</span>
                 )}
                 <span>{new Date(estudioNuevo.creado_en).toLocaleString("es-CO")}</span>
-                <span>Procuraduría: {
-                  estudioNuevo.fuentes?.procuraduria?.no_registra === true ? "✅ Sin anotaciones"
-                  : estudioNuevo.fuentes?.procuraduria?.no_registra === false ? "⛔ Registra anotaciones"
-                  : estudioNuevo.fuentes?.procuraduria ? "⚠️ Ver PDF"
-                  : "No disponible"}
-                </span>
-                <span>Policía: {
-                  estudioNuevo.fuentes?.policia?.no_registra === true ? "✅ Sin antecedentes"
-                  : estudioNuevo.fuentes?.policia?.no_registra === false ? "⛔ Requerido por autoridad judicial"
-                  : estudioNuevo.fuentes?.policia ? "⚠️ Ver PDF"
-                  : "No disponible"}
-                </span>
-                <span>RNDC: {estudioNuevo.fuentes?.manifiestos_rndc?.total ?? 0} viaje(s)</span>
+                {/* Badges SOLO de las fuentes que CORRIERON (las del plan): una
+                    DESHABILITADA no se consultó ni se cobró — no se muestra. */}
                 {(() => {
-                  const runt = estudioNuevo.fuentes?.runt;
-                  if (!runt) return null;
-                  if (runt.no_registra === true) return <span>RUNT: 🔍 Placa sin información</span>;
-                  if (runt.no_registra === false) return <span>RUNT: ⚠️ Cédula no es del propietario activo</span>;
-                  if (runt.soat?.vigente === true) return <span>RUNT: ✅ SOAT vigente (vence {runt.soat.fecha_fin_vigencia})</span>;
-                  if (runt.soat?.vigente === false) return <span>RUNT: ⛔ SOAT vencido</span>;
-                  const marca = runt.datos_vehiculo?.marca;
-                  return <span>RUNT: {marca ? `🚗 ${marca}` : "⚠️ Ver PDF"}</span>;
+                  const f = estudioNuevo.fuentes ?? {};
+                  const corrio = (x?: { estado?: string | null }) =>
+                    !!x?.estado && x.estado !== "DESHABILITADA";
+                  return (
+                    <>
+                      {corrio(f.procuraduria) && (
+                        <span>Procuraduría: {
+                          f.procuraduria!.no_registra === true ? "✅ Sin anotaciones"
+                          : f.procuraduria!.no_registra === false ? "⛔ Registra anotaciones"
+                          : "⚠️ Ver PDF"}
+                        </span>
+                      )}
+                      {corrio(f.policia) && (
+                        <span>Policía: {
+                          f.policia!.no_registra === true ? "✅ Sin antecedentes"
+                          : f.policia!.no_registra === false ? "⛔ Requerido por autoridad judicial"
+                          : "⚠️ Ver PDF"}
+                        </span>
+                      )}
+                      {corrio(f.manifiestos_rndc) && (
+                        <span>RNDC: {f.manifiestos_rndc!.total ?? 0} viaje(s)</span>
+                      )}
+                      {(() => {
+                        const runt = f.runt;
+                        if (!corrio(runt)) return null;
+                        if (runt!.no_registra === true) return <span>RUNT: 🔍 Placa sin información</span>;
+                        if (runt!.no_registra === false) return <span>RUNT: ⚠️ Cédula no es del propietario activo</span>;
+                        if (runt!.soat?.vigente === true) return <span>RUNT: ✅ SOAT vigente (vence {runt!.soat.fecha_fin_vigencia})</span>;
+                        if (runt!.soat?.vigente === false) return <span>RUNT: ⛔ SOAT vencido</span>;
+                        const marca = runt!.datos_vehiculo?.marca;
+                        return <span>RUNT: {marca ? `🚗 ${marca}` : "⚠️ Ver PDF"}</span>;
+                      })()}
+                      {(() => {
+                        const simit = f.simit;
+                        if (!corrio(simit)) return null;
+                  const aPagar = simit.total_a_pagar ?? 0;
+                  if (aPagar > 0) {
+                    const n = (simit.total_comparendos ?? 0) + (simit.total_multas ?? 0);
+                    return <span>SIMIT: ⛔ Saldo exigible ${aPagar.toLocaleString("es-CO")} ({n} registro(s))</span>;
+                  }
+                  if ((simit.total_comparendos ?? 0) > 0 || (simit.total_multas ?? 0) > 0) {
+                    return <span>SIMIT: ⚠️ Sin saldo exigible (registra antecedentes históricos)</span>;
+                  }
+                  return <span>SIMIT: ✅ Sin comparendos ni multas</span>;
+                      })()}
+                    </>
+                  );
                 })()}
               </div>
               {estudioNuevo.pdf && (

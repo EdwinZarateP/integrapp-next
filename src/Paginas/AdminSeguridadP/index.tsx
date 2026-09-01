@@ -76,6 +76,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
     procuraduria: "Procuraduría",
     policia: "Antecedentes Policía",
     runt: "Vehículo RUNT",
+    simit: "Comparendos SIMIT",
   };
   const etiquetaFuente = (f: string) => ETIQUETAS_FUENTE[f] ?? f;
 
@@ -458,7 +459,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
   // ── PLANES: acciones ───────────────────────────────────────────────────
   const abrirPlan = async (plan?: PlanSeguridad) => {
     const esNuevo = !plan;
-    const fuentes = ["manifiestos_rndc", "procuraduria", "policia", "runt"];
+    const fuentes = ["manifiestos_rndc", "procuraduria", "policia", "runt", "simit"];
     const checks = fuentes
       .map(
         (f) =>
