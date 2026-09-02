@@ -69,6 +69,11 @@ export interface FuenteEstudio {
   total?: number;
   no_registra?: boolean | null;
   mensaje?: string;
+  // Fuentes BDME: consulta autenticada por cédula o NIT.
+  reportado?: boolean;
+  motivo?: string;
+  total_registros?: number;
+  filas?: string[][];
   nombre_certificado?: string;
   // Fuente runt (vehículo por placa + cédula del propietario)
   placa?: string;
