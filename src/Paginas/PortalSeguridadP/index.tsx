@@ -34,6 +34,17 @@ import {
 } from "@/Funciones/ApiPedidos/seguridadCliente";
 import "./estilos.css";
 
+// Mongo/FastAPI entrega actualmente algunos datetime UTC sin sufijo `Z`.
+// JavaScript interpretaría esos valores como hora local. Añadir la zona UTC
+// cuando falta y mostrar siempre en la zona oficial de Colombia también
+// corrige los estudios históricos ya almacenados.
+const fechaHoraColombia = (valor: string) => {
+  const fechaConZona = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(valor) ? valor : `${valor}Z`;
+  return new Date(fechaConZona).toLocaleString("es-CO", {
+    timeZone: "America/Bogota",
+  });
+};
+
 export default function PortalSeguridadP() {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -56,24 +67,8 @@ export default function PortalSeguridadP() {
 
   const esSesionValida = useCallback(() => haySesionCliente(), []);
 
-  // Mensajes rotativos mientras corre la consulta (acompañan al detective).
-  const mensajesConsulta = [
-    "Investigando en Manifiestos RNDC…",
-    "Revisando antecedentes en Procuraduría…",
-    "Consultando antecedentes judiciales en la Policía…",
-    "Cruzando fuentes y verificando datos…",
-    "Casi listo: preparando su informe…",
-  ];
+  // Posición del mensaje rotativo que acompaña al detective.
   const [indiceMensaje, setIndiceMensaje] = useState(0);
-  useEffect(() => {
-    if (!consultando) return;
-    setIndiceMensaje(0);
-    const rotador = setInterval(() => {
-      setIndiceMensaje((i) => (i + 1) % mensajesConsulta.length);
-    }, 4000);
-    return () => clearInterval(rotador);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consultando]);
 
   const cargarPortal = useCallback(async () => {
     try {
@@ -199,6 +194,38 @@ export default function PortalSeguridadP() {
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
+  const mensajePorFuente: Record<string, string> = {
+    manifiestos_rndc: "Investigando en Manifiestos RNDC…",
+    procuraduria: "Revisando antecedentes en Procuraduría…",
+    policia: "Consultando antecedentes judiciales en la Policía…",
+    runt: "Consultando información del vehículo en RUNT…",
+    simit: "Revisando comparendos en SIMIT…",
+    sena: "Consultando formación en el SENA…",
+    ofac: "Cruzando la persona con listas OFAC…",
+    ofac_nit: "Cruzando la empresa con listas OFAC…",
+    bdme: "Consultando la persona en BDME…",
+    bdme_nit: "Consultando la empresa en BDME…",
+    rama_judicial: "Buscando procesos en la Rama Judicial…",
+  };
+  // Mostrar solamente las fuentes del plan abierto. Antes esta lista era
+  // fija y por eso un plan exclusivo de BDME mencionaba Procuraduría y
+  // Policía aunque nunca se estuvieran consultando.
+  const mensajesConsulta = [
+    ...(planActivo?.fuentes ?? []).map(
+      (fuente) => mensajePorFuente[fuente] ?? `Consultando ${nombreFuente(fuente)}…`
+    ),
+    "Cruzando resultados y preparando su informe…",
+  ];
+  useEffect(() => {
+    if (!consultando) return;
+    setIndiceMensaje(0);
+    const rotador = setInterval(() => {
+      setIndiceMensaje((i) => (i + 1) % mensajesConsulta.length);
+    }, 4000);
+    return () => clearInterval(rotador);
+    // El plan no puede cambiar mientras el formulario está consultando.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultando, planAbierto]);
   // Placa la piden runt Y simit (ambas consultan por vehículo); la cédula del
   // propietario es SOLO de runt (simit no conoce propietario).
   const requierePlaca =
@@ -630,7 +657,7 @@ export default function PortalSeguridadP() {
                 {estudioNuevo.vehiculos?.[0] && !estudioNuevo.vehiculos[0].propietario_es_evaluado && (
                   <span>Propietario del vehículo: cédula distinta a la evaluada (ver PDF)</span>
                 )}
-                <span>{new Date(estudioNuevo.creado_en).toLocaleString("es-CO")}</span>
+                <span>{fechaHoraColombia(estudioNuevo.creado_en)}</span>
                 {/* Badges SOLO de las fuentes que CORRIERON (las del plan): una
                     DESHABILITADA no se consultó ni se cobró — no se muestra. */}
                 {(() => {
@@ -759,7 +786,7 @@ export default function PortalSeguridadP() {
                 )}
                 {historial.map((h) => (
                   <tr key={h.consulta_id}>
-                    <td data-label="Fecha">{new Date(h.creado_en).toLocaleString("es-CO")}</td>
+                    <td data-label="Fecha">{fechaHoraColombia(h.creado_en)}</td>
                     <td data-label="Cédula">{h.cedula}</td>
                     {historial.some((x) => x.placa) && (
                       <td data-label="Placa">{h.placa || "—"}</td>
