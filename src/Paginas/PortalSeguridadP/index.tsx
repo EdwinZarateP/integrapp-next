@@ -195,6 +195,7 @@ export default function PortalSeguridadP() {
     : f === "ofac_nit" ? "OFAC empresas (NIT)"
     : f === "bdme" ? "BDME personas (cédula)"
     : f === "bdme_nit" ? "BDME empresas (NIT)"
+    : f === "rama_judicial" ? "Rama Judicial (procesos por nombre)"
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
@@ -205,9 +206,13 @@ export default function PortalSeguridadP() {
   const requierePropietario = planActivo?.fuentes?.includes("runt") ?? false;
   // Procuraduría: el captcha de la PGN pregunta por el NOMBRE de la persona
   // consultada — el portal lo exige para poder responderla.
-  const requiereNombres = planActivo?.fuentes?.includes("procuraduria") ?? false;
+  const requiereNombres = planActivo?.fuentes?.some(
+    (f) => f === "procuraduria" || f === "rama_judicial"
+  ) ?? false;
   const requiereNit = planActivo?.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit") ?? false;
-  const requiereCedula = planActivo?.fuentes?.some((f) => f !== "ofac_nit" && f !== "bdme_nit") ?? false;
+  const requiereCedula = planActivo?.fuentes?.some(
+    (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial"
+  ) ?? false;
   // Las fuentes del plan se consultan EN PARALELO: el tiempo total es el de
   // la MÁS LENTA (no la suma). Presupuesto orientativo por fuente (portal
   // vivo + reintento), tope del backend 150 s por fuente.
@@ -222,6 +227,7 @@ export default function PortalSeguridadP() {
     ofac_nit: 15,
     bdme: 120,
     bdme_nit: 120,
+    rama_judicial: 90,
   };
   const estimacionSegundos = (() => {
     const fs = planActivo?.fuentes ?? [];
@@ -289,7 +295,7 @@ export default function PortalSeguridadP() {
       if (nombresNorm.length < 2 || apellidosNorm.length < 2) {
         Swal.fire(
           "Faltan los nombres",
-          "El plan incluye Procuraduría: diligencie los nombres y apellidos de la persona a consultar (el portal de la Procuraduría los exige).",
+          "El plan requiere los nombres y apellidos completos de la persona a consultar.",
           "warning"
         );
         return;
@@ -466,9 +472,13 @@ export default function PortalSeguridadP() {
                 const abierto = planAbierto === p.plan_id;
                 const pidePlaca = p.fuentes?.some((f) => f === "runt" || f === "simit");
                 const pidePropietario = p.fuentes?.includes("runt");
-                const pideNombres = p.fuentes?.includes("procuraduria");
+                const pideNombres = p.fuentes?.some(
+                  (f) => f === "procuraduria" || f === "rama_judicial"
+                );
                 const pideNit = p.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit");
-                const pideCedula = p.fuentes?.some((f) => f !== "ofac_nit" && f !== "bdme_nit");
+                const pideCedula = p.fuentes?.some(
+                  (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial"
+                );
                 return (
                   <div key={p.plan_id} className={`PS-acordeon-item ${abierto ? "PS-acordeon-abierto" : ""}`}>
                     <button
@@ -515,7 +525,7 @@ export default function PortalSeguridadP() {
                             <div className="PS-input-icono">
                               <FaUserCircle />
                               <input
-                                placeholder="Nombres (sin tildes)" value={nombres}
+                                placeholder="Nombres completos" value={nombres}
                                 onChange={(e) => setNombres(e.target.value)}
                                 maxLength={60} disabled={consultando} autoCapitalize="characters"
                               />
@@ -523,7 +533,7 @@ export default function PortalSeguridadP() {
                             <div className="PS-input-icono">
                               <FaUserCircle />
                               <input
-                                placeholder="Apellidos (sin tildes)" value={apellidos}
+                                placeholder="Apellidos completos" value={apellidos}
                                 onChange={(e) => setApellidos(e.target.value)}
                                 maxLength={60} disabled={consultando} autoCapitalize="characters"
                               />

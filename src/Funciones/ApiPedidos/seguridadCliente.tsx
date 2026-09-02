@@ -74,6 +74,12 @@ export interface FuenteEstudio {
   motivo?: string;
   total_registros?: number;
   filas?: string[][];
+  // Rama Judicial: persona natural, todos los procesos por nombre completo.
+  nombre_completo?: string;
+  tipo_persona?: "Natural";
+  todos_los_procesos?: boolean;
+  total_procesos?: number;
+  procesos?: Record<string, unknown>[];
   nombre_certificado?: string;
   // Fuente runt (vehículo por placa + cédula del propietario)
   placa?: string;

@@ -82,6 +82,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
     ofac_nit: "OFAC empresas (NIT)",
     bdme: "BDME personas (cédula)",
     bdme_nit: "BDME empresas (NIT)",
+    rama_judicial: "Rama Judicial (procesos por nombre)",
   };
   const etiquetaFuente = (f: string) => ETIQUETAS_FUENTE[f] ?? f;
 
@@ -464,7 +465,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
   // ── PLANES: acciones ───────────────────────────────────────────────────
   const abrirPlan = async (plan?: PlanSeguridad) => {
     const esNuevo = !plan;
-    const fuentes = ["manifiestos_rndc", "procuraduria", "policia", "runt", "simit", "sena", "ofac", "ofac_nit", "bdme", "bdme_nit"];
+    const fuentes = ["manifiestos_rndc", "procuraduria", "policia", "runt", "simit", "sena", "ofac", "ofac_nit", "bdme", "bdme_nit", "rama_judicial"];
     const checks = fuentes
       .map(
         (f) =>
