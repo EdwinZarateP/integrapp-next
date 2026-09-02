@@ -21,7 +21,6 @@ import {
   EstudioDetalle,
   EstudioResumen,
   crearEstudio,
-  descargarAnexoProcuraduria,
   descargarPdfEstudio,
   haySesionCliente,
   listarEstudios,
@@ -182,6 +181,7 @@ export default function PortalSeguridadP() {
   const nombreFuente = (f: string) =>
     f === "manifiestos_rndc" ? "Manifiestos RNDC"
     : f === "procuraduria" ? "Procuraduría"
+    : f === "contraloria" ? "Contraloría (fiscales)"
     : f === "policia" ? "Antecedentes Policía"
     : f === "runt" ? "Vehículo RUNT"
     : f === "simit" ? "Comparendos SIMIT"
@@ -197,6 +197,7 @@ export default function PortalSeguridadP() {
   const mensajePorFuente: Record<string, string> = {
     manifiestos_rndc: "Investigando en Manifiestos RNDC…",
     procuraduria: "Revisando antecedentes en Procuraduría…",
+    contraloria: "Consultando antecedentes fiscales en la Contraloría…",
     policia: "Consultando antecedentes judiciales en la Policía…",
     runt: "Consultando información del vehículo en RUNT…",
     simit: "Revisando comparendos en SIMIT…",
@@ -246,6 +247,7 @@ export default function PortalSeguridadP() {
   const SEGUNDOS_FUENTE: Record<string, number> = {
     manifiestos_rndc: 45,
     procuraduria: 120,
+    contraloria: 110, // reCAPTCHA v2 (solve 10-60 s) + descarga del certificado
     policia: 110,
     runt: 75,
     simit: 20,
@@ -379,19 +381,6 @@ export default function PortalSeguridadP() {
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
       Swal.fire("No se pudo abrir el PDF", mensajeError(e), "error");
-    }
-  };
-
-  // Certificado OFICIAL de la Procuraduría (anexo del estudio; solo existe
-  // si el estudio incluyó procuraduría y el portal entregó el PDF).
-  const abrirAnexoPgn = async (consultaId: string) => {
-    try {
-      const blob = await descargarAnexoProcuraduria(consultaId);
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (e) {
-      Swal.fire("No se pudo abrir el certificado", mensajeError(e), "error");
     }
   };
 
@@ -673,6 +662,13 @@ export default function PortalSeguridadP() {
                           : "⚠️ Ver PDF"}
                         </span>
                       )}
+                      {corrio(f.contraloria) && (
+                        <span>Contraloría: {
+                          f.contraloria!.no_registra === true ? "✅ Sin responsabilidad fiscal"
+                          : f.contraloria!.no_registra === false ? "⛔ Reportado como responsable fiscal"
+                          : "⚠️ Ver PDF"}
+                        </span>
+                      )}
                       {corrio(f.policia) && (
                         <span>Policía: {
                           f.policia!.no_registra === true ? "✅ Sin antecedentes"
@@ -719,15 +715,6 @@ export default function PortalSeguridadP() {
               {estudioNuevo.pdf && (
                 <button className="PS-boton-pdf" onClick={() => abrirPdf(estudioNuevo.consulta_id)}>
                   <FaFilePdf /> Descargar informe PDF
-                </button>
-              )}
-              {estudioNuevo.anexo_procuraduria && (
-                <button
-                  className="PS-boton-pdf PS-boton-anexo"
-                  onClick={() => abrirAnexoPgn(estudioNuevo.consulta_id)}
-                  title="Certificado original expedido por la Procuraduría (anexo del estudio)"
-                >
-                  <FaFilePdf /> Certificado Procuraduría
                 </button>
               )}
             </div>
@@ -804,15 +791,6 @@ export default function PortalSeguridadP() {
                       <button className="PS-boton-pdf-chico" onClick={() => abrirPdf(h.consulta_id)}>
                         <FaFilePdf /> PDF
                       </button>{" "}
-                      {h.anexo_procuraduria && (
-                        <button
-                          className="PS-boton-pdf-chico"
-                          onClick={() => abrirAnexoPgn(h.consulta_id)}
-                          title="Certificado original de la Procuraduría"
-                        >
-                          <FaFilePdf /> PGN
-                        </button>
-                      )}
                     </td>
                   </tr>
                 ))}

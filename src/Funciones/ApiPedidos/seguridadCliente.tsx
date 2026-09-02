@@ -149,9 +149,6 @@ export interface EstudioResumen {
   empresa_nombre: string;
   costo_cop?: number; // suma de consumos − reembolsos de esta consulta
   canal?: "portal" | "api"; // "api" = hecha por una integración con API key
-  // Certificado oficial de la PGN subido a GCS (existe solo si el portal lo
-  // entregó y el estudio incluyó procuraduría).
-  anexo_procuraduria?: { gcs_ruta: string; sha256: string; tamano: number } | null;
 }
 
 // Vehículo validado por runt: el propietario puede ser OTRA persona (el dueño
@@ -254,12 +251,6 @@ export const obtenerEstudio = async (consultaId: string): Promise<EstudioDetalle
 
 export const descargarPdfEstudio = async (consultaId: string): Promise<Blob> => {
   const res = await api.get(`/${consultaId}/pdf`, { responseType: "blob" });
-  return res.data;
-};
-
-// Certificado OFICIAL de la Procuraduría (anexo del estudio, cuando existe).
-export const descargarAnexoProcuraduria = async (consultaId: string): Promise<Blob> => {
-  const res = await api.get(`/${consultaId}/procuraduria.pdf`, { responseType: "blob" });
   return res.data;
 };
 
