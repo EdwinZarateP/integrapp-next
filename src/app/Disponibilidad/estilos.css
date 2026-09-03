@@ -48,7 +48,27 @@
 .Disp-btn--pri { background: #10b981; color: #fff; }
 .Disp-btn--pri:hover:not(:disabled) { background: #059669; }
 .Disp-btn--sec { background: #fee2e2; color: #b91c1c; }
+.Disp-btn--ampliar { background: #d1fae5; color: #065f46; }
+.Disp-btn--plegar { background: #f3f4f6; color: #374151; }
 .Disp-contador { margin-top: 8px; font-size: 0.8rem; color: #6b7280; }
+
+/* Resumen compacto del check-in YA GUARDADO: el detalle (origen + zonas)
+   queda plegado tras el botón «Ampliar» para una página más limpia. */
+.Disp-resumen {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #065f46;
+}
+.Disp-resumen-texto { flex: 1 1 auto; }
 .Disp-nota { margin-top: 12px; font-size: 0.82rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 8px; }
 
 /* Toggle */

@@ -27,6 +27,9 @@ interface EstadoPlaca {
   origen: string;
   destinos: string[];
   cargando?: boolean;
+  /** Detalle ampliado (origen + zonas). Con check-in guardado el detalle
+      queda PLEGADO y solo se muestra el resumen + botón «Ampliar». */
+  expandida?: boolean;
 }
 
 // Etiquetas de bodega SOLO para mostrar en el front.
@@ -71,6 +74,8 @@ const Disponibilidad: React.FC = () => {
             asignada: ch?.estado === 'asignada',
             origen: ch?.origen || BODEGAS[0],
             destinos: ch?.departamentos_destino || [],
+            // Guardado → detalle plegado: la tarjeta abre solo con el resumen.
+            expandida: false,
           };
         });
         setEstado(inicial);
@@ -120,7 +125,7 @@ const Disponibilidad: React.FC = () => {
       const res = await fetch(`${API}/disponibilidad/checkin`, { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al guardar');
-      set(placa, { disponible: true, guardado: true, asignada: false, cargando: false });
+      set(placa, { disponible: true, guardado: true, asignada: false, cargando: false, expandida: false });
       Swal.fire({ icon: 'success', title: 'Disponibilidad registrada', text: `${placa} está disponible hoy.`, timer: 1600, showConfirmButton: false });
     } catch (e: any) {
       set(placa, { cargando: false });
@@ -146,7 +151,7 @@ const Disponibilidad: React.FC = () => {
       const res = await fetch(`${API}/disponibilidad/cancelar`, { method: 'PUT', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Error al quitar');
-      set(placa, { disponible: false, guardado: false, asignada: false, destinos: [], cargando: false });
+      set(placa, { disponible: false, guardado: false, asignada: false, destinos: [], cargando: false, expandida: false });
       Swal.fire({ icon: 'success', title: 'Quitada', timer: 1400, showConfirmButton: false });
     } catch (e: any) {
       set(placa, { cargando: false });
@@ -204,7 +209,24 @@ const Disponibilidad: React.FC = () => {
                 </label>
               </div>
 
-              {e.disponible && (
+              {/* Check-in ya guardado: detalle PLEGADO — solo el resumen y el
+                  botón para ampliar/editar (página más limpia). */}
+              {e.disponible && e.guardado && !e.expandida && (
+                <div className="Disp-resumen">
+                  <span className="Disp-resumen-texto">
+                    ✅ Disponible hoy — Origen: <b>{BODEGA_LABEL[e.origen] || e.origen}</b> · {e.destinos.length} destino(s)
+                  </span>
+                  <button
+                    type="button"
+                    className="Disp-btn Disp-btn--ampliar"
+                    onClick={() => set(v.placa, { expandida: true })}
+                  >
+                    ▾ Ampliar
+                  </button>
+                </div>
+              )}
+
+              {e.disponible && (!e.guardado || e.expandida) && (
                 <div className="Disp-body">
                   <div className="Disp-origen">
                     <label>Origen (bodega donde estás)</label>
@@ -243,9 +265,14 @@ const Disponibilidad: React.FC = () => {
                       {e.cargando ? 'Guardando…' : 'Guardar disponibilidad'}
                     </button>
                     {e.guardado && (
-                      <button className="Disp-btn Disp-btn--sec" disabled={e.cargando} onClick={() => quitar(v.placa)}>
-                        Quitar
-                      </button>
+                      <>
+                        <button className="Disp-btn Disp-btn--sec" disabled={e.cargando} onClick={() => quitar(v.placa)}>
+                          Quitar
+                        </button>
+                        <button className="Disp-btn Disp-btn--plegar" disabled={e.cargando} onClick={() => set(v.placa, { expandida: false })}>
+                          ▴ Plegar
+                        </button>
+                      </>
                     )}
                   </div>
                   <div className="Disp-contador">{e.destinos.length} destino(s) seleccionado(s)</div>

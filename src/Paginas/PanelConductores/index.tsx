@@ -545,6 +545,10 @@ const PanelConductoresVista: React.FC = () => {
   // True cuando se edita un vehículo aprobado: los componentes envían editado_por
   // para que el backend lo baje a re-revisión con diff.
   const [editarAprobadoActivo, setEditarAprobadoActivo] = useState<boolean>(false);
+  // Modo CONSULTA: vehículo en revisión — se puede ver todo (paso 2 y 3) pero
+  // no editar nada. Se activa con el botón «Ver» de las tarjetas «En revisión»
+  // y lo fija el propio flujo según estadoIntegra (cubre el refresh de URL).
+  const [modoLectura, setModoLectura] = useState<boolean>(false);
   const [cedulaConductor, setCedulaConductor] = useState<string>("");
   const [visibleSeccion, setVisibleSeccion] = useState<number | null>(null);
   const [selectedDocumento, setSelectedDocumento] = useState<any>(null);
@@ -670,6 +674,10 @@ const PanelConductoresVista: React.FC = () => {
         if (data && data.data) {
           setVehiculoActual(data.data);
           setSecciones(construirSeccionesDesdeVehiculo(data.data));
+          // En revisión → modo consulta (solo lectura). Es la fuente de verdad:
+          // cubre el botón «Ver» y también un refresh en ?paso=2&placa=… de un
+          // vehículo en revisión (antes quedaba editable por URL).
+          setModoLectura(['completado_revision', 'en_revision'].includes(data.data.estadoIntegra));
         } else {
            setVehiculoActual(null);
            setSecciones(seccionesLimpias);
@@ -827,7 +835,7 @@ const PanelConductoresVista: React.FC = () => {
         Swal.fire("Atención", "Debe seleccionar o crear una placa primero en el paso 1.", "warning");
         return;
     }
-    if (step === 3 && currentStep === 2 && !datosValidos) {
+    if (step === 3 && currentStep === 2 && !datosValidos && !modoLectura) {
        Swal.fire("Formulario Incompleto", "Por favor diligencie todos los campos obligatorios.", "warning");
        return;
     }
@@ -1262,6 +1270,15 @@ const PanelConductoresVista: React.FC = () => {
                                     <div className="pv-card-info">
                                         <span>Seguridad está revisando tu registro. Te avisaremos cuando haya una respuesta.</span>
                                     </div>
+                                    <div className="pv-acciones">
+                                      <button
+                                        className="pv-btn-ghost"
+                                        onClick={() => { setSelectedPlate(veh.placa); setModoLectura(true); setCurrentStep(2); }}
+                                        title="Consultar los datos y documentos registrados (solo lectura mientras está en revisión)"
+                                      >
+                                        <FaEye /> Ver
+                                      </button>
+                                    </div>
                                     {esTenedor && (
                                       <TenedorConductorInfo
                                         veh={veh}
@@ -1285,14 +1302,26 @@ const PanelConductoresVista: React.FC = () => {
             <div className="step-content fade-in">
                 <div className="step-header">
                 <h2><FaClipboardList /> Información Detallada</h2>
-                <p>Diligencia el formulario para la placa <strong>{selectedPlate}</strong>.</p>
+                <p>
+                  {modoLectura
+                    ? <>Consulta de lo registrado para la placa <strong>{selectedPlate}</strong> — solo lectura.</>
+                    : <>Diligencia el formulario para la placa <strong>{selectedPlate}</strong>.</>}
+                </p>
               </div>
+              {modoLectura && (
+                <div className="pv-nota-lectura">
+                  👁 <strong>Modo consulta:</strong> este vehículo está en revisión por Seguridad.
+                  Puedes revisar tus datos y documentos, pero no editarlos. Si es devuelto con
+                  observaciones, podrás corregirlo desde el paso 1.
+                </div>
+              )}
               {selectedPlate ? (
                 <div className="contenedor-formulario-fijo">
                     <Datos
                         placa={selectedPlate}
                         idUsuario={idUsuario}
                         editarAprobado={editarAprobadoActivo}
+                        soloLectura={modoLectura}
                         onValidChange={setDatosValidos}
                         onCedulaConductorChange={setCedulaConductor}
                         onSavedSuccess={() => changeStep(3)}
@@ -1307,6 +1336,12 @@ const PanelConductoresVista: React.FC = () => {
             <div className="step-content fade-in">
                 <div className="step-header">
                 <h2><FaFileUpload /> Carga de Documentos</h2>
+                {modoLectura && (
+                  <div className="pv-nota-lectura">
+                    👁 <strong>Modo consulta:</strong> revisa los documentos cargados. Mientras el
+                    vehículo esté en revisión no se pueden subir ni eliminar documentos.
+                  </div>
+                )}
                 <div className="progreso-header">
                     <span>Avance Total: {getOverallDocumentProgress(secciones)}%</span>
                     <div className="barra-progreso-bg">
@@ -1357,26 +1392,30 @@ const PanelConductoresVista: React.FC = () => {
                                                         >
                                                             ✔ Cubierto por el documento del {NOMBRE_FIGURA[item.cubiertoPor] || item.cubiertoPor}
                                                         </span>
-                                                        <button
-                                                            className="btn-doc-action upload"
-                                                            style={{ opacity: 0.75 }}
-                                                            onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
-                                                            title="Cargar un documento propio distinto para esta figura"
-                                                        >
-                                                            Cargar otro
-                                                        </button>
+                                                        {!modoLectura && (
+                                                            <button
+                                                                className="btn-doc-action upload"
+                                                                style={{ opacity: 0.75 }}
+                                                                onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                                title="Cargar un documento propio distinto para esta figura"
+                                                            >
+                                                                Cargar otro
+                                                            </button>
+                                                        )}
                                                     </>
                                                 ) : item.progreso < 100 ? (
-                                                    <button
-                                                        className="btn-doc-action upload"
-                                                        onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
-                                                    >
-                                                        Cargar
-                                                    </button>
+                                                    !modoLectura && (
+                                                        <button
+                                                            className="btn-doc-action upload"
+                                                            onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                        >
+                                                            Cargar
+                                                        </button>
+                                                    )
                                                 ) : (
                                                     <>
                                                         {/* Doc de dos caras sin reverso: completarlo (pide frente+reverso). */}
-                                                        {item.faltaReverso && (
+                                                        {item.faltaReverso && !modoLectura && (
                                                             <button
                                                                 className="btn-doc-action upload"
                                                                 style={{ borderColor: '#e67e22', color: '#e67e22' }}
@@ -1387,7 +1426,7 @@ const PanelConductoresVista: React.FC = () => {
                                                             </button>
                                                         )}
                                                         {/* Fotos: siempre se pueden añadir MÁS (hasta 10). */}
-                                                        {normalizeKey(item.nombre) === 'fotos' && (
+                                                        {!modoLectura && normalizeKey(item.nombre) === 'fotos' && (
                                                             Array.isArray(item.url) ? item.url.length < 10 : true
                                                         ) && (
                                                             <button
@@ -1409,13 +1448,15 @@ const PanelConductoresVista: React.FC = () => {
                                                         >
                                                             <FaEye /> Ver
                                                         </button>
-                                                        <button
-                                                            className="btn-doc-action delete"
-                                                            title="Eliminar documento"
-                                                            onClick={() => eliminarDocumento(idx, iIdx)}
-                                                        >
-                                                            <FaTrashAlt />
-                                                        </button>
+                                                        {!modoLectura && (
+                                                            <button
+                                                                className="btn-doc-action delete"
+                                                                title="Eliminar documento"
+                                                                onClick={() => eliminarDocumento(idx, iIdx)}
+                                                            >
+                                                                <FaTrashAlt />
+                                                            </button>
+                                                        )}
                                                     </>
                                                 )}
                                             </div>
@@ -1425,7 +1466,9 @@ const PanelConductoresVista: React.FC = () => {
                             )}
                         </div>
                     ))}
-                    <button className="btn-finalizar" onClick={handleFinalizar}>Finalizar Registro</button>
+                    {!modoLectura && (
+                      <button className="btn-finalizar" onClick={handleFinalizar}>Finalizar Registro</button>
+                    )}
                 </div>
               ) : ( <div className="alert-box">Seleccione un vehículo en el Paso 1.</div> )}
             </div>

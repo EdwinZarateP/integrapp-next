@@ -19,6 +19,11 @@ const SignatureCanvas = lazy(() => import('react-signature-canvas'));
 
 const departamentosUnicos = [...new Set(municipios.map((m: any) => m.DEPARTAMENTO))].sort() as string[];
 
+/* Todas las ciudades del país en un solo listado: para la ciudad de
+   expedición de la cédula de tenedor/propietario, que ya no pide
+   departamento (2026-09-03, orden del usuario). */
+const todasLasCiudades = [...new Set(municipios.map((m: any) => m.CIUDAD))].sort() as string[];
+
 const getCiudadesPorDepto = (depto: string) => {
   return municipios
     .filter((m: any) => m.DEPARTAMENTO === depto)
@@ -80,6 +85,8 @@ interface InputFieldProps {
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
   /** Campo obligatorio faltante al intentar continuar: borde y etiqueta rojos. */
   error?: boolean;
+  /** Texto de la opción vacía del select (ej: «Elige el departamento primero»). */
+  opcionVacia?: string;
 }
 
 // La rueda del mouse sobre un input numérico ENFOCADO cambia el valor sin
@@ -89,12 +96,12 @@ const manejarRuedaInputNumerico = (e: React.WheelEvent<HTMLInputElement>) => {
   (e.target as HTMLInputElement).blur();
 };
 
-const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, options, disabled, inputProps, required, error }) => (
+const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, options, disabled, inputProps, required, error, opcionVacia }) => (
   <div className={`Datos-input-container ${error ? 'Datos-input-container--error' : ''}`} data-campo={name}>
     <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
     {options ? (
       <select name={name} value={value} onChange={onChange} disabled={disabled}>
-        <option value="">Seleccione...</option>
+        <option value="">{opcionVacia || 'Seleccione...'}</option>
         {options.map((option, idx) => (
           <option key={idx} value={option}>{option}</option>
         ))}
@@ -112,6 +119,59 @@ const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', val
     )}
   </div>
 );
+
+/* Select de catálogo con «Otra» al final: elegirla despliega un input de
+   texto para digitar una entidad fuera del catálogo (EPS/ARL). Un valor ya
+   guardado que no esté en el catálogo (histórico o digitado) se muestra
+   automáticamente en modo «Otra», editable. */
+const SelectConOtra: React.FC<{
+  label: string;
+  name: string;
+  opciones: string[];
+  valor: string;
+  onChangeValor: (v: string) => void;
+  disabled?: boolean;
+  required?: boolean;
+  error?: boolean;
+}> = ({ label, name, opciones, valor, onChangeValor, disabled, required, error }) => {
+  const [modoOtra, setModoOtra] = useState(false);
+  const fueraCatalogo = Boolean(valor) && !opciones.includes(valor);
+  const valorSelect = fueraCatalogo || (modoOtra && !valor) ? '__otra__' : (valor || '');
+  return (
+    <div className={`Datos-input-container ${error ? 'Datos-input-container--error' : ''}`} data-campo={name}>
+      <label>{label}{required && <span style={{ color: '#e74c3c' }}> *</span>}</label>
+      <select
+        name={name}
+        value={valorSelect}
+        disabled={disabled}
+        onChange={(e) => {
+          if (e.target.value === '__otra__') {
+            setModoOtra(true);
+            onChangeValor(''); // El nombre se digita en el input de abajo.
+          } else {
+            setModoOtra(false);
+            onChangeValor(e.target.value);
+          }
+        }}
+      >
+        <option value="">Seleccione...</option>
+        {opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+        <option value="__otra__">Otra</option>
+      </select>
+      {(modoOtra || fueraCatalogo) && (
+        <input
+          className="Datos-otra-input"
+          type="text"
+          name={name}
+          value={valor}
+          placeholder="Escribe el nombre…"
+          disabled={disabled}
+          onChange={(e) => onChangeValor(e.target.value)}
+        />
+      )}
+    </div>
+  );
+};
 
 const PhoneField: React.FC<{
   label: string;
@@ -146,6 +206,15 @@ interface FormSectionProps {
     type?: string;
     options?: string[];
     inputProps?: React.InputHTMLAttributes<HTMLInputElement>
+    /** Select de catálogo con opción «Otra» digitable (EPS/ARL). */
+    conOtra?: boolean;
+    /** Campo de ciudad dependiente: nombre del DEPARTAMENTO que debe elegirse
+        primero — sin él el desplegable saldría vacío, así que se bloquea y se
+        muestra «Elige el departamento primero». */
+    requiereDepto?: string;
+    /** Campo que solo se habilita cuando otro tiene un valor exacto (ej: el
+        Año de Repotenciación solo si Repotenciado = «Sí»). */
+    habilitadaSoloSi?: { campo: string; valor: string };
   }[];
   formData: Record<string, string>;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
@@ -186,16 +255,22 @@ const celularEsValido = (valor: string): boolean => {
     : digitos.length === 10;
 };
 
-/* Fechas que provienen del RUT del propietario/tenedor: NO son clon del
-   conductor, así que siguen editables aunque los toggles de figura estén
-   activos (el RUT se exige igual aunque las figuras coincidan). */
-const RUT_FECHA_FIELDS = [
-  'propFechaInicioActividad', 'propFechaExpedicionRut',
-  'tenedFechaInicioActividad', 'tenedFechaExpedicionRut',
-];
+/* (Las fechas de RUT del tenedor ya no llevan excepción de edición: el flag
+   `disabled` de FormSection hoy solo se usa para el modo consulta, que
+   bloquea TODO el formulario por igual.) */
 const gruposSanguineos = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
-const epsColombia = ["Sura", "Sanitas", "Compensar", "Coomeva", "Salud Total"];
-const arlColombia = ["Positiva", "Sura", "Colpatria", "Bolívar", "Axa Colpatria"];
+/* Catálogos de EPS/ARL (2026-09-03, orden del usuario): en el select siempre
+   aparece «Otra» al final — elegirla despliega un input para digitar el
+   nombre de una entidad fuera del catálogo (SelectConOtra). */
+const epsColombia = [
+  "Aliansalud", "Coosalud", "Comfenalco Valle", "Compensar", "Famisanar",
+  "Mutual Ser", "Nueva EPS", "Salud Mía", "Salud Total", "Sanitas",
+  "Servicio Occidental de Salud - SOS", "Sura",
+];
+const arlColombia = [
+  "Positiva", "Sura", "AXA Colpatria", "Seguros Bolívar", "Colmena",
+  "La Equidad", "Mapfre", "Alfa", "Aurora", "Colsanitas",
+];
 const parentescos = ["Padre", "Madre", "Hijo(a)", "Hermano(a)", "Esposo(a)", "Abuelo(a)", "Tio(a)", "Otro"];
 const tiposCarroceria = ["S.R.S.","FURGON","ESTACAS","TANQUE","VOLCO","TOLVA","RECOLECTOR COMPARTADOR","PANEL","CAMABAJA","VAN","PLANCHON","PORTACONTENEDORES","PLATAFORMA","HOMIGONERO","BOTELLERO",];
 const tiposCuenta = ["AHORROS", "CORRIENTE"];
@@ -232,8 +307,9 @@ const GRUPOS_AVANCE: Array<{ etiqueta: string; titulos: string[]; extra?: string
     titulos: ['Información del Conductor', 'En Caso de Emergencia Avisar a', 'Referencias Laborales'],
     extra: ['condCategoriaLic'],
   },
-  { etiqueta: 'Propietario', titulos: ['Datos del propietario'] },
+  // Tenedor antes que propietario: mismo orden que las secciones del formulario.
   { etiqueta: 'Tenedor', titulos: ['Datos del Tenedor'] },
+  { etiqueta: 'Propietario', titulos: ['Datos del propietario'] },
   { etiqueta: 'Vehículo', titulos: ['Datos del Vehiculo'] },
 ];
 
@@ -241,15 +317,35 @@ const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, hand
   <div className={`Datos-form-section ${className || ''}`.trim()}>
     <h4>{title}</h4>
     <div className="Datos-fields-container">
-      {fields.map(({ label, name, type, options, inputProps }) => (
-        PHONE_FIELDS.includes(name) ? (
+      {fields.map(({ label, name, type, options, inputProps, conOtra, requiereDepto, habilitadaSoloSi }) => {
+        // Ciudad dependiente: sin departamento elegido el desplegable saldría
+        // vacío — se bloquea y la opción guía a elegir el departamento primero.
+        const faltaDepto = Boolean(requiereDepto) && !formData[requiereDepto as string];
+        // Campo condicionado (ej: Año de Repotenciación): bloqueado hasta que
+        // el campo del que depende tenga el valor esperado.
+        const bloqueadaCondicion = Boolean(habilitadaSoloSi) && formData[habilitadaSoloSi!.campo] !== habilitadaSoloSi!.valor;
+        const campoBloqueado = faltaDepto || bloqueadaCondicion;
+        return (
+        conOtra && options ? (
+          <SelectConOtra
+            key={name}
+            label={label}
+            name={name}
+            opciones={options}
+            valor={formData[name] || ""}
+            onChangeValor={(v) => handleChange({ target: { name, value: v } } as React.ChangeEvent<any>)}
+            disabled={disabled}
+            required={requiredFields?.includes(name)}
+            error={camposError?.includes(name)}
+          />
+        ) : PHONE_FIELDS.includes(name) ? (
           <PhoneField
             key={name}
             label={label}
             name={name}
             value={formData[name] || ""}
             onChange={handleChange}
-            disabled={disabled && !RUT_FECHA_FIELDS.includes(name)}
+            disabled={disabled || campoBloqueado}
             required={requiredFields?.includes(name)}
             error={camposError?.includes(name)}
           />
@@ -262,13 +358,15 @@ const FormSection: React.FC<FormSectionProps> = ({ title, fields, formData, hand
             value={formData[name] || ""}
             onChange={handleChange}
             options={options}
-            disabled={disabled && !RUT_FECHA_FIELDS.includes(name)}
+            disabled={disabled || campoBloqueado}
             required={requiredFields?.includes(name)}
             inputProps={inputProps}
             error={camposError?.includes(name)}
+            opcionVacia={faltaDepto ? 'Elige el departamento primero' : undefined}
           />
         )
-      ))}
+        );
+      })}
     </div>
   </div>
 );
@@ -509,6 +607,14 @@ const LECTURA_IA_A_TIPO_SUBIDA: Record<string, string> = {
 const MAX_SIZE_MB_IA = 10;
 const FORMATOS_ACEPTADOS_IA = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
 
+/* Deja que el navegador PINTE el overlay antes del trabajo pesado: en móvil
+   la compresión de la foto (decodificar 12–50 MP + canvas) bloquea el hilo y
+   sin este yield el overlay no aparecía hasta tocar la pantalla (rAF espera
+   al frame previo al paint; el setTimeout cae ya después de pintar). */
+const cederFrame = () => new Promise<void>(r =>
+  requestAnimationFrame(() => setTimeout(r, 0))
+);
+
 // Botones de la tarjeta "Ahorra tiempo": tipo lectura → etiqueta y esquema backend.
 // Cédulas de propietario/tenedor = identidad; RUT = complemento (dirección,
 // ciudad, correo, celular, fechas, NIT). Ambos aportan; nunca pisan lo manual.
@@ -551,6 +657,9 @@ interface DatosProps {
   idUsuario?: string;
   /** True cuando se edita un vehículo aprobado: enviar editado_por al guardar. */
   editarAprobado?: boolean;
+  /** Modo CONSULTA (vehículo en revisión): todo el formulario bloqueado, sin
+   * tarjeta IA, sin firma editable y sin botones de guardado. */
+  soloLectura?: boolean;
   onValidChange?: (isValid: boolean) => void;
   onCedulaConductorChange?: (cedula: string) => void;
   onSavedSuccess: () => void;
@@ -577,7 +686,7 @@ const refAdicionalVacia = (): Record<string, string> => ({
 const REMOL_FIELDS = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho'];
 const REMOL_TITULO = 'Datos del Remolque (Opcional)';
 
-const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
+const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLectura, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   // Referencias laborales adicionales (opcionales): el array vive aparte del
   // formData plano y se persiste como `referenciasAdicionales` en el vehículo.
@@ -721,7 +830,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                 departamentosCalculados[cityToDeptoMap[cityField]] = buscarDepartamentoPorCiudad(loadedData[cityField]);
              }
           });
-          setFormData((prevData) => ({ ...prevData, ...loadedData, ...departamentosCalculados }));
+          // Repotenciado: default «No» (vehículo nuevo o histórico sin el
+          // campo) — el Año de Repotenciación queda bloqueado hasta «Sí».
+          const datosCargados = { ...loadedData };
+          if (!datosCargados.vehRepotenciado || String(datosCargados.vehRepotenciado).trim() === '') {
+            datosCargados.vehRepotenciado = 'No';
+          }
+          setFormData((prevData) => ({ ...prevData, ...datosCargados, ...departamentosCalculados }));
 
           // Sello de la firma electrónica (si ya firmó antes con el flujo nuevo).
           const evidencia = loadedData.firmaEvidencia;
@@ -791,17 +906,21 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     }
     if (value !== "") {
         if (name === 'vehModelo' && parseInt(value) > 2026) return;
-        // El año de repotenciación nunca puede ser futuro.
-        if (name === 'vehAno' && parseInt(value) > ANIO_ACTUAL) return;
+        // El año de repotenciación: nunca futuro ni anterior a 2010.
+        if (name === 'vehAno' && (parseInt(value) > ANIO_ACTUAL || parseInt(value) < 2010)) return;
         if (name === 'condAntiguedadRef' && parseInt(value) > 30) return;
+    }
+    // Repotenciado ≠ «Sí»: el año pierde sentido — se limpia para que no
+    // quede un dato huérfano guardado (y el campo vuelve bloqueado).
+    if (name === 'vehRepotenciado' && value !== 'Sí') {
+        setFormData(prev => ({ ...prev, vehRepotenciado: value, vehAno: '' }));
+        return;
     }
     if (name.includes('Depto')) {
         let ciudadField = "";
         if (name === 'condDeptoCiudad') ciudadField = 'condCiudad';
         if (name === 'condDeptoCiudadRef') ciudadField = 'condCiudadRef';
-        if (name === 'propDeptoExpedida') ciudadField = 'propCiudadExpDoc';
         if (name === 'propDeptoCiudad') ciudadField = 'propCiudad';
-        if (name === 'tenedDeptoExpedida') ciudadField = 'tenedCiudadExpDoc';
         if (name === 'tenedDeptoCiudad') ciudadField = 'tenedCiudad';
         setFormData(prev => ({ ...prev, [name]: value, [ciudadField]: "" }));
     } else {
@@ -1004,6 +1123,17 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     const archivoOriginal = inputDocumentoRef.current?.files?.[0];
     if (!archivoOriginal || !tipoLecturaPendiente) return;
     const soloPdf = Boolean(OPCIONES_LECTURA_IA.find(o => o.tipo === tipoLecturaPendiente)?.soloPdf);
+    const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipoLecturaPendiente);
+    const etiqueta = opcion ? opcion.etiqueta.replace(/^[^\s]+\s/, '') : 'el documento';
+
+    // Feedback INMEDIATO: el overlay se enciende ANTES de comprimir. En móvil
+    // la compresión bloquea el hilo principal y sin esto el «Leyendo…» no se
+    // pintaba hasta que el usuario tocaba la pantalla. cederFrame() deja
+    // pintar el overlay antes del trabajo pesado.
+    setLeyendoCedula(true);
+    setEtiquetaLecturaIA(etiqueta);
+    await cederFrame();
+
     // Comprimir apenas llega la foto: las fotos de cámara (12–50 MP) son las
     // que desbordan la memoria del navegador en móviles ("memoria
     // insuficiente"); comprimida (~1600px) baja el pico de RAM del flujo de
@@ -1012,22 +1142,26 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     // Vaciar el input ya: no retener el original en memoria más de lo necesario.
     if (inputDocumentoRef.current) inputDocumentoRef.current.value = '';
     if (soloPdf && archivo.type !== 'application/pdf') {
+      setLeyendoCedula(false);
       Swal.fire('Formato no válido', 'El RUT solo se puede subir en PDF (se descarga de la DIAN; no se admite foto).', 'warning');
       setTipoLecturaPendiente(null);
       return;
     }
     if (!validarArchivoIA(archivo)) {
+      setLeyendoCedula(false);
       setTipoLecturaPendiente(null);
       return;
     }
-    const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipoLecturaPendiente);
-    if (!opcion) return;
-    const etiqueta = opcion.etiqueta.replace(/^[^\s]+\s/, '');
+    if (!opcion) {
+      setLeyendoCedula(false);
+      return;
+    }
 
     // Documentos de DOS caras OBLIGATORIAS (todas las cédulas, licencia y
     // tarjeta de propiedad — 2026-08-27, orden del usuario: siempre reverso):
     // tras el frente se pide el reverso inmediatamente, sin poder saltarlo.
     if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
+      setLeyendoCedula(false); // El Swal del reverso manda; no dejar el overlay pegado.
       Swal.fire({
         icon: 'info',
         title: 'Ahora el REVERSO',
@@ -1051,8 +1185,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     setReversoPendiente(null);
     if (inputReversoDocRef.current) inputReversoDocRef.current.value = '';
     if (!pendiente) return;
+    // Feedback inmediato antes de comprimir (mismo fix del frente en móvil).
+    setLeyendoCedula(true);
+    setEtiquetaLecturaIA(`${pendiente.etiqueta} — reverso`);
+    await cederFrame();
     const reverso = reversoOriginal ? await comprimirImagen(reversoOriginal) : null;
-    if (reverso && !validarArchivoIA(reverso)) return;
+    if (reverso && !validarArchivoIA(reverso)) {
+      setLeyendoCedula(false);
+      return;
+    }
     leerDocumentoConIA(
       pendiente.tipo,
       pendiente.esquema,
@@ -1126,8 +1267,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         }
       } else {
         // Certificado bancario: lectura IA (banco/tipo/número) o clon de los
-        // campos del conductor.
-        const mapear = MAPEOS_IA[`certificado_bancario_${figura}`];
+        // campos del conductor. OJO: las claves de MAPEOS_IA usan los prefijos
+        // CORTOS (prop/tened), no figura — `certificado_bancario_${figura}`
+        // jamás existía y el autollenado con lectura IA se caía silenciosamente.
+        const mapear = MAPEOS_IA[`certificado_bancario_${figura === 'propietario' ? 'prop' : 'tened'}`];
         if (data.lectura_ia && data.lectura_ia.datos && mapear) {
           const nuevos = mapear(data.lectura_ia.datos);
           aplicarLecturaIA(nuevos);
@@ -1417,6 +1560,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
 
   // Autoguardado: 2.5 s después de la última edición, guardar en silencio.
   useEffect(() => {
+    if (soloLectura) return; // Modo consulta: jamás se escribe.
     if (cargandoInicialRef.current) return; // No disparar al montar/cargar datos.
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setEstadoAutoguardado((prev) => (prev === 'error' ? prev : 'inactivo'));
@@ -1579,12 +1723,12 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Expedida en (Ciudad) *', name: 'condExpedidaEn' },
         { label: 'Fecha de Expedición Cédula', name: 'condFechaExpedicion', type: 'date' },
         { label: 'Departamento (Residencia)', name: 'condDeptoCiudad', options: departamentosUnicos },
-        { label: 'Ciudad (Residencia)', name: 'condCiudad', options: getCiudadesPorDepto(formData['condDeptoCiudad']) },
-        { label: 'Dirección', name: 'condDireccion' },
+        { label: 'Ciudad (Residencia)', name: 'condCiudad', options: getCiudadesPorDepto(formData['condDeptoCiudad']), requiereDepto: 'condDeptoCiudad' },
+        { label: 'Dirección (Residencia)', name: 'condDireccion' },
         { label: 'Celular', name: 'condCelular', type: 'text' },
         { label: 'Correo Electrónico', name: 'condCorreo', type: 'email' },
-        { label: 'EPS', name: 'condEps', options: epsColombia },
-        { label: 'ARL', name: 'condArl', options: arlColombia },
+        { label: 'EPS', name: 'condEps', options: epsColombia, conOtra: true },
+        { label: 'ARL', name: 'condArl', options: arlColombia, conOtra: true },
         { label: 'No. Licencia', name: 'condNoLicencia', type: 'number' },
         { label: 'Fecha de Vencimiento', name: 'condFechaVencimientoLic', type: 'date' },
         { label: 'Grupo Sanguíneo RH', name: 'condGrupoSanguineo', options: gruposSanguineos },
@@ -1607,30 +1751,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Empresa', name: 'condEmpresaRef' },
         { label: 'Celular', name: 'condCelularRef', type: 'text' },
         { label: 'Departamento', name: 'condDeptoCiudadRef', options: departamentosUnicos },
-        { label: 'Ciudad', name: 'condCiudadRef', options: getCiudadesPorDepto(formData['condDeptoCiudadRef']) },
+        { label: 'Ciudad', name: 'condCiudadRef', options: getCiudadesPorDepto(formData['condDeptoCiudadRef']), requiereDepto: 'condDeptoCiudadRef' },
         { label: 'Nro. Viajes', name: 'condNroViajesRef', type: 'number' },
         { label: 'Años Antigüedad', name: 'condAntiguedadRef', type: 'number', inputProps: { min: 0, max: 30 } },
         { label: 'Merc. Transportada', name: 'condMercTransportada' },
-      ],
-    },
-    {
-      title: 'Datos del propietario',
-      fields: [
-        { label: 'Tipo de Documento', name: 'propTipoDocumento', options: tiposDocumentoRut },
-        { label: 'Nombre/Razón', name: 'propNombre' },
-        { label: 'Número documento', name: 'propDocumento', type: 'number' },
-        { label: 'Departamento (Expedida)', name: 'propDeptoExpedida', options: departamentosUnicos },
-        { label: 'Expedida en', name: 'propCiudadExpDoc', options: getCiudadesPorDepto(formData['propDeptoExpedida']) },
-        { label: 'Correo', name: 'propCorreo', type: 'email' },
-        { label: 'Celular', name: 'propCelular', type: 'text' },
-        { label: 'Dirección', name: 'propDireccion' },
-        { label: 'Departamento', name: 'propDeptoCiudad', options: departamentosUnicos },
-        { label: 'Ciudad', name: 'propCiudad', options: getCiudadesPorDepto(formData['propDeptoCiudad']) },
-        { label: 'Banco', name: 'propBanco', options: bancosColombia },
-        { label: 'Tipo de Cuenta', name: 'propTipoCuenta', options: tiposCuenta },
-        { label: 'No. de Cuenta', name: 'propNumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
-        { label: 'Inicio de Actividad (RUT)', name: 'propFechaInicioActividad', type: 'date' },
-        { label: 'Fecha Expedición RUT', name: 'propFechaExpedicionRut', type: 'date' },
       ],
     },
     {
@@ -1639,18 +1763,40 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Tipo de Documento', name: 'tenedTipoDocumento', options: tiposDocumentoRut },
         { label: 'Nombre/Razón', name: 'tenedNombre' },
         { label: 'Número documento', name: 'tenedDocumento', type: 'number' },
-        { label: 'Departamento (Expedida)', name: 'tenedDeptoExpedida', options: departamentosUnicos },
-        { label: 'Expedida en', name: 'tenedCiudadExpDoc', options: getCiudadesPorDepto(formData['tenedDeptoExpedida']) },
+        // (2026-09-03) Sin «Departamento (Expedida)»: solo la ciudad, select
+        // directo de todos los municipios (si el valor guardado no está en el
+        // catálogo, se agrega para que no se pinte en blanco).
+        { label: 'Expedida en', name: 'tenedCiudadExpDoc', options: formData['tenedCiudadExpDoc'] && !todasLasCiudades.includes(formData['tenedCiudadExpDoc']) ? [formData['tenedCiudadExpDoc'], ...todasLasCiudades] : todasLasCiudades },
         { label: 'Correo', name: 'tenedCorreo', type: 'email' },
         { label: 'Celular', name: 'tenedCelular', type: 'text' },
-        { label: 'Dirección', name: 'tenedDireccion' },
-        { label: 'Departamento', name: 'tenedDeptoCiudad', options: departamentosUnicos },
-        { label: 'Ciudad', name: 'tenedCiudad', options: getCiudadesPorDepto(formData['tenedDeptoCiudad']) },
+        { label: 'Dirección (Residencia)', name: 'tenedDireccion' },
+        { label: 'Departamento (Residencia)', name: 'tenedDeptoCiudad', options: departamentosUnicos },
+        { label: 'Ciudad (Residencia)', name: 'tenedCiudad', options: getCiudadesPorDepto(formData['tenedDeptoCiudad']), requiereDepto: 'tenedDeptoCiudad' },
         { label: 'Banco', name: 'tenedBanco', options: bancosColombia },
         { label: 'Tipo de Cuenta', name: 'tenedTipoCuenta', options: tiposCuenta },
         { label: 'No. de Cuenta', name: 'tenedNumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
         { label: 'Inicio de Actividad (RUT)', name: 'tenedFechaInicioActividad', type: 'date' },
         { label: 'Fecha Expedición RUT', name: 'tenedFechaExpedicionRut', type: 'date' },
+      ],
+    },
+    {
+      title: 'Datos del propietario',
+      // (2026-09-03) Sin datos bancarios ni fechas de RUT del propietario:
+      // dejaron de pedirse por completo (orden del usuario) — igual que el
+      // RUT y el cert. bancario del propietario como documentos (2026-08-31).
+      // Va DESPUÉS del tenedor (orden del usuario, 2026-09-03).
+      fields: [
+        { label: 'Tipo de Documento', name: 'propTipoDocumento', options: tiposDocumentoRut },
+        { label: 'Nombre/Razón', name: 'propNombre' },
+        { label: 'Número documento', name: 'propDocumento', type: 'number' },
+        // (2026-09-03) Sin «Departamento (Expedida)»: solo la ciudad, select
+        // directo de todos los municipios (mismo patrón que el tenedor).
+        { label: 'Expedida en', name: 'propCiudadExpDoc', options: formData['propCiudadExpDoc'] && !todasLasCiudades.includes(formData['propCiudadExpDoc']) ? [formData['propCiudadExpDoc'], ...todasLasCiudades] : todasLasCiudades },
+        { label: 'Correo', name: 'propCorreo', type: 'email' },
+        { label: 'Celular', name: 'propCelular', type: 'text' },
+        { label: 'Dirección (Residencia)', name: 'propDireccion' },
+        { label: 'Departamento (Residencia)', name: 'propDeptoCiudad', options: departamentosUnicos },
+        { label: 'Ciudad (Residencia)', name: 'propCiudad', options: getCiudadesPorDepto(formData['propDeptoCiudad']), requiereDepto: 'propDeptoCiudad' },
       ],
     },
     {
@@ -1678,7 +1824,18 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         { label: 'Limitación a la Propiedad', name: 'vehLimitacionProp', options: ["Sí", "No"] },
         { label: 'Código Licencia (LT)', name: 'vehCodigoLicTransito', type: 'text', inputProps: { placeholder: 'Ej: LT02004908588' } },
         { label: 'Repotenciado', name: 'vehRepotenciado', options: ["Sí", "No"] },
-        { label: 'Año Repotenciacion', name: 'vehAno', type: 'number', inputProps: { min: 1990, max: ANIO_ACTUAL } },
+        // El año solo se habilita si Repotenciado = «Sí» (default «No»).
+        {
+          label: 'Año Repotenciacion',
+          name: 'vehAno',
+          type: 'number',
+          inputProps: {
+            min: 2010,
+            max: ANIO_ACTUAL,
+            placeholder: formData['vehRepotenciado'] === 'Sí' ? 'Ej: 2015' : 'Solo si es repotenciado',
+          },
+          habilitadaSoloSi: { campo: 'vehRepotenciado', valor: 'Sí' },
+        },
         { label: 'Empresa Satelital', name: 'vehEmpresaSat' },
         { label: 'Usuario Satelital', name: 'vehUsuarioSat' },
         { label: 'Clave Satelital', name: 'vehClaveSat' },
@@ -1771,7 +1928,9 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         ))}
       </div>
 
-      {/* --- LECTURA DE DOCUMENTOS CON IA (guarda el documento Y autollena) --- */}
+      {/* --- LECTURA DE DOCUMENTOS CON IA (guarda el documento Y autollena) ---
+          Oculta en modo consulta: no se pueden subir documentos. */}
+      {!soloLectura && (
       <div className="Datos-iaCedula">
         <div className="Datos-iaCedula-header">
           <span className="Datos-iaCedula-titulo">⚡ Ahorra tiempo</span>
@@ -1851,6 +2010,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
           </div>
         )}
       </div>
+      )}
 
       <div className="Datos-Form-datos-generales">
         {sections.map(({ title, fields }) => (
@@ -1877,6 +2037,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                             type="checkbox"
                             checked={catsActivas.includes(cat)}
                             onChange={() => toggleCategoriaLic(cat)}
+                            disabled={soloLectura}
                           />
                           {cat}
                         </label>
@@ -1896,6 +2057,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                     type="checkbox"
                     checked={tieneRemolque}
                     onChange={alternarRemolque}
+                    disabled={soloLectura}
                   />
                   Mi vehículo tiene remolque
                 </label>
@@ -1922,6 +2084,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                 fields={fields}
                 formData={formData}
                 handleChange={handleChange}
+                disabled={soloLectura}
                 className={claseSeccion(title)}
                 camposError={camposError}
                 requiredFields={requiredFields}
@@ -1933,14 +2096,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                   <div key={`ref-adicional-${indice}`} className="Datos-ref-adicional">
                     <div className="Datos-ref-adicional-header">
                       <h4>Referencia adicional {indice + 2}</h4>
-                      <button
-                        type="button"
-                        className="Datos-ref-adicional-quitar"
-                        onClick={() => setRefsAdicionales(prev => prev.filter((_, i) => i !== indice))}
-                        title="Quitar esta referencia"
-                      >
-                        ✕ Quitar
-                      </button>
+                      {!soloLectura && (
+                        <button
+                          type="button"
+                          className="Datos-ref-adicional-quitar"
+                          onClick={() => setRefsAdicionales(prev => prev.filter((_, i) => i !== indice))}
+                          title="Quitar esta referencia"
+                        >
+                          ✕ Quitar
+                        </button>
+                      )}
                     </div>
                     <div className="Datos-fields-container">
                       {CAMPOS_REF_ADICIONAL.map(({ label, clave, type }) => (
@@ -1951,6 +2116,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                             inputMode={clave === 'celular' || clave === 'nroViajes' || clave === 'antiguedad' ? 'numeric' : undefined}
                             value={ref[clave] || ''}
                             onChange={(e) => cambiarRefAdicional(indice, clave, e.target.value)}
+                            disabled={soloLectura}
                           />
                         </div>
                       ))}
@@ -1959,6 +2125,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                         <select
                           value={ref.departamento || ''}
                           onChange={(e) => cambiarRefAdicional(indice, 'departamento', e.target.value)}
+                          disabled={soloLectura}
                         >
                           <option value="">Seleccione…</option>
                           {departamentosUnicos.map(d => <option key={d} value={d}>{d}</option>)}
@@ -1969,7 +2136,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                         <select
                           value={ref.ciudad || ''}
                           onChange={(e) => cambiarRefAdicional(indice, 'ciudad', e.target.value)}
-                          disabled={!ref.departamento}
+                          disabled={!ref.departamento || soloLectura}
                         >
                           <option value="">{ref.departamento ? 'Seleccione…' : 'Elige departamento primero'}</option>
                           {getCiudadesPorDepto(ref.departamento || '').map(c => <option key={c} value={c}>{c}</option>)}
@@ -1978,7 +2145,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                     </div>
                   </div>
                 ))}
-                {refsAdicionales.length < MAX_REFERENCIAS_ADICIONALES && (
+                {refsAdicionales.length < MAX_REFERENCIAS_ADICIONALES && !soloLectura && (
                   <button
                     type="button"
                     className="Datos-ref-agregar"
@@ -1995,7 +2162,22 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         {/* --- SECCIÓN DE FIRMA --- */}
         <div className="Datos-form-section">
             <h4>Firma del Conductor </h4>
-            {formData['firmaUrl'] && !editandoFirma ? (
+            {soloLectura ? (
+              /* Modo consulta: la firma se muestra, jamás se edita. */
+              formData['firmaUrl'] ? (
+                <div style={{ textAlign: 'center', padding: '15px', border: '1px solid #d5dbdb', borderRadius: '8px', backgroundColor: '#f8f9fa' }}>
+                  <div style={{ color: '#2c3e50', fontWeight: 'bold', marginBottom: '10px' }}>Firma registrada</div>
+                  {firmaSellada && (
+                    <div style={{ fontSize: '0.82rem', color: '#5a6472', marginTop: '-4px', marginBottom: '10px' }}>
+                      ✍️ Firmada electrónicamente el <b>{formatoFechaFirma(firmaSellada.firmado_en)}</b>
+                    </div>
+                  )}
+                  <img src={formData['firmaUrl']} alt="Firma Conductor" style={{ maxWidth: '100%', height: '150px', border: '1px dashed #ccc', backgroundColor: 'white' }} />
+                </div>
+              ) : (
+                <p style={{ color: '#6c757d', fontSize: '0.9rem' }}>Sin firma registrada.</p>
+              )
+            ) : formData['firmaUrl'] && !editandoFirma ? (
                 <div className="firma-existente-container" style={{textAlign: 'center', padding: '15px', border: '1px solid #27ae60', borderRadius: '8px', backgroundColor: '#e8f8f5'}}>
                     <div style={{color: '#27ae60', fontWeight: 'bold', marginBottom: '10px', fontSize: '1.1rem'}}>Firma Registrada Exitosamente</div>
                     {firmaSellada ? (
@@ -2034,7 +2216,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         </div>
       </div>
 
-      {/* --- BOTONES DE ACCIÓN (FIXED) --- */}
+      {/* --- BOTONES DE ACCIÓN (FIXED) — ocultos en modo consulta --- */}
+      {!soloLectura && (
       <div className="Datos-botones-flotantes">
           <button type="button" onClick={(e) => procesarGuardado(false, e)} disabled={isLoading} className="btn-guardar-progreso">
               {isLoading ? "Guardando..." : "Guardar Progreso"}
@@ -2043,6 +2226,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
               {isLoading ? "Procesando..." : "Continuar"}
           </button>
       </div>
+      )}
 
       {/* --- VISOR de documento de dos caras (👁 de la tarjeta IA) --- */}
       {verCaraIA && (

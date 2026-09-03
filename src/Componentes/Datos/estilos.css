@@ -68,6 +68,11 @@
   font-weight: 600;
 }
 
+/* Input de texto que aparece bajo un select con «Otra» (EPS/ARL). */
+.Datos-otra-input {
+  margin-top: 8px;
+}
+
 /* ── Remolque (opcional): sección colapsada tras un checkbox ── */
 .Datos-remolque-toggle {
   display: flex;
@@ -278,6 +283,10 @@
     width: 100%;
     height: 100%;
     display: block;
+    /* Móvil: sin esto el navegador toma el trazo como scroll de página y al
+       levantar el dedo la pantalla salta (típico: se va al input de clave
+       satelital). touch-action:none deja el gesto exclusivo del dibujo. */
+    touch-action: none;
 }
 
 .btn-limpiar-firma {

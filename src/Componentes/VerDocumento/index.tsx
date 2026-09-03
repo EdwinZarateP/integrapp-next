@@ -317,7 +317,12 @@ const VerDocumento: React.FC<VerDocumentoProps> = ({ urls, placa, onDeleteSucces
                       {esImagen(url) ? (
                         <>
                           <img
-                            src={`${url}?t=${new Date().getTime()}`}
+                            /* URL firmada v4 ya trae query (?X-Goog-Signature…):
+                               un cache-buster «?t=» extra corrompe la firma y
+                               GCS rechaza la imagen (solo se veía el alt
+                               «Documento 1»). Solo se agrega a URLs históricas
+                               sin query, donde sí evita la caché vieja. */
+                            src={url.includes('?') ? url : `${url}?t=${new Date().getTime()}`}
                             alt={`Documento ${index + 1}`}
                             className="VerDocumento-imagen"
                           />
