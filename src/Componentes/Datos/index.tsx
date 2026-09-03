@@ -571,11 +571,19 @@ const refAdicionalVacia = (): Record<string, string> => ({
   empresa: '', celular: '', departamento: '', ciudad: '', nroViajes: '', antiguedad: '', mercancia: '',
 });
 
+/* ── Remolque (opcional): la mayoría de conductores no tiene remolque, así
+   que la sección solo se despliega tras marcar el checkbox «tengo remolque».
+   Los campos NO son obligatorios (no están en requiredFields). ── */
+const REMOL_FIELDS = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho'];
+const REMOL_TITULO = 'Datos del Remolque (Opcional)';
+
 const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   // Referencias laborales adicionales (opcionales): el array vive aparte del
   // formData plano y se persiste como `referenciasAdicionales` en el vehículo.
   const [refsAdicionales, setRefsAdicionales] = useState<Array<Record<string, string>>>([]);
+  // Sección del remolque desplegada (checkbox «mi vehículo tiene remolque»).
+  const [tieneRemolque, setTieneRemolque] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editandoFirma, setEditandoFirma] = useState(false);
   const sigCanvas = useRef<any>(null);
@@ -671,6 +679,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
         const data = await response.json();
         if (data.data) {
           const loadedData = data.data;
+
+          // Remolque: marcar el checkbox si ya había algún dato guardado
+          // (un vehículo con placa de remolque no debe verse «sin remolque»).
+          setTieneRemolque(REMOL_FIELDS.some(f => loadedData[f] != null && String(loadedData[f]).trim() !== ''));
 
           // Documentos ya guardados (tipo subida → URL) para los ✓ de la tarjeta IA.
           // Incluye los REVERSOS de docs de dos caras ({tipo}Reverso).
@@ -1430,6 +1442,32 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Checkbox del remolque: desmarcar con datos ya diligenciados pide
+   * confirmación (los campos se limpian y el autoguardado persiste el vacío). */
+  const alternarRemolque = () => {
+    if (!tieneRemolque) {
+      setTieneRemolque(true);
+      return;
+    }
+    const quitar = () => {
+      setFormData(prev => ({ ...prev, ...Object.fromEntries(REMOL_FIELDS.map(f => [f, ''])) }));
+      setTieneRemolque(false);
+    };
+    if (REMOL_FIELDS.some(f => (formData[f] || '').trim() !== '')) {
+      Swal.fire({
+        icon: 'question',
+        title: 'Quitar el remolque',
+        text: 'Ya diligenciaste datos del remolque: al desmarcar se borrarán.',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, quitar',
+        confirmButtonColor: '#c0392b',
+        cancelButtonText: 'Cancelar',
+      }).then(res => { if (res.isConfirmed) quitar(); });
+      return;
+    }
+    quitar();
+  };
+
   /** Referencias adicionales: editar un campo de la referencia N. Cambiar el
    * departamento reinicia la ciudad (dependencia depto→ciudad, como la ref #1). */
   const cambiarRefAdicional = (indice: number, clave: string, valor: string) => {
@@ -1848,7 +1886,37 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, onValid
                 );
               })()
             )}
-            {fields.length > 0 && (
+            {title === REMOL_TITULO ? (
+              /* Remolque: sección colapsada tras un checkbox — la mayoría de
+                 conductores no tiene remolque (por eso es opcional). */
+              <div className="Datos-form-section Datos-form-section--vehiculo">
+                <h4>Datos del Remolque (Opcional)</h4>
+                <label className="Datos-remolque-toggle">
+                  <input
+                    type="checkbox"
+                    checked={tieneRemolque}
+                    onChange={alternarRemolque}
+                  />
+                  Mi vehículo tiene remolque
+                </label>
+                {tieneRemolque && (
+                  <div className="Datos-fields-container">
+                    {fields.map(({ label, name, type, options, inputProps }) => (
+                      <InputField
+                        key={name}
+                        label={label}
+                        name={name}
+                        type={type}
+                        value={formData[name] || ""}
+                        onChange={handleChange}
+                        options={options}
+                        inputProps={inputProps}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : fields.length > 0 && (
               <FormSection
                 title={title}
                 fields={fields}

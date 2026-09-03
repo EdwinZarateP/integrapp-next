@@ -589,6 +589,17 @@ select:focus-visible {
   font-weight: 700;
   color: #2c3e50;
 }
+/* Aviso cuando un CONDUCTOR ya tiene su único vehículo posible: el
+   formulario de nueva placa se reemplaza por este mensaje. */
+.pv-registro-maximo {
+  padding: 14px 16px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #6b4f00;
+  background: #fdf6e3;
+  border: 1px solid #e8ce8c;
+  border-radius: 8px;
+}
 .pv-registro .input-group-crear .input-moderno {
   flex: 1;
   min-width: 220px;

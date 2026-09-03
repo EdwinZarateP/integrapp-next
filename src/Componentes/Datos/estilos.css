@@ -68,6 +68,28 @@
   font-weight: 600;
 }
 
+/* ── Remolque (opcional): sección colapsada tras un checkbox ── */
+.Datos-remolque-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+  color: #333;
+  cursor: pointer;
+  user-select: none;
+}
+
+.Datos-remolque-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2F6B3E;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.Datos-remolque-toggle:last-child { margin-bottom: 0; }
+
 /* Contenedor de los inputs dentro de cada sección */
 .Datos-fields-container {
   display: grid;

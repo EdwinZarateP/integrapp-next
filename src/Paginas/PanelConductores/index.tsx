@@ -500,6 +500,10 @@ const PanelConductoresVista: React.FC = () => {
   const [vehiculosRechazados, setVehiculosRechazados] = useState<any[]>([]);
   const [vehiculosEnRevision, setVehiculosEnRevision] = useState<any[]>([]);
   const [vehiculosAprobados, setVehiculosAprobados] = useState<any[]>([]);
+  // Vehículos donde el usuario es DUEÑO (idUsuario) — no cuenta los que le
+  // asignaron como conductor invitado (idConductor). Con esto se limita al
+  // CONDUCTOR a una sola placa propia (el TENEDOR puede registrar varias).
+  const [vehiculosPropios, setVehiculosPropios] = useState<any[]>([]);
   // Aprobados pausados por Seguridad: siguen en la base pero sin operar.
   const [vehiculosInactivos, setVehiculosInactivos] = useState<any[]>([]);
 
@@ -564,6 +568,7 @@ const PanelConductoresVista: React.FC = () => {
 
       if (response.status === 404) {
           setVehicles([]);
+          setVehiculosPropios([]);
           setVehiculosRechazados([]);
           setVehiculosEnRevision([]);
           setVehiculosAprobados([]);
@@ -603,9 +608,11 @@ const PanelConductoresVista: React.FC = () => {
         setVehiculosEnRevision(revision);
         setVehiculosAprobados(aprobados);
         setVehiculosInactivos(inactivos);
+        setVehiculosPropios(data.vehiculos.filter((v: any) => v.idUsuario === idUsuario));
 
       } else {
           setVehicles([]);
+          setVehiculosPropios([]);
           setVehiculosPendientes([]);
           setVehiculosRechazados([]);
           setVehiculosEnRevision([]);
@@ -1058,7 +1065,9 @@ const PanelConductoresVista: React.FC = () => {
                 )}
               </div>
               <div className="panel-creacion">
-                {/* REGISTRAR VEHÍCULO NUEVO */}
+                {/* REGISTRAR VEHÍCULO NUEVO — el CONDUCTOR solo puede tener UN
+                    vehículo propio; el TENEDOR registra cuantas placas quiera. */}
+                {esTenedor || vehiculosPropios.length === 0 ? (
                 <div className="pv-registro">
                   <label className="pv-registro-label" htmlFor="pv-placa-input">Placa del vehículo</label>
                   <div className="input-group-crear">
@@ -1083,6 +1092,13 @@ const PanelConductoresVista: React.FC = () => {
                   </div>
                   {newPlateError && <p id="pv-placa-error" className="pv-input-error" role="alert">{newPlateError}</p>}
                 </div>
+                ) : (
+                <div className="pv-registro-maximo">
+                  🚛 Como conductor ya registraste tu vehículo (<strong>{vehiculosPropios[0]?.placa}</strong>).
+                  Solo el tenedor (dueño de la flota) puede registrar varias placas.
+                  Si necesitas cambiar de vehículo, contacta al área de Seguridad.
+                </div>
+                )}
 
                 <div style={{marginTop: '26px', display:'flex', flexDirection:'column', gap:'20px'}}>
 
