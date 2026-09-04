@@ -191,6 +191,7 @@ export default function PortalSeguridadP() {
     : f === "bdme" ? "BDME personas (cédula)"
     : f === "bdme_nit" ? "BDME empresas (NIT)"
     : f === "rama_judicial" ? "Rama Judicial (procesos por nombre)"
+    : f === "rues" ? "RUES — Registro Mercantil (NIT)"
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
@@ -207,6 +208,7 @@ export default function PortalSeguridadP() {
     bdme: "Consultando la persona en BDME…",
     bdme_nit: "Consultando la empresa en BDME…",
     rama_judicial: "Buscando procesos en la Rama Judicial…",
+    rues: "Verificando la matrícula mercantil en el RUES…",
   };
   // Mostrar solamente las fuentes del plan abierto. Antes esta lista era
   // fija y por eso un plan exclusivo de BDME mencionaba Procuraduría y
@@ -237,9 +239,9 @@ export default function PortalSeguridadP() {
   const requiereNombres = planActivo?.fuentes?.some(
     (f) => f === "procuraduria" || f === "rama_judicial"
   ) ?? false;
-  const requiereNit = planActivo?.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit") ?? false;
+  const requiereNit = planActivo?.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit" || f === "rues") ?? false;
   const requiereCedula = planActivo?.fuentes?.some(
-    (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial"
+    (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial" && f !== "rues"
   ) ?? false;
   // Las fuentes del plan se consultan EN PARALELO: el tiempo total es el de
   // la MÁS LENTA (no la suma). Presupuesto orientativo por fuente (portal
@@ -257,6 +259,7 @@ export default function PortalSeguridadP() {
     bdme: 120,
     bdme_nit: 120,
     rama_judicial: 90,
+    rues: 15, // API directo sin navegador ni captcha (~1-2 s)
   };
   const estimacionSegundos = (() => {
     const fs = planActivo?.fuentes ?? [];
@@ -491,9 +494,9 @@ export default function PortalSeguridadP() {
                 const pideNombres = p.fuentes?.some(
                   (f) => f === "procuraduria" || f === "rama_judicial"
                 );
-                const pideNit = p.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit");
+                const pideNit = p.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit" || f === "rues");
                 const pideCedula = p.fuentes?.some(
-                  (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial"
+                  (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial" && f !== "rues"
                 );
                 return (
                   <div key={p.plan_id} className={`PS-acordeon-item ${abierto ? "PS-acordeon-abierto" : ""}`}>
@@ -707,6 +710,14 @@ export default function PortalSeguridadP() {
                         if (!corrio(sena)) return null;
                         const total = sena.total_certificados ?? 0;
                         return <span>SENA: 🎓 {total > 0 ? `${total} certificado(s) de formación` : "Sin certificados registrados"}</span>;
+                      })()}
+                      {(() => {
+                        const rues = f.rues;
+                        if (!corrio(rues)) return null;
+                        if (rues!.no_registra === true) return <span>RUES: 🔍 NIT sin registro mercantil</span>;
+                        const est = (rues!.estado_matricula ?? "").toUpperCase();
+                        if (est === "ACTIVA") return <span>RUES: ✅ Matrícula mercantil activa</span>;
+                        return <span>RUES: ⛔ Matrícula {est || "con estado distinto de activa"}</span>;
                       })()}
                     </>
                   );

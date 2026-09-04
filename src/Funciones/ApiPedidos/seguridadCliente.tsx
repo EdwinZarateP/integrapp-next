@@ -135,6 +135,26 @@ export interface FuenteEstudio {
     numero_documento?: string;
     pais_documento?: string;
   }[];
+  // Fuente rues (Registro Mercantil por NIT — matrícula distinta de ACTIVA
+  // → fuente ADVERTENCIA; NIT sin registro = determinante, no "limpio").
+  nit?: string;
+  nit_con_dv?: string;
+  razon_social?: string;
+  estado_matricula?: string | null; // ACTIVA / CANCELADA / INACTIVA / …
+  camara?: string;
+  matricula?: string;
+  fecha_matricula?: string | null;
+  fecha_renovacion?: string | null;
+  ultimo_ano_renovado?: string | null;
+  fecha_cancelacion?: string | null;
+  tipo_sociedad?: string;
+  organizacion_juridica?: string;
+  categoria_matricula?: string;
+  ciiu?: Record<string, { codigo?: string; descripcion?: string }>;
+  municipio?: string;
+  departamento?: string;
+  representantes?: { documento: string; nombre: string }[];
+  fecha_actualizacion?: string | null;
 }
 
 export interface EstudioResumen {
