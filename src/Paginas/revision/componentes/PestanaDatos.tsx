@@ -57,6 +57,7 @@ const CAMPOS_TEXTO_REQUERIDOS = [
   { key: 'vehTipoCarroceria', label: 'Carrocería Vehículo' },
   { key: 'vehLinea', label: 'Línea Vehículo' },
   { key: 'vehColor', label: 'Color Vehículo' },
+  { key: 'vehCapacidadCarga', label: 'Capacidad de Carga (kg)' },
   { key: 'vehEmpresaSat', label: 'Empresa Satelital' },
   { key: 'vehUsuarioSat', label: 'Usuario Satelital' },
   { key: 'vehClaveSat', label: 'Clave Satelital' },
@@ -247,6 +248,18 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
         <p><strong>Marca:</strong> {veh.vehMarca}</p>
         <p><strong>Línea:</strong> {veh.vehLinea}</p>
         <p><strong>Modelo:</strong> {veh.vehModelo}</p>
+        {/* Capacidad de carga con semáforo de rango: verde si está entre
+            300–50.000 kg, rojo si está fuera o vacía (exigida al aprobar). */}
+        <p>
+          <strong>Capacidad de Carga:</strong>{' '}
+          {(() => {
+            const cap = parseInt(String(veh.vehCapacidadCarga ?? '').replace(/\D/g, ''), 10);
+            const ok = !isNaN(cap) && cap >= 300 && cap <= 50000;
+            return <span style={{ color: ok ? '#155724' : '#c0392b', fontWeight: ok ? 600 : 700 }}>
+              {isNaN(cap) ? 'No registrada' : `${cap.toLocaleString('es-CO')} kg`}{ok ? '' : ' (fuera de rango 300–50.000)'}
+            </span>;
+          })()}
+        </p>
         {/* Año de repotenciación: solo aplica (y solo se diligencia en el
             formulario) cuando el vehículo es repotenciado. */}
         {veh.vehRepotenciado === 'Sí' && <p><strong>Año Repotenciación:</strong> {veh.vehAno}</p>}

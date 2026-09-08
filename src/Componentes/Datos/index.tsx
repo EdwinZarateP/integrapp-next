@@ -529,6 +529,12 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
     if (d.modelo) nuevos.vehModelo = String(d.modelo).slice(0, 4);
     if (d.color) nuevos.vehColor = d.color.toUpperCase();
     if (d.clase_vehiculo) nuevos.vehClase = d.clase_vehiculo.toUpperCase();
+    // Capacidad de carga: la IA lee «Capacidad Kg» de la tarjeta. Un 0 o valor
+    // fuera de rango NO se aplica — el conductor debe digitarla a mano.
+    const capacidadLeida = parseInt(String(d.capacidad_carga ?? '').replace(/\D/g, ''), 10);
+    if (capacidadLeida >= 300 && capacidadLeida <= 50000) {
+      nuevos.vehCapacidadCarga = String(capacidadLeida);
+    }
     if (d.cilindraje) nuevos.vehCilindraje = String(d.cilindraje).replace(/\D/g, '');
     if (d.servicio) {
       // Aterrizar al catálogo del select (el valor crudo podría no coincidir).
@@ -731,6 +737,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
       const valor = formData[c] || '';
       if (!valor.trim()) return true; // sigue vacío → sigue en rojo
       if (PHONE_FIELDS.includes(c)) return !celularEsValido(valor); // válido → quitar rojo
+      // Capacidad de carga: fuera del rango 300–50.000 sigue en rojo.
+      if (c === 'vehCapacidadCarga') {
+        const n = parseInt(valor.replace(/\D/g, ''), 10);
+        return isNaN(n) || n < 300 || n > 50000;
+      }
       return false;
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -757,7 +768,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
     'condCiudadRef', 'condNroViajesRef', 'condAntiguedadRef', 'condMercTransportada', 'propNombre', 'propDocumento', 'propCiudadExpDoc',
     'propCorreo', 'propCelular', 'propDireccion', 'propCiudad', 'tenedNombre', 'tenedDocumento', 'tenedCiudadExpDoc', 'tenedCorreo',
     'tenedCelular', 'tenedDireccion', 'tenedCiudad', 'vehModelo', 'vehMarca', 'vehTipoCarroceria', 'vehLinea', 'vehColor',
-    'vehEmpresaSat', 'vehUsuarioSat', 'vehClaveSat',
+    'vehEmpresaSat', 'vehUsuarioSat', 'vehClaveSat', 'vehCapacidadCarga',
     // Datos del SOAT OBLIGATORIOS (2026-08-27, orden del usuario).
     'vehAseguradoraSoat', 'vehPolizaSoat', 'vehVencimientoSoat',
     // El Año de Repotenciación es obligatorio SOLO si el vehículo fue repotenciado.
@@ -1645,6 +1656,23 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
             return;
         }
     }
+    // Capacidad de carga: además de obligatoria, debe estar dentro del rango
+    // operativo (300–50.000 kg). Un valor fuera de rango bloquea «Continuar».
+    if (esFinalizar) {
+        const capacidad = parseInt((formData['vehCapacidadCarga'] || '').replace(/\D/g, ''), 10);
+        if (isNaN(capacidad) || capacidad < 300 || capacidad > 50000) {
+            setCamposError(prev => Array.from(new Set([...prev, 'vehCapacidadCarga'])));
+            const campo = document.querySelector('[data-campo="vehCapacidadCarga"]');
+            if (campo) campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            Swal.fire({
+                title: 'Capacidad de carga inválida',
+                html: `La <b>Capacidad de Carga</b> debe ser un número entre <b>300 y 50.000 kg</b>.<br/>Si la tarjeta de propiedad no la registra, digítala según el modelo del vehículo.`,
+                icon: 'warning',
+                confirmButtonColor: '#e67e22',
+            });
+            return;
+        }
+    }
     // Celulares: los inválidos se marcan en rojo (mismo mecanismo que los
     // obligatorios faltantes) y se lista de quién es cada número.
     const celularesInvalidos = phoneFields.filter(field => (formData[field] || '') && !celularEsValido(formData[field]));
@@ -1813,6 +1841,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
         { label: 'Servicio', name: 'vehServicio', options: serviciosVehiculo },
         { label: 'Combustible', name: 'vehCombustible', options: combustiblesVehiculo },
         { label: 'Capacidad Pasajeros', name: 'vehCapPasajeros', type: 'number', inputProps: { min: 0, max: 80 } },
+        { label: 'Capacidad de Carga (kg)', name: 'vehCapacidadCarga', type: 'number', inputProps: { min: 300, max: 50000, placeholder: 'Entre 300 y 50.000 kg' } },
         { label: 'Potencia', name: 'vehPotencia', type: 'text', inputProps: { placeholder: 'Ej: 15 HP' } },
         { label: 'VIN', name: 'vehVin' },
         { label: 'Nº Chasis', name: 'vehChasis' },
@@ -2199,7 +2228,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
             ) : (
                 <div className="firma-nueva-container">
                     <p style={{fontSize: '0.9rem', color: '#4d4d4dff', marginBottom: '10px'}}>{formData['firmaUrl'] ? "Estas en modo edición." : "Dibuja tu firma y pulsa «Firmar»: queda sellada con la fecha exacta y el hash de tus datos (firma electrónica)."}</p>
-                    <div className="signature-wrapper" style={{border: '2px dashed #ccc', borderRadius: '8px', overflow: 'hidden'}}>
+                    {/* onPointerDown suelta el foco del último input: en móvil, si el input
+                        conserva el foco, al levantar el dedo de la firma el navegador vuelve
+                        a ese input (scroll + teclado) y confunde al conductor. */}
+                    <div className="signature-wrapper" onPointerDown={() => { (document.activeElement as HTMLElement | null)?.blur?.(); }} style={{border: '2px dashed #ccc', borderRadius: '8px', overflow: 'hidden'}}>
                         <Suspense fallback={<div style={{height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8a94a6', fontSize: '0.9rem'}}>Cargando espacio de firma…</div>}>
                             <SignatureCanvas ref={sigCanvas} penColor='black' canvasProps={{className: 'signature-canvas', style: {width: '100%', height: '200px'}}} backgroundColor="white" />
                         </Suspense>

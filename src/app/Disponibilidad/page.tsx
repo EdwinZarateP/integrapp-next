@@ -12,6 +12,9 @@ const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 interface VehiculoAprobado {
   placa: string;
   vehMarca?: string;
+  vehLinea?: string;
+  vehClase?: string;
+  vehTipoCarroceria?: string;
   tipo_veh_sicetac?: string;
 }
 interface CheckInHoy {
@@ -200,7 +203,10 @@ const Disponibilidad: React.FC = () => {
                 <div>
                   <div className="Disp-placa">{v.placa}</div>
                   <div className="Disp-sub">
-                    {v.vehMarca || 'Vehículo'}{v.tipo_veh_sicetac ? ` · ${v.tipo_veh_sicetac}` : ''}
+                    {[v.vehMarca, v.vehLinea].filter(Boolean).join(' ') || 'Vehículo'}
+                    {[v.vehClase, v.vehTipoCarroceria].filter(Boolean).length > 0
+                      ? ` · ${[v.vehClase, v.vehTipoCarroceria].filter(Boolean).join(' ')}`
+                      : ''}
                   </div>
                 </div>
                 <label className="Disp-switch" title="Disponible hoy">

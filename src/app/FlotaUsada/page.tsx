@@ -24,6 +24,19 @@ interface Asignacion {
   devuelto_por?: string;
 }
 
+interface Descarte {
+  _id: string;
+  placa: string;
+  fecha?: string;
+  origen?: string;
+  descartado_por?: string;
+  motivo_descarte?: string | null;
+  descartado_en?: string;
+  estado: 'descartada' | 'restaurada';
+  restaurado_en?: string;
+  restaurado_por?: string;
+}
+
 const leerCookie = (nombre: string): string =>
   document.cookie.match(new RegExp(`(?:^| )${nombre}=([^;]+)`))?.[1] || '';
 
@@ -43,6 +56,7 @@ const FlotaUsada: React.FC = () => {
   const router = useRouter();
   const [listo, setListo] = useState(false);
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
+  const [descartes, setDescartes] = useState<Descarte[]>([]);
   const [cargando, setCargando] = useState(false);
   const [procesando, setProcesando] = useState<string | null>(null); // placa en curso
   const [soloAbiertas, setSoloAbiertas] = useState(false);
@@ -51,10 +65,15 @@ const FlotaUsada: React.FC = () => {
     setCargando(true);
     try {
       const qs = soloAbiertas ? '?solo_abiertas=true' : '';
-      const res = await fetch(`${API}/disponibilidad/asignadas${qs}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al consultar');
-      setAsignaciones(data.asignaciones || []);
+      const [resAsig, resDesc] = await Promise.all([
+        fetch(`${API}/disponibilidad/asignadas${qs}`),
+        fetch(`${API}/disponibilidad/descartes`),
+      ]);
+      const dataA = await resAsig.json();
+      if (!resAsig.ok) throw new Error(dataA.detail || 'Error al consultar');
+      setAsignaciones(dataA.asignaciones || []);
+      const dataD = await resDesc.json();
+      setDescartes(resDesc.ok ? (dataD.descartes || []) : []);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo cargar la flota usada', 'error');
     } finally {
@@ -101,6 +120,40 @@ const FlotaUsada: React.FC = () => {
       consultar();
     } catch (e: any) {
       Swal.fire('No se pudo devolver', e?.message || 'Error de conexión', 'error');
+    } finally {
+      setProcesando(null);
+    }
+  };
+
+  // Restaurar un descarte: el carro vuelve a la bolsa de hoy con su hora de
+  // enturnado original (útil si lo llamaron de nuevo o fue descarte por error).
+  const restaurar = async (d: Descarte) => {
+    const usuario = leerCookie('usuarioPedidosCookie');
+    const confirma = await Swal.fire({
+      title: '¿Restaurar a la bolsa?',
+      html: `<b>${d.placa}</b> volverá a estar disponible hoy<br/>con su hora de enturnado original.`,
+      icon: 'question', showCancelButton: true,
+      confirmButtonText: 'Sí, restaurar', cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#004d40',
+    });
+    if (!confirma.isConfirmed) return;
+
+    setProcesando(d.placa);
+    try {
+      const fd = new FormData();
+      fd.append('placa', d.placa);
+      fd.append('restaurado_por', usuario);
+      const res = await fetch(`${API}/disponibilidad/restaurar`, { method: 'PUT', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al restaurar');
+      Swal.fire({
+        icon: 'success', title: 'Restaurado',
+        text: data.reactivada ? `${d.placa} volvió a la bolsa de hoy.` : `${d.placa} quedó restaurado (su check-in ya expiró).`,
+        timer: 2200, showConfirmButton: false,
+      });
+      consultar();
+    } catch (e: any) {
+      Swal.fire('No se pudo restaurar', e?.message || 'Error de conexión', 'error');
     } finally {
       setProcesando(null);
     }
@@ -170,6 +223,57 @@ const FlotaUsada: React.FC = () => {
                         title="Devolver el vehículo a la bolsa de disponibles"
                       >
                         {procesando === a.placa ? 'Devolviendo…' : '↩ Devolver a disponible'}
+                      </button>
+                    ) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <h3 className="FU-subtitulo">✖ Descartados</h3>
+        <p className="FD-sub-desc">
+          Vehículos que la operación llamó y no usó. Un descarte de hoy se puede
+          restaurar: el carro vuelve a la bolsa con su hora de enturnado original.
+        </p>
+        <div className="FD-tabla-wrap">
+          <table className="FD-tabla">
+            <thead>
+              <tr>
+                <th>Placa</th><th>Origen</th><th>Descartado por</th>
+                <th>Motivo</th><th>Fecha</th><th>Estado</th><th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {descartes.length === 0 && (
+                <tr><td colSpan={7} className="FD-vacio">No hay vehículos descartados.</td></tr>
+              )}
+              {descartes.map((d) => (
+                <tr key={d._id}>
+                  <td className="FD-placa">{d.placa}</td>
+                  <td>{d.origen || '-'}</td>
+                  <td>{d.descartado_por || '-'}</td>
+                  <td className="FD-destinos">{d.motivo_descarte || '-'}</td>
+                  <td>{fmtFecha(d.descartado_en)}</td>
+                  <td>
+                    {d.estado === 'descartada' ? (
+                      <span className="FU-chip FU-chip--descartada">✖ Descartado</span>
+                    ) : (
+                      <span className="FU-chip FU-chip--devuelta">
+                        Restaurado{d.restaurado_en ? ` · ${fmtFecha(d.restaurado_en)}` : ''}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {d.estado === 'descartada' ? (
+                      <button
+                        className="FU-btn-restaurar"
+                        onClick={() => restaurar(d)}
+                        disabled={procesando === d.placa}
+                        title="Volver a poner el vehículo en la bolsa de hoy"
+                      >
+                        {procesando === d.placa ? 'Restaurando…' : '↩ Restaurar'}
                       </button>
                     ) : '-'}
                   </td>
