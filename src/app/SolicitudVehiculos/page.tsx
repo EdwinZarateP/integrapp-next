@@ -622,7 +622,7 @@ const SolicitudVehiculos: React.FC = () => {
   // Trackea si el mousedown empezó en el fondo del overlay, para evitar que
   // seleccionar texto dentro de un input (mousedown dentro, mouseup fuera) cierre el modal.
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
-  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string; municipio_destino?: string; ahorro?: number; observacion?: string; observacion_causal?: string } | null>(null);
+  const [tempEdicion, setTempEdicion] = useState<{ tarifa_base: number; tipo_veh_sicetac: string; peso_sicetac: number; requiere_descargue: number; punto_adicional: number; desvio: number; aforo: number; placa: string; ruta?: string; causal?: string; municipio_destino?: string; departamento_destino?: string; ahorro?: number; observacion?: string; observacion_causal?: string } | null>(null);
   const [causalesDisponibles, setCausalesDisponibles] = useState<Array<{ nombre: string }>>([]);
   const [rutasDisponibles, setRutasDisponibles] = useState<string[]>([]);
   const [planillasSeleccionadas, setPlanillasSeleccionadas] = useState<Set<number>>(new Set());
@@ -1378,6 +1378,7 @@ const SolicitudVehiculos: React.FC = () => {
         aprobado_por: (estadoFinal as string) === 'APROBADO' ? resultado.aprobado_por : null,
         fecha_aprobacion: (estadoFinal as string) === 'APROBADO' ? resultado.fecha_aprobacion : null,
         municipio_destino: resultado.municipio_destino || null,  // Municipio principal (editable manualmente)
+        departamento_destino: resultado.departamento_destino || null,  // Departamento del municipio principal (derivado de divipolas)
         ahorro: resultado.ahorro ?? 0,  // Ahorro operativo (máx. $5.000.000 validado en backend)
         observacion: resultado.observacion || '',  // Observación del ahorro
         observacion_causal: resultado.observacion_causal || '',  // Observación de la causal
@@ -2911,6 +2912,7 @@ const SolicitudVehiculos: React.FC = () => {
       ruta: resultado.ruta && resultado.ruta !== '-' ? resultado.ruta : '',
       causal: resultado.causal || '',  // Causal existente si la tiene
       municipio_destino: resultado.municipio_destino || '-',  // Municipio principal (editable; default = el de mayor participación)
+      departamento_destino: resultado.departamento_destino || '-',  // Departamento del municipio principal (se actualiza al cambiar el municipio)
       ahorro: resultado.ahorro ?? 0,  // Ahorro operativo (si ya fue registrado)
       observacion: resultado.observacion || '',  // Observación del ahorro (si ya fue registrada)
       observacion_causal: resultado.observacion_causal || ''  // Texto que explica la causal (si ya fue registrado)
@@ -3856,7 +3858,21 @@ const SolicitudVehiculos: React.FC = () => {
                     <select
                       className="SV-selectSmall"
                       value={tempEdicion?.municipio_destino ?? modalDetalle.resultado.municipio_destino ?? '-'}
-                      onChange={(e) => setTempEdicion(prev => prev ? { ...prev, municipio_destino: e.target.value } : null)}
+                      onChange={(e) => {
+                        setTempEdicion(prev => prev ? { ...prev, municipio_destino: e.target.value } : null);
+                        // Consultar el departamento del municipio elegido en divipolas (misma
+                        // fuente que usa el backend al traer la planilla). Si no se encuentra o
+                        // falla la red, se conserva el departamento actual.
+                        const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+                        fetch(`${API}/siscore/departamento-por-municipio?municipio=${encodeURIComponent(e.target.value)}`)
+                          .then(r => r.ok ? r.json() : null)
+                          .then(d => {
+                            if (d?.encontrado && d.departamento) {
+                              setTempEdicion(prev => prev ? { ...prev, departamento_destino: d.departamento } : null);
+                            }
+                          })
+                          .catch(() => { /* sin conexión: se mantiene el departamento actual */ });
+                      }}
                       style={{ width: '100%', maxWidth: '420px', padding: '0.55rem', fontSize: '0.95rem' }}
                     >
                       {construirOpcionesMunicipio(modalDetalle.resultado).map(o => (
@@ -3866,7 +3882,7 @@ const SolicitudVehiculos: React.FC = () => {
                       ))}
                     </select>
                     <p style={{ fontSize: '0.78rem', color: '#666', margin: '0.45rem 0 0 0' }}>
-                      Cambia solo el municipio que se muestra como principal. No afecta flete, recargos, total ni estado.
+                      Cambia el municipio que se muestra como principal; el departamento se actualiza según divipolas. No afecta flete, recargos, total ni estado.
                     </p>
                   </>
                 )}
@@ -3875,7 +3891,7 @@ const SolicitudVehiculos: React.FC = () => {
                 <strong style={{ color: '#005f56' }}>Todos los Municipios ({modalDetalle.resultado.cantidad_destinos || 0}):</strong>
                 <div style={{ marginTop: '0.3rem', color: '#333' }}>{modalDetalle.resultado.municipios_destino_lista || '-'}</div>
               </div>
-              <div style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}><strong>Departamento Destino:</strong> {modalDetalle.resultado.departamento_destino}</div>
+              <div style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}><strong>Departamento Destino:</strong> {tempEdicion?.departamento_destino ?? modalDetalle.resultado.departamento_destino}</div>
             </div>
 
             <fieldset disabled={soloLectura} style={{ marginTop: '1.5rem', border: 'none', padding: 0, margin: 0 }}>
@@ -4229,6 +4245,7 @@ const SolicitudVehiculos: React.FC = () => {
                       placa: tempEdicion.placa,
                       causal: tempEdicion.causal || '',  // Agregar causal
                       municipio_destino: tempEdicion.municipio_destino || modalDetalle.resultado.municipio_destino,  // Municipio principal elegido manualmente
+                      departamento_destino: tempEdicion.departamento_destino || modalDetalle.resultado.departamento_destino,  // Departamento derivado del municipio elegido (divipolas)
                       ahorro: tempEdicion.ahorro ?? 0,  // Ahorro operativo
                       observacion: tempEdicion.observacion || '',  // Observación del ahorro
                       observacion_causal: tempEdicion.observacion_causal || ''  // Observación de la causal
