@@ -234,6 +234,20 @@ const OtrosCostosP: React.FC = () => {
     }
   }, [usuario, perfil, fEstado, fFechaIni, fFechaFin, fPedido, fPlaca, fManifiesto, fCliente, fRegional, skip]);
 
+  // Paginación: recargar el listado al cambiar de página (Siguiente/Anterior solo hacen setSkip).
+  // Se omite la primera pasada porque el useEffect de acceso ya carga el listado al montar.
+  // OJO: depender solo de `skip` a propósito — cargarListado se recrea con cada filtro y
+  // dispararía búsquedas automáticas al teclear (los filtros se aplican con el botón Buscar).
+  const cargaInicialHecha = useRef(false);
+  useEffect(() => {
+    if (!cargaInicialHecha.current) {
+      cargaInicialHecha.current = true;
+      return;
+    }
+    cargarListado();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skip]);
+
   // ── Permisos (frontend; el backend vuelve a validar) ─────────────────────
   const puedeCrear = perfil === 'ADMIN' || perfil === 'OPERATIVO' || perfil === 'DESPACHADOR';
   const puedePagar = perfil === 'ADMIN' || perfil === 'FINANCIERO';
@@ -852,7 +866,9 @@ const OtrosCostosP: React.FC = () => {
             <input className="OC-input" style={{ maxWidth: '120px' }} placeholder="Placa" value={fPlaca} onChange={(e) => setFPlaca(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '140px' }} placeholder="Manifiesto" value={fManifiesto} onChange={(e) => setFManifiesto(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '180px' }} placeholder="Cliente" value={fCliente} onChange={(e) => setFCliente(e.target.value)} />
-            <button className="OC-btn OC-btnPrimary" onClick={() => { setSkip(0); cargarListado(); }}><FaSearch /> Buscar</button>
+            {/* Si ya está en la página 1 hay que consultar explícito; si no, el setSkip(0)
+                dispara el useEffect de paginación (evita doble fetch con skip viejo). */}
+            <button className="OC-btn OC-btnPrimary" onClick={() => { if (skip === 0) cargarListado(); else setSkip(0); }}><FaSearch /> Buscar</button>
             <button className="OC-btn OC-btnExcel" onClick={onExportExcel}><FaFileExcel /> Excel</button>
             {puedeArchivoBancario && (
               <>

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaSearch, FaFileExcel, FaCalendarAlt, FaTimes, FaUndo, FaPaperclip } from 'react-icons/fa';
@@ -125,6 +125,20 @@ const HistoricoOtrosCostosP: React.FC = () => {
     }
   }, [usuario, perfil, fFechaIni, fFechaFin, fPedido, fPlaca, fManifiesto, fCliente, fRegional, skip]);
 
+  // Paginación: recargar el listado al cambiar de página (Siguiente/Anterior solo hacen setSkip).
+  // Se omite la primera pasada porque el useEffect de acceso ya carga el listado al montar.
+  // OJO: depender solo de `skip` a propósito — cargar se recrea con cada filtro y
+  // dispararía búsquedas automáticas al teclear (los filtros se aplican con el botón Buscar).
+  const cargaInicialHecha = useRef(false);
+  useEffect(() => {
+    if (!cargaInicialHecha.current) {
+      cargaInicialHecha.current = true;
+      return;
+    }
+    cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skip]);
+
   const abrirDetalle = async (it: OtroCosto) => {
     try {
       const d = await obtenerDetalleHistorico(it.consecutivo!, usuario);
@@ -205,7 +219,9 @@ const HistoricoOtrosCostosP: React.FC = () => {
             <input type="date" className="OC-dateInput" style={{ width: 'auto' }} value={fFechaIni} onChange={(e) => setFFechaIni(e.target.value)} />
             <label>Hasta</label>
             <input type="date" className="OC-dateInput" style={{ width: 'auto' }} value={fFechaFin} onChange={(e) => setFFechaFin(e.target.value)} />
-            <button className="OC-btn OC-btnPrimary" onClick={() => { setSkip(0); cargar(); }}><FaSearch /> Buscar</button>
+            {/* Si ya está en la página 1 hay que consultar explícito; si no, el setSkip(0)
+                dispara el useEffect de paginación (evita doble fetch con skip viejo). */}
+            <button className="OC-btn OC-btnPrimary" onClick={() => { if (skip === 0) cargar(); else setSkip(0); }}><FaSearch /> Buscar</button>
           </div>
           <div className="OC-filtroGroup">
             <input className="OC-input" style={{ maxWidth: '160px' }} placeholder="Pedido" value={fPedido} onChange={(e) => setFPedido(e.target.value)} />
