@@ -84,6 +84,8 @@ const LoginUsuario: React.FC = () => {
       const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
       // FINANCIERO es un micro-portal aislado: aterriza directo en Otros Costos.
       if (perfilCookie === 'FINANCIERO') { router.replace('/OtrosCostos'); return; }
+      // VISUALIZADOR es solo lectura: aterriza directo en el panel de indicadores.
+      if (perfilCookie === 'VISUALIZADOR') { router.replace('/indicadores'); return; }
       // CLIENTE_ESTUDIOS es cliente externo del portal de Estudios de
       // Seguridad: jamás entra a la Torre de Control ni a /revision.
       if (perfilCookie === 'CLIENTE_ESTUDIOS') { router.replace('/PortalSeguridad'); return; }
@@ -121,6 +123,14 @@ const LoginUsuario: React.FC = () => {
       if (perfilUpper === 'FINANCIERO') {
         document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; ${expires}`;
         setTimeout(() => router.replace('/OtrosCostos'), 200);
+        return;
+      }
+
+      // VISUALIZADOR: solo lectura (históricos e indicadores), aterriza en
+      // el panel de indicadores sin pasar por el selector de portales.
+      if (perfilUpper === 'VISUALIZADOR') {
+        document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; ${expires}`;
+        setTimeout(() => router.replace('/indicadores'), 200);
         return;
       }
 

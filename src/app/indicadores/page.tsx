@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse } from 'react-icons/fa';
+import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse, FaClipboardList, FaHistory, FaFileInvoiceDollar } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -75,6 +75,32 @@ const IndicadoresMenu: React.FC = () => {
     // Aquí se agregarán más indicadores en el futuro
   ];
 
+  // VISUALIZADOR: atajos a los históricos de solo lectura desde este panel
+  // (es su única puerta de entrada, ya que no pasa por el selector de portales).
+  const indicadoresVisualizador =
+    datosUsuario?.perfil === 'VISUALIZADOR'
+      ? [
+          {
+            id: 'pedidos-completados',
+            titulo: 'Pedidos Completados',
+            icono: <FaClipboardList />,
+            ruta: '/PedidosCompletados',
+          },
+          {
+            id: 'historico-pedidos',
+            titulo: 'Histórico de Pedidos',
+            icono: <FaHistory />,
+            ruta: '/HistoricoPedidos',
+          },
+          {
+            id: 'historico-otros-costos',
+            titulo: 'Histórico Otros Costos',
+            icono: <FaFileInvoiceDollar />,
+            ruta: '/HistoricoOtrosCostos',
+          },
+        ]
+      : [];
+
   return (
     <div className="IM-container">
       {/* Header */}
@@ -118,7 +144,7 @@ const IndicadoresMenu: React.FC = () => {
       {/* Main */}
       <main className="IM-main">
         <div className="IM-indicadoresGrid">
-          {indicadores.map((indicador) => (
+          {[...indicadores, ...indicadoresVisualizador].map((indicador) => (
             <button
               key={indicador.id}
               className="IM-indicadorCard"

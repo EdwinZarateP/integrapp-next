@@ -148,7 +148,7 @@ const HistoricoPedidosP: React.FC = () => {
     const regionalCookie = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/)?.[2] || '';
 
     if (!perfilCookie) { router.replace('/LoginUsuario'); return; }
-    if (!['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfilCookie)) {
+    if (!['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'VISUALIZADOR'].includes(perfilCookie)) {
       router.replace('/MedicalCare');
       return;
     }
@@ -409,7 +409,7 @@ const HistoricoPedidosP: React.FC = () => {
             <input type="date" className="HP-dateInput" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} />
             <label>Hasta</label>
             <input type="date" className="HP-dateInput" value={fechaFin} onChange={e => setFechaFin(e.target.value)} />
-            {['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL'].includes(perfil) && (
+            {['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL', 'VISUALIZADOR'].includes(perfil) && (
               <select
                 className="HP-dateInput"
                 style={{ minWidth: '150px' }}

@@ -121,17 +121,21 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 if (perfil === 'FINANCIERO' && !['otroscostos', 'historicooc'].includes(item.id)) {
                   return null;
                 }
-                // Otros Costos: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO, DESPACHADOR, FINANCIERO
+                // VISUALIZADOR: solo lectura (solo los históricos)
+                if (perfil === 'VISUALIZADOR' && !['historico', 'historicooc'].includes(item.id)) {
+                  return null;
+                }
+                // Otros Costos: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO, DESPACHADOR, FINANCIERO, VISUALIZADOR
                 if (['otroscostos', 'historicooc'].includes(item.id)
-                    && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'DESPACHADOR', 'FINANCIERO'].includes(perfil)) {
+                    && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'DESPACHADOR', 'FINANCIERO', 'VISUALIZADOR'].includes(perfil)) {
                   return null;
                 }
                 // Ocultar elementos de ADMIN si el perfil no es ADMIN ni CONTROL
                 if (['usuarios', 'tarifas', 'divipolas'].includes(item.id) && perfil !== 'ADMIN' && perfil !== 'CONTROL') {
                   return null;
                 }
-                // Historial: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO
-                if (item.id === 'historico' && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO'].includes(perfil)) {
+                // Historial: visible para ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO, VISUALIZADOR
+                if (item.id === 'historico' && !['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'VISUALIZADOR'].includes(perfil)) {
                   return null;
                 }
                 // Pedidos Anulados: visible solo para ADMIN

@@ -28,6 +28,9 @@ const OPCIONES_CAUSAL = [
   'negociacion del flete',
 ];
 
+// Perfiles con alcance amplio: ven el filtro "Todas las regionales" (VISUALIZADOR es solo lectura pero global)
+const PERFILES_AMPLIOS_COMPLETADOS = ['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA', 'VISUALIZADOR'];
+
 const formatoMoneda = (v?: number | string | null) => {
   const n = Number(v ?? 0);
   if (!Number.isFinite(n)) return '—';
@@ -64,14 +67,14 @@ const TablaPedidosCompletados: React.FC = () => {
   const [modalFiltrosAbierto, setModalFiltrosAbierto] = useState(false);
 
   const [regionalFiltro, setRegionalFiltro] = useState<string>(
-    ['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil) ? 'TODOS' : usuarioRegional
+    PERFILES_AMPLIOS_COMPLETADOS.includes(perfil) ? 'TODOS' : usuarioRegional
   );
   const [fechaInicial, setFechaInicial] = useState<string>(today);
   const [fechaFinal, setFechaFinal] = useState<string>(today);
 
   const buildFiltros = () => {
     const filtros: any = {};
-    if (['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil)) {
+    if (PERFILES_AMPLIOS_COMPLETADOS.includes(perfil)) {
       // Perfiles con permisos amplios: solo enviar regionales si seleccionan una específica
       if (regionalFiltro && regionalFiltro !== 'TODOS') {
         filtros.regionales = [regionalFiltro];
@@ -215,7 +218,7 @@ const TablaPedidosCompletados: React.FC = () => {
     <div className="TablaPedidosCompletados-contenedor">
       {/* Filtros escritorio */}
       <div className="TablaPedidosCompletados-filtros">
-        {['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil) && (
+        {PERFILES_AMPLIOS_COMPLETADOS.includes(perfil) && (
           <select
             value={regionalFiltro}
             onChange={e => setRegionalFiltro(e.target.value)}
@@ -258,7 +261,7 @@ const TablaPedidosCompletados: React.FC = () => {
       {modalFiltrosAbierto && (
         <div className="TablaPedidosCompletados-modal-filtros" onClick={() => setModalFiltrosAbierto(false)}>
           <div className="TablaPedidosCompletados-modal-contenido" onClick={(e) => e.stopPropagation()}>
-            {['ADMIN', 'COORDINADOR', 'CONTROL', 'ANALISTA'].includes(perfil) && (
+            {PERFILES_AMPLIOS_COMPLETADOS.includes(perfil) && (
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', fontSize: '0.85rem' }}>
                   Regional:
@@ -379,6 +382,10 @@ const TablaPedidosCompletados: React.FC = () => {
                         {Number(g.diferencia_flete) > 0 ? (
                           g.Observaciones_ajustes ? (
                             <span title="Causal del sobre costo">{g.Observaciones_ajustes}</span>
+                          ) : perfil === 'VISUALIZADOR' ? (
+                            <span title="Sin causal de sobre costo" style={{ color: '#dc2626', fontWeight: 700 }}>
+                              ⚠️ Sin causal
+                            </span>
                           ) : (
                             <button
                               onClick={() => asignarCausal(g)}
