@@ -315,3 +315,93 @@
 @media (min-width: 901px) {
   .TablaPedidosCompletados-btn-filtros-mobile { display: none; }
 }
+
+/* ── Floating Action Button (FAB) de exportaciones ──
+   fixed (no sticky) porque el contenedor tiene overflow-x:auto, lo que anula el
+   sticky vertical; esta página no tiene footer que el botón pueda tapar. */
+.TablaPedidosCompletados-fab {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.TablaPedidosCompletados-fabMenu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  animation: TablaPedidosCompletados-fabSlideUp 0.2s ease-out;
+}
+
+@keyframes TablaPedidosCompletados-fabSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.TablaPedidosCompletados-fabItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 28px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0,0,0,.18);
+  font-family: inherit;
+}
+
+.TablaPedidosCompletados-fabItem:hover {
+  transform: translateX(-4px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.22);
+}
+
+.TablaPedidosCompletados-fabItem:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.TablaPedidosCompletados-fabItemExcel {
+  background: #16a34a;
+  color: #fff;
+}
+
+.TablaPedidosCompletados-fabItemDetallado {
+  background: #2563eb;
+  color: #fff;
+}
+
+.TablaPedidosCompletados-fabBtn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #e65100 0%, #ff8f00 100%);
+  color: #fff;
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(230,81,0,.35);
+  transition: all 0.2s;
+}
+
+.TablaPedidosCompletados-fabBtn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 22px rgba(230,81,0,.45);
+}
+
+.TablaPedidosCompletados-fabBtnOpen {
+  background: linear-gradient(135deg, #bf360c 0%, #e65100 100%);
+  box-shadow: 0 4px 16px rgba(191,54,12,.35);
+}

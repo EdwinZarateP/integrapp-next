@@ -1,10 +1,12 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Cookies from 'js-cookie';
 import Swal from 'sweetalert2';
+import { FaFileExport, FaFileExcel, FaTable } from 'react-icons/fa';
 import {
   listarVehiculosCompletados,
   exportarCompletados,
+  exportarCompletadosDetallado,
   asignarCausalCompletado,
   ListarCompletadosResponse
 } from '@/Funciones/ApiPedidos/apiPedidos';
@@ -65,6 +67,9 @@ const TablaPedidosCompletados: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [modalFiltrosAbierto, setModalFiltrosAbierto] = useState(false);
+  const [fabAbierto, setFabAbierto] = useState(false);
+  const [exportando, setExportando] = useState(false);
+  const fabRef = useRef<HTMLDivElement>(null);
 
   const [regionalFiltro, setRegionalFiltro] = useState<string>(
     PERFILES_AMPLIOS_COMPLETADOS.includes(perfil) ? 'TODOS' : usuarioRegional
@@ -144,7 +149,27 @@ const TablaPedidosCompletados: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleExportar = async () => {
+  // Cerrar el FAB al hacer clic fuera
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setFabAbierto(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const descargarBlob = (blob: Blob, nombre: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportar = async (detallado: boolean) => {
     if (!fechaInicial || !fechaFinal) {
       Swal.fire('Error', 'Selecciona fecha inicial y final', 'warning');
       return;
@@ -153,26 +178,27 @@ const TablaPedidosCompletados: React.FC = () => {
       Swal.fire('Error', 'La fecha inicial no puede ser posterior a la fecha final', 'warning');
       return;
     }
+    setExportando(true);
+    setFabAbierto(false);
     try {
       const filtros = buildFiltros();
-      const blob = await exportarCompletados(
-        usuario,
-        fechaInicial,
-        fechaFinal,
-        filtros.regionales
+      const blob = detallado
+        ? await exportarCompletadosDetallado(usuario, fechaInicial, fechaFinal, filtros.regionales)
+        : await exportarCompletados(usuario, fechaInicial, fechaFinal, filtros.regionales);
+      descargarBlob(
+        blob,
+        detallado
+          ? `pedidos_completados_detallado_${today}.xlsx`
+          : `pedidos_completados_${today}.xlsx`
       );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `pedidos_completados_${today}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
     } catch (err: any) {
       const detail =
         err.response?.data?.detail ||
         err.response?.data?.message ||
         err.message;
       Swal.fire('Error', detail, 'error');
+    } finally {
+      setExportando(false);
     }
   };
 
@@ -444,13 +470,33 @@ const TablaPedidosCompletados: React.FC = () => {
             </table>
           </div>
 
+          {/* FAB flotante de exportaciones (se cierra al hacer clic fuera) */}
           {data.length > 0 && (
-            <div style={{ textAlign: 'right', marginTop: '1rem' }}>
+            <div className="TablaPedidosCompletados-fab" ref={fabRef}>
+              {fabAbierto && (
+                <div className="TablaPedidosCompletados-fabMenu">
+                  <button
+                    className="TablaPedidosCompletados-fabItem TablaPedidosCompletados-fabItemExcel"
+                    disabled={exportando}
+                    onClick={() => handleExportar(false)}
+                  >
+                    <FaFileExcel /> {exportando ? 'Generando…' : 'Excel (actual)'}
+                  </button>
+                  <button
+                    className="TablaPedidosCompletados-fabItem TablaPedidosCompletados-fabItemDetallado"
+                    disabled={exportando}
+                    onClick={() => handleExportar(true)}
+                  >
+                    <FaTable /> {exportando ? 'Generando…' : 'Excel Detallado'}
+                  </button>
+                </div>
+              )}
               <button
-                className="TablaPedidosCompletados-button"
-                onClick={handleExportar}
+                className={`TablaPedidosCompletados-fabBtn${fabAbierto ? ' TablaPedidosCompletados-fabBtnOpen' : ''}`}
+                onClick={() => setFabAbierto(o => !o)}
+                title="Exportar"
               >
-                Exportar a Excel
+                <FaFileExport />
               </button>
             </div>
           )}

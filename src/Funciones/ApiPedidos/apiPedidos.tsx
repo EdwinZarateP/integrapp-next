@@ -310,6 +310,24 @@ export const exportarCompletados = async (
   return data;
 };
 
+// 7.a.2) Exportar DETALLADO: 2 hojas (Vehículos agregado + Pedidos con todos los campos)
+export const exportarCompletadosDetallado = async (
+  usuario: string,
+  fechaInicial: string,
+  fechaFinal: string,
+  regionales?: string[]
+): Promise<Blob> => {
+  const params: any = { usuario, fecha_inicial: fechaInicial, fecha_final: fechaFinal };
+  if (regionales?.length) params.regionales = regionales;
+
+  const { data } = await axios.get<Blob>(`${API_BASE}/pedidos/exportar-completados-detallado`, {
+    params,
+    paramsSerializer: (p) => qs.stringify(p, { arrayFormat: 'repeat' }),
+    responseType: 'blob',
+  });
+  return data;
+};
+
 // 7.b) Asignar causal de sobre costo a un vehículo completado (arreglo de históricos)
 export const asignarCausalCompletado = async (
   usuario: string,
