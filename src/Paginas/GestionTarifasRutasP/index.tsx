@@ -13,6 +13,7 @@ import {
   eliminarTarifaRuta,
   cargarTarifasMasivo,
   descargarPlantillaTarifas,
+  descargarTarifasExcel,
 } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import type { TarifaRutaFmc } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
@@ -47,6 +48,7 @@ const GestionTarifasRutasP: React.FC = () => {
   const [cargandoArchivo, setCargandoArchivo] = useState(false);
   const [resultadoCarga, setResultadoCarga] = useState<{ exitosos: number; errores: number; mensaje: string } | null>(null);
   const [descargandoPlantilla, setDescargandoPlantilla] = useState(false);
+  const [descargandoExcel, setDescargandoExcel] = useState(false);
   const [filtroRuta, setFiltroRuta] = useState('');
   const [filtroCentroCosto, setFiltroCentroCosto] = useState('');
   const [mostrarSpinnerCarga, setMostrarSpinnerCarga] = useState(false);
@@ -182,6 +184,17 @@ const GestionTarifasRutasP: React.FC = () => {
     }
   };
 
+  const handleDescargarExcel = async () => {
+    setDescargandoExcel(true);
+    try {
+      await descargarTarifasExcel();
+    } catch (error: any) {
+      alert('Error al descargar el Excel de tarifas.');
+    } finally {
+      setDescargandoExcel(false);
+    }
+  };
+
   const tarifasFiltradas = tarifas.filter(t => {
     const coincideRuta = !filtroRuta || t.ruta.toLowerCase().includes(filtroRuta.toLowerCase());
     const coincideCentroCosto = !filtroCentroCosto || t.centro_costo.toLowerCase().includes(filtroCentroCosto.toLowerCase());
@@ -225,6 +238,14 @@ const GestionTarifasRutasP: React.FC = () => {
                 disabled={descargandoPlantilla}
               >
                 <FaDownload /> {descargandoPlantilla ? 'Descargando...' : 'Descargar Plantilla'}
+              </button>
+              <button
+                className="GTR-btnDescargar"
+                onClick={handleDescargarExcel}
+                disabled={descargandoExcel || tarifas.length === 0}
+                title={tarifas.length === 0 ? 'No hay tarifas registradas' : 'Descargar todas las tarifas en Excel'}
+              >
+                <FaFileExcel /> {descargandoExcel ? 'Descargando...' : 'Descargar Excel'}
               </button>
             </div>
             <div className="GTR-filtros">

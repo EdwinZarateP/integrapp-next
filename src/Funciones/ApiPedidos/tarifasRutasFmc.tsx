@@ -79,6 +79,38 @@ export const cargarTarifasMasivo = async (archivo: File): Promise<{
   }
 };
 
+// Descargar todas las tarifas en Excel
+export const descargarTarifasExcel = async (): Promise<void> => {
+  try {
+    const res = await axios.get(`${BASE_URL}/descargar-excel`, {
+      responseType: 'blob',
+    });
+
+    const contentDisposition = res.headers['content-disposition'];
+    let filename = 'tarifas_rutas_fmc.xlsx';
+
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/"/g, '');
+      }
+    }
+
+    const url = window.URL.createObjectURL(new Blob([res.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    throw error.response?.data || error.message;
+  }
+};
+
 // Descargar plantilla de tarifas
 export const descargarPlantillaTarifas = async (): Promise<void> => {
   try {
