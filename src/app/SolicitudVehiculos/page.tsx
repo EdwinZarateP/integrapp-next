@@ -512,18 +512,9 @@ const SolicitudVehiculos: React.FC = () => {
       return { puede: true };
     }
 
-    // ANALISTA: solo lo que NO requiere autorización (PREAPROBADO o sin estado).
-    // Las planillas sin tarifa teórica ahora van a CONTROL, así que el ANALISTA no las aprueba.
-    if (perfilUsuario === 'ANALISTA') {
-      if (estado === 'PREAPROBADO' || !estado) {
-        return { puede: true };
-      }
-      return {
-        puede: false,
-        motivo: 'Esta planilla requiere autorización de coordinador/control; el analista solo aprueba lo que no la requiere.'
-      };
-    }
-
+    // ANALISTA y OPERATIVO: no aprueban. La aprobación (incluido PREAPROBADO → APROBADO)
+    // es exclusiva de COORDINADOR, CONTROL y ADMIN.
+    //
     // COORDINADOR: aprueba PREAPROBADO y REQUIERE_APROBACION_COORDINADOR (≤7%); no CONTROL
     // (las de tarifa teórica 0 van a CONTROL, así que tampoco las aprueba).
     if (perfilUsuario === 'COORDINADOR') {
@@ -1816,6 +1807,18 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  // Muestra el error real del backend (403 del control de perfiles, 404, etc.)
+  // en vez del genérico "falló en BD". En fallo, el estado local quedó optimista:
+  // siempre se pide recargar.
+  const mostrarErrorEstado = async (response: Response, accion: string) => {
+    let detalle = `No se pudo ${accion}. Recarga la página para refrescar el estado.`;
+    try {
+      const err = await response.json();
+      if (err?.detail) detalle = `${err.detail} Recarga la página para refrescar el estado.`;
+    } catch { /* respuesta sin JSON */ }
+    Swal.fire(response.status === 403 || response.status === 401 ? '⛔ No autorizado' : '⚠️ Parcial', detalle, 'error');
+  };
+
   const handleAprobarPlanilla = async (resultado: PlanillaResultado, index: number) => {
     // Verificar si ya está aprobada
     if (resultado.estado === 'APROBADO') {
@@ -1894,7 +1897,7 @@ const SolicitudVehiculos: React.FC = () => {
       if (actualizarResponse.ok) {
         Swal.fire('✅ Aprobada', `Planilla ${resultado.planilla} aprobada exitosamente`, 'success');
       } else {
-        Swal.fire('⚠️ Parcial', 'Planilla aprobada en local pero falló actualización en BD. Recarga la página.', 'warning');
+        await mostrarErrorEstado(actualizarResponse, 'aprobar la planilla');
       }
     } catch (error) {
       Swal.fire('Error', 'Error al aprobar la planilla', 'error');
@@ -1958,7 +1961,7 @@ const SolicitudVehiculos: React.FC = () => {
       if (response.ok) {
         Swal.fire('✅ Enviada', `Planilla ${resultado.planilla} ahora en ${etiquetaDestino}`, 'success');
       } else {
-        Swal.fire('⚠️ Parcial', 'Planilla actualizada en local pero falló en BD. Recarga la página.', 'warning');
+        await mostrarErrorEstado(response, 'enviar la planilla');
       }
     } catch (error) {
       Swal.fire('Error', 'Error al enviar la planilla', 'error');
@@ -2011,7 +2014,7 @@ const SolicitudVehiculos: React.FC = () => {
       if (response.ok) {
         Swal.fire('✅ Habilitada', `Planilla ${resultado.planilla} volvió a CREADO`, 'success');
       } else {
-        Swal.fire('⚠️ Parcial', 'Actualizada en local pero falló en BD. Recarga la página.', 'warning');
+        await mostrarErrorEstado(response, 'volver la planilla a CREADO');
       }
     } catch (error) {
       Swal.fire('Error', 'Error al volver a CREADO', 'error');
@@ -2096,7 +2099,7 @@ const SolicitudVehiculos: React.FC = () => {
       if (response.ok) {
         Swal.fire('↩️ Devuelta', `Planilla ${resultado.planilla} devuelta al operativo. Se le notificó el motivo.`, 'success');
       } else {
-        Swal.fire('⚠️ Parcial', 'Devuelta en local pero falló la actualización en BD. Recarga la página.', 'warning');
+        await mostrarErrorEstado(response, 'devolver la planilla');
       }
     } catch (error) {
       Swal.fire('Error', 'Error al devolver la planilla', 'error');
@@ -2739,8 +2742,8 @@ const SolicitudVehiculos: React.FC = () => {
         return;
       }
 
-      // Verificar permisos del perfil
-      if (!['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA'].includes(perfil)) {
+      // Verificar permisos del perfil (solo COORDINADOR/CONTROL/ADMIN aprueban)
+      if (!['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
         Swal.fire('No Autorizado', 'Tu perfil no tiene permisos para aprobar planillas', 'warning');
         return;
       }
@@ -3381,8 +3384,8 @@ const SolicitudVehiculos: React.FC = () => {
                         🔗 Fusionar ({planillasSeleccionadas.size})
                       </button>
                     )}
-                    {/* Botón Aprobar Masivo (el analista solo aprobará las PREAPROBADO) */}
-                    {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA'].includes(perfil) && planillasSeleccionadas.size > 0 && (
+                    {/* Botón Aprobar Masivo - Solo COORDINADOR/CONTROL/ADMIN (aprueba las PREAPROBADO) */}
+                    {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && planillasSeleccionadas.size > 0 && (
                       <button
                         onClick={handleAprobarSeleccionadas}
                         className="SV-btnToggle"
@@ -3682,8 +3685,8 @@ const SolicitudVehiculos: React.FC = () => {
                                   </button>
                                 )}
 
-                                {/* Botón de aprobar - Perfiles autorizados (no en CREADO); ANALISTA solo en PREAPROBADO */}
-                                {((['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && resultado.estado !== 'CREADO') || (perfil === 'ANALISTA' && resultado.estado === 'PREAPROBADO')) && (
+                                {/* Botón de aprobar - Solo COORDINADOR/CONTROL/ADMIN (no en CREADO); el ANALISTA ya no aprueba */}
+                                {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && resultado.estado !== 'CREADO' && (
                                   <button
                                     onClick={() => handleAprobarPlanilla(resultado, index)}
                                     className="SV-btnAction SV-btnSave"
@@ -3694,12 +3697,14 @@ const SolicitudVehiculos: React.FC = () => {
                                   </button>
                                 )}
 
-                                {/* Botón Devolver - ADMIN/COORDINADOR/CONTROL sobre planillas en
-                                    COORDINADOR o CONTROL. Devuelve a CREADO con motivo para que el
-                                    operativo corrija. Devolver NO aprueba: se permite a los tres
-                                    roles sobre ambos tiers. */}
+                                {/* Botón Devolver - ADMIN/COORDINADOR/CONTROL sobre planillas no
+                                    aprobadas (PREAPROBADO, COORDINADOR o CONTROL). Devuelve a
+                                    CREADO con motivo para que el operativo corrija. Devolver NO
+                                    aprueba: se permite a los tres roles sobre todos los tiers. */}
                                 {['ADMIN', 'COORDINADOR', 'CONTROL'].includes(perfil) &&
-                                  (resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' || resultado.estado === 'REQUIERE_APROBACION_CONTROL') && (
+                                  (resultado.estado === 'PREAPROBADO' ||
+                                   resultado.estado === 'REQUIERE_APROBACION_COORDINADOR' ||
+                                   resultado.estado === 'REQUIERE_APROBACION_CONTROL') && (
                                   <button
                                     onClick={() => handleDevolverPlanilla(resultado, index)}
                                     className="SV-btnAction"

@@ -80,7 +80,7 @@ const ImportarPedidosVulcano: React.FC = () => {
       <input
         ref={inputRef}
         type="file"
-        accept=".xlsx,.xls,.xlsm"
+        accept=".xlsx,.xls"
         onChange={handleArchivo}
         disabled={loading}
         style={{ display: 'none' }}
