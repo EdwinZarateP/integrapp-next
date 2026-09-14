@@ -532,6 +532,26 @@ const SolicitudVehiculos: React.FC = () => {
   };
 
   // Determinar el estado correcto basado en la diferencia
+  // Bloqueo por municipio restringido (activable con VALIDAR_MUNICIPIOS_RESTRINGIDOS
+  // en el .env del BACKEND; se consulta la config al cargar la página para poder
+  // prender/apagar sin re-desplegar el frontend): planillas de FUNZA o JUAN MINA
+  // (Barranquilla) cuyo campo Municipio tenga VARIOS municipios mezclados y uno de
+  // ellos sea BOGOTA (Funza) o BARRANQUILLA (Juan Mina) requieren autorización de
+  // COORDINADOR/CONTROL/ADMIN, igual que cuando el flete excede el teórico.
+  const requiereAutorizacionMunicipio = (r: any): boolean => {
+    if (!bloqueoMunicipios.activo) return false;
+    const norm = (s?: string) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
+    const regional = norm(r?.regional || String(r?.consecutivo || '').split('-')[0]);
+    const restringido = bloqueoMunicipios.pares?.[regional];
+    if (!restringido) return false;
+    const conPedidos = r?.municipios_con_pedidos;
+    const municipios = (conPedidos && Object.keys(conPedidos).length > 0)
+      ? Object.keys(conPedidos)
+      : String(r?.municipios_destino_lista || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    if (municipios.length <= 1) return false;  // Municipio único: flujo normal
+    return municipios.some(m => norm(m) === norm(restringido));
+  };
+
   const determinarEstado = (resultado: PlanillaResultado): 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO' => {
     // Si está en CREADO (borrador del operativo), mantenerlo hasta paso explícito a PREAPROBADO
     if (resultado.estado === 'CREADO') {
@@ -562,8 +582,8 @@ const SolicitudVehiculos: React.FC = () => {
       }
     }
 
-    // Si no hay diferencia, preaprobado
-    return 'PREAPROBADO';
+    // Si no hay diferencia, preaprobado (salvo bloqueo por municipio restringido)
+    return requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
   };
 
   // Calcula el estado que corresponde a una planilla según sus valores actuales
@@ -578,7 +598,8 @@ const SolicitudVehiculos: React.FC = () => {
       return 'REQUIERE_APROBACION_CONTROL';
     }
     if (total <= teorico) {
-      return 'PREAPROBADO';
+      // Sin sobrecosto: preaprobado, salvo bloqueo por municipio restringido
+      return requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
     }
     const { porcentaje } = calcularDiferenciaPorcentual(resultado);
     return porcentaje <= 7 ? 'REQUIERE_APROBACION_COORDINADOR' : 'REQUIERE_APROBACION_CONTROL';
@@ -598,6 +619,8 @@ const SolicitudVehiculos: React.FC = () => {
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil] = useState('');
   const [centroDistribucion, setCentroDistribucion] = useState('');
+  // Config del bloqueo por municipio restringido (viene del backend/.env)
+  const [bloqueoMunicipios, setBloqueoMunicipios] = useState<{ activo: boolean; pares: Record<string, string> }>({ activo: false, pares: {} });
   const [loading, setLoading] = useState(false);
   const [planillasInput, setPlanillasInput] = useState('');
   const [regionalSeleccionada, setRegionalSeleccionada] = useState('');
@@ -754,6 +777,13 @@ const SolicitudVehiculos: React.FC = () => {
 
     // Cargar resultados recientes (filtrado por regional para operativos)
     cargarResultadosRecientes(perfilValue, centroDist, usuarioCookie);
+
+    // Cargar config del bloqueo por municipio restringido (flag del .env del backend).
+    // Fire-and-forget con default inactivo: si falla, la página funciona como siempre.
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'}/siscore/config-municipios-restringidos`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) setBloqueoMunicipios({ activo: !!d.activo, pares: d.pares || {} }); })
+      .catch(() => {});
 
     // Cargar listado de rutas para el autocompletar al asignar ruta
     cargarRutasDisponibles();
@@ -1327,8 +1357,8 @@ const SolicitudVehiculos: React.FC = () => {
         // Sin tarifa teórica no hay base para validar el sobrecosto → requiere CONTROL.
         nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
       } else if (total <= teorico) {
-        // Total menor o igual al teórico
-        nuevoEstado = 'PREAPROBADO';
+        // Total menor o igual al teórico (salvo bloqueo por municipio restringido)
+        nuevoEstado = requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
       } else {
         // Total mayor al teórico - calcular diferencia
         const { porcentaje } = calcularDiferenciaPorcentual(resultado);
@@ -4362,7 +4392,8 @@ const SolicitudVehiculos: React.FC = () => {
                         nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
                       }
                     } else {
-                      nuevoEstado = 'PREAPROBADO';
+                      // Sin sobrecosto: preaprobado, salvo bloqueo por municipio restringido
+                      nuevoEstado = requiereAutorizacionMunicipio(modalDetalle.resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
                     }
 
                     const resultadoActualizado = {

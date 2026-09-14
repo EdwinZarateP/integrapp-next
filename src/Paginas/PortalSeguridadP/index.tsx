@@ -188,6 +188,7 @@ export default function PortalSeguridadP() {
     : f === "sena" ? "Formación SENA"
     : f === "ofac" ? "OFAC personas (cédula)"
     : f === "ofac_nit" ? "OFAC empresas (NIT)"
+    : f === "onu_ue" ? "ONU/UE — Sanciones internacionales (cédula)"
     : f === "bdme" ? "BDME personas (cédula)"
     : f === "bdme_nit" ? "BDME empresas (NIT)"
     : f === "rama_judicial" ? "Rama Judicial (procesos por nombre)"
@@ -205,6 +206,7 @@ export default function PortalSeguridadP() {
     sena: "Consultando formación en el SENA…",
     ofac: "Cruzando la persona con listas OFAC…",
     ofac_nit: "Cruzando la empresa con listas OFAC…",
+    onu_ue: "Cruzando la persona con listas ONU y Unión Europea…",
     bdme: "Consultando la persona en BDME…",
     bdme_nit: "Consultando la empresa en BDME…",
     rama_judicial: "Buscando procesos en la Rama Judicial…",
@@ -256,6 +258,7 @@ export default function PortalSeguridadP() {
     sena: 70, // portal rápido (~5 s) + solve del captcha de imagen (10-60 s)
     ofac: 15, // dataset oficial indexado; la primera descarga puede tardar
     ofac_nit: 15,
+    onu_ue: 25, // datasets ONU (~2 MB) + UE (~25 MB); luego queda en memoria 6 h
     bdme: 120,
     bdme_nit: 120,
     rama_judicial: 90,
@@ -687,8 +690,9 @@ export default function PortalSeguridadP() {
                         if (!corrio(runt)) return null;
                         if (runt!.no_registra === true) return <span>RUNT: 🔍 Placa sin información</span>;
                         if (runt!.no_registra === false) return <span>RUNT: ⚠️ Cédula no es del propietario activo</span>;
-                        if (runt!.soat?.vigente === true) return <span>RUNT: ✅ SOAT vigente (vence {runt!.soat.fecha_fin_vigencia})</span>;
+                        if (runt!.soat?.vigente === true) return <span>RUNT: ✅ SOAT vigente (vence {runt!.soat.fecha_fin_vigencia}){runt!.rtm?.vigente === false ? ` · ⛔ RTM vencida` : ""}</span>;
                         if (runt!.soat?.vigente === false) return <span>RUNT: ⛔ SOAT vencido</span>;
+                        if (runt!.rtm?.vigente === false) return <span>RUNT: ⛔ RTM vencida (revisión técnico-mecánica)</span>;
                         const marca = runt!.datos_vehiculo?.marca;
                         return <span>RUNT: {marca ? `🚗 ${marca}` : "⚠️ Ver PDF"}</span>;
                       })()}
@@ -710,6 +714,13 @@ export default function PortalSeguridadP() {
                         if (!corrio(sena)) return null;
                         const total = sena.total_certificados ?? 0;
                         return <span>SENA: 🎓 {total > 0 ? `${total} certificado(s) de formación` : "Sin certificados registrados"}</span>;
+                      })()}
+                      {(() => {
+                        const onuUe = f.onu_ue;
+                        if (!corrio(onuUe)) return null;
+                        if (onuUe!.aplica) return <span>ONU/UE: ⛔ Coincidencia en listas de sanciones (revisar)</span>;
+                        const faltantes = onuUe!.listas_no_disponibles ?? [];
+                        return <span>ONU/UE: ✅ Sin coincidencias{faltantes.length ? ` (${faltantes.join(", ")} no disponible)` : ""}</span>;
                       })()}
                       {(() => {
                         const rues = f.rues;

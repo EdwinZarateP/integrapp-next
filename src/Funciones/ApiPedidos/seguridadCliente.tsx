@@ -93,6 +93,22 @@ export interface FuenteEstudio {
     vigente?: boolean | null;
   } | null;
   polizas?: { numero: string; fecha_fin_vigencia?: string; aseguradora: string; estado: string }[];
+  // RTM del vehículo (2026-09-14): revisión técnico-mecánica vigente con
+  // semáforo (vencida → fuente ADVERTENCIA, análogo SOAT).
+  rtm?: {
+    numero_certificado?: string;
+    cda?: string;
+    fecha_expedicion?: string | null;
+    fecha_vigencia?: string | null; // vencida si < hoy Colombia
+    vigente_portal?: boolean;
+    vigente?: boolean | null;
+  } | null;
+  revisiones?: {
+    numero_certificado?: string;
+    fecha_vigencia?: string | null;
+    cda?: string;
+    vigente_portal?: boolean;
+  }[];
   // Fuente simit (comparendos de la placa — sin cédula ni propietario)
   total_comparendos?: number | null;
   total_multas?: number | null;
@@ -135,6 +151,14 @@ export interface FuenteEstudio {
     numero_documento?: string;
     pais_documento?: string;
   }[];
+  // Fuente onu_ue: mismas coincidencias exactas contra las listas agregadas
+  // ONU (Consejo de Seguridad) + UE (FSF 1.1), con metadatos POR LISTA.
+  listas?: Record<string, {
+    fecha_publicacion?: string | null;
+    total_registros_lista?: number;
+    sha256_dataset?: string;
+  }>;
+  listas_no_disponibles?: string[];
   // Fuente rues (Registro Mercantil por NIT — matrícula distinta de ACTIVA
   // → fuente ADVERTENCIA; NIT sin registro = determinante, no "limpio").
   nit?: string;
