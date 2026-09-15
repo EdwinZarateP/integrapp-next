@@ -75,6 +75,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
     manifiestos_rndc: "Manifiestos RNDC",
     procuraduria: "Procuraduría",
     contraloria: "Contraloría (antecedentes fiscales)",
+    delitos_sexuales: "Inhabilidades Ley 1918 (delitos sexuales contra menores)",
     policia: "Antecedentes Policía",
     runt: "Vehículo RUNT",
     simit: "Comparendos SIMIT",
@@ -468,7 +469,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
   // ── PLANES: acciones ───────────────────────────────────────────────────
   const abrirPlan = async (plan?: PlanSeguridad) => {
     const esNuevo = !plan;
-    const fuentes = ["manifiestos_rndc", "procuraduria", "contraloria", "policia", "runt", "simit", "sena", "ofac", "ofac_nit", "onu_ue", "bdme", "bdme_nit", "rama_judicial", "rues"];
+    const fuentes = ["manifiestos_rndc", "procuraduria", "contraloria", "delitos_sexuales", "policia", "runt", "simit", "sena", "ofac", "ofac_nit", "onu_ue", "bdme", "bdme_nit", "rama_judicial", "rues"];
     const checks = fuentes
       .map(
         (f) =>

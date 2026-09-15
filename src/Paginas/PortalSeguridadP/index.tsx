@@ -147,6 +147,9 @@ export default function PortalSeguridadP() {
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
   const [nit, setNit] = useState("");
+  // Fecha de EXPEDICIÓN de la cédula (DD/MM/AAAA): la exige el portal de
+  // inhabilidades de la Ley 1918 (valida el par cédula + fecha).
+  const [fechaExpedicion, setFechaExpedicion] = useState("");
 
   // Sonido de notificación al terminar la consulta (2026-09-01, pedido del
   // usuario): el mismo "ding" de SolicitudVehiculos al cargar planillas —
@@ -182,6 +185,7 @@ export default function PortalSeguridadP() {
     f === "manifiestos_rndc" ? "Manifiestos RNDC"
     : f === "procuraduria" ? "Procuraduría"
     : f === "contraloria" ? "Contraloría (fiscales)"
+    : f === "delitos_sexuales" ? "Inhabilidades Ley 1918 (delitos contra menores)"
     : f === "policia" ? "Antecedentes Policía"
     : f === "runt" ? "Vehículo RUNT"
     : f === "simit" ? "Comparendos SIMIT"
@@ -200,6 +204,7 @@ export default function PortalSeguridadP() {
     manifiestos_rndc: "Investigando en Manifiestos RNDC…",
     procuraduria: "Revisando antecedentes en Procuraduría…",
     contraloria: "Consultando antecedentes fiscales en la Contraloría…",
+    delitos_sexuales: "Consultando inhabilidades (Ley 1918) en la Policía…",
     policia: "Consultando antecedentes judiciales en la Policía…",
     runt: "Consultando información del vehículo en RUNT…",
     simit: "Revisando comparendos en SIMIT…",
@@ -242,6 +247,9 @@ export default function PortalSeguridadP() {
     (f) => f === "procuraduria" || f === "rama_judicial"
   ) ?? false;
   const requiereNit = planActivo?.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit" || f === "rues") ?? false;
+  // Inhabilidades Ley 1918: el portal de la DIJIN valida el par cédula +
+  // fecha de EXPEDICIÓN del documento.
+  const requiereFechaExp = planActivo?.fuentes?.includes("delitos_sexuales") ?? false;
   const requiereCedula = planActivo?.fuentes?.some(
     (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial" && f !== "rues"
   ) ?? false;
@@ -252,6 +260,7 @@ export default function PortalSeguridadP() {
     manifiestos_rndc: 45,
     procuraduria: 120,
     contraloria: 110, // reCAPTCHA v2 (solve 10-60 s) + descarga del certificado
+    delitos_sexuales: 110, // reCAPTCHA v2 (solve 10-60 s) + página de resultado
     policia: 110,
     runt: 75,
     simit: 20,
@@ -336,10 +345,24 @@ export default function PortalSeguridadP() {
         return;
       }
     }
+    // Fecha de expedición de la cédula (solo delitos_sexuales, Ley 1918):
+    // OBLIGATORIA — el portal de la DIJIN valida el par cédula + fecha.
+    let fechaExpNorm: string | undefined;
+    if (requiereFechaExp) {
+      fechaExpNorm = fechaExpedicion.trim();
+      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(fechaExpNorm)) {
+        Swal.fire(
+          "Fecha de expedición inválida",
+          "El plan incluye la consulta de inhabilidades (Ley 1918): ingrese la fecha de expedición de la cédula en formato DD/MM/AAAA.",
+          "warning"
+        );
+        return;
+      }
+    }
     setConsultando(true);
     setEstudioNuevo(null);
     try {
-      const estudio = await crearEstudio(requiereCedula ? digitos : undefined, undefined, planAbierto, placaNorm, propietarioNorm, nombresNorm, apellidosNorm, requiereNit ? nitNorm : undefined);
+      const estudio = await crearEstudio(requiereCedula ? digitos : undefined, undefined, planAbierto, placaNorm, propietarioNorm, nombresNorm, apellidosNorm, requiereNit ? nitNorm : undefined, fechaExpNorm);
       playNotificationSound(); // la consulta terminó
       setEstudioNuevo(estudio);
       // Mismo criterio del backend (2026-09-01): la consulta NO se cobra solo
@@ -498,6 +521,7 @@ export default function PortalSeguridadP() {
                   (f) => f === "procuraduria" || f === "rama_judicial"
                 );
                 const pideNit = p.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit" || f === "rues");
+                const pideFechaExp = p.fuentes?.includes("delitos_sexuales");
                 const pideCedula = p.fuentes?.some(
                   (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial" && f !== "rues"
                 );
@@ -562,6 +586,17 @@ export default function PortalSeguridadP() {
                             </div>
                           </>
                         )}
+                        {pideFechaExp && (
+                          <div className="PS-input-icono">
+                            <FaIdCard />
+                            <input
+                              placeholder="Fecha de expedición de la cédula (DD/MM/AAAA)"
+                              value={fechaExpedicion}
+                              onChange={(e) => setFechaExpedicion(e.target.value)}
+                              maxLength={10} disabled={consultando}
+                            />
+                          </div>
+                        )}
                         {pidePlaca && (
                           <div className="PS-input-icono">
                             <FaCarSide />
@@ -590,10 +625,17 @@ export default function PortalSeguridadP() {
                             placa ante el SIMIT (no requiere cédula del propietario).
                           </p>
                         )}
+                        {pideFechaExp && (
+                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
+                            La consulta de inhabilidades (Ley 1918) valida la cédula con su
+                            <strong> fecha de expedición</strong>, tal como aparece en el documento.
+                          </p>
+                        )}
                         <button
                           type="submit" className="PS-boton-primario"
                           disabled={
                             consultando || (pideCedula && !cedula) || (pideNit && !nit)
+                            || (pideFechaExp && fechaExpedicion.trim().length < 10)
                             || (pideNombres && (nombres.trim().length < 2 || apellidos.trim().length < 2))
                           }
                         >
@@ -672,6 +714,13 @@ export default function PortalSeguridadP() {
                         <span>Contraloría: {
                           f.contraloria!.no_registra === true ? "✅ Sin responsabilidad fiscal"
                           : f.contraloria!.no_registra === false ? "⛔ Reportado como responsable fiscal"
+                          : "⚠️ Ver PDF"}
+                        </span>
+                      )}
+                      {corrio(f.delitos_sexuales) && (
+                        <span>Ley 1918: {
+                          f.delitos_sexuales!.no_registra === true ? "✅ Sin inhabilidad (delitos contra menores)"
+                          : f.delitos_sexuales!.no_registra === false ? "⛔ REGISTRA INHABILIDAD — revisar"
                           : "⚠️ Ver PDF"}
                         </span>
                       )}

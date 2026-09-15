@@ -159,6 +159,10 @@ export interface FuenteEstudio {
     sha256_dataset?: string;
   }>;
   listas_no_disponibles?: string[];
+  // Fuente delitos_sexuales (inhabilidades Ley 1918, DIJIN): la fecha/hora
+  // que estampa el portal y la empresa consultante quedan en el resultado.
+  fecha_consulta?: string;
+  empresa_consultante?: string;
   // Fuente rues (Registro Mercantil por NIT — matrícula distinta de ACTIVA
   // → fuente ADVERTENCIA; NIT sin registro = determinante, no "limpio").
   nit?: string;
@@ -257,7 +261,8 @@ export const crearEstudio = async (
   cedulaPropietario?: string,
   nombres?: string,
   apellidos?: string,
-  nit?: string
+  nit?: string,
+  fechaExpedicion?: string
 ): Promise<EstudioDetalle> => {
   const res = await api.post<EstudioDetalle>("", {
     ...(cedula ? { cedula } : {}),
@@ -274,6 +279,9 @@ export const crearEstudio = async (
     // variante falla.
     ...(nombres ? { nombres } : {}),
     ...(apellidos ? { apellidos } : {}),
+    // Solo delitos_sexuales (Ley 1918): el portal de la DIJIN valida el par
+    // cédula + FECHA DE EXPEDICIÓN del documento.
+    ...(fechaExpedicion ? { fecha_expedicion: fechaExpedicion } : {}),
   });
   return res.data;
 };
