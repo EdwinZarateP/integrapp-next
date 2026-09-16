@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo, FaTimes, FaBan,
+  FaChevronRight, FaChevronDown,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
@@ -116,6 +117,127 @@ const DetallePedidosModal: React.FC<{ doc: HistoricoDoc }> = ({ doc }) => {
   );
 };
 
+// Sub-tabla que se despliega al expandir una planilla con el botón ">" (igual que en
+// SolicitudVehiculos): detalle por guía AGRUPADO POR CLIENTE con subtotales de piezas/peso.
+// El cliente de cada fila es el de la propia guía (Entidad del Excel de Siscore,
+// 'Cliente Origen'); si la guía no lo trae, cae al cliente_origen de su planilla/original.
+// En fusiones, cada fila muestra además de qué planilla original viene.
+const DetallePlanillaExpandida: React.FC<{ doc: HistoricoDoc }> = ({ doc }) => {
+  const esFusionada = !!doc.fusion_info?.es_fusionada;
+  const SIN_CLIENTE = 'Sin cliente';
+
+  const filas: { cliente: string; planilla: string | null; reg: any }[] = [];
+  if (esFusionada) {
+    (doc.fusion_info?.datos_originales || []).forEach((orig: any) => {
+      const cliBase = orig.cliente_origen && orig.cliente_origen !== '-' ? orig.cliente_origen : SIN_CLIENTE;
+      (orig.registros_detalle || []).forEach((reg: any) => {
+        const cliGuia = reg['Cliente Origen'];
+        filas.push({ cliente: cliGuia && cliGuia !== '-' ? cliGuia : cliBase, planilla: orig.planilla, reg });
+      });
+    });
+  } else {
+    const cliBase = doc.cliente_origen && doc.cliente_origen !== '-' ? doc.cliente_origen : SIN_CLIENTE;
+    (doc.registros_detalle || []).forEach((reg: any) => {
+      const cliGuia = reg['Cliente Origen'];
+      filas.push({ cliente: cliGuia && cliGuia !== '-' ? cliGuia : cliBase, planilla: null, reg });
+    });
+  }
+
+  if (!filas.length) {
+    return (
+      <div style={{ padding: '8px 12px', color: '#666', fontSize: '0.85rem' }}>
+        Sin detalle de pedidos disponible para esta planilla.
+      </div>
+    );
+  }
+
+  // Agrupar por cliente preservando el orden de aparición (estilo tabla dinámica).
+  const grupos: { cliente: string; filas: typeof filas; piezas: number; peso: number }[] = [];
+  const indiceGrupo: Record<string, number> = {};
+  filas.forEach((f) => {
+    if (!(f.cliente in indiceGrupo)) {
+      indiceGrupo[f.cliente] = grupos.length;
+      grupos.push({ cliente: f.cliente, filas: [], piezas: 0, peso: 0 });
+    }
+    const g = grupos[indiceGrupo[f.cliente]];
+    g.filas.push(f);
+    g.piezas += parseNumeroTolerante(f.reg['Piezas']);
+    g.peso += parseNumeroTolerante(f.reg['Peso Real']);
+  });
+
+  const totalPiezas = grupos.reduce((acc, g) => acc + g.piezas, 0);
+  const totalPeso = grupos.reduce((acc, g) => acc + g.peso, 0);
+  const numColumnas = esFusionada ? 7 : 6;
+  const colSpanIzq = numColumnas - 2;
+  let contador = 0;
+
+  return (
+    <div style={{ padding: '4px 8px' }}>
+      <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+        <table className="HP-subTable">
+          <thead>
+            <tr>
+              <th style={{ width: '32px' }}>#</th>
+              {esFusionada && <th>Planilla</th>}
+              <th>Código Pedido / Guía</th>
+              <th>Nombre</th>
+              <th>Municipio</th>
+              <th style={{ textAlign: 'right' }}>Piezas</th>
+              <th style={{ textAlign: 'right' }}>Peso Real</th>
+            </tr>
+          </thead>
+          <tbody>
+            {grupos.map((g) => (
+              <Fragment key={g.cliente}>
+                {/* Cabecera del grupo: nombre del cliente + piezas/peso del grupo */}
+                <tr style={{ background: '#f0fdfa' }}>
+                  <td colSpan={colSpanIzq} style={{ padding: '6px 10px', color: '#004d40', fontWeight: 700 }}>
+                    ▾ {g.cliente}
+                  </td>
+                  <td colSpan={2} style={{ padding: '6px 10px', textAlign: 'right', color: '#005f56', fontWeight: 600, fontSize: '0.8rem' }}>
+                    {g.piezas.toLocaleString('es-CO')} pz · {g.peso.toLocaleString('es-CO', { maximumFractionDigits: 2 })} kg
+                  </td>
+                </tr>
+                {g.filas.map((f) => {
+                  contador += 1;
+                  return (
+                    <tr key={`${g.cliente}-${contador}`}>
+                      <td style={{ color: '#94a3b8' }}>{contador}</td>
+                      {esFusionada && <td style={{ fontFamily: 'monospace', color: '#475569' }}>{f.planilla || '-'}</td>}
+                      <td style={{ fontFamily: 'monospace' }}>{f.reg['Codigo Pedido'] || f.reg['Guia'] || '-'}</td>
+                      <td>{f.reg['Nombre'] || '-'}</td>
+                      <td>{f.reg['Municipio Destino'] || '-'}</td>
+                      <td style={{ textAlign: 'right' }}>{f.reg['Piezas'] ?? '-'}</td>
+                      <td style={{ textAlign: 'right' }}>{f.reg['Peso Real'] ?? '-'}</td>
+                    </tr>
+                  );
+                })}
+                {/* Subtotal del grupo */}
+                <tr style={{ background: '#f8fafc' }}>
+                  <td colSpan={colSpanIzq} style={{ padding: '4px 10px', textAlign: 'right', color: '#64748b', fontStyle: 'italic', fontSize: '0.8rem' }}>
+                    Subtotal {g.cliente}
+                  </td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, color: '#475569' }}>{g.piezas.toLocaleString('es-CO')}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, color: '#475569' }}>{g.peso.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
+                </tr>
+              </Fragment>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: '2px solid #cbd5e1' }}>
+              <td colSpan={colSpanIzq} style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#004d40' }}>
+                TOTAL ({filas.length} pedidos)
+              </td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: '#004d40' }}>{totalPiezas.toLocaleString('es-CO')}</td>
+              <td style={{ textAlign: 'right', fontWeight: 700, color: '#004d40' }}>{totalPeso.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 const HistoricoPedidosP: React.FC = () => {
   const router = useRouter();
   const [perfil, setPerfil] = useState('');
@@ -134,6 +256,11 @@ const HistoricoPedidosP: React.FC = () => {
   const [descargando, setDescargando] = useState(false);
   // Documento del histórico cuyo detalle se muestra en el modal (al clic en el consecutivo).
   const [modalDoc, setModalDoc] = useState<HistoricoDoc | null>(null);
+  // Planillas con la fila de detalle (clientes/pedidos) expandida con el botón ">" (clave: _id).
+  const [expandidas, setExpandidas] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (id: string) =>
+    setExpandidas(prev => ({ ...prev, [id]: !prev[id] }));
 
   // Cerrar el modal con la tecla Escape.
   useEffect(() => {
@@ -454,6 +581,7 @@ const HistoricoPedidosP: React.FC = () => {
             <table className="HP-table">
               <thead>
                 <tr>
+                  <th style={{ width: '44px' }} title="Ver clientes y pedidos de la planilla"></th>
                   <th>Consecutivo</th>
                   <th>Planilla</th>
                   <th>Pedido Vulcano</th>
@@ -489,7 +617,7 @@ const HistoricoPedidosP: React.FC = () => {
               <tbody>
                 {planillasFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={COLS + (['ADMIN', 'ANALISTA'].includes(perfil) ? 1 : 0)} className="HP-empty">No se encontraron registros</td>
+                    <td colSpan={COLS + 1 + (['ADMIN', 'ANALISTA'].includes(perfil) ? 1 : 0)} className="HP-empty">No se encontraron registros</td>
                   </tr>
                 ) : (
                   planillasFiltradas.map(p => {
@@ -500,7 +628,18 @@ const HistoricoPedidosP: React.FC = () => {
                       : totalSolicitado - fleteTeorico;
                     const diferenciaColor = diferencia > 0 ? '#b91c1c' : diferencia < 0 ? '#15803d' : '#666';
                     return (
-                      <tr key={p._id}>
+                      <Fragment key={p._id}>
+                      <tr>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            onClick={() => toggleExpand(p._id)}
+                            className="HP-btnAction"
+                            title={expandidas[p._id] ? 'Ocultar clientes y pedidos de la planilla' : 'Ver clientes y pedidos de la planilla'}
+                            style={{ background: '#475569' }}
+                          >
+                            {expandidas[p._id] ? <FaChevronDown /> : <FaChevronRight />}
+                          </button>
+                        </td>
                         <td className="HP-cellMono" style={{ fontWeight: 700, color: '#004d40' }}>
                           <button
                             className="HP-consecutivoLink"
@@ -583,6 +722,14 @@ const HistoricoPedidosP: React.FC = () => {
                           </td>
                         )}
                       </tr>
+                      {expandidas[p._id] && (
+                        <tr className="HP-detalleRow">
+                          <td colSpan={COLS + 1 + (['ADMIN', 'ANALISTA'].includes(perfil) ? 1 : 0)}>
+                            <DetallePlanillaExpandida doc={p} />
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })
                 )}

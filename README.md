@@ -669,6 +669,15 @@ Registro de costos adicionales posteriores al servicio, con buscador de pedidos 
 - **Aviso al operativo (in-app)**: cuando una planilla está en `CREADO` con `motivo_devolucion`, bajo el badge aparece una línea roja `⚠️ Devuelta por {devuelto_por}: {motivo}` (truncada, con el texto completo en tooltip) — el operativo la ve al recargar. El WhatsApp al `usuario_registro` lo manda el backend (plantilla `devolucion_planilla`).
 - Se distingue del botón existente **«Volver a CREADO»** (`FaLockOpen`, ADMIN/ANALISTA): ése es una reapertura de edición genérica **sin motivo**; «Devolver» es el rechazo con feedback del revisor.
 
+## Actualizaciones Recientes (2026-09-16)
+
+### Histórico de Pedidos (`/HistoricoPedidos`) — botón ">" con clientes y pedidos por planilla (inline, como SolicitudVehiculos)
+
+- Nueva **columna inicial con botón ">"** (gris, `FaChevronRight`/`FaChevronDown`, visible para TODOS los perfiles incl. VISUALIZADOR) que despliega bajo cada fila una **sub-tabla con el detalle por guía AGRUPADO POR CLIENTE**: cabecera de grupo `▾ CLIENTE` con piezas/peso del grupo, filas por guía (Código Pedido/Guía, Nombre, Municipio, Piezas, Peso Real), subtotal por cliente y fila TOTAL con el conteo de pedidos.
+- El **cliente de cada guía** es el de su propio registro (`registros_detalle['Cliente Origen']`, la Entidad del Excel de Siscore); si la guía no lo trae, cae al `cliente_origen` de su planilla. En **fusiones** se agrega la columna **Planilla** (de qué original viene cada guía, desde `fusion_info.datos_originales`).
+- Se replica el patrón visual de SolicitudVehiculos (`DetallePlanilla`): componente `DetallePlanillaExpandida` + clases `HP-detalleRow` (nueva en `estilos.css`) y `HP-subTable` reutilizadas. Filas envueltas en `Fragment`; el `colSpan` de la fila vacía y del detalle suma la columna nueva. El modal de detalle (clic en consecutivo) no cambió.
+- **Archivos**: `Paginas/HistoricoPedidosP/index.tsx`, `Paginas/HistoricoPedidosP/estilos.css`.
+
 ## Actualizaciones Recientes (2026-08-28)
 
 ### Otros Costos (`/OtrosCostos`) — adjuntos y pago enriquecido

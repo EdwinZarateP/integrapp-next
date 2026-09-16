@@ -435,6 +435,22 @@
   padding: 0.5rem 0;
 }
 
+/* ── Fila expandible de detalle (botón ">") ──
+   Igual que SV-detalleRow de SolicitudVehiculos: fondo fijo y sin padding
+   para que la sub-tabla respire. */
+.HP-detalleRow {
+  background: #f8fafc !important;
+}
+
+.HP-detalleRow:hover {
+  background: #f8fafc !important;
+}
+
+.HP-detalleRow > td {
+  padding: 0 !important;
+  border-top: 2px solid #005f56 !important;
+}
+
 /* ── Sub-tabla de pedidos / originales (dentro del modal) ── */
 .HP-subTableWrap {
   max-height: 320px;
