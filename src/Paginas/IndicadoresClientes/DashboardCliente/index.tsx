@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Customized, BarChart, Bar } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Customized, BarChart, Bar, Cell } from 'recharts';
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -82,6 +82,55 @@ type InformeGuiasResponse = {
   success: boolean;
   data?: { cliente: string; filas: FilaGuia[]; resumen: ResumenGuias; advertencia?: string | null };
   error?: string;
+};
+
+type UsoVehiculosResponse = {
+  success: boolean;
+  data?: { cliente: string; filas: FilaUso[] };
+  error?: string;
+};
+
+// % de uso por vehículo (media milla): una fila por consecutivo_vehiculo.
+// uso_pct = kg_reales / tope de la categoría del tipo solicitado × 100
+// (puede superar 100: viajaron más kg de los que el tipo solicitado admite).
+type FilaUso = {
+  consecutivo_vehiculo: string | number;
+  fecha: string | null;
+  tipo_solicitado: string; // CARRY…TRACTOMULA | 'SIN TIPO'
+  kg_reales: number;
+  destino: string;
+  categoria_real: string; // la que corresponde por kg reales
+  uso_pct: number | null; // null para SIN TIPO (sin tope conocido)
+  costo_vehiculo: number; // Total Solicitado (flete+desvío+puntos+cargue)
+  costo_teorico: number; // costo_teorico_vehiculo
+  sobrecosto: number; // diferencia_flete (>0 sobrecosto, <0 ahorro)
+  // Pedidos del vehículo (lo del "+" de PedidosCompletados): TODOS los docs
+  // del consecutivo (incluye clientes de otras empresas en el mismo carro).
+  pedidos?: PedidoUso[];
+};
+
+type PedidoUso = {
+  pedido: string;           // consecutivo_integrapp
+  pedido_vulcano: string;   // numero_pedido (el n° del Excel Vulcano)
+  destinatario: string;     // ubicacion_descargue
+  destino_real: string;
+  cliente: string;
+  entrega: string;          // planilla_siscore (guías, puede traer varias por coma)
+  kilos: number;
+};
+
+// Tope de kg por tipo (espejo de TOPES_TIPO_VEH del backend). TRACTOMULA:
+// 34.000 kg de referencia (máxima capacidad legal).
+const TOPES_USO: Record<string, number> = {
+  CARRY: 1000, NHR: 2300, TURBO: 4500, NIES: 6100,
+  SENCILLO: 9000, PATINETA: 17000, TRACTOMULA: 34000,
+};
+
+// Color del % de uso: rojo < 80 (subutilizado), verde ≥ 80.
+const colorUso = (uso: number | null): string => {
+  if (uso == null) return '#94a3b8';
+  if (uso < 80) return '#e34948';
+  return '#1baf7a';
 };
 
 // Mismo azul de la etapa media milla en Costo de Operación.
@@ -171,6 +220,34 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
 
   // Vista del gráfico de cajas: mensual (default) o diaria.
   const [vistaCajas, setVistaCajas] = useState<'mensual' | 'diaria'>('mensual');
+
+  // Uso de vehículos solicitados (drill-down tipo → período → destino).
+  const [filasUso, setFilasUso] = useState<FilaUso[]>([]);
+  const [cargandoUso, setCargandoUso] = useState(false);
+  const [errorUso, setErrorUso] = useState<string | null>(null);
+  const [vistaUso, setVistaUso] = useState<'mensual' | 'diaria'>('mensual');
+  const [drillUso, setDrillUso] = useState<{ tipo: string | null; periodo: string | null; destino: string | null }>({ tipo: null, periodo: null, destino: null });
+  // Filas del detalle con sus pedidos desplegados (el "+" de cada vehículo).
+  const [usoAbiertos, setUsoAbiertos] = useState<Set<string>>(new Set());
+  const alternarUsoAbierto = (cv: string) => {
+    setUsoAbiertos(prev => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(cv)) nuevo.delete(cv); else nuevo.add(cv);
+      return nuevo;
+    });
+  };
+  // Trazabilidad del uso: buscar por pedido Vulcano (numero_pedido) → el
+  // backend busca en TODO el histórico (ignora año/mes) y trae el vehículo.
+  const [inputUsoTraza, setInputUsoTraza] = useState('');
+  const [trazaUsoActiva, setTrazaUsoActiva] = useState<string | null>(null);
+  const aplicarTrazaUso = () => {
+    const v = inputUsoTraza.trim();
+    setTrazaUsoActiva(v || null);
+  };
+  const limpiarTrazaUso = () => {
+    setInputUsoTraza('');
+    setTrazaUsoActiva(null);
+  };
 
   // Nivel 1 arcade: el trazo se dibuja solo SOLO en la carga inicial de la
   // página (en cada "Filtrar" ya no sorprende, solo demora).
@@ -267,10 +344,57 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     }
   };
 
+  // Uso de vehículos: una fila por consecutivo_vehiculo; el drill-down se
+  // arma acá en el frontend con esas filas. Con trazabilidad activa el
+  // backend ignora año/mes y trae el vehículo del pedido Vulcano buscado
+  // (sus pedidos se despliegan solos y el match queda resaltado).
+  const obtenerUsoVehiculos = async (traza?: string | null) => {
+    setCargandoUso(true);
+    setErrorUso(null);
+    try {
+      const params = construirParams();
+      const q = traza !== undefined ? traza : trazaUsoActiva;
+      if (q) params.set('q', q);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/uso-vehiculos?${params.toString()}`);
+      if (!response.ok) throw new Error('Error al obtener el uso de vehículos');
+      const data: UsoVehiculosResponse = await response.json();
+      if (data.success && data.data) {
+        const filas = data.data.filas || [];
+        setFilasUso(filas);
+        if (q) {
+          // Búsqueda puntual: todo desplegado para ver el pedido de una.
+          setUsoAbiertos(new Set(filas.map(f => String(f.consecutivo_vehiculo))));
+        } else {
+          // Nuevo período de filtros → el drill-down arranca de cero.
+          setDrillUso({ tipo: null, periodo: null, destino: null });
+          setUsoAbiertos(new Set());
+        }
+      } else {
+        throw new Error(data.error || 'Error desconocido');
+      }
+    } catch (err) {
+      setErrorUso(err instanceof Error ? err.message : 'Error al cargar el uso de vehículos');
+    } finally {
+      setCargandoUso(false);
+    }
+  };
+
   useEffect(() => {
-    if (cliente) obtenerDatos();
+    if (cliente) {
+      obtenerDatos();
+      // Con trazabilidad de uso activa, el "Filtrar" no la pisa (igual que
+      // el informe de guías): la búsqueda viaja sola.
+      if (!trazaUsoActiva) obtenerUsoVehiculos();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtrosAplicados, clienteId]);
+
+  // Al cambiar la trazabilidad del uso, re-consultar (el backend busca en
+  // TODO el histórico: los filtros de Año/Mes no aplican a esa consulta).
+  useEffect(() => {
+    if (cliente) obtenerUsoVehiculos(trazaUsoActiva);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trazaUsoActiva]);
 
   // El informe de guías viaja junto con /cajas desde la CARGA INICIAL (el
   // gráfico On Time lo necesita) — salvo cuando hay trazabilidad activa, que
@@ -344,6 +468,160 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   // % OT por período para etiqueta y tooltip.
   const pctOT = (d: { cumplieron: number; total: number }) =>
     d.total > 0 ? Math.round((d.cumplieron / d.total) * 100) : null;
+
+  // ── Uso de vehículos: agregaciones de los 4 niveles del drill-down ──
+  // Todas se calculan en el frontend desde las filas de /uso-vehiculos.
+
+  // Acumulador común: {sumaUso, viajes} promediando uso_pct (null no evalúa).
+  type BucketUso = { sumaUso: number; viajes: number; sumaKg: number };
+  const acumularUso = (b: BucketUso, f: FilaUso) => {
+    if (f.uso_pct != null) b.sumaUso += f.uso_pct;
+    b.viajes += 1;
+    b.sumaKg += f.kg_reales || 0;
+  };
+  const aBucket = (m: Map<string, BucketUso>) =>
+    [...m.entries()]
+      .map(([clave, b]) => ({ clave, uso: b.sumaUso > 0 ? b.sumaUso / b.viajes : null, viajes: b.viajes, kgProm: b.viajes ? b.sumaKg / b.viajes : 0 }))
+      .sort((a, b) => a.clave.localeCompare(b.clave));
+
+  // Nivel 1: promedio de uso por tipo solicitado — ordenado de MENOR a MAYOR
+  // uso (el peor aprovechado primero; SIN TIPO, sin % evaluable, al final).
+  const usoPorTipo = useMemo(() => {
+    const m = new Map<string, BucketUso>();
+    for (const f of filasUso) {
+      const b = m.get(f.tipo_solicitado) || { sumaUso: 0, viajes: 0, sumaKg: 0 };
+      acumularUso(b, f);
+      m.set(f.tipo_solicitado, b);
+    }
+    return aBucket(m).sort((a, b) => {
+      if (a.uso == null) return 1;
+      if (b.uso == null) return -1;
+      return a.uso - b.uso;
+    });
+  }, [filasUso]);
+
+  // Filas del tipo seleccionado (nivel ≥ 2 del drill-down).
+  const filasTipoUso = useMemo(
+    () => (drillUso.tipo ? filasUso.filter(f => f.tipo_solicitado === drillUso.tipo) : []),
+    [filasUso, drillUso.tipo],
+  );
+
+  // Nivel 2: promedio de uso del tipo por período (mensual o diario).
+  const usoPorPeriodo = useMemo(() => {
+    if (!drillUso.tipo) return [];
+    const largo = vistaUso === 'diaria' ? 10 : 7;
+    const m = new Map<string, BucketUso>();
+    for (const f of filasTipoUso) {
+      const clave = (f.fecha || '').slice(0, largo);
+      if (!clave) continue;
+      const b = m.get(clave) || { sumaUso: 0, viajes: 0, sumaKg: 0 };
+      acumularUso(b, f);
+      m.set(clave, b);
+    }
+    return aBucket(m);
+  }, [filasTipoUso, drillUso.tipo, vistaUso]);
+
+  // Filas del período seleccionado (nivel ≥ 3).
+  const filasPeriodoUso = useMemo(
+    () => (drillUso.periodo ? filasTipoUso.filter(f => (f.fecha || '').startsWith(drillUso.periodo!)) : []),
+    [filasTipoUso, drillUso.periodo],
+  );
+
+  // Nivel 3: promedio de uso por destino (tipo + período).
+  const usoPorDestino = useMemo(() => {
+    if (!drillUso.periodo) return [];
+    const m = new Map<string, BucketUso>();
+    for (const f of filasPeriodoUso) {
+      const clave = f.destino || '(SIN DESTINO)';
+      const b = m.get(clave) || { sumaUso: 0, viajes: 0, sumaKg: 0 };
+      acumularUso(b, f);
+      m.set(clave, b);
+    }
+    // Barras horizontales de MENOR a MAYOR uso: recharts pinta el PRIMER dato
+    // del arreglo arriba → orden asc deja las más subutilizadas primero.
+    return aBucket(m).sort((a, b) => {
+      if (a.uso == null) return 1;
+      if (b.uso == null) return -1;
+      return a.uso - b.uso;
+    });
+  }, [filasPeriodoUso, drillUso.periodo]);
+
+  // Nivel 4: tabla casi a nivel consecutivo (tipo + período + destino).
+  const filasDestinoUso = useMemo(
+    () => (drillUso.destino
+      ? filasPeriodoUso
+          .filter(f => (f.destino || '(SIN DESTINO)') === drillUso.destino)
+          .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+      : []),
+    [filasPeriodoUso, drillUso.destino],
+  );
+
+  // Rango de filas del alcance actual del drill-down (para el export).
+  const filasUsoAlcance = drillUso.destino ? filasDestinoUso : drillUso.periodo ? filasPeriodoUso : drillUso.tipo ? filasTipoUso : filasUso;
+
+  // Tooltips del drill-down de uso (mismo look que el de OT/cajas).
+  // Los tres niveles comparten bucket {clave, uso, viajes, kgProm}.
+  const cuerpoTooltipUso = (titulo: string, d: { uso: number | null; viajes: number; kgProm: number }, extra?: string) => (
+    <div className="IG-tooltipSerie">
+      <p className="IG-tooltipSerieFecha">{titulo}</p>
+      <p>
+        <span className="IG-tooltipEtapa" style={{ background: colorUso(d.uso) }} />
+        % uso promedio: <b>{d.uso == null ? '—' : `${Math.round(d.uso)}%`}</b>
+      </p>
+      <p className="IG-tooltipSerieSub">
+        Viajes: {formatearEntero(d.viajes)} · Kg promedio: {formatearEntero(Math.round(d.kgProm))}{extra ? ` · Tope: ${extra}` : ''}
+      </p>
+      <p className="IG-tooltipSerieSub DC-usoTipClic">Clic para ver el detalle ↓</p>
+    </div>
+  );
+
+  const tooltipUsoTipo = (props: any) => {
+    if (!props.active || !props.payload?.length) return null;
+    const d = props.payload[0].payload as { clave: string; uso: number | null; viajes: number; kgProm: number };
+    return cuerpoTooltipUso(d.clave, d, TOPES_USO[d.clave] ? `${formatearEntero(TOPES_USO[d.clave])} kg` : undefined);
+  };
+
+  const tooltipUsoPeriodo = (props: any) => {
+    if (!props.active || !props.payload?.length) return null;
+    const d = props.payload[0].payload as { clave: string; uso: number | null; viajes: number; kgProm: number };
+    let titulo = d.clave;
+    try {
+      titulo = format(parseISO(d.clave + (d.clave.length === 7 ? '-01' : '')), vistaUso === 'diaria' ? "d 'de' MMMM yyyy" : 'MMMM yyyy', { locale: es });
+    } catch { /* clave cruda */ }
+    return cuerpoTooltipUso(`${drillUso.tipo} · ${titulo}`, d, TOPES_USO[drillUso.tipo || ''] ? `${formatearEntero(TOPES_USO[drillUso.tipo!])} kg` : undefined);
+  };
+
+  const tooltipUsoDestino = (props: any) => {
+    if (!props.active || !props.payload?.length) return null;
+    const d = props.payload[0].payload as { clave: string; uso: number | null; viajes: number; kgProm: number };
+    return cuerpoTooltipUso(d.clave, d);
+  };
+
+  // Export Excel del alcance visible del drill-down.
+  const exportarUsoExcel = () => {
+    const datos = filasUsoAlcance.map(f => ({
+      'Vehículo': f.consecutivo_vehiculo,
+      'Fecha': f.fecha ? formatearFecha(f.fecha) : '',
+      '% Uso': f.uso_pct ?? '',
+      'Destino': f.destino || '',
+      'Veh Solicitado': f.tipo_solicitado,
+      'Kg Reales': f.kg_reales,
+      // Un viaje puede ser UN pedido Vulcano repartido en varias entregas
+      // (mismo numero_pedido en todos los docs): se listan los ÚNICOS.
+      'Pedidos Vulcano': [...new Set((f.pedidos || []).map(p => p.pedido_vulcano).filter(Boolean))].join(', '),
+      'Destinatarios (kg)': (f.pedidos || []).map(p => `${p.destinatario || p.pedido || '?'} (${formatearEntero(p.kilos)})`).join(' · '),
+      'Entregas (guías)': (f.pedidos || []).map(p => p.entrega).filter(Boolean).join(', '),
+      'Categoría (por kg)': f.categoria_real,
+      'Costo Vehículo': f.costo_vehiculo || '',
+      'Costo Teórico': f.costo_teorico || '',
+      'Sobrecosto': f.sobrecosto || 0,
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(datos);
+    ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 10 }, { wch: 34 }, { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Uso vehículos');
+    XLSX.writeFile(wb, `uso_vehiculos_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
 
   // Rango de fechas aplicado (para el título del gráfico OT): "2026" o
   // "ene–mar 2026" según los filtros de Año/Mes activos.
@@ -464,6 +742,9 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
 
   const formatearEntero = (num: number): string =>
     new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(num || 0);
+  // Pesos colombianos sin decimales (costo del vehículo en el detalle de uso).
+  const formatearMoneda = (num: number): string =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(num || 0);
   const formatearEnteroCorto = (num: number): string => {
     const n = num || 0;
     if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -653,6 +934,112 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
       </div>
     );
   };
+
+  // Tabla de detalle del drill-down / trazabilidad: una fila por vehículo con
+  // su "+" que despliega los pedidos (destinatario, entrega, kg). Con
+  // trazabilidad activa, el pedido Vulcano que hizo match queda resaltado.
+  const TablaDetalleUso: React.FC<{ filas: FilaUso[] }> = ({ filas }) => (
+    <div className="DC-guiaTablaWrapper">
+      <table className="IG-tabla">
+        <thead>
+          <tr>
+            <th title="Despliega los pedidos del vehículo: destinatario, entrega (guía) y kg de cada uno">▸</th>
+            <th>Fecha</th>
+            <th>Vehículo</th>
+            <th title="Kg reales ÷ tope del tipo solicitado">% Uso</th>
+            <th>Destino</th>
+            <th>Veh Solicitado</th>
+            <th>Kg Reales</th>
+            <th title="Categoría que corresponde por los kg reales">Categoría (por kg)</th>
+            <th title="Total Solicitado del vehículo (flete + desvío + puntos + cargue)">Costo Veh.</th>
+            <th title="costo_teorico_vehiculo: tarifa teórica del destino según el tipo (flete base + puntos + cargue)">Costo Teór.</th>
+            <th title="diferencia_flete = costo real − costo teórico: rojo sobrecosto, verde ahorro">Sobrecosto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map(f => {
+            const cv = String(f.consecutivo_vehiculo);
+            const abierto = usoAbiertos.has(cv);
+            return (
+              <React.Fragment key={cv}>
+                <tr className={abierto ? 'DC-usoFilaAbierta' : ''}>
+                  <td>
+                    <button
+                      className={`DC-usoBtnExpandir ${abierto ? 'DC-usoBtnExpandirAbierto' : ''}`}
+                      onClick={() => alternarUsoAbierto(cv)}
+                      title={`${f.pedidos?.length || 0} pedido(s): destinatario, entrega y kg de cada uno`}
+                      disabled={!f.pedidos?.length}
+                    >
+                      {abierto ? '−' : '+'}
+                    </button>
+                  </td>
+                  <td>{formatearFecha(f.fecha)}</td>
+                  <td className="DC-usoCeldaVeh">{f.consecutivo_vehiculo}</td>
+                  <td className="DC-guiaCeldaNum">
+                    {f.uso_pct == null ? '—' : (
+                      <b style={{ color: colorUso(f.uso_pct) }}>{Math.round(f.uso_pct)}%</b>
+                    )}
+                  </td>
+                  <td className="DC-guiaCeldaDest">{f.destino || '—'}</td>
+                  <td>{f.tipo_solicitado}</td>
+                  <td className="DC-guiaCeldaNum">{formatearEntero(f.kg_reales)}</td>
+                  <td>{f.categoria_real}</td>
+                  <td className="DC-guiaCeldaNum" title="Total Solicitado (flete + desvío + puntos + cargue)">
+                    {f.costo_vehiculo ? formatearMoneda(f.costo_vehiculo) : '—'}
+                  </td>
+                  <td className="DC-guiaCeldaNum" title="Costo teórico del destino según el tipo">
+                    {f.costo_teorico ? formatearMoneda(f.costo_teorico) : '—'}
+                  </td>
+                  <td className="DC-guiaCeldaNum" title={f.sobrecosto > 0 ? 'Sobrecosto: el real supera el teórico' : f.sobrecosto < 0 ? 'Ahorro: el real quedó por debajo del teórico' : 'Real = teórico'}>
+                    <b style={{ color: f.sobrecosto > 0 ? '#b91c1c' : f.sobrecosto < 0 ? '#047857' : undefined }}>
+                      {f.sobrecosto ? formatearMoneda(f.sobrecosto) : '—'}
+                    </b>
+                  </td>
+                </tr>
+                {abierto && !!f.pedidos?.length && (
+                  <tr className="DC-usoFilaDetalle">
+                    <td colSpan={11}>
+                      <table className="DC-usoSubTabla">
+                        <thead>
+                          <tr>
+                            <th>Pedido</th>
+                            <th title="Número de pedido Vulcano (numero_pedido)">Pedido Vulcano</th>
+                            <th>Destinatario</th>
+                            <th>Entrega (guía)</th>
+                            <th>Kg</th>
+                            <th>Cliente</th>
+                            <th>Destino Real</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {f.pedidos.map((p, i) => {
+                            const esHit = !!trazaUsoActiva
+                              && !!p.pedido_vulcano
+                              && p.pedido_vulcano.toUpperCase().includes(trazaUsoActiva.toUpperCase());
+                            return (
+                              <tr key={`${p.pedido}-${i}`} className={esHit ? 'DC-usoSubRowHit' : ''}>
+                                <td>{p.pedido || '—'}</td>
+                                <td className="DC-guiaCeldaNum">{p.pedido_vulcano || '—'}</td>
+                                <td>{p.destinatario || '—'}</td>
+                                <td className="DC-guiaCeldaNum">{p.entrega || '—'}</td>
+                                <td className="DC-guiaCeldaNum">{formatearEntero(p.kilos)}</td>
+                                <td>{p.cliente || '—'}</td>
+                                <td>{p.destino_real || '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   const cerrarSesion = () => {
     document.cookie.split(';').forEach(cookie => {
@@ -1040,6 +1427,280 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                 ) : (
                   <div className="IG-sinDatos">
                     <p>No hay guías evaluables On Time para el período seleccionado</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 🚛 Uso de vehículos solicitados — drill-down: promedio % de uso
+                por tipo solicitado → evolución por período → destino → tabla
+                casi a nivel de consecutivo. % de uso = kg reales / tope de la
+                categoría del tipo solicitado (TRACTOMULA: 34.000 kg de
+                referencia). Todo se agrupa en el frontend con las filas de
+                /uso-vehiculos (una por consecutivo_vehiculo). */}
+            {cargandoUso ? (
+              <SkeletonGrafico bajo />
+            ) : errorUso ? (
+              <div className="IG-graficoContainer">
+                <div className="IG-sinDatos">
+                  <p>{errorUso}</p>
+                  <button className="DC-reintentar" onClick={() => obtenerUsoVehiculos()}>Reintentar</button>
+                </div>
+              </div>
+            ) : (
+              <div className="IG-graficoContainer">
+                {/* Trazabilidad del uso: buscar por pedido Vulcano trae el(los)
+                    vehículo(s) que lo llevaron, en todo el histórico. */}
+                <div className="DC-trazaBarra">
+                  <input
+                    className="DC-trazaInput"
+                    type="text"
+                    placeholder="Trazabilidad: número de pedido Vulcano (trae el vehículo que lo llevó)…"
+                    value={inputUsoTraza}
+                    onChange={e => setInputUsoTraza(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && aplicarTrazaUso()}
+                    disabled={cargandoUso}
+                  />
+                  <button className="DC-trazaBtn" onClick={aplicarTrazaUso} disabled={cargandoUso}>Buscar</button>
+                  {trazaUsoActiva && (
+                    <button className="DC-trazaBtn DC-trazaBtnLimpiar" onClick={limpiarTrazaUso} title="Quitar la búsqueda y volver al drill-down">
+                      ✕ Limpiar
+                    </button>
+                  )}
+                </div>
+                {trazaUsoActiva && (
+                  <p className="DC-trazaInfo">
+                    🔎 Pedido Vulcano <strong>{trazaUsoActiva}</strong> — buscando en todo el histórico (los filtros de Año/Mes no aplican ahora). El pedido encontrado queda resaltado.
+                  </p>
+                )}
+
+                {filasUso.length > 0 ? (
+                  <>
+                    <div className="IG-graficoHeader">
+                      <div className="IG-graficoTituloWrap">
+                        <h2 className="IG-graficoTitulo">
+                          🚛 Uso de vehículos solicitados
+                          <span className="IG-graficoBadge">
+                            {trazaUsoActiva ? 'Búsqueda' : drillUso.destino ? 'Detalle por vehículo' : drillUso.periodo ? 'Por destino' : drillUso.tipo ? 'Por período' : 'Por tipo'}
+                          </span>
+                          {!trazaUsoActiva && <span className="IG-graficoBadge DC-badgeRango">{rangoFiltros}</span>}
+                        </h2>
+                      </div>
+                      {drillUso.tipo && !drillUso.periodo && !trazaUsoActiva && (
+                        <div className="IG-graficoAcciones">
+                          <div className="IG-toggleGrupo" role="group" aria-label="Vista uso de vehículos">
+                            <button
+                              className={`IG-toggleBtn ${vistaUso === 'mensual' ? 'IG-toggleBtnActivo' : ''}`}
+                              onClick={() => { setVistaUso('mensual'); setDrillUso(d => ({ ...d, periodo: null, destino: null })); }}
+                            >Mensual</button>
+                            <button
+                              className={`IG-toggleBtn ${vistaUso === 'diaria' ? 'IG-toggleBtnActivo' : ''}`}
+                              onClick={() => { setVistaUso('diaria'); setDrillUso(d => ({ ...d, periodo: null, destino: null })); }}
+                            >Diario</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* El drill-down completo se oculta mientras hay una
+                        búsqueda activa: la trazabilidad ES el nivel de detalle. */}
+                    {!trazaUsoActiva && (<>
+
+                    {/* Breadcrumb del drill-down: cada segmento vuelve a su nivel */}
+                    <div className="DC-usoCrumb" aria-label="Nivel de detalle">
+                      <button
+                        className={`DC-usoCrumbBtn ${!drillUso.tipo ? 'DC-usoCrumbActual' : ''}`}
+                        onClick={() => setDrillUso({ tipo: null, periodo: null, destino: null })}
+                      >Todos los tipos</button>
+                      {drillUso.tipo && (
+                        <>
+                          <span className="DC-usoCrumbSep">›</span>
+                          <button
+                            className={`DC-usoCrumbBtn ${drillUso.tipo && !drillUso.periodo ? 'DC-usoCrumbActual' : ''}`}
+                            onClick={() => setDrillUso({ tipo: drillUso.tipo, periodo: null, destino: null })}
+                          >{drillUso.tipo}</button>
+                        </>
+                      )}
+                      {drillUso.periodo && (
+                        <>
+                          <span className="DC-usoCrumbSep">›</span>
+                          <button
+                            className={`DC-usoCrumbBtn ${drillUso.periodo && !drillUso.destino ? 'DC-usoCrumbActual' : ''}`}
+                            onClick={() => setDrillUso({ tipo: drillUso.tipo, periodo: drillUso.periodo, destino: null })}
+                          >
+                            {(() => {
+                              try {
+                                return format(parseISO(drillUso.periodo!.length === 7 ? drillUso.periodo! + '-01' : drillUso.periodo!), vistaUso === 'diaria' ? 'd MMM yy' : 'MMM yy', { locale: es });
+                              } catch { return drillUso.periodo; }
+                            })()}
+                          </button>
+                        </>
+                      )}
+                      {drillUso.destino && (
+                        <>
+                          <span className="DC-usoCrumbSep">›</span>
+                          <span className="DC-usoCrumbBtn DC-usoCrumbActual">{drillUso.destino}</span>
+                        </>
+                      )}
+                    </div>
+
+                    <p className="IG-graficoSub">
+                      <span style={{ color: '#1baf7a' }}>●</span> ≥ 80% (bien utilizado) &nbsp;&nbsp;
+                      <span style={{ color: '#e34948' }}>●</span> &lt; 80% (subutilizado) &nbsp;&nbsp;
+                      <span style={{ color: '#64748b' }}>–</span> % uso = kg reales ÷ tope del tipo solicitado
+                    </p>
+
+                    {/* Nivel 1: promedio de uso por tipo solicitado */}
+                    {!drillUso.tipo && (
+                      <div style={{ width: '100%', height: 320 }}>
+                        <ResponsiveContainer width="100%" height={320}>
+                          <BarChart data={usoPorTipo} margin={{ top: 24, right: 20, left: 10, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="clave" tick={{ fontSize: 11 }} interval={0} />
+                            <YAxis unit="%" width={56} allowDecimals={false} />
+                            <Tooltip content={tooltipUsoTipo} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
+                            <ReferenceLine y={100} stroke="#64748b" strokeDasharray="6 4" label={{ value: 'Tope 100%', position: 'insideTopRight', fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
+                            <Bar
+                              dataKey="uso"
+                              name="% uso promedio"
+                              isAnimationActive={false}
+                              cursor="pointer"
+                              onClick={(_: unknown, i: number) => {
+                                const d = usoPorTipo[i];
+                                if (d) setDrillUso({ tipo: d.clave, periodo: null, destino: null });
+                              }}
+                            >
+                              {usoPorTipo.map(d => (
+                                <Cell key={d.clave} fill={colorUso(d.uso)} />
+                              ))}
+                              <LabelList
+                                dataKey="uso"
+                                position="top"
+                                offset={10}
+                                formatter={(v: number | null) => (v == null ? '' : `${Math.round(v)}%`)}
+                                style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Nivel 2: evolución del % de uso del tipo por período */}
+                    {drillUso.tipo && !drillUso.periodo && (
+                      <div style={{ width: '100%', height: 320 }}>
+                        <ResponsiveContainer width="100%" height={320}>
+                          <BarChart data={usoPorPeriodo} margin={{ top: 24, right: 20, left: 10, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                              dataKey="clave"
+                              tick={{ fontSize: 11 }}
+                              interval={0}
+                              angle={vistaUso === 'diaria' ? -90 : 0}
+                              textAnchor={vistaUso === 'diaria' ? 'end' : 'middle'}
+                              height={vistaUso === 'diaria' ? 60 : 30}
+                              tickFormatter={(v: string) => {
+                                try {
+                                  return format(parseISO(v + (v.length === 7 ? '-01' : '')), vistaUso === 'diaria' ? 'd MMM' : 'MMM yy', { locale: es });
+                                } catch { return v; }
+                              }}
+                            />
+                            <YAxis unit="%" width={56} allowDecimals={false} />
+                            <Tooltip content={tooltipUsoPeriodo} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
+                            <ReferenceLine y={100} stroke="#64748b" strokeDasharray="6 4" label={{ value: 'Tope 100%', position: 'insideTopRight', fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
+                            <Bar
+                              dataKey="uso"
+                              name="% uso promedio"
+                              isAnimationActive={false}
+                              cursor="pointer"
+                              onClick={(_: unknown, i: number) => {
+                                const d = usoPorPeriodo[i];
+                                if (d) setDrillUso({ tipo: drillUso.tipo, periodo: d.clave, destino: null });
+                              }}
+                            >
+                              {usoPorPeriodo.map(d => (
+                                <Cell key={d.clave} fill={colorUso(d.uso)} />
+                              ))}
+                              <LabelList
+                                dataKey="uso"
+                                position="top"
+                                offset={10}
+                                formatter={(v: number | null) => (v == null ? '' : `${Math.round(v)}%`)}
+                                style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Nivel 3: % de uso por destino (barras horizontales) */}
+                    {drillUso.periodo && !drillUso.destino && (
+                      <div style={{ width: '100%', height: Math.max(160, usoPorDestino.length * 34 + 60) }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={usoPorDestino} layout="vertical" margin={{ top: 10, right: 40, left: 10, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" unit="%" allowDecimals={false} />
+                            <YAxis type="category" dataKey="clave" width={150} tick={{ fontSize: 11 }} />
+                            <Tooltip content={tooltipUsoDestino} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
+                            <ReferenceLine x={100} stroke="#64748b" strokeDasharray="6 4" />
+                            <Bar
+                              dataKey="uso"
+                              name="% uso promedio"
+                              isAnimationActive={false}
+                              cursor="pointer"
+                              onClick={(_: unknown, i: number) => {
+                                const d = usoPorDestino[i];
+                                if (d) setDrillUso({ tipo: drillUso.tipo, periodo: drillUso.periodo, destino: d.clave });
+                              }}
+                            >
+                              {usoPorDestino.map(d => (
+                                <Cell key={d.clave} fill={colorUso(d.uso)} />
+                              ))}
+                              <LabelList
+                                dataKey="uso"
+                                position="right"
+                                formatter={(v: number | null) => (v == null ? '' : `${Math.round(v)}%`)}
+                                style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Nivel 4: detalle casi a nivel de consecutivo_vehiculo */}
+                    {drillUso.destino && (
+                      <div className="DC-guiaCuerpo">
+                        <div className="DC-guiaAcciones" style={{ justifyContent: 'flex-end' }}>
+                          <button className="DC-guiaBotonExportar" onClick={exportarUsoExcel}>
+                            ⬇ Exportar Excel ({formatearEntero(filasDestinoUso.length)})
+                          </button>
+                        </div>
+                        <TablaDetalleUso filas={filasDestinoUso} />
+                      </div>
+                    )}
+
+                    </>)}
+
+                    {/* Resultado de la trazabilidad: el(los) vehículo(s) que
+                        llevan el pedido Vulcano buscado, ya desplegados. */}
+                    {trazaUsoActiva && (
+                      <div className="DC-guiaCuerpo">
+                        <div className="DC-guiaAcciones" style={{ justifyContent: 'flex-end' }}>
+                          <button className="DC-guiaBotonExportar" onClick={exportarUsoExcel}>
+                            ⬇ Exportar Excel ({formatearEntero(filasUso.length)})
+                          </button>
+                        </div>
+                        <TablaDetalleUso filas={filasUso} />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="IG-sinDatos">
+                    <p>{trazaUsoActiva
+                      ? `Ningún vehículo de este cliente lleva el pedido Vulcano "${trazaUsoActiva}"`
+                      : 'No hay vehículos para el período seleccionado'}</p>
                   </div>
                 )}
               </div>

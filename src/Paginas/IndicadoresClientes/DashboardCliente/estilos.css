@@ -630,6 +630,9 @@
   align-items: center;
   gap: 1rem; /* separación clara entre Exportar Excel y Cargar Citas */
   margin-top: 0.9rem;
+  /* En el gráfico de uso las acciones van ANTES de la tabla (en el informe de
+     guías, después): sin esto el botón queda pegado a la tabla de abajo. */
+  margin-bottom: 0.2rem;
 }
 
 .DC-guiaBotonExportar {
@@ -660,6 +663,89 @@
   cursor: pointer;
 }
 .DC-guiaBotonCargar:hover { background: #174a6d; }
+
+/* ── Uso de vehículos solicitados (drill-down) ──────────── */
+/* Breadcrumb de niveles: cada segmento vuelve a su nivel. */
+.DC-usoCrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.3rem 0 0.6rem;
+  font-size: 0.82rem;
+}
+.DC-usoCrumbBtn {
+  background: #f1f5f9;
+  color: #1e3a5f;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.DC-usoCrumbBtn:hover { background: #e2e8f0; }
+.DC-usoCrumbActual {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+}
+.DC-usoCrumbActual:hover { background: #1e3a5f; }
+.DC-usoCrumbSep { color: #94a3b8; font-weight: 700; }
+/* Pista de que las barras son clicables (dentro del tooltip). */
+.DC-usoTipClic { color: #64748b; font-style: italic; }
+/* Detalle por vehículo: botón "+" que despliega los pedidos (destinatario,
+   entrega y kg de cada uno) — mismo gesto que el "+" de PedidosCompletados. */
+.DC-usoBtnExpandir {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #1e3a5f;
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.DC-usoBtnExpandir:hover:not(:disabled) { background: #e2e8f0; }
+.DC-usoBtnExpandir:disabled { opacity: 0.35; cursor: default; }
+.DC-usoBtnExpandirAbierto { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+.DC-usoFilaAbierta td { background: #f8fafc; }
+.DC-usoFilaDetalle td { background: #f8fafc; padding: 0 0.6rem 0.7rem 0.6rem; }
+/* Sub-tabla de pedidos del vehículo (destinatario / entrega / kg). */
+.DC-usoSubTabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.DC-usoSubTabla th {
+  text-align: left;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.DC-usoSubTabla td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.DC-usoSubTabla tr:last-child td { border-bottom: none; }
+/* Pedido Vulcano que hizo match en la trazabilidad: fila resaltada. */
+.DC-usoSubRowHit td { background: #fef9c3; font-weight: 600; }
+/* Vehículo del detalle de uso: el consecutivo es largo → salta de línea en
+   vez de truncarse (la tabla de guías sigue con elipsis). */
+.DC-usoCeldaVeh {
+  max-width: 300px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
