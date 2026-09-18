@@ -512,7 +512,16 @@ const SolicitudVehiculos: React.FC = () => {
       return { puede: true };
     }
 
-    // ANALISTA y OPERATIVO: no aprueban. La aprobación (incluido PREAPROBADO → APROBADO)
+    // ANALISTA: solo aprueba PREAPROBADO → APROBADO (planillas que NO requieren
+    // autorización). Las de sobrecosto (COORDINADOR/CONTROL) quedan fuera.
+    if (perfilUsuario === 'ANALISTA') {
+      if (estado === 'PREAPROBADO') {
+        return { puede: true };
+      }
+      return { puede: false, motivo: 'Como ANALISTA solo puedes aprobar planillas PREAPROBADAS (sin sobrecosto).' };
+    }
+
+    // OPERATIVO: no aprueba. La aprobación (incluido PREAPROBADO → APROBADO)
     // es exclusiva de COORDINADOR, CONTROL y ADMIN.
     //
     // COORDINADOR: aprueba PREAPROBADO y REQUIERE_APROBACION_COORDINADOR (≤7%); no CONTROL
@@ -2772,8 +2781,9 @@ const SolicitudVehiculos: React.FC = () => {
         return;
       }
 
-      // Verificar permisos del perfil (solo COORDINADOR/CONTROL/ADMIN aprueban)
-      if (!['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+      // Verificar permisos del perfil (COORDINADOR/CONTROL/ADMIN, y ANALISTA —
+      // abajo sólo se aprueban las PREAPROBADO, que es lo que el ANALISTA puede)
+      if (!['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA'].includes(perfil)) {
         Swal.fire('No Autorizado', 'Tu perfil no tiene permisos para aprobar planillas', 'warning');
         return;
       }
@@ -3414,8 +3424,8 @@ const SolicitudVehiculos: React.FC = () => {
                         🔗 Fusionar ({planillasSeleccionadas.size})
                       </button>
                     )}
-                    {/* Botón Aprobar Masivo - Solo COORDINADOR/CONTROL/ADMIN (aprueba las PREAPROBADO) */}
-                    {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && planillasSeleccionadas.size > 0 && (
+                    {/* Botón Aprobar Masivo - COORDINADOR/CONTROL/ADMIN (+ANALISTA: sólo aprueba PREAPROBADO) */}
+                    {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA'].includes(perfil) && planillasSeleccionadas.size > 0 && (
                       <button
                         onClick={handleAprobarSeleccionadas}
                         className="SV-btnToggle"
@@ -3715,8 +3725,10 @@ const SolicitudVehiculos: React.FC = () => {
                                   </button>
                                 )}
 
-                                {/* Botón de aprobar - Solo COORDINADOR/CONTROL/ADMIN (no en CREADO); el ANALISTA ya no aprueba */}
-                                {['ADMIN', 'CONTROL', 'COORDINADOR'].includes(perfil) && resultado.estado !== 'APROBADO' && resultado.estado !== 'CREADO' && (
+                                {/* Botón de aprobar - COORDINADOR/CONTROL/ADMIN sobre cualquier estado
+                                    no-creado; ANALISTA sólo PREAPROBADO (puedeAprobarPlanilla lo filtra
+                                    con un aviso si intenta una con sobrecosto) */}
+                                {['ADMIN', 'CONTROL', 'COORDINADOR', 'ANALISTA'].includes(perfil) && resultado.estado !== 'APROBADO' && resultado.estado !== 'CREADO' && (
                                   <button
                                     onClick={() => handleAprobarPlanilla(resultado, index)}
                                     className="SV-btnAction SV-btnSave"

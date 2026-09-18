@@ -60,7 +60,8 @@ Sistema de gestión de pedidos y pacientes Medical Care.
   - **ADMIN**: Puede aprobar todo
   - **CONTROL**: Puede aprobar todo (coord. y control)
   - **COORDINADOR**: Solo puede aprobar REQUIERE_APROBACION_COORDINADOR (≤ 7%)
-  - **ANALISTA, OPERATIVO**: No pueden aprobar
+  - **ANALISTA**: Solo puede aprobar PREAPROBADO → APROBADO (planillas sin sobrecosto; 2026-09-17), incluida la aprobación masiva (que solo toca PREAPROBADO)
+  - **OPERATIVO**: No puede aprobar
 - **Edición de planillas**:
   - Campos editables: tarifa_base, requiere_descargue, punto_adicional, desvio, aforo, placa, tipo_veh_sicetac
   - Causal OBLIGATORIA si hay sobrecosto (total > teórico)
