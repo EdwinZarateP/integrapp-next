@@ -1846,15 +1846,20 @@ const SolicitudVehiculos: React.FC = () => {
     }
   };
 
+  // Extrae el detail real de una respuesta de error del backend (403 de perfiles, 404, etc.)
+  const textoErrorEstado = async (response: Response): Promise<string> => {
+    try {
+      const err = await response.json();
+      if (err?.detail) return String(err.detail);
+    } catch { /* respuesta sin JSON */ }
+    return `HTTP ${response.status}`;
+  };
+
   // Muestra el error real del backend (403 del control de perfiles, 404, etc.)
   // en vez del genérico "falló en BD". En fallo, el estado local quedó optimista:
   // siempre se pide recargar.
   const mostrarErrorEstado = async (response: Response, accion: string) => {
-    let detalle = `No se pudo ${accion}. Recarga la página para refrescar el estado.`;
-    try {
-      const err = await response.json();
-      if (err?.detail) detalle = `${err.detail} Recarga la página para refrescar el estado.`;
-    } catch { /* respuesta sin JSON */ }
+    const detalle = `${await textoErrorEstado(response)} Recarga la página para refrescar el estado.`;
     Swal.fire(response.status === 403 || response.status === 401 ? '⛔ No autorizado' : '⚠️ Parcial', detalle, 'error');
   };
 
@@ -2847,17 +2852,14 @@ const SolicitudVehiculos: React.FC = () => {
       });
 
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-      const cookies = document.cookie.split(';').reduce((acc: any, cookie: string) => {
-        const [key, value] = cookie.trim().split('=');
-        acc[key] = decodeURIComponent(value);
-        return acc;
-      }, {});
 
       let aprobadas = 0;
       let errores = 0;
+      const erroresDetalle: string[] = [];
       const resultadosActualizados = [...resultados];
 
-      // Aprobar cada planilla
+      // Aprobar cada planilla (usuario del estado, leído de usuarioPedidosCookie —
+      // el backend lo resuelve en baseusuarios y rechaza usuarios inexistentes)
       for (const resultado of planillasParaAprobar) {
         try {
           const response = await fetch(`${API}/siscore/actualizar-estado-planilla`, {
@@ -2866,7 +2868,7 @@ const SolicitudVehiculos: React.FC = () => {
             body: JSON.stringify({
               planilla: resultado.planilla,
               estado: 'APROBADO',
-              aprobado_por: cookies.usuario || 'desconocido'
+              aprobado_por: usuario
             })
           });
 
@@ -2877,17 +2879,19 @@ const SolicitudVehiculos: React.FC = () => {
               resultadosActualizados[index] = {
                 ...resultadosActualizados[index],
                 estado: 'APROBADO',
-                aprobado_por: cookies.usuario || 'desconocido',
+                aprobado_por: usuario,
                 fecha_aprobacion: new Date().toISOString()
               };
             }
             aprobadas++;
           } else {
             errores++;
+            erroresDetalle.push(`${resultado.planilla}: ${await textoErrorEstado(response)}`);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Error aprobando ${resultado.planilla}:`, error);
           errores++;
+          erroresDetalle.push(`${resultado.planilla}: ${error?.message || 'error de red'}`);
         }
       }
 
@@ -2901,7 +2905,11 @@ const SolicitudVehiculos: React.FC = () => {
 
       Swal.fire(
         'Aprobación Masiva Finalizada',
-        `✅ Aprobadas: ${aprobadas}\n${errores > 0 ? `❌ Con errores: ${errores}` : ''}`,
+        `✅ Aprobadas: ${aprobadas}` +
+          (errores > 0
+            ? `\n❌ Con errores: ${errores}\n\n${erroresDetalle.slice(0, 10).join('\n')}` +
+              (erroresDetalle.length > 10 ? `\n… y ${erroresDetalle.length - 10} más` : '')
+            : ''),
         errores > 0 ? 'warning' : 'success'
       );
 
