@@ -3496,6 +3496,7 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Cliente Origen</th>
                         <th>Planilla</th>
                         <th>Fecha Preaprobado</th>
+                        <th>Observaciones</th>
                         <th>Estado</th>
                         <th>Total Solicitado</th>
                         <th>Diferencia</th>
@@ -3516,7 +3517,6 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Aforo</th>
                         <th>Cant. Destinos</th>
                         <th>Código Pedido</th>
-                        <th>Observaciones</th>
                         <th>Obs. Causal</th>
                         <th>Ahorro</th>
                         <th>Obs. Ahorro</th>
@@ -3677,6 +3677,9 @@ const SolicitudVehiculos: React.FC = () => {
                           <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>
                             {formatearFechaColombia(resultado.fecha_preaprobado || resultado.fecha_creacion)}
                           </td>
+                          <td className="SV-truncate" title={resultado.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>
+                            {resultado.causal || '-'}
+                          </td>
                           <td>
                             {resultado.encontrada && (
                               <>
@@ -3807,9 +3810,6 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td className="SV-truncate" title={resultado.codigo_pedido}>
                             {resultado.codigo_pedido}
-                          </td>
-                          <td className="SV-truncate" title={resultado.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>
-                            {resultado.causal || '-'}
                           </td>
                           <td className="SV-truncate" title={resultado.observacion_causal || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>
                             {resultado.observacion_causal || '-'}

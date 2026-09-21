@@ -96,7 +96,7 @@ const formatFecha = (val: any): string => {
     hour: '2-digit', minute: '2-digit', hour12: false,
   }).formatToParts(d);
   const g = (t: string) => partes.find((p) => p.type === t)?.value ?? '00';
-  return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}`;
+  return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}`;
 };
 
 const formatMoney = (v: any) => `$${Number(v || 0).toLocaleString('es-CO')}`;
@@ -344,7 +344,7 @@ const OtrosCostosP: React.FC = () => {
       const res = await verificarManifiesto(usuario, m);
       if (res.ya_usado) {
         const detalle = res.usos.map((u) =>
-          `<li><b>${u.consecutivo}</b> (${u.origen === 'historico' ? 'pagada' : u.origen}, ${u.fecha_pago ? `pago ${u.fecha_pago.slice(0, 10)}` : 'sin fecha de pago'})</li>`,
+          `<li><b>${u.consecutivo}</b> (${u.origen === 'historico' ? 'pagada' : u.origen}, ${u.fecha_pago ? `pago ${formatFecha(u.fecha_pago)}` : 'sin fecha de pago'})</li>`,
         ).join('');
         Swal.fire({
           title: '⚠️ Manifiesto ya utilizado',
