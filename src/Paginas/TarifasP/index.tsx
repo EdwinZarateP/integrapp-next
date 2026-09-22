@@ -198,9 +198,17 @@ const TarifasP: React.FC = () => {
     XLSX.writeFile(wb, `Tarifas_${fecha}.xlsx`);
   };
 
-  // Columnas dinámicas de vehículo
+  // Columnas dinámicas de vehículo: orden de negocio primero, el resto al final alfabético
+  const ORDEN_VEHICULO = ['NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
   const colsVehiculo = useMemo(
-    () => Array.from(new Set(tarifas.flatMap(t => Object.keys(t.tarifas)))).sort(),
+    () => Array.from(new Set(tarifas.flatMap(t => Object.keys(t.tarifas))))
+      .sort((a, b) => {
+        const ia = ORDEN_VEHICULO.indexOf(a), ib = ORDEN_VEHICULO.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      }),
     [tarifas]
   );
 

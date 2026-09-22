@@ -3497,6 +3497,7 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Planilla</th>
                         <th>Fecha Preaprobado</th>
                         <th>Observaciones</th>
+                        <th>Obs. Causal</th>
                         <th>Estado</th>
                         <th>Total Solicitado</th>
                         <th>Diferencia</th>
@@ -3517,7 +3518,6 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Aforo</th>
                         <th>Cant. Destinos</th>
                         <th>Código Pedido</th>
-                        <th>Obs. Causal</th>
                         <th>Ahorro</th>
                         <th>Obs. Ahorro</th>
                       </tr>
@@ -3680,6 +3680,9 @@ const SolicitudVehiculos: React.FC = () => {
                           <td className="SV-truncate" title={resultado.causal || ''} style={{ maxWidth: '150px', fontSize: '0.85rem', color: '#666' }}>
                             {resultado.causal || '-'}
                           </td>
+                          <td className="SV-truncate" title={resultado.observacion_causal || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>
+                            {resultado.observacion_causal || '-'}
+                          </td>
                           <td>
                             {resultado.encontrada && (
                               <>
@@ -3810,9 +3813,6 @@ const SolicitudVehiculos: React.FC = () => {
                           </td>
                           <td className="SV-truncate" title={resultado.codigo_pedido}>
                             {resultado.codigo_pedido}
-                          </td>
-                          <td className="SV-truncate" title={resultado.observacion_causal || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>
-                            {resultado.observacion_causal || '-'}
                           </td>
                           <td style={{ fontWeight: '700', color: resultado.ahorro ? '#047857' : undefined, textAlign: 'right', whiteSpace: 'nowrap' }} title={resultado.observacion ? `${resultado.observacion}` : ''}>
                             {resultado.encontrada && resultado.ahorro ? `$${resultado.ahorro.toLocaleString('es-CO')}` : '-'}
