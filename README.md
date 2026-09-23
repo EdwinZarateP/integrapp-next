@@ -695,3 +695,31 @@ Catálogo regional de datos bancarios por placa (conductor, teléfono **obligato
 - **Perfiles**: visible en el menú hamburguesa (`NavMedicalCare`, ítem «Cuentas por Placa», `FaIdCard`) para **ADMIN, OPERATIVO y DESPACHADOR**. OPERATIVO/DESPACHADOR solo ven/crean/editan/eliminan su regional (el backend la impone); ADMIN tiene dropdown de regional (por bodega: JUAN MINA, YUMBO, BUCARAMANGA, GIRARDOTA, FUNZA) y botones **Plantilla / Importar Excel / Exportar**.
 - **Importar Excel (ADMIN)**: mini-modal con regional destino obligatoria + archivo `.xlsx`; upsert por (placa, regional) — placa existente se actualiza; resultado con errores por fila. La plantilla descargable trae 8 columnas y una hoja «Valores» con los bancos/tipos permitidos.
 - **Reglas**: placa 4-6 caracteres alfanuméricos (sin espacios/guiones/símbolos); una placa puede repetirse entre regionales pero no dentro de la misma (409); bancos = catálogo de Otros Costos.
+
+## Actualizaciones Recientes (2026-09-23)
+
+### Histórico de Pedidos (`/HistoricoPedidos`) — trazabilidad del flujo en el modal de detalle
+
+El modal de detalle (clic en el consecutivo) mostraba datos, fletes y fechas, pero **nada de quién hizo qué**. Ahora incluye, **al final del formulario** (después de «Detalle de pedidos»):
+
+- **Sección «Trazabilidad del flujo»**: Registrado por, Solicitó autorización + fecha, Última modificación por + fecha, **Aprobado por + fecha de aprobación**, Asignó Pedido Vulcano y, si aplica, Devuelto por + fecha + **Motivo de devolución**. Muestra el **nombre y apellido** de la persona (campos `*_nombre` que resuelve el backend en `GET /siscore/historico` desde `baseusuarios`), con fallback al username.
+- **Sección «Historial de cambios (N)»**: tabla con el flujo completo del vehículo — fecha, usuario (nombre), acción (`edicion` / `cambio_estado` / `devolucion`) y **Detalle** legible (`campo: anterior → nuevo`, causal, motivo). Sin scroll interno ni tope de altura (`.HP-cambiosWrap`): el contenido fluye y el scroll queda **vertical en el modal padre**; la celda Detalle acota su ancho (`.HP-detalleCambio`, máx 360px con salto de línea) para no ensanchar la tabla.
+- **Diferencia en rojo**: el campo «Diferencia» de «Fletes y recargos» se pinta con cuadro rojo (fondo `#fef2f2`, borde izquierdo `#dc2626`, valor `#b91c1c`) cuando es **superior a cero**; en $0 o negativo se ve normal. Helper `Campo` extendido con flag `alerta` + clase `.HP-modalFieldAlerta`.
+- **Archivos**: `Paginas/HistoricoPedidosP/{index.tsx,estilos.css}`.
+
+### SolicitudVehiculos (`/SolicitudVehiculos`) — misma trazabilidad en el modal «Editar/Ver Planilla»
+
+- El modal agrega, **al final del formulario** (después de los campos editables, antes de los botones), el bloque **«📋 TRAZABILIDAD DEL FLUJO»** (solo lectura, estilo de los otros bloques): Registrado por, Solicitó autorización + fecha, Última modificación por + fecha, Aprobado por + fecha, Asignó Pedido Vulcano y, si aplica, Devuelto por + fecha + motivo en rojo. Muestra **nombre y apellido** (`*_nombre` que ahora resuelve `GET /siscore/obtener-resultados-recientes`), con fallback al username.
+- Debajo, si el doc tiene `historial_cambios`, la tabla **«Historial de cambios (N)»**: fecha, usuario (nombre), acción y Detalle legible (`campo: anterior → nuevo`, causal, motivo) — celda Detalle acotada (máx 300px) y contenedor con scroll propio (máx 260px) para no alargar el modal.
+- Interfaz `PlanillaResultado` extendida con los campos de trazabilidad (`usuario_registro*`, `usuario_modificacion*`, `aprobado_por_nombre`, `usuario_pedido_vulcano*`, `historial_cambios`, etc.) + helper `resumenCambioHistorial`. **Archivo**: `src/app/SolicitudVehiculos/page.tsx`.
+
+### SolicitudVehiculos — consecutivo clicable para abrir el formulario de detalle
+
+- **Problema**: el modal «Editar/Ver Planilla» solo se abría con el botón azul de lápiz (columna Acciones) y el consecutivo era texto plano; además ese botón se **oculta** para OPERATIVO cuando la planilla ya fue enviada (estado ≠ CREADO), dejándolo sin forma de ver el detalle (incluida la trazabilidad nueva).
+- **Ahora**: la celda **Consecutivo** es un botón-link (`.SV-consecutivoLink`, mismo estilo que `HP-consecutivoLink` de HistóricoPedidos: subrayado al hover) que abre el mismo modal de detalle.
+- **Solo lectura para OPERATIVO en enviadas**: `soloLectura` ahora también es verdadero para OPERATIVO cuando el doc abierto tiene estado ≠ CREADO (antes solo ANALISTA) → el modal abre «Ver Planilla (solo lectura)», con campos deshabilitados y sin botón Guardar. Puede consultar el detalle y la trazabilidad, pero no editar. **Archivos**: `src/app/SolicitudVehiculos/{page.tsx,estilos.css}`.
+
+### Nombres de personas en todos los puntos (no usernames)
+
+- Nuevo helper `nombrePersona(valor)` en `SolicitudVehiculos/page.tsx` e `HistoricoPedidosP/index.tsx`: resuelve username → **nombre de la persona** usando un mapa `{USUARIO: nombre}` que se consulta una vez al montar la página (`GET /siscore/nombres-usuarios`, sólo usuario+nombre). Prioridad: campo `*_nombre` del backend → mapa local → valor tal cual.
+- Aplica a: toda la sección «Trazabilidad del flujo», la tabla «Historial de cambios» y el aviso de fila **«⚠️ Devuelta por …»** de SolicitudVehiculos (que antes mostraba el username crudo). También cubre el estado local justo después de aprobar/devolver sin esperar el re-fetch.

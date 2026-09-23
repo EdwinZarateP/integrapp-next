@@ -1,0 +1,148 @@
+/* Controlador de Gastos — página pública, sin login */
+.cg-contenedor {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2937;
+}
+.cg-cargando { text-align: center; padding: 60px 0; color: #6b7280; }
+
+.cg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.cg-header h1 { margin: 0; font-size: 1.6rem; }
+.cg-trm {
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+/* Total general */
+.cg-total {
+  background: linear-gradient(135deg, #0f766e, #115e59);
+  color: #fff;
+  border-radius: 16px;
+  padding: 22px 26px;
+  margin-bottom: 18px;
+}
+.cg-total-label { margin: 0; opacity: 0.85; font-size: 0.9rem; }
+.cg-total-usd { margin: 4px 0 2px; font-size: 2.4rem; font-weight: 700; }
+.cg-total-cop { margin: 0; opacity: 0.85; font-size: 0.95rem; }
+
+/* Tarjetas por fuente */
+.cg-fuentes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.cg-fuente {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.cg-fuente.cg-agotada { border-color: #fca5a5; background: #fef2f2; }
+.cg-fuente-nombre { margin: 0 0 6px; font-size: 0.85rem; color: #6b7280; }
+.cg-fuente-saldo { margin: 0; font-size: 1.5rem; font-weight: 700; }
+.cg-fuente-equivalente { margin: 4px 0 0; font-size: 0.8rem; color: #6b7280; }
+
+/* Layout form + movimientos */
+.cg-columnas {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .cg-columnas { grid-template-columns: 1fr; }
+}
+.cg-columnas section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px;
+}
+.cg-columnas h2 { margin: 0 0 14px; font-size: 1.05rem; }
+
+/* Formulario */
+.cg-tipos { display: flex; gap: 8px; margin-bottom: 14px; }
+.cg-tipo {
+  flex: 1;
+  padding: 9px 0;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #6b7280;
+}
+.cg-tipo-gasto.cg-tipo-activo { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+.cg-tipo-ingreso.cg-tipo-activo { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+.cg-form label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 10px; }
+.cg-form label small { font-weight: 400; color: #9ca3af; }
+.cg-form select, .cg-form input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+.cg-submit {
+  width: 100%;
+  margin-top: 4px;
+  padding: 11px 0;
+  border: none;
+  border-radius: 10px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cg-submit:disabled { opacity: 0.6; cursor: wait; }
+
+/* Movimientos */
+.cg-vacio { color: #9ca3af; text-align: center; padding: 20px 0; }
+.cg-movs ul { list-style: none; margin: 0; padding: 0; }
+.cg-movs li {
+  border-bottom: 1px solid #f3f4f6;
+  padding: 10px 6px;
+}
+.cg-movs li:last-child { border-bottom: none; }
+.cg-mov-principal { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cg-mov-signo { font-weight: 700; }
+.cg-mov-gasto .cg-mov-signo, .cg-mov-gasto .cg-mov-monto { color: #dc2626; }
+.cg-mov-ingreso .cg-mov-signo, .cg-mov-ingreso .cg-mov-monto { color: #16a34a; }
+.cg-mov-monto { font-weight: 700; font-size: 1.02rem; }
+.cg-mov-fuente { color: #6b7280; font-size: 0.8rem; }
+.cg-mov-detalle { margin: 3px 0 0 20px; font-size: 0.85rem; color: #374151; }
+.cg-mov-pie {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  margin-left: 20px;
+}
+.cg-mov-fecha { font-size: 0.75rem; color: #9ca3af; }
+.cg-mov-borrar {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  opacity: 0.5;
+}
+.cg-mov-borrar:hover { opacity: 1; }

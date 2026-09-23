@@ -115,7 +115,38 @@ interface PlanillaResultado {
   registros_detalle?: any[];
   // Info de división en carros (es_dividida, planilla_original, carros, ...)
   division_info?: any;
+  // Trazabilidad del flujo (quiénes registraron/editaron/aprobaron). Los campos
+  // *_nombre los resuelve el backend (GET /obtener-resultados-recientes) desde baseusuarios.
+  usuario_registro?: string;
+  usuario_registro_nombre?: string;
+  usuario_solicitud_autorizacion?: string;
+  usuario_solicitud_autorizacion_nombre?: string;
+  fecha_solicitud_autorizacion?: string;
+  usuario_modificacion?: string;
+  usuario_modificacion_nombre?: string;
+  fecha_modificacion?: string;
+  aprobado_por_nombre?: string;
+  devuelto_por_nombre?: string;
+  usuario_pedido_vulcano?: string;
+  usuario_pedido_vulcano_nombre?: string;
+  historial_cambios?: any[];
 }
+
+// Resumen legible de una entrada del historial_cambios: campos modificados
+// (campo: anterior → nuevo), causal y motivo de devolución.
+const resumenCambioHistorial = (h: any): string => {
+  const partes: string[] = [];
+  const campos = Array.isArray(h?.campos_modificados) ? h.campos_modificados : [];
+  for (const c of campos) {
+    if (!c?.campo) continue;
+    const ant = c.valor_anterior ?? '';
+    const nuevo = c.valor_nuevo ?? '';
+    partes.push(`${c.campo}: ${ant === '' ? 'vacío' : String(ant)} → ${nuevo === '' ? 'vacío' : String(nuevo)}`);
+  }
+  if (h?.causal) partes.push(`Causal: ${h.causal}`);
+  if (h?.motivo) partes.push(`Motivo: ${h.motivo}`);
+  return partes.join(' · ') || '-';
+};
 
 const OPCIONES_VEHICULO = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
 
@@ -659,6 +690,25 @@ const SolicitudVehiculos: React.FC = () => {
   const perfilUpper = (perfil || '').toUpperCase();
   const esPerfilConRegional = perfilUpper === 'ADMIN' || perfilUpper === 'ANALISTA';
   const puedeBuscar = esPerfilConRegional || perfilUpper === 'OPERATIVO';
+
+  // Mapa {USUARIO: nombre} para mostrar el NOMBRE de las personas (no usernames) en
+  // trazabilidad y avisos. Se consulta una vez al montar; si falla, quedan los campos
+  // *_nombre del backend y, como último recurso, el username.
+  const [nombresUsuarios, setNombresUsuarios] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+    fetch(`${API}/siscore/nombres-usuarios`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d && typeof d === 'object') setNombresUsuarios(d); })
+      .catch(() => { /* sin conexión: queda el fallback *_nombre / username */ });
+  }, []);
+  // Resuelve username → nombre de la persona (case-insensitive); si no está en el
+  // mapa devuelve el valor tal cual (ya puede ser un nombre o un username desconocido).
+  const nombrePersona = (username?: string | null): string => {
+    const u = (username || '').trim();
+    if (!u) return '-';
+    return nombresUsuarios[u.toUpperCase()] || u;
+  };
 
   // Cerrar menú flotante al hacer clic fuera
   useEffect(() => {
@@ -3222,8 +3272,11 @@ const SolicitudVehiculos: React.FC = () => {
     return true;
   };
 
-  // El ANALISTA abre el modal solo para visualizar (no editar).
-  const soloLectura = perfil === 'ANALISTA';
+  // El ANALISTA abre el modal solo para visualizar (no editar). El OPERATIVO
+  // también lo abre en solo lectura sobre planillas ya enviadas (estado != CREADO):
+  // puede consultar el detalle y la trazabilidad desde el consecutivo, pero no editar.
+  const soloLectura = perfil === 'ANALISTA'
+    || (perfil === 'OPERATIVO' && !!modalDetalle.resultado?.estado && modalDetalle.resultado.estado !== 'CREADO');
 
   return (
     <div className="SV-layout">
@@ -3665,7 +3718,16 @@ const SolicitudVehiculos: React.FC = () => {
                             )}
                           </td>
                           <td style={{ fontWeight: '700', color: '#004d40', fontFamily: 'monospace', fontSize: '0.95rem' }}>
-                            {resultado.consecutivo || '-'}
+                            {/* Consecutivo clicable: abre el formulario de detalle (como en
+                                HistóricoPedidos). Para OPERATIVO sobre planilla enviada se
+                                abre en solo lectura (ver `soloLectura`). */}
+                            <button
+                              className="SV-consecutivoLink"
+                              onClick={() => handleAbrirModal(resultado, index)}
+                              title="Ver detalle completo de la planilla"
+                            >
+                              {resultado.consecutivo || '-'}
+                            </button>
                           </td>
                           <td>{resultado.municipio_destino}</td>
                           <td className="SV-truncate" title={resultado.cliente_origen}>
@@ -3706,7 +3768,7 @@ const SolicitudVehiculos: React.FC = () => {
                                     creador y ADMIN, que son quienes ven las planillas en CREADO. */}
                                 {resultado.estado === 'CREADO' && resultado.motivo_devolucion && (
                                   <div
-                                    title={`Devuelta por ${resultado.devuelto_por || '-'}${resultado.fecha_devolucion ? ` el ${formatearFechaColombia(resultado.fecha_devolucion)}` : ''}:\n${resultado.motivo_devolucion}`}
+                                    title={`Devuelta por ${nombrePersona(resultado.devuelto_por_nombre || resultado.devuelto_por)}${resultado.fecha_devolucion ? ` el ${formatearFechaColombia(resultado.fecha_devolucion)}` : ''}:\n${resultado.motivo_devolucion}`}
                                     style={{
                                       marginTop: '4px',
                                       fontSize: '0.7rem',
@@ -3722,7 +3784,7 @@ const SolicitudVehiculos: React.FC = () => {
                                       maxWidth: '180px'
                                     }}
                                   >
-                                    ⚠️ Devuelta por {resultado.devuelto_por || '-'}: {resultado.motivo_devolucion}
+                                    ⚠️ Devuelta por {nombrePersona(resultado.devuelto_por_nombre || resultado.devuelto_por)}: {resultado.motivo_devolucion}
                                   </div>
                                 )}
 
@@ -4258,6 +4320,58 @@ const SolicitudVehiculos: React.FC = () => {
                 </div>
               </div>
             </fieldset>
+
+            {/* Trazabilidad del flujo (solo lectura, al final del formulario): quiénes
+                registraron, editaron y aprobaron. Los *_nombre vienen del backend
+                (resueltos en baseusuarios); fallback al username si no existe. */}
+            <div style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
+              <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#666', fontWeight: '600' }}>📋 TRAZABILIDAD DEL FLUJO</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem 1rem' }}>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Registrado por</strong><div>{nombrePersona(modalDetalle.resultado.usuario_registro_nombre || modalDetalle.resultado.usuario_registro)}</div></div>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Solicitó autorización</strong><div>{nombrePersona(modalDetalle.resultado.usuario_solicitud_autorizacion_nombre || modalDetalle.resultado.usuario_solicitud_autorizacion)}</div></div>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha solicitud aut.</strong><div>{modalDetalle.resultado.fecha_solicitud_autorizacion ? formatearFechaColombia(modalDetalle.resultado.fecha_solicitud_autorizacion) : '-'}</div></div>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Última modificación por</strong><div>{nombrePersona(modalDetalle.resultado.usuario_modificacion_nombre || modalDetalle.resultado.usuario_modificacion)}</div></div>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha modificación</strong><div>{modalDetalle.resultado.fecha_modificacion ? formatearFechaColombia(modalDetalle.resultado.fecha_modificacion) : '-'}</div></div>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Aprobado por</strong><div>{nombrePersona(modalDetalle.resultado.aprobado_por_nombre || modalDetalle.resultado.aprobado_por)}</div></div>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha aprobación</strong><div>{modalDetalle.resultado.fecha_aprobacion ? formatearFechaColombia(modalDetalle.resultado.fecha_aprobacion) : '-'}</div></div>
+                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Asignó Pedido Vulcano</strong><div>{nombrePersona(modalDetalle.resultado.usuario_pedido_vulcano_nombre || modalDetalle.resultado.usuario_pedido_vulcano)}</div></div>
+                {modalDetalle.resultado.motivo_devolucion && (
+                  <>
+                    <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Devuelto por</strong><div>{nombrePersona(modalDetalle.resultado.devuelto_por_nombre || modalDetalle.resultado.devuelto_por)}</div></div>
+                    <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha devolución</strong><div>{modalDetalle.resultado.fecha_devolucion ? formatearFechaColombia(modalDetalle.resultado.fecha_devolucion) : '-'}</div></div>
+                    <div style={{ gridColumn: '1 / -1', color: '#b91c1c' }}><strong style={{ fontSize: '0.85rem' }}>Motivo de devolución:</strong> {modalDetalle.resultado.motivo_devolucion}</div>
+                  </>
+                )}
+              </div>
+
+              {modalDetalle.resultado.historial_cambios && modalDetalle.resultado.historial_cambios.length > 0 && (
+                <div style={{ marginTop: '1rem' }}>
+                  <strong style={{ color: '#666', fontSize: '0.85rem' }}>Historial de cambios ({modalDetalle.resultado.historial_cambios.length})</strong>
+                  <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '6px', background: 'white' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead style={{ position: 'sticky', top: 0, background: '#f1f5f9' }}>
+                        <tr>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', whiteSpace: 'nowrap' }}>Fecha</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Usuario</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Acción</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', maxWidth: '300px' }}>Detalle</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {modalDetalle.resultado.historial_cambios.map((h: any, i: number) => (
+                          <tr key={i} style={{ borderTop: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '0.4rem 0.6rem', whiteSpace: 'nowrap' }}>{formatearFechaColombia(h?.fecha)}</td>
+                            <td style={{ padding: '0.4rem 0.6rem' }}>{nombrePersona(h?.usuario_nombre || h?.usuario)}</td>
+                            <td style={{ padding: '0.4rem 0.6rem' }}>{h?.accion || '-'}</td>
+                            <td style={{ padding: '0.4rem 0.6rem', maxWidth: '300px', wordBreak: 'break-word' }}>{resumenCambioHistorial(h)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               {/* Botón Guardar cambios (oculto en modo solo lectura para ANALISTA) */}

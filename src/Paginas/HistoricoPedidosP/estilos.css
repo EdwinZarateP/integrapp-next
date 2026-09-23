@@ -429,6 +429,19 @@
   word-break: break-word;
 }
 
+/* Campo de alerta (Diferencia > 0): cuadro rojo suave con borde izquierdo. */
+.HP-modalFieldAlerta {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #dc2626;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+}
+
+.HP-modalFieldAlerta .HP-modalValue {
+  color: #b91c1c;
+}
+
 .HP-modalEmpty {
   color: #666;
   font-size: 0.85rem;
@@ -455,6 +468,21 @@
 .HP-subTableWrap {
   max-height: 320px;
   overflow-y: auto;
+}
+
+/* Contenedor del historial de cambios: SIN scroll propio ni tope de altura —
+   el contenido fluye y el scroll queda vertical en el formulario padre (el modal). */
+.HP-cambiosWrap {
+  max-height: none;
+  overflow: visible;
+}
+
+/* Celda "Detalle" del historial de cambios: ancho acotado para que el texto
+   haga salto de línea en lugar de ensanchar la tabla. */
+.HP-detalleCambio {
+  max-width: 360px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .HP-subTable {

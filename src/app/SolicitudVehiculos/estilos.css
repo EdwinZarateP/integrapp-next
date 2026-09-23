@@ -725,3 +725,20 @@ input[type="number"] {
   background: #f1f5f9;
   color: #005f56;
 }
+
+/* ── Consecutivo clicable (abre el formulario de detalle, como HistóricoPedidos) ── */
+.SV-consecutivoLink {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-family: monospace;
+  font-weight: 700;
+  color: #004d40;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.SV-consecutivoLink:hover {
+  text-decoration: underline;
+}

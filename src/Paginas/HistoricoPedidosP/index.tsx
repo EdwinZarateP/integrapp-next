@@ -259,6 +259,25 @@ const HistoricoPedidosP: React.FC = () => {
   // Planillas con la fila de detalle (clientes/pedidos) expandida con el botón ">" (clave: _id).
   const [expandidas, setExpandidas] = useState<Record<string, boolean>>({});
 
+  // Mapa {USUARIO: nombre} para mostrar el NOMBRE de las personas (no usernames) en la
+  // trazabilidad. Se consulta una vez al montar; si falla, quedan los campos *_nombre
+  // del backend y, como último recurso, el username.
+  const [nombresUsuarios, setNombresUsuarios] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+    fetch(`${API}/siscore/nombres-usuarios`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d && typeof d === 'object') setNombresUsuarios(d); })
+      .catch(() => { /* sin conexión: queda el fallback *_nombre / username */ });
+  }, []);
+  // Resuelve username → nombre de la persona (case-insensitive); si no está en el
+  // mapa devuelve el valor tal cual (ya puede ser un nombre o un username desconocido).
+  const nombrePersona = (username?: string | null): string => {
+    const u = (username || '').trim();
+    if (!u) return '-';
+    return nombresUsuarios[u.toUpperCase()] || u;
+  };
+
   const toggleExpand = (id: string) =>
     setExpandidas(prev => ({ ...prev, [id]: !prev[id] }));
 
@@ -510,13 +529,30 @@ const HistoricoPedidosP: React.FC = () => {
     return '$0';
   };
 
-  // Par etiqueta/valor para el grid del modal de detalle.
-  const Campo = (label: string, valor: any) => (
-    <div className="HP-modalField">
+  // Par etiqueta/valor para el grid de detalle del modal. `alerta` pinta el cuadro
+  // en rojo (se usa para la Diferencia cuando es superior a cero).
+  const Campo = (label: string, valor: any, alerta = false) => (
+    <div className={`HP-modalField${alerta ? ' HP-modalFieldAlerta' : ''}`}>
       <span className="HP-modalLabel">{label}</span>
       <span className="HP-modalValue">{valor === undefined || valor === null || valor === '' ? '-' : valor}</span>
     </div>
   );
+
+  // Resumen legible de una entrada del historial_cambios: campos modificados
+  // (campo: anterior → nuevo), causal y motivo de devolución.
+  const resumenCambio = (h: any): string => {
+    const partes: string[] = [];
+    const campos = Array.isArray(h?.campos_modificados) ? h.campos_modificados : [];
+    for (const c of campos) {
+      if (!c?.campo) continue;
+      const ant = c.valor_anterior ?? '';
+      const nuevo = c.valor_nuevo ?? '';
+      partes.push(`${c.campo}: ${ant === '' ? 'vacío' : String(ant)} → ${nuevo === '' ? 'vacío' : String(nuevo)}`);
+    }
+    if (h?.causal) partes.push(`Causal: ${h.causal}`);
+    if (h?.motivo) partes.push(`Motivo: ${h.motivo}`);
+    return partes.join(' · ') || '-';
+  };
 
   return (
     <div className="HP-layout">
@@ -803,7 +839,7 @@ const HistoricoPedidosP: React.FC = () => {
               {Campo('Tarifa calculada (teórico)', `$${fmtVal(modalDoc.tarifa_calculada).toLocaleString('es-CO')}`)}
               {Campo('Tarifa base', `$${fmtVal(modalDoc.tarifa_base || modalDoc.tarifa_calculada).toLocaleString('es-CO')}`)}
               {Campo('Total solicitado', `$${fmtVal(modalDoc.total_solicitado).toLocaleString('es-CO')}`)}
-              {Campo('Diferencia', `$${fmtVal(modalDoc.diferencia).toLocaleString('es-CO')}`)}
+              {Campo('Diferencia', `$${fmtVal(modalDoc.diferencia).toLocaleString('es-CO')}`, fmtVal(modalDoc.diferencia) > 0)}
               {Campo('Descargue', fmtRecargo(modalDoc.requiere_descargue, 50000))}
               {Campo('Punto adicional', fmtRecargo(modalDoc.punto_adicional, 80000))}
               {Campo('Desvío', fmtRecargo(modalDoc.desvio, 100000))}
@@ -866,6 +902,58 @@ const HistoricoPedidosP: React.FC = () => {
             {/* Detalle de pedidos */}
             <div className="HP-modalSection">Detalle de pedidos</div>
             <DetallePedidosModal doc={modalDoc} />
+
+            {/* Trazabilidad del flujo (quién registró, editó, aprobó, asignó) — al final del formulario.
+                Los campos *_nombre los resuelve el backend desde baseusuarios; si faltan,
+                `nombrePersona` resuelve contra el mapa local de usuarios. */}
+            <div className="HP-modalSection">Trazabilidad del flujo</div>
+            <div className="HP-modalGrid">
+              {Campo('Registrado por', nombrePersona(modalDoc.usuario_registro_nombre || modalDoc.usuario_registro))}
+              {Campo('Solicitó autorización', nombrePersona(modalDoc.usuario_solicitud_autorizacion_nombre || modalDoc.usuario_solicitud_autorizacion))}
+              {Campo('Fecha solicitud aut.', formatDate(modalDoc.fecha_solicitud_autorizacion))}
+              {Campo('Última modificación por', nombrePersona(modalDoc.usuario_modificacion_nombre || modalDoc.usuario_modificacion))}
+              {Campo('Fecha modificación', formatDate(modalDoc.fecha_modificacion))}
+              {Campo('Aprobado por', nombrePersona(modalDoc.aprobado_por_nombre || modalDoc.aprobado_por))}
+              {Campo('Fecha aprobación', formatDate(modalDoc.fecha_aprobacion))}
+              {Campo('Asignó Pedido Vulcano', nombrePersona(modalDoc.usuario_pedido_vulcano_nombre || modalDoc.usuario_pedido_vulcano))}
+              {modalDoc.motivo_devolucion && Campo('Devuelto por', nombrePersona(modalDoc.devuelto_por_nombre || modalDoc.devuelto_por))}
+              {modalDoc.motivo_devolucion && Campo('Fecha devolución', formatDate(modalDoc.fecha_devolucion))}
+            </div>
+            {modalDoc.motivo_devolucion && (
+              <div className="HP-modalField" style={{ marginTop: '0.25rem' }}>
+                <span className="HP-modalLabel">Motivo de devolución</span>
+                <span className="HP-modalValue">{modalDoc.motivo_devolucion}</span>
+              </div>
+            )}
+
+            {/* Historial de cambios (timeline de modificaciones y cambios de estado) */}
+            {(modalDoc.historial_cambios?.length ?? 0) > 0 && (
+              <>
+                <div className="HP-modalSection">Historial de cambios ({modalDoc.historial_cambios.length})</div>
+                <div className="HP-cambiosWrap">
+                  <table className="HP-subTable">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th className="HP-detalleCambio">Detalle</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modalDoc.historial_cambios.map((h: any, i: number) => (
+                        <tr key={i}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{formatDate(h?.fecha)}</td>
+                          <td>{nombrePersona(h?.usuario_nombre || h?.usuario)}</td>
+                          <td>{h?.accion || '-'}</td>
+                          <td className="HP-detalleCambio">{resumenCambio(h)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
