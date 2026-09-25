@@ -135,6 +135,25 @@ export interface FuenteEstudio {
     fecha_certificacion?: string | null;
     fecha_firma?: string | null;
   }[];
+  // Fuente sisconmp (capacitaciones de Mercancías Peligrosas por cédula):
+  // listado del SISCONMP de Mintransporte con semáforo de VIGENCIA (todas
+  // vencidas y ninguna vigente → fuente ADVERTENCIA, análogo SOAT/RTM).
+  apellidos?: string;
+  nombres?: string;
+  total_capacitaciones?: number | null;
+  capacitaciones?: {
+    tipo_capacitacion?: string; // CURSO BASICO / titulación NCL
+    nombre: string;
+    entidad_certificadora?: string; // MEN / SENA / …
+    institucion_educativa?: string;
+    fecha_expedicion?: string | null;
+    fecha_vencimiento?: string | null;
+    fecha_registro?: string | null;
+    clase?: string;
+    descripcion_clase?: string;
+    tipo_vehiculo?: string;
+    vigente?: boolean | null;
+  }[];
   // Fuente OFAC: coincidencia exacta por identificación en la lista SDN.
   aplica?: boolean;
   total_coincidencias?: number;

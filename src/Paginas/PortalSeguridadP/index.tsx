@@ -190,6 +190,7 @@ export default function PortalSeguridadP() {
     : f === "runt" ? "Vehículo RUNT"
     : f === "simit" ? "Comparendos SIMIT"
     : f === "sena" ? "Formación SENA"
+    : f === "sisconmp" ? "Capacitaciones Mercancías Peligrosas (SISCONMP)"
     : f === "ofac" ? "OFAC personas (cédula)"
     : f === "ofac_nit" ? "OFAC empresas (NIT)"
     : f === "onu_ue" ? "ONU/UE — Sanciones internacionales (cédula)"
@@ -209,6 +210,7 @@ export default function PortalSeguridadP() {
     runt: "Consultando información del vehículo en RUNT…",
     simit: "Revisando comparendos en SIMIT…",
     sena: "Consultando formación en el SENA…",
+    sisconmp: "Consultando capacitaciones de Mercancías Peligrosas…",
     ofac: "Cruzando la persona con listas OFAC…",
     ofac_nit: "Cruzando la empresa con listas OFAC…",
     onu_ue: "Cruzando la persona con listas ONU y Unión Europea…",
@@ -265,6 +267,7 @@ export default function PortalSeguridadP() {
     runt: 75,
     simit: 20,
     sena: 70, // portal rápido (~5 s) + solve del captcha de imagen (10-60 s)
+    sisconmp: 40, // portal MVC rápido; el reCAPTCHA v3 lo resuelve la propia página
     ofac: 15, // dataset oficial indexado; la primera descarga puede tardar
     ofac_nit: 15,
     onu_ue: 25, // datasets ONU (~2 MB) + UE (~25 MB); luego queda en memoria 6 h
@@ -763,6 +766,17 @@ export default function PortalSeguridadP() {
                         if (!corrio(sena)) return null;
                         const total = sena.total_certificados ?? 0;
                         return <span>SENA: 🎓 {total > 0 ? `${total} certificado(s) de formación` : "Sin certificados registrados"}</span>;
+                      })()}
+                      {(() => {
+                        const sis = f.sisconmp;
+                        if (!corrio(sis)) return null;
+                        const total = sis!.total_capacitaciones ?? 0;
+                        if (total === 0) return <span>SISCONMP: 🔍 Sin capacitaciones de Mercancías Peligrosas registradas</span>;
+                        const hayVigente = (sis!.capacitaciones ?? []).some((c) => c.vigente === true);
+                        const hayVencida = (sis!.capacitaciones ?? []).some((c) => c.vigente === false);
+                        if (hayVigente) return <span>SISCONMP: ✅ {total} capacitación(es) MP (alguna vigente)</span>;
+                        if (hayVencida) return <span>SISCONMP: ⛔ {total} capacitación(es) MP — ninguna vigente (vencidas)</span>;
+                        return <span>SISCONMP: 🎓 {total} capacitación(es) MP (vigencia no reportada)</span>;
                       })()}
                       {(() => {
                         const onuUe = f.onu_ue;

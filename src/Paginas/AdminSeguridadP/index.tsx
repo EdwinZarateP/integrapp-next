@@ -80,6 +80,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
     runt: "Vehículo RUNT",
     simit: "Comparendos SIMIT",
     sena: "Formación SENA",
+    sisconmp: "Capacitaciones Mercancías Peligrosas (SISCONMP)",
     ofac: "OFAC personas (cédula)",
     ofac_nit: "OFAC empresas (NIT)",
     onu_ue: "ONU/UE — Sanciones internacionales (cédula)",
@@ -469,7 +470,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
   // ── PLANES: acciones ───────────────────────────────────────────────────
   const abrirPlan = async (plan?: PlanSeguridad) => {
     const esNuevo = !plan;
-    const fuentes = ["manifiestos_rndc", "procuraduria", "contraloria", "delitos_sexuales", "policia", "runt", "simit", "sena", "ofac", "ofac_nit", "onu_ue", "bdme", "bdme_nit", "rama_judicial", "rues"];
+    const fuentes = ["manifiestos_rndc", "procuraduria", "contraloria", "delitos_sexuales", "policia", "runt", "simit", "sena", "sisconmp", "ofac", "ofac_nit", "onu_ue", "bdme", "bdme_nit", "rama_judicial", "rues"];
     const checks = fuentes
       .map(
         (f) =>
