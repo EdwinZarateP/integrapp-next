@@ -20,6 +20,7 @@ import {
   CupoCliente,
   EstudioDetalle,
   EstudioResumen,
+  buscarPersona,
   crearEstudio,
   descargarPdfEstudio,
   haySesionCliente,
@@ -150,6 +151,55 @@ export default function PortalSeguridadP() {
   // Fecha de EXPEDICIÓN de la cédula (DD/MM/AAAA): la exige el portal de
   // inhabilidades de la Ley 1918 (valida el par cédula + fecha).
   const [fechaExpedicion, setFechaExpedicion] = useState("");
+  // Memoria de personas (2026-09-25): si la empresa ya consultó esta cédula,
+  // el onBlur del campo autollena nombres/apellidos/fecha SOLO los vacíos.
+  const [personaMemoria, setPersonaMemoria] = useState<{
+    nombres: string;
+    apellidos: string;
+    fecha_expedicion: string;
+    total_consultas: number;
+  } | null>(null);
+  const [buscandoPersona, setBuscandoPersona] = useState(false);
+  const [cedulaMemoria, setCedulaMemoria] = useState("");
+
+  // Autollenado por onBlur de la cédula (patrón OtrosCostos: autollenado
+  // bancario por onBlur de placa). Silencioso ante fallos: si el endpoint no
+  // responde, el usuario diligencia a mano como siempre.
+  const autollenarPersona = async () => {
+    const digitos = cedula.replace(/\D/g, "");
+    if (digitos.length < 3) {
+      setPersonaMemoria(null);
+      setCedulaMemoria("");
+      return;
+    }
+    // Evitar re-consultar la misma cédula al salir del campo varias veces.
+    if (digitos === cedulaMemoria) return;
+    setBuscandoPersona(true);
+    try {
+      const p = await buscarPersona(digitos);
+      if (p.encontrada) {
+        // Solo campos VACÍOS: nunca pisar lo que el usuario ya escribió.
+        if (!nombres.trim() && p.nombres) setNombres(p.nombres);
+        if (!apellidos.trim() && p.apellidos) setApellidos(p.apellidos);
+        if (!fechaExpedicion.trim() && p.fecha_expedicion)
+          setFechaExpedicion(p.fecha_expedicion);
+        setPersonaMemoria({
+          nombres: p.nombres || "",
+          apellidos: p.apellidos || "",
+          fecha_expedicion: p.fecha_expedicion || "",
+          total_consultas: p.total_consultas || 0,
+        });
+        setCedulaMemoria(digitos);
+      } else {
+        setPersonaMemoria(null);
+        setCedulaMemoria("");
+      }
+    } catch {
+      // Best-effort: sin memoria se sigue consultando igual.
+    } finally {
+      setBuscandoPersona(false);
+    }
+  };
 
   // Sonido de notificación al terminar la consulta (2026-09-01, pedido del
   // usuario): el mismo "ding" de SolicitudVehiculos al cargar planillas —
@@ -558,10 +608,30 @@ export default function PortalSeguridadP() {
                           <FaIdCard />
                           <input
                             inputMode="numeric" pattern="[0-9]*" placeholder="Cédula" value={cedula}
-                            onChange={(e) => setCedula(e.target.value.replace(/\D/g, ""))}
+                            onChange={(e) => {
+                              setCedula(e.target.value.replace(/\D/g, ""));
+                              // Cédula editada a mano = memoria previa ya no aplica.
+                              if (personaMemoria) {
+                                setPersonaMemoria(null);
+                                setCedulaMemoria("");
+                              }
+                            }}
+                            onBlur={autollenarPersona}
                             maxLength={15} disabled={consultando} autoFocus
                           />
                         </div>}
+                        {pideCedula && personaMemoria && (
+                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
+                            ✅ Persona consultada antes por su empresa
+                            {personaMemoria.total_consultas > 0
+                              ? ` (${personaMemoria.total_consultas} ${personaMemoria.total_consultas === 1 ? "consulta" : "consultas"})`
+                              : ""}
+                            {" "}— datos conocidos autollenados en los campos vacíos.
+                          </p>
+                        )}
+                        {pideCedula && buscandoPersona && (
+                          <p className="PS-ayuda" style={{ marginTop: 8 }}>Buscando en su historial…</p>
+                        )}
                         {pideNit && (
                           <div className="PS-input-icono">
                             <FaIdCard />

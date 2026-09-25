@@ -277,6 +277,25 @@ export const obtenerCupo = async (): Promise<CupoCliente> => {
   return res.data;
 };
 
+// Memoria de personas consultadas por la EMPRESA (2026-09-25): datos que ya
+// se enviaron/verificaron en consultas previas de esa cédula, para autollenar
+// el formulario (nombres, fecha de expedición). Solo ve personas que la
+// propia empresa consultó antes (aislamiento por tenant en el backend).
+export interface PersonaMemoria {
+  encontrada: boolean;
+  nombres?: string;
+  apellidos?: string;
+  nombre_consultado?: string;
+  fecha_expedicion?: string;
+  total_consultas?: number;
+  ultima_consulta_en?: string | null;
+}
+
+export const buscarPersona = async (cedula: string): Promise<PersonaMemoria> => {
+  const res = await api.get<PersonaMemoria>("/personas", { params: { cedula } });
+  return res.data;
+};
+
 export const crearEstudio = async (
   cedula: string | undefined,
   fuentes?: string[],
