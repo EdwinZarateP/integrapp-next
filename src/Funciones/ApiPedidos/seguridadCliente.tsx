@@ -202,6 +202,11 @@ export interface FuenteEstudio {
   departamento?: string;
   representantes?: { documento: string; nombre: string }[];
   fecha_actualizacion?: string | null;
+  // Fuente situacion_militar (libreta militar, Ejército): estado certificado
+  // por el Comando de Reclutamiento; la situación SIN definir es la
+  // advertencia (obligación militar vigente = riesgo operativo).
+  estado_tarjeta_militar?: string; // RESERVISTA - 1RA/2DA CLASE, PENDIENTE, …
+  fecha_expedicion?: string | null;
 }
 
 export interface EstudioResumen {

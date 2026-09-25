@@ -88,6 +88,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
     bdme_nit: "BDME empresas (NIT)",
     rama_judicial: "Rama Judicial (procesos por nombre)",
     rues: "RUES — Registro Mercantil (NIT)",
+    situacion_militar: "Situación militar (libreta militar)",
   };
   const etiquetaFuente = (f: string) => ETIQUETAS_FUENTE[f] ?? f;
 
@@ -123,7 +124,11 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
     const base = window.location.pathname
       .replace(/\/(empresas|planes|movimientos|cuentas)\/?$/, "")
       .replace(/\/+$/, ""); // trailingSlash: la raíz queda con "/" final → "//planes"
-    window.history.replaceState(window.history.state, "", `${base}/${pestana}`);
+    // Conservar el query string (?nocache=1 etc.): antes el espejo lo borraba
+    // y parecía que la página "se comía" los parámetros al cargar.
+    window.history.replaceState(
+      window.history.state, "", `${base}/${pestana}${window.location.search}`
+    );
   }, [pestana]);
 
   const cerrarSesion = () => {
@@ -470,7 +475,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
   // ── PLANES: acciones ───────────────────────────────────────────────────
   const abrirPlan = async (plan?: PlanSeguridad) => {
     const esNuevo = !plan;
-    const fuentes = ["manifiestos_rndc", "procuraduria", "contraloria", "delitos_sexuales", "policia", "runt", "simit", "sena", "sisconmp", "ofac", "ofac_nit", "onu_ue", "bdme", "bdme_nit", "rama_judicial", "rues"];
+    const fuentes = ["manifiestos_rndc", "procuraduria", "contraloria", "delitos_sexuales", "policia", "runt", "simit", "sena", "sisconmp", "ofac", "ofac_nit", "onu_ue", "bdme", "bdme_nit", "rama_judicial", "rues", "situacion_militar"];
     const checks = fuentes
       .map(
         (f) =>

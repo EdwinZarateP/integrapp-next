@@ -198,6 +198,7 @@ export default function PortalSeguridadP() {
     : f === "bdme_nit" ? "BDME empresas (NIT)"
     : f === "rama_judicial" ? "Rama Judicial (procesos por nombre)"
     : f === "rues" ? "RUES — Registro Mercantil (NIT)"
+    : f === "situacion_militar" ? "Situación militar (libreta militar)"
     : f;
 
   const planActivo = cupo?.planes?.find((p) => p.plan_id === planAbierto) ?? null;
@@ -218,6 +219,7 @@ export default function PortalSeguridadP() {
     bdme_nit: "Consultando la empresa en BDME…",
     rama_judicial: "Buscando procesos en la Rama Judicial…",
     rues: "Verificando la matrícula mercantil en el RUES…",
+    situacion_militar: "Consultando la situación militar (libreta)…",
   };
   // Mostrar solamente las fuentes del plan abierto. Antes esta lista era
   // fija y por eso un plan exclusivo de BDME mencionaba Procuraduría y
@@ -275,6 +277,7 @@ export default function PortalSeguridadP() {
     bdme_nit: 120,
     rama_judicial: 90,
     rues: 15, // API directo sin navegador ni captcha (~1-2 s)
+    situacion_militar: 15, // API directo del Ejército (~1-2 s, $0)
   };
   const estimacionSegundos = (() => {
     const fs = planActivo?.fuentes ?? [];
@@ -792,6 +795,14 @@ export default function PortalSeguridadP() {
                         const est = (rues!.estado_matricula ?? "").toUpperCase();
                         if (est === "ACTIVA") return <span>RUES: ✅ Matrícula mercantil activa</span>;
                         return <span>RUES: ⛔ Matrícula {est || "con estado distinto de activa"}</span>;
+                      })()}
+                      {(() => {
+                        const sm = f.situacion_militar;
+                        if (!corrio(sm)) return null;
+                        if (sm!.no_registra === true) return <span>Libreta: 🔍 Sin registro de situación militar</span>;
+                        const estadoLibreta = sm!.estado_tarjeta_militar || "";
+                        if (sm!.estado === "ADVERTENCIA") return <span>Libreta: ⛔ Situación sin definir — {estadoLibreta}</span>;
+                        return <span>Libreta: ✅ {estadoLibreta || "Ver informe"}</span>;
                       })()}
                     </>
                   );
