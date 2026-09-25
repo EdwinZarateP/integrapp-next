@@ -221,6 +221,9 @@ export interface EstudioResumen {
   empresa_nombre: string;
   costo_cop?: number; // suma de consumos − reembolsos de esta consulta
   canal?: "portal" | "api"; // "api" = hecha por una integración con API key
+  // Fuentes que quedaron sin respuesta (2026-09-25): el historial muestra la
+  // cantidad y despliega el listado al hacer clic en la fila.
+  fuentes_pendientes?: string[];
 }
 
 // Vehículo validado por runt: el propietario puede ser OTRA persona (el dueño
@@ -346,6 +349,42 @@ export const obtenerEstudio = async (consultaId: string): Promise<EstudioDetalle
 
 export const descargarPdfEstudio = async (consultaId: string): Promise<Blob> => {
   const res = await api.get(`/${consultaId}/pdf`, { responseType: "blob" });
+  return res.data;
+};
+
+// Completar fuentes pendientes (2026-09-25): re-consulta SOLO las fuentes que
+// no respondieron de un estudio ya emitido y re-emite el PDF (misma consulta,
+// versión +1). Sin costo adicional.
+export const completarEstudio = async (consultaId: string): Promise<EstudioDetalle> => {
+  const res = await api.post<EstudioDetalle>(`/${consultaId}/completar`);
+  return res.data;
+};
+
+// ─── Claves (2026-09-25) ──────────────────────────────────────────────────────
+
+// Cambio autenticado (menú del avatar): verifica la clave actual.
+export const cambiarClave = async (claveActual: string, claveNueva: string): Promise<{ mensaje: string }> => {
+  const res = await api.post<{ mensaje: string }>("/cambiar-clave", {
+    clave_actual: claveActual,
+    clave_nueva: claveNueva,
+  });
+  return res.data;
+};
+
+// "Olvidé mi contraseña" paso 1: pide un código de 6 dígitos por correo
+// (respuesta neutra: no revela si el correo existe).
+export const recuperarSolicitar = async (correo: string): Promise<{ mensaje: string }> => {
+  const res = await axios.post<{ mensaje: string }>(`${BASE_URL}/recuperar/solicitar`, { correo });
+  return res.data;
+};
+
+// Paso 2: correo + código + clave nueva.
+export const recuperarConfirmar = async (
+  correo: string, codigo: string, claveNueva: string
+): Promise<{ mensaje: string }> => {
+  const res = await axios.post<{ mensaje: string }>(`${BASE_URL}/recuperar/confirmar`, {
+    correo, codigo, clave_nueva: claveNueva,
+  });
   return res.data;
 };
 

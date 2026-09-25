@@ -1,847 +1,1200 @@
-/* Portal CLIENTE de Estudios de Seguridad — prefijo PS- */
+/* ═══════════════════════════════════════════════════════════════════════
+   Portal Cliente de Estudios de Seguridad — rediseño 2026-09-25
+   Patrón: dash-board.tusdatos.co (sidebar fija con módulos, top bar con
+   breadcrumb, tarjetas blancas radius 12 sobre fondo gris, acento teal),
+   adaptado a la marca seguriDatia / Integra Logística.
+   Prefijo PSX- (el PS- anterior quedó reemplazado por completo).
+   ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Login ── */
-.PS-login-fondo {
+/* --- Tokens de diseño (patrón tusdatos) --------------------------------- */
+:root {
+  --psx-teal: #00a5b5;
+  --psx-teal-oscuro: #008794;
+  --psx-teal-suave: #e6f5f6;
+  --psx-fondo: #f4f6f8;
+  --psx-borde: #e5e9ef;
+  --psx-texto: #22313f;
+  --psx-texto-suave: #6b7684;
+  --psx-rojo: #e5484d;
+  --psx-verde: #2ead6b;
+  --psx-ambar: #b58900;
+  --psx-radio: 12px;
+  --psx-sombra: 0 1px 3px rgba(16, 42, 67, 0.08);
+}
+
+.PSX-app {
+  display: flex;
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #0f2a43 0%, #1d3f63 60%, #274b76 100%);
-  padding: 20px;
+  background: var(--psx-fondo);
+  color: var(--psx-texto);
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
 }
 
-.PS-login-caja {
-  background: #fff;
-  border-radius: 14px;
-  padding: 38px 34px;
-  width: 100%;
-  max-width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-  text-align: center;
-}
+/* ══════════════════ SIDEBAR (módulos a la izquierda) ══════════════════ */
 
-.PS-login-logo {
-  font-size: 2.4rem;
-}
-
-.PS-login-caja h1 {
-  margin: 0;
-  font-size: 1.3rem;
-  color: #0f2a43;
-}
-
-.PS-login-sub {
-  margin: 0 0 8px;
-  color: #57606a;
-  font-size: 0.88rem;
-}
-
-.PS-login-caja input {
-  padding: 12px 14px;
-  border: 1px solid #c8d2de;
-  border-radius: 9px;
-  font-size: 0.95rem;
-}
-
-.PS-login-caja input:focus {
-  outline: 2px solid #274b76;
-  border-color: transparent;
-}
-
-.PS-login-caja button {
-  background: #0f2a43;
-  color: #fff;
-  border: none;
-  border-radius: 9px;
-  padding: 12px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.PS-login-caja button:disabled {
-  opacity: 0.7;
-}
-
-.PS-login-error {
-  color: #c0392b;
-  font-size: 0.85rem;
-  margin: 0;
-}
-
-.PS-login-pie {
-  margin: 6px 0 0;
-  font-size: 0.75rem;
-  color: #8a95a3;
-}
-
-/* ── Portal ── */
-/* Página completa con header de app fijo (patrón AdminSeguridad/indicadores). */
-.PS-pagina {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  font-family: "Segoe UI", Inter, sans-serif;
-  color: #14202e;
-  background: #f4f6fa;
-}
-
-/* El header reutiliza las clases AS- de AdminSeguridad (mismo archivo no:
-   se duplican aquí los mínimos para no depender de import cruzado). */
-.PS-header-app {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
-  height: 70px;
-  display: flex;
-  align-items: center;
+.PSX-sidebar-escritorio {
   position: sticky;
   top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+  height: 100vh;
+  flex-shrink: 0;
+  display: flex;
 }
 
-/* Patrón /Pedidos: ancho completo (sin max-width — la franja encogida al
-   centro se veía distinta a la Torre de Control en pantallas grandes). */
-.PS-header-inner {
+.PSX-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  background: #fff;
+  border-right: 1px solid var(--psx-borde);
+  overflow-y: auto;
+}
+
+.PSX-sidebar-logo {
+  display: flex;
+  align-items: center;
+  padding: 20px 18px 16px;
+}
+
+.PSX-sidebar-logo img {
+  display: block;
+}
+
+.PSX-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  flex: 1;
+}
+
+.PSX-nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
-  padding: 0 20px;
-}
-
-/* Marca IntegrApp (misma base visual que AS-brand). */
-.PS-header-app .AS-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  background: none;
   border: none;
+  background: transparent;
+  color: var(--psx-texto-suave);
+  font-size: 0.92rem;
+  font-weight: 500;
+  padding: 11px 12px;
+  border-radius: 9px;
   cursor: pointer;
-  padding: 0;
-  transition: opacity 0.2s;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.PS-header-app .AS-brandName {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-}
-
-.PS-header-app .AS-brandAccent {
-  color: #e8a000;
-}
-
-/* Título del portal en el header (patrón /Pedidos: centrado como tab entre
-   logo y usuario; oculto en móvil: la info vive en el menú). */
-.PS-header-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.25;
-  flex: 1;
-  margin-left: 18px;
-  overflow: hidden;
-}
-
-.PS-header-titulo {
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-
-.PS-header-empresa {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.78rem;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-
-/* Zona de usuario (reusa AS-userZone/AS-userBtn base + ajustes PS). */
-.PS-header-app .AS-userZone {
-  position: relative;
+.PSX-nav-item svg {
+  font-size: 1.05rem;
+  width: 20px;
   flex-shrink: 0;
 }
 
-.PS-header-app .AS-userBtn {
+.PSX-nav-item:hover {
+  background: #f2f6f8;
+  color: var(--psx-texto);
+}
+
+/* Activo: píldora suave + texto teal + filo izquierdo (patrón tusdatos). */
+.PSX-nav-item.PSX-nav-activo {
+  background: var(--psx-teal-suave);
+  color: var(--psx-teal-oscuro);
+  box-shadow: inset 3px 0 0 var(--psx-teal);
+  font-weight: 600;
+}
+
+/* Pie de la sidebar: usuario (las acciones viven en el menú del avatar). */
+.PSX-sidebar-pie {
+  border-top: 1px solid var(--psx-borde);
+  padding: 14px 12px;
+}
+
+.PSX-sidebar-usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 10px;
+}
+
+.PSX-sidebar-usuario-datos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.PSX-sidebar-usuario-datos strong {
+  font-size: 0.86rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.PSX-sidebar-usuario-datos small {
+  color: var(--psx-texto-suave);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.PSX-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--psx-teal);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+
+/* Sidebar móvil (drawer con overlay). */
+.PSX-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 42, 67, 0.45);
+  z-index: 60;
+}
+
+.PSX-sidebar-movil {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 61;
+  animation: PSX-deslizar 0.2s ease;
+}
+
+.PSX-sidebar-movil .PSX-sidebar {
+  height: 100%;
+}
+
+.PSX-sidebar-cerrar {
+  position: absolute;
+  top: 14px;
+  right: -46px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--psx-texto);
+  cursor: pointer;
+  box-shadow: var(--psx-sombra);
+}
+
+@keyframes PSX-deslizar {
+  from { transform: translateX(-20px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ══════════════════ CUERPO: top bar + contenido ══════════════════ */
+
+.PSX-cuerpo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.PSX-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--psx-borde);
+  padding: 14px 26px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.PSX-hamburguesa {
+  display: none;
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  color: var(--psx-texto);
+  cursor: pointer;
+  padding: 6px;
+}
+
+.PSX-miga {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 6px 12px 6px 8px;
-  cursor: pointer;
-  color: #fff;
-  transition: background 0.2s, border-color 0.2s;
-  font-family: inherit;
-}
-
-.PS-header-app .AS-userBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.PS-header-app .AS-userIcon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.PS-header-app .AS-userInfo {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 100px;
-}
-
-.PS-header-app .AS-userName {
   font-size: 0.88rem;
+}
+
+.PSX-miga-inicio,
+.PSX-miga-sep {
+  color: var(--psx-texto-suave);
+}
+
+.PSX-miga-actual {
+  color: var(--psx-teal-oscuro);
   font-weight: 600;
-  color: #fff;
-  line-height: 1;
 }
 
-.PS-header-app .AS-userPerfil {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1;
+.PSX-topbar-derecha {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.PS-header-app .AS-chevron {
+.PSX-avatar-topbar {
+  width: 34px;
+  height: 34px;
+  font-size: 0.74rem;
+}
+
+/* Menú de usuario (click en el avatar de iniciales del topbar). */
+.PSX-avatar-zona {
+  position: relative;
+}
+
+.PSX-avatar-boton {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: 8px;
+}
+
+.PSX-avatar-boton:hover {
+  background: #f2f6f8;
+}
+
+.PSX-avatar-boton .PSX-chevron {
+  color: var(--psx-texto-suave);
   font-size: 0.7rem;
-  transition: transform 0.2s;
-  flex-shrink: 0;
 }
 
-.PS-header-app .AS-chevronOpen {
-  transform: rotate(180deg);
-}
-
-.PS-header-app .AS-dropdown {
+.PSX-avatar-menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
+  width: 220px;
   background: #fff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--psx-borde);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  min-width: 210px;
-  z-index: 999;
-  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(16, 42, 67, 0.14);
+  padding: 6px;
+  z-index: 70;
+  animation: PSX-aparecer 0.12s ease;
 }
 
-.PS-header-app .AS-dropItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 16px;
-  background: none;
-  border: none;
-  font-size: 0.88rem;
-  color: #0f1928;
-  cursor: pointer;
-  transition: background 0.15s;
-  text-align: left;
-  font-family: inherit;
+@keyframes PSX-aparecer {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.PS-header-app .AS-dropItem:hover {
-  background: #f8fafc;
-}
-
-.PS-header-app .AS-dropItemDanger {
-  color: #dc2626;
-  font-weight: 500;
-}
-
-.PS-header-app .AS-dropItemDanger:hover {
-  background: #fef2f2;
-}
-
-.PS-header-app .AS-dropDivider {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 4px 0;
-}
-
-/* Encabezado del menú (visible sobre todo en móvil, donde no hay botón
-   usuario con nombre: identifica quién está logueado). */
-.PS-menu-encabezado {
-  padding: 10px 16px;
+.PSX-avatar-menu-cab {
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  border-bottom: 1px solid #f1f5f9;
-  background: #f8fafc;
+  border-bottom: 1px solid var(--psx-borde);
+  margin-bottom: 6px;
 }
 
-.PS-menu-encabezado strong {
-  font-size: 0.9rem;
-  color: #0f2a43;
+.PSX-avatar-menu-cab strong {
+  font-size: 0.86rem;
 }
 
-.PS-menu-encabezado small {
-  font-size: 0.75rem;
-  color: #57606a;
+.PSX-avatar-menu-cab small {
+  color: var(--psx-texto-suave);
+  font-size: 0.74rem;
 }
 
-/* Hamburguesa: SOLO móvil (desktop usa el botón de usuario). */
-.PS-hamburguesa {
-  display: none;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  color: #fff;
-  font-size: 1.15rem;
-  width: 42px;
-  height: 42px;
+.PSX-avatar-item {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-/* Contenido del portal (debajo del header). */
-.PS-contenedor {
+  gap: 10px;
   width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 22px 18px 70px;
-  flex: 1;
-}
-
-.PS-grid {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-@media (max-width: 800px) {
-  .PS-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.PS-tarjeta {
-  background: #fff;
-  border: 1px solid #e3e8ef;
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.PS-tarjeta h2 {
-  margin: 0 0 12px;
-  font-size: 1rem;
-  color: #0f2a43;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.PS-ayuda {
-  color: #57606a;
-  font-size: 0.85rem;
-  margin: 0 0 14px;
-}
-
-/* ── Selector de plan (bajo qué plan se cobra la consulta) ── */
-.PS-selector-plan {
-  margin-bottom: 16px;
-}
-
-.PS-plan-label {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #0f2a43;
-  margin-bottom: 8px;
-}
-
-.PS-opciones-plan {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.PS-check-plan {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1.5px solid #c8d2de;
-  border-radius: 10px;
-  padding: 8px 14px;
-  cursor: pointer;
-  user-select: none;
-  transition: border-color 0.15s, background 0.15s;
-  background: #fff;
-}
-
-.PS-check-plan.PS-plan-activo {
-  border-color: #0f2a43;
-  background: #f0f4f9;
-}
-
-.PS-check-plan input {
-  accent-color: #0f2a43;
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-}
-
-.PS-check-plan strong {
-  display: block;
-  font-size: 0.84rem;
-  color: #14202e;
-}
-
-.PS-check-plan small {
-  display: block;
-  color: #57606a;
-  font-size: 0.72rem;
-}
-
-/* Selector de fuentes a consultar (multi-plan) */
-.PS-selector-fuentes {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.PS-check-fuente {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1.5px solid #c8d2de;
-  border-radius: 10px;
-  padding: 8px 14px;
-  cursor: pointer;
-  user-select: none;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.PS-check-fuente.PS-check-activo {
-  border-color: #0f2a43;
-  background: #f0f4f9;
-}
-
-.PS-check-fuente input {
-  accent-color: #0f2a43;
-  width: 16px;
-  height: 16px;
-}
-
-.PS-check-fuente strong {
-  display: block;
-  font-size: 0.85rem;
-  color: #14202e;
-}
-
-.PS-check-fuente small {
-  color: #57606a;
-  font-size: 0.72rem;
-}
-
-.PS-form-consulta {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.PS-input-icono {
-  flex: 1;
-  min-width: 220px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid #c8d2de;
-  border-radius: 10px;
-  padding: 0 14px;
-  color: #8a95a3;
-}
-
-.PS-input-icono input {
-  flex: 1;
   border: none;
-  padding: 13px 0;
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
-}
-
-.PS-input-icono input:focus {
-  outline: none;
-}
-
-.PS-boton-primario {
-  background: #0f2a43;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 12px 24px;
-  font-size: 0.95rem;
-  font-weight: 700;
+  background: transparent;
+  color: var(--psx-texto);
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  border-radius: 8px;
   cursor: pointer;
+  text-align: left;
+}
+
+.PSX-avatar-item:hover {
+  background: #f2f6f8;
+}
+
+.PSX-avatar-item-rojo:hover {
+  background: #fdeeee;
+  color: var(--psx-rojo);
+}
+
+/* Pill de cupo (patrón tusdatos: "Consultas disponibles: N"). */
+.PSX-pill-cupo {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  border: 1px solid var(--psx-borde);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  color: var(--psx-texto-suave);
+  background: #fff;
+  white-space: nowrap;
 }
 
-.PS-boton-primario:disabled {
-  opacity: 0.6;
-  cursor: default;
+.PSX-pill-cupo strong {
+  color: var(--psx-texto);
 }
 
-/* Animación de consulta (detective lottie) */
-.PS-investigando {
-  margin-top: 14px;
-  padding: 14px 12px 10px;
-  border-radius: 12px;
-  background: #f4f6fa;
-  border: 1px dashed #c8d2de;
-  text-align: center;
+/* Contenido: tarjetas blancas sobre gris claro. */
+.PSX-contenido {
+  padding: 26px;
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.PS-investigando-mensaje {
+.PSX-encabezado h1 {
+  font-size: 1.45rem;
+  font-weight: 500;
+  margin: 4px 0 0;
+  color: var(--psx-texto);
+}
+
+.PSX-encabezado h1 span {
+  font-weight: 700;
+  color: var(--psx-teal-oscuro);
+}
+
+/* ══════════════════ TARJETAS ══════════════════ */
+
+.PSX-tarjeta,
+.PSX-panel-planes {
+  background: #fff;
+  border-radius: var(--psx-radio);
+  box-shadow: var(--psx-sombra);
+  padding: 24px;
+}
+
+.PSX-tarjeta-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.PSX-tarjeta-cab h2 {
+  font-size: 1.08rem;
+  font-weight: 700;
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #0f2a43;
-  min-height: 1.4em;
-  transition: opacity 0.3s;
 }
 
-.PS-investigando-sub {
-  margin: 6px 0 0;
+/* ══════════════════ PANEL: KPIs + planes ══════════════════ */
+
+.PSX-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.PSX-kpi {
+  background: #fff;
+  border-radius: var(--psx-radio);
+  box-shadow: var(--psx-sombra);
+  padding: 20px 22px;
+}
+
+.PSX-kpi-label {
+  color: var(--psx-texto-suave);
+  font-size: 0.85rem;
+  margin: 0 0 6px;
+}
+
+.PSX-kpi-numero {
+  font-size: 2.1rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.PSX-kpi-sub {
+  color: var(--psx-texto-suave);
   font-size: 0.78rem;
-  color: #8a95a3;
+  margin: 6px 0 0;
 }
 
-/* Resultado */
-.PS-resultado {
-  margin-top: 16px;
+.PSX-plan-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.PSX-plan {
+  border: 1px solid var(--psx-borde);
   border-radius: 10px;
-  border: 1px solid #e3e8ef;
-  border-left: 5px solid #57606a;
   padding: 14px 16px;
 }
 
-.PS-resultado.PS-verde { border-left-color: #1a7f37; }
-.PS-resultado.PS-ambar { border-left-color: #b58900; }
-.PS-resultado.PS-rojo  { border-left-color: #c0392b; }
-
-.PS-resultado-cab {
+.PSX-plan-cab {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.PS-resultado-datos {
-  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 6px 18px;
-  font-size: 0.85rem;
-  color: #57606a;
-  margin-bottom: 12px;
 }
 
-.PS-boton-pdf {
-  background: #c0392b;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 16px;
-  font-weight: 700;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-/* Separación cuando hay dos botones juntos (informe + anexo PGN) o al
-   envolver en pantallas angostas. */
-.PS-boton-pdf + .PS-boton-pdf {
-  margin-left: 10px;
-}
-
-/* Variante secundaria: anexo oficial de la Procuraduría (junto al informe). */
-.PS-boton-pdf.PS-boton-anexo {
-  background: #fff;
-  color: #c0392b;
-  border: 1px solid #e0b1aa;
-}
-
-/* Cupo */
-.PS-plan-nombre {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #0f2a43;
-  margin: 0;
-}
-
-.PS-plan-precio {
-  color: #57606a;
-  font-size: 0.85rem;
-  margin: 2px 0 14px;
-}
-
-.PS-barra {
-  height: 8px;
-  border-radius: 5px;
-  background: #e3e8ef;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.PS-barra-llena {
-  height: 100%;
-  background: #1a7f37;
-  transition: width 0.4s;
-}
-
-.PS-cupo-texto {
-  margin: 0 0 4px;
+.PSX-plan-cab strong {
   font-size: 0.95rem;
 }
 
-.PS-cupo-mes {
+.PSX-plan-cab small {
+  display: block;
+  color: var(--psx-texto-suave);
+  font-size: 0.76rem;
+  margin-top: 3px;
+  max-width: 560px;
+}
+
+.PSX-plan-precio {
+  color: var(--psx-teal-oscuro);
+  font-weight: 700;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.PSX-plan-barra {
+  margin-top: 12px;
+}
+
+.PSX-barra-pista {
+  height: 8px;
+  border-radius: 999px;
+  background: #edf1f5;
+  overflow: hidden;
+}
+
+.PSX-barra-relleno {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--psx-teal);
+  transition: width 0.3s ease;
+}
+
+.PSX-plan-barra small {
+  display: block;
+  color: var(--psx-texto-suave);
+  font-size: 0.74rem;
+  margin-top: 6px;
+}
+
+.PSX-plan-sin-tope {
+  color: var(--psx-teal-oscuro);
+}
+
+.PSX-sin-plan {
+  color: var(--psx-texto-suave);
+  background: var(--psx-teal-suave);
+  border-radius: 10px;
+  padding: 16px;
   margin: 0;
-  font-size: 0.8rem;
-  color: #57606a;
 }
 
-.PS-cupo-ilimitado {
-  font-size: 0.9rem;
-  color: #1a7f37;
-  background: #e5f3ea;
-  border-radius: 8px;
-  padding: 6px 10px;
-  text-align: center;
-}
+/* ══════════════════ FORMULARIOS ══════════════════ */
 
-/* Desglose por fuente (multi-plan) */
-.PS-fuente-cupo {
+.PSX-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 14px;
 }
 
-.PS-fuente-nombre {
-  margin: 0 0 6px;
+.PSX-campo > span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--psx-texto-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.PSX-campo > span em {
+  text-transform: none;
+  font-weight: 400;
+}
+
+.PSX-campo input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 11px 13px;
+  font-size: 0.92rem;
+  background: #fff;
+  color: var(--psx-texto);
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.PSX-campo input:focus {
+  outline: none;
+  border-color: var(--psx-teal);
+  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
+}
+
+.PSX-campo input:disabled {
+  background: #f6f8fa;
+  color: var(--psx-texto-suave);
+}
+
+.PSX-campo-ayuda {
+  color: var(--psx-texto-suave);
+  font-size: 0.76rem;
+  margin: 2px 0 0;
+}
+
+.PSX-input-icono {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.PSX-input-icono svg {
+  position: absolute;
+  left: 13px;
+  color: #9aa4b0;
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+.PSX-input-icono input {
+  padding-left: 38px;
+}
+
+.PSX-ayuda-exito {
+  color: var(--psx-verde);
+  font-size: 0.78rem;
+  margin: -6px 0 14px;
+}
+
+/* ══════════════════ BOTONES ══════════════════ */
+
+.PSX-boton-primario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--psx-teal);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.PSX-boton-primario:hover:not(:disabled) {
+  background: var(--psx-teal-oscuro);
+}
+
+.PSX-boton-primario:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.PSX-boton-full {
+  width: 100%;
+  margin-top: 6px;
+  padding: 14px;
+}
+
+.PSX-boton-chico {
+  padding: 9px 14px;
+  font-size: 0.82rem;
+}
+
+.PSX-boton-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #35506b;
+  color: #fff;
+  border: 1px solid #24384a;
+  border-radius: 8px;
+  padding: 12px 18px;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #0f2a43;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.PSX-boton-secundario:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.PSX-boton-secundario:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.PSX-boton-tabla {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  color: var(--psx-rojo);
+  border: 1px solid #eccfd1;
+  border-radius: 7px;
+  padding: 6px 11px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.PSX-boton-tabla:hover {
+  background: #fdf3f3;
+}
+
+.PSX-boton-completar-tabla {
+  background: #35506b;
+  color: #fff;
+  border-color: #24384a;
+}
+
+.PSX-boton-completar-tabla:hover {
+  background: #2a4056;
+}
+
+.PSX-boton-completar-tabla:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+/* ══════════════════ ACORDEÓN DE PLANES ══════════════════ */
+
+.PSX-acordeon {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.PSX-acordeon-item {
+  border: 1px solid var(--psx-borde);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.PSX-acordeon-abierto {
+  border-color: var(--psx-teal);
+}
+
+.PSX-acordeon-cab {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-}
-
-.PS-fuente-precio {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #57606a;
-}
-
-.PS-cupo-sin-plan {
-  color: #8a6d00;
-  background: #fdf3d7;
-  padding: 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-}
-
-/* Historial */
-/* Envoltura: en pantallas angostas la tabla NO desborda la tarjeta — se
-   desplaza horizontalmente dentro de la envoltura (y bajo 640px colapsa
-   a tarjetas con data-label, donde no hay desplazamiento en absoluto). */
-.PS-tabla-envoltura {
+  gap: 12px;
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  border: none;
+  background: #fff;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
 }
 
-.PS-tabla {
+.PSX-acordeon-cab:hover {
+  background: #f8fbfc;
+}
+
+.PSX-acordeon-abierto .PSX-acordeon-cab {
+  background: var(--psx-teal-suave);
+}
+
+.PSX-acordeon-titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.PSX-acordeon-titulo strong {
+  font-size: 0.95rem;
+}
+
+.PSX-acordeon-titulo small {
+  color: var(--psx-texto-suave);
+  font-size: 0.76rem;
+}
+
+.PSX-chevron {
+  color: var(--psx-texto-suave);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.PSX-chevron-arriba {
+  transform: rotate(180deg);
+}
+
+.PSX-acordeon-cuerpo {
+  padding: 18px 16px 16px;
+  border-top: 1px solid var(--psx-borde);
+}
+
+/* ══════════════════ ESPERA (detective) ══════════════════ */
+
+.PSX-investigando {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.PSX-investigando-mensaje {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--psx-teal-oscuro);
+  margin: 6px 0;
+}
+
+.PSX-investigando-sub {
+  color: var(--psx-texto-suave);
+  font-size: 0.8rem;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ══════════════════ RESULTADO ══════════════════ */
+
+.PSX-resultado {
+  margin-top: 18px;
+  border: 1px solid var(--psx-borde);
+  border-left: 4px solid var(--psx-verde);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.PSX-resultado.PSX-ambar {
+  border-left-color: var(--psx-ambar);
+}
+
+.PSX-resultado.PSX-rojo {
+  border-left-color: var(--psx-rojo);
+}
+
+.PSX-resultado-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.PSX-resultado-cab strong {
+  font-size: 1.02rem;
+}
+
+.PSX-resultado-datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 12px 0;
+}
+
+.PSX-resultado-datos span {
+  background: #f4f6f8;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  color: var(--psx-texto);
+}
+
+.PSX-resultado-acciones {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.PSX-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: #eef1f5;
+  color: var(--psx-texto-suave);
+  white-space: nowrap;
+}
+
+.PSX-verde {
+  background: #e5f6ec;
+  color: #1d7a4c;
+}
+
+.PSX-ambar {
+  background: #fbf3dd;
+  color: #8a6900;
+}
+
+.PSX-rojo {
+  background: #fdecec;
+  color: #b93236;
+}
+
+.PSX-badge-api {
+  background: #ecefed;
+  color: #45795a;
+}
+
+.PSX-badge-pendientes {
+  background: #6e7781;
+  color: #fff;
+}
+
+.PSX-chevron-pend {
+  font-size: 0.62rem;
+  transition: transform 0.15s ease;
+}
+
+.PSX-chevron-pend-arriba {
+  transform: rotate(180deg);
+}
+
+.PSX-texto-suave {
+  color: #9aa4b0;
+}
+
+/* ══════════════════ HISTORIAL (tabla + drill-down) ══════════════════ */
+
+.PSX-tabla-envoltura {
+  overflow-x: auto;
+}
+
+.PSX-tabla {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
 }
 
-.PS-tabla th {
+.PSX-tabla th {
   text-align: left;
-  color: #57606a;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 8px 10px;
-  border-bottom: 2px solid #e3e8ef;
+  color: var(--psx-texto-suave);
+  border-bottom: 1px solid var(--psx-borde);
+  padding: 10px 12px;
   white-space: nowrap;
 }
 
-.PS-tabla td {
-  padding: 10px;
-  border-bottom: 1px solid #edf1f6;
+.PSX-tabla td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #eef1f5;
+  vertical-align: middle;
 }
 
-.PS-badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  background: #edf1f6;
-  color: #57606a;
-  white-space: nowrap;
+.PSX-tabla tbody tr:hover {
+  background: #f8fbfc;
 }
 
-.PS-badge.PS-verde { background: #e5f3ea; color: #1a7f37; }
-.PS-badge.PS-ambar { background: #fdf3d7; color: #8a6d00; }
-.PS-badge.PS-rojo  { background: #fbe4e1; color: #c0392b; }
-/* Consulta hecha por integración (API key), no por un usuario del portal. */
-.PS-badge.PS-badge-api { background: #e3ecfa; color: #1d4ed8; letter-spacing: 0.5px; }
-
-.PS-boton-pdf-chico {
-  background: #fff;
-  border: 1px solid #c8d2de;
-  border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #c0392b;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.PS-vacio {
+.PSX-vacio {
   text-align: center;
-  color: #8a95a3;
-  padding: 22px !important;
+  color: var(--psx-texto-suave);
+  padding: 26px 0 !important;
 }
 
-.PS-paginacion {
+.PSX-fila-expandible {
+  cursor: pointer;
+}
+
+.PSX-fila-detalle > td {
+  background: #f4f6f8;
+  border-top: 1px dashed #d5dbe3;
+  border-bottom: 1px dashed #d5dbe3;
+  padding: 12px 14px;
+}
+
+.PSX-detalle-pendientes {
+  font-size: 0.84rem;
+  color: var(--psx-texto);
+}
+
+.PSX-detalle-lista {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  columns: 2;
+  column-gap: 28px;
+}
+
+.PSX-detalle-lista li {
+  margin-bottom: 4px;
+  break-inside: avoid;
+}
+
+.PSX-paginacion {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  margin-top: 14px;
-  color: #57606a;
-  font-size: 0.83rem;
+  margin-top: 18px;
+  font-size: 0.84rem;
 }
 
-.PS-paginacion button {
-  padding: 6px 14px;
-  border: 1px solid #c8d2de;
-  border-radius: 6px;
+.PSX-paginacion button {
+  border: 1px solid var(--psx-borde);
   background: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
   cursor: pointer;
+  color: var(--psx-texto);
 }
 
-.PS-paginacion button:disabled {
-  opacity: 0.4;
-  cursor: default;
+.PSX-paginacion button:hover:not(:disabled) {
+  border-color: var(--psx-teal);
+  color: var(--psx-teal-oscuro);
 }
 
-/* ── Responsive ── */
+.PSX-paginacion button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ══════════════════ LOGIN ══════════════════ */
+
+.PSX-login {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  background: #fff;
+}
+
+.PSX-login-ilustracion {
+  background: linear-gradient(150deg, #00a5b5 0%, #067d8c 100%);
+  color: #fff;
+  padding: 60px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.PSX-login-ilustracion h2 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin: 14px 0 0;
+  line-height: 1.2;
+}
+
+.PSX-login-ilustracion p {
+  font-size: 1rem;
+  opacity: 0.92;
+  margin: 0;
+  max-width: 420px;
+}
+
+.PSX-login-ilustracion ul {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.PSX-login-ilustracion li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  opacity: 0.95;
+}
+
+.PSX-login-ilustracion li::before {
+  content: "✓";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.PSX-login-caja {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 50px 48px;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.PSX-login-caja h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.PSX-login-sub {
+  color: var(--psx-texto-suave);
+  margin: 0 0 24px;
+  font-size: 0.92rem;
+}
+
+.PSX-login-error {
+  color: var(--psx-rojo);
+  background: #fdecec;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  margin: 0 0 12px;
+}
+
+.PSX-login-pie {
+  margin-top: 22px;
+  color: var(--psx-texto-suave);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+/* Link "¿Olvidó su contraseña?" bajo el botón de ingreso. */
+.PSX-login-olvide {
+  border: none;
+  background: transparent;
+  color: var(--psx-teal-oscuro);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 0 0;
+}
+
+.PSX-login-olvide:hover {
+  text-decoration: underline;
+}
+
+/* Texto de apoyo dentro de los Swal del portal. */
+.PSX-swal-texto {
+  font-size: 0.88rem;
+  color: #6b7684;
+  margin: 0 0 6px;
+}
+
+/* Input de clave con el "ojito" para mostrar/ocultar lo escrito. */
+.PSX-input-clave {
+  position: relative;
+}
+
+.PSX-input-clave input {
+  width: 100%;
+  padding-right: 42px;
+}
+
+.PSX-ojito {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--psx-texto-suave);
+  font-size: 0.95rem;
+  padding: 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.PSX-ojito:hover {
+  color: var(--psx-teal-oscuro);
+}
+
+/* Dentro de los Swal: el input hereda el ancho/centrado de swal2-input. */
+.swal2-html-container .PSX-input-clave {
+  width: 80%;
+  margin: 1em auto 0;
+}
+
+.swal2-html-container .PSX-input-clave .swal2-input {
+  margin: 0;
+}
+
+/* ══════════════════ RESPONSIVE ══════════════════ */
+
 @media (max-width: 900px) {
-  .PS-header-info {
-    display: none; /* la empresa/empleado viven en el menú de usuario */
-  }
-}
-
-@media (max-width: 800px) {
-  .PS-contenedor {
-    padding: 16px 12px 60px;
-  }
-
-  .PS-tarjeta {
-    padding: 16px 14px;
-  }
-
-  /* Selector de plan: tarjetas apiladas a lo ancho completo. */
-  .PS-opciones-plan {
-    flex-direction: column;
-  }
-
-  .PS-check-plan {
-    width: 100%;
-  }
-
-  .PS-form-consulta {
-    flex-direction: column;
-  }
-
-  .PS-input-icono {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .PS-boton-primario {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .PS-header-app .AS-brandName {
-    font-size: 1.1rem;
-  }
-}
-
-/* Móvil: botón usuario → solo icono + hamburguesa visible. */
-@media (max-width: 600px) {
-  .PS-header-app .AS-userInfo {
+  .PSX-sidebar-escritorio {
     display: none;
   }
 
-  .PS-hamburguesa {
-    display: flex;
+  .PSX-hamburguesa {
+    display: block;
   }
 
-  .PS-header-inner {
-    padding: 0 12px;
-    gap: 8px;
+  .PSX-contenido {
+    padding: 16px;
+  }
+
+  .PSX-login {
+    grid-template-columns: 1fr;
+  }
+
+  .PSX-login-ilustracion {
+    padding: 36px 24px;
+  }
+
+  .PSX-login-ilustracion h2 {
+    font-size: 1.4rem;
+  }
+
+  .PSX-login-caja {
+    padding: 30px 22px;
   }
 }
 
 /* Móvil angosto: el historial colapsa a TARJETAS (una por consulta) —
    sin scroll horizontal ni desborde. Requiere td[data-label]. */
 @media (max-width: 640px) {
-  .PS-tabla-envoltura {
+  .PSX-tabla-envoltura {
     overflow-x: visible;
   }
 
-  .PS-tabla thead {
+  .PSX-tabla thead {
     display: none;
   }
 
-  .PS-tabla,
-  .PS-tabla tbody {
+  .PSX-tabla,
+  .PSX-tabla tbody {
     display: block;
   }
 
-  .PS-tabla tr {
+  .PSX-tabla tr {
     display: block;
-    border: 1px solid #e3e8ef;
+    border: 1px solid var(--psx-borde);
     border-radius: 10px;
     padding: 6px 4px;
     margin-bottom: 10px;
     background: #fff;
   }
 
-  .PS-tabla td {
+  .PSX-tabla td {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -851,11 +1204,11 @@
     text-align: right;
   }
 
-  .PS-tabla td:last-child {
+  .PSX-tabla td:last-child {
     border-bottom: none;
   }
 
-  .PS-tabla td::before {
+  .PSX-tabla td::before {
     content: attr(data-label);
     font-size: 0.68rem;
     font-weight: 700;
@@ -866,107 +1219,42 @@
     flex-shrink: 0;
   }
 
-  .PS-tabla td.PS-vacio {
+  .PSX-tabla td.PSX-vacio {
     justify-content: center;
     text-align: center;
   }
 
-  .PS-tabla td.PS-vacio::before {
+  .PSX-tabla td.PSX-vacio::before {
     content: none;
   }
 
-  .PS-paginacion {
-    gap: 8px;
-    flex-wrap: wrap;
-    font-size: 0.78rem;
-  }
-}
-
-/* ── Acordeón de planes (el formulario vive DENTRO del plan elegido) ──
-   Cada plan se abre con click; el cuerpo pide los campos que ese plan
-   requiere (cédula siempre; placa solo si incluye la fuente runt). */
-.PS-acordeon {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.PS-acordeon-item {
-  border: 1.5px solid #c8d2de;
-  border-radius: 10px;
-  background: #fff;
-  overflow: hidden;
-  transition: border-color 0.15s;
-}
-
-.PS-acordeon-item.PS-acordeon-abierto {
-  border-color: #0f2a43;
-}
-
-.PS-acordeon-cab {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 14px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-}
-
-.PS-acordeon-cab:hover:not(:disabled) {
-  background: #f0f4f9;
-}
-
-.PS-acordeon-cab:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.PS-acordeon-titulo strong {
-  display: block;
-  font-size: 0.84rem;
-  color: #14202e;
-}
-
-.PS-acordeon-titulo small {
-  display: block;
-  color: #57606a;
-  font-size: 0.72rem;
-  margin-top: 2px;
-}
-
-.PS-chevron {
-  flex-shrink: 0;
-  color: #0f2a43;
-  transition: transform 0.2s;
-}
-
-.PS-chevron.PS-chevron-arriba {
-  transform: rotate(180deg);
-}
-
-.PS-acordeon-cuerpo {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px 14px;
-  border-top: 1px solid #e3e9f0;
-  background: #f8fafc;
-}
-
-@media (max-width: 640px) {
-  .PS-acordeon-cab {
-    flex-direction: row;
-    align-items: flex-start;
+  /* Fila de detalle (drill-down de pendientes): dentro de la tarjeta. */
+  .PSX-tabla tr.PSX-fila-detalle {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    margin-top: -6px;
   }
 
-  .PS-acordeon-titulo small {
-    line-height: 1.35;
+  .PSX-tabla tr.PSX-fila-detalle td {
+    display: block;
+    text-align: left;
+  }
+
+  .PSX-tabla tr.PSX-fila-detalle td::before {
+    content: none;
+  }
+
+  .PSX-detalle-lista {
+    columns: 1;
+  }
+
+  .PSX-topbar {
+    padding: 12px 16px;
+  }
+
+  .PSX-pill-cupo {
+    display: none;
   }
 }

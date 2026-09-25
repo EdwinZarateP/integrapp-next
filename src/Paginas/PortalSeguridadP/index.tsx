@@ -1,26 +1,31 @@
 "use client";
 
-/* Portal CLIENTE de Estudios de Seguridad: la empresa cliente entra con su
-   correo y clave, ve su plan, consulta una cédula, descarga el PDF del
-   informe y revisa su historial. Independiente de la Torre de Control. */
+/* Portal CLIENTE de Estudios de Seguridad — rediseño 2026-09-25 (patrón
+   dash-board.tusdatos.co): sidebar fija a la izquierda con los MÓDULOS, top
+   bar con breadcrumb y consultas disponibles, tarjetas blancas sobre fondo
+   gris claro y acento teal. Toda la lógica (planes, cascada de nombres,
+   completar fuentes, drill-down de pendientes) se conserva intacta. */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Swal from "sweetalert2";
 import { ClipLoader } from "react-spinners";
 import Lottie from "lottie-react";
 import animationDetective from "@/Imagenes/AnimationDetective.json";
-import logo from "@/Imagenes/albatros.png";
+import logoSeguriDatia from "@/Imagenes/LogoSeguriDatia.png";
 import {
   FaSearch, FaFilePdf, FaSignOutAlt, FaHistory, FaIdCard, FaChartPie,
-  FaUserCircle, FaChevronDown, FaBars, FaArrowLeft, FaCarSide,
+  FaUserCircle, FaChevronDown, FaBars, FaCarSide, FaRedoAlt,
+  FaTimes, FaHome, FaKey, FaEye, FaEyeSlash,
 } from "react-icons/fa";
 import {
   CupoCliente,
   EstudioDetalle,
   EstudioResumen,
   buscarPersona,
+  cambiarClave,
+  completarEstudio,
   crearEstudio,
   descargarPdfEstudio,
   haySesionCliente,
@@ -30,6 +35,8 @@ import {
   mensajeError,
   obtenerCupo,
   pesosColombianos,
+  recuperarConfirmar,
+  recuperarSolicitar,
   usuarioCliente,
 } from "@/Funciones/ApiPedidos/seguridadCliente";
 import "./estilos.css";
@@ -45,6 +52,27 @@ const fechaHoraColombia = (valor: string) => {
   });
 };
 
+// "2026-09" → "sept 2026" (mes corto en español, determinista: el Intl de
+// cada navegador puede devolver "sep" o "sept" según el ICU).
+const nombrePeriodo = (periodo?: string): string => {
+  if (!periodo || !/^\d{4}-\d{2}$/.test(periodo)) return periodo ?? "";
+  const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
+  const [anio, mes] = periodo.split("-");
+  return `${meses[parseInt(mes, 10) - 1]} ${anio}`;
+};
+
+// Input de clave para los Swal, con el "ojito" para mostrar/ocultar lo
+// escrito (pedido 2026-09-25). HTML plano: dentro de un Swal no hay React.
+const INPUT_CLAVE_SWAL = (id: string, placeholder: string, autocomplete = "new-password") =>
+  `<div class="PSX-input-clave">` +
+  `<input id="${id}" type="password" placeholder="${placeholder}" class="swal2-input" autocomplete="${autocomplete}">` +
+  `<button type="button" class="PSX-ojito" title="Mostrar u ocultar la clave" ` +
+  `onclick="var i=this.parentNode.querySelector('input'); i.type = i.type==='password' ? 'text' : 'password'; ` +
+  `this.textContent = i.type==='password' ? '👁' : '🙈';">👁</button>` +
+  `</div>`;
+
+type Vista = "panel" | "consulta" | "historial";
+
 export default function PortalSeguridadP() {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -59,9 +87,14 @@ export default function PortalSeguridadP() {
   const [pagina, setPagina] = useState(0);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
+  // Módulo activo de la sidebar (patrón tusdatos: navegación por módulos).
+  const [vista, setVista] = useState<Vista>("panel");
+  const [menuLateralAbierto, setMenuLateralAbierto] = useState(false);
+
   // Login (pantalla 1) o portal (pantalla 2)
   const [correo, setCorreo] = useState("");
   const [clave, setClave] = useState("");
+  const [mostrarClave, setMostrarClave] = useState(false);
   const [entrando, setEntrando] = useState(false);
   const [errorLogin, setErrorLogin] = useState("");
 
@@ -95,7 +128,11 @@ export default function PortalSeguridadP() {
     }
   }, [esSesionValida]);
 
-  // Cerrar el menú de usuario al hacer click fuera (patrón AdminSeguridad).
+  useEffect(() => {
+    if (sesion) cargarPortal();
+  }, [sesion, cargarPortal]);
+
+  // Cerrar el menú del avatar al hacer click fuera (patrón tusdatos).
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -105,10 +142,6 @@ export default function PortalSeguridadP() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-
-  useEffect(() => {
-    if (sesion) cargarPortal();
-  }, [sesion, cargarPortal]);
 
   // ── LOGIN ──────────────────────────────────────────────────────────────
   const entrar = async (e: React.FormEvent) => {
@@ -134,6 +167,93 @@ export default function PortalSeguridadP() {
     setClave("");
   };
 
+  // ── Cambio de clave (menú del avatar, 2026-09-25) ─────────────────────
+  const abrirCambiarClave = async () => {
+    setMenuAbierto(false);
+    const { value: valores } = await Swal.fire({
+      title: "Cambiar contraseña",
+      html:
+        INPUT_CLAVE_SWAL("swal-clave-actual", "Clave actual", "current-password") +
+        INPUT_CLAVE_SWAL("swal-clave-nueva", "Clave nueva (mínimo 6 caracteres)") +
+        INPUT_CLAVE_SWAL("swal-clave-conf", "Confirmar clave nueva"),
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Cambiar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#00A5B5",
+      preConfirm: () => ({
+        actual: (document.getElementById("swal-clave-actual") as HTMLInputElement).value,
+        nueva: (document.getElementById("swal-clave-nueva") as HTMLInputElement).value,
+        confirmacion: (document.getElementById("swal-clave-conf") as HTMLInputElement).value,
+      }),
+    });
+    if (!valores) return;
+    if (!valores.actual || !valores.nueva) {
+      Swal.fire("Faltan datos", "Diligencie la clave actual y la nueva.", "warning");
+      return;
+    }
+    if (valores.nueva !== valores.confirmacion) {
+      Swal.fire("Las claves no coinciden", "La confirmación no coincide con la clave nueva.", "warning");
+      return;
+    }
+    try {
+      await cambiarClave(valores.actual, valores.nueva);
+      Swal.fire("Contraseña actualizada", "Use su nueva clave la próxima vez que ingrese.", "success");
+    } catch (e: any) {
+      Swal.fire("No se pudo cambiar", mensajeError(e), "error");
+    }
+  };
+
+  // ── Olvidé mi contraseña (login, 2026-09-25) ──────────────────────────
+  // Dos pasos: correo → código de 6 dígitos por email → clave nueva.
+  const abrirOlvideClave = async () => {
+    const { value: correoRec } = await Swal.fire({
+      title: "¿Olvidó su contraseña?",
+      text: "Enviaremos un código de 6 dígitos al correo de su cuenta.",
+      input: "email",
+      inputPlaceholder: "correo@empresa.com",
+      showCancelButton: true,
+      confirmButtonText: "Enviar código",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#00A5B5",
+    });
+    if (!correoRec) return;
+    try {
+      await recuperarSolicitar(correoRec);
+    } catch (e: any) {
+      Swal.fire("Error", mensajeError(e), "error");
+      return;
+    }
+    const { value: paso2 } = await Swal.fire({
+      title: "Ingrese el código",
+      html:
+        `<p class="PSX-swal-texto">Enviamos un código a <b>${correoRec}</b> (vence en 15 minutos).</p>` +
+        '<input id="swal-codigo" inputmode="numeric" maxlength="6" placeholder="Código de 6 dígitos" class="swal2-input">' +
+        INPUT_CLAVE_SWAL("swal-clave-nueva", "Clave nueva (mínimo 6 caracteres)"),
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Restablecer",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#00A5B5",
+      preConfirm: () => ({
+        codigo: (document.getElementById("swal-codigo") as HTMLInputElement).value.trim(),
+        nueva: (document.getElementById("swal-clave-nueva") as HTMLInputElement).value,
+      }),
+    });
+    if (!paso2?.codigo) return;
+    if (!paso2.nueva || paso2.nueva.length < 6) {
+      Swal.fire("Clave inválida", "La clave nueva debe tener al menos 6 caracteres.", "warning");
+      return;
+    }
+    try {
+      await recuperarConfirmar(correoRec, paso2.codigo, paso2.nueva);
+      Swal.fire("Contraseña restablecida", "Ya puede ingresar con su nueva clave.", "success");
+      setCorreo(correoRec);
+    } catch (e: any) {
+      Swal.fire("No se pudo restablecer", mensajeError(e), "error");
+    }
+  };
+
   // ── CONSULTA ────────────────────────────────────────────────────────────
   // El plan se elige ABRRIENDO su acordeón: el formulario pide los campos que
   // ESE plan requiere (cédula siempre; placa solo si incluye la fuente runt).
@@ -142,24 +262,22 @@ export default function PortalSeguridadP() {
   // Cédula del PROPIETARIO del vehículo (solo runt): el RUNT valida contra el
   // dueño ACTIVO de la placa, que muchas veces no es el conductor evaluado.
   const [cedulaPropietario, setCedulaPropietario] = useState("");
-  // Nombres/apellidos de la persona evaluada (solo procuraduria): el captcha
-  // de la PGN pregunta por ellos ("¿cuál es el primer nombre de la persona
-  // que está consultando?"). Se envían SIN tildes (el backend normaliza).
-  const [nombres, setNombres] = useState("");
-  const [apellidos, setApellidos] = useState("");
+  // (2026-09-25) Los nombres/apellidos de la persona evaluada ya NO se piden:
+  // el backend los detecta solo (memoria de personas → situación militar →
+  // SISCONMP) para el captcha de la PGN y la búsqueda por nombre de la Rama
+  // Judicial. Las integraciones API siguen pudiendo enviarlos.
   const [nit, setNit] = useState("");
   // Fecha de EXPEDICIÓN de la cédula (DD/MM/AAAA): la exige el portal de
   // inhabilidades de la Ley 1918 (valida el par cédula + fecha).
   const [fechaExpedicion, setFechaExpedicion] = useState("");
   // Memoria de personas (2026-09-25): si la empresa ya consultó esta cédula,
-  // el onBlur del campo autollena nombres/apellidos/fecha SOLO los vacíos.
-  const [personaMemoria, setPersonaMemoria] = useState<{
-    nombres: string;
-    apellidos: string;
-    fecha_expedicion: string;
-    total_consultas: number;
-  } | null>(null);
-  const [buscandoPersona, setBuscandoPersona] = useState(false);
+  // el onBlur del campo autollena la fecha de expedición (los nombres ya no
+  // se piden — el backend los detecta solo) y muestra el aviso del historial.
+  // ⚠️ SIN indicador de "buscando": un párrafo que aparece en el onBlur MOVÍA
+  // el botón Consultar entre el mousedown y el mouseup → el primer clic no
+  // llegaba a disparar el submit (había que dar clic dos veces). El aviso
+  // solo se pinta cuando la respuesta llega (asincrónico, tras el click).
+  const [personaMemoria, setPersonaMemoria] = useState<number | null>(null);
   const [cedulaMemoria, setCedulaMemoria] = useState("");
 
   // Autollenado por onBlur de la cédula (patrón OtrosCostos: autollenado
@@ -174,21 +292,13 @@ export default function PortalSeguridadP() {
     }
     // Evitar re-consultar la misma cédula al salir del campo varias veces.
     if (digitos === cedulaMemoria) return;
-    setBuscandoPersona(true);
     try {
       const p = await buscarPersona(digitos);
       if (p.encontrada) {
         // Solo campos VACÍOS: nunca pisar lo que el usuario ya escribió.
-        if (!nombres.trim() && p.nombres) setNombres(p.nombres);
-        if (!apellidos.trim() && p.apellidos) setApellidos(p.apellidos);
         if (!fechaExpedicion.trim() && p.fecha_expedicion)
           setFechaExpedicion(p.fecha_expedicion);
-        setPersonaMemoria({
-          nombres: p.nombres || "",
-          apellidos: p.apellidos || "",
-          fecha_expedicion: p.fecha_expedicion || "",
-          total_consultas: p.total_consultas || 0,
-        });
+        setPersonaMemoria(p.total_consultas || 0);
         setCedulaMemoria(digitos);
       } else {
         setPersonaMemoria(null);
@@ -196,8 +306,6 @@ export default function PortalSeguridadP() {
       }
     } catch {
       // Best-effort: sin memoria se sigue consultando igual.
-    } finally {
-      setBuscandoPersona(false);
     }
   };
 
@@ -295,11 +403,9 @@ export default function PortalSeguridadP() {
   const requierePlaca =
     planActivo?.fuentes?.some((f) => f === "runt" || f === "simit") ?? false;
   const requierePropietario = planActivo?.fuentes?.includes("runt") ?? false;
-  // Procuraduría: el captcha de la PGN pregunta por el NOMBRE de la persona
-  // consultada — el portal lo exige para poder responderla.
-  const requiereNombres = planActivo?.fuentes?.some(
-    (f) => f === "procuraduria" || f === "rama_judicial"
-  ) ?? false;
+  // (2026-09-25) Los nombres de la persona ya NO se piden en el formulario:
+  // el backend los detecta solo (memoria → situación militar → SISCONMP)
+  // para el captcha de la PGN y la búsqueda por nombre de la Rama Judicial.
   const requiereNit = planActivo?.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit" || f === "rues") ?? false;
   // Inhabilidades Ley 1918: el portal de la DIJIN valida el par cédula +
   // fecha de EXPEDICIÓN del documento.
@@ -368,8 +474,6 @@ export default function PortalSeguridadP() {
     // Placa: requerida si el plan incluye runt o simit (consultas de vehículo).
     let placaNorm: string | undefined;
     let propietarioNorm: string | undefined;
-    let nombresNorm: string | undefined;
-    let apellidosNorm: string | undefined;
     if (requierePlaca) {
       placaNorm = placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
       if (!/^[A-Z]{3}\d{2}[\dA-Z]$|^[A-Z]{2}\d{4}$/.test(placaNorm)) {
@@ -386,20 +490,6 @@ export default function PortalSeguridadP() {
         return;
       }
       propietarioNorm = prop || undefined;
-    }
-    // Nombres/apellidos (solo procuraduria): OBLIGATORIOS — el captcha de la
-    // PGN pregunta por el nombre de la persona consultada.
-    if (requiereNombres) {
-      nombresNorm = nombres.trim();
-      apellidosNorm = apellidos.trim();
-      if (nombresNorm.length < 2 || apellidosNorm.length < 2) {
-        Swal.fire(
-          "Faltan los nombres",
-          "El plan requiere los nombres y apellidos completos de la persona a consultar.",
-          "warning"
-        );
-        return;
-      }
     }
     // Fecha de expedición de la cédula (solo delitos_sexuales, Ley 1918):
     // OBLIGATORIA — el portal de la DIJIN valida el par cédula + fecha.
@@ -418,7 +508,8 @@ export default function PortalSeguridadP() {
     setConsultando(true);
     setEstudioNuevo(null);
     try {
-      const estudio = await crearEstudio(requiereCedula ? digitos : undefined, undefined, planAbierto, placaNorm, propietarioNorm, nombresNorm, apellidosNorm, requiereNit ? nitNorm : undefined, fechaExpNorm);
+      // Nombres/apellidos SIN enviar: el backend los detecta solo (2026-09-25).
+      const estudio = await crearEstudio(requiereCedula ? digitos : undefined, undefined, planAbierto, placaNorm, propietarioNorm, undefined, undefined, requiereNit ? nitNorm : undefined, fechaExpNorm);
       playNotificationSound(); // la consulta terminó
       setEstudioNuevo(estudio);
       // Mismo criterio del backend (2026-09-01): la consulta NO se cobra solo
@@ -469,6 +560,57 @@ export default function PortalSeguridadP() {
     }
   };
 
+  // ── Completar fuentes pendientes (2026-09-25) ───────────────────────────
+  // Un estudio PARCIAL/ERROR dejó fuentes sin respuesta: este botón re-consulta
+  // SOLO las que faltaron (sin costo) y re-emite el PDF con el mismo consulta_id.
+  const [completando, setCompletando] = useState<string | null>(null);
+  // Fila del historial con el detalle de fuentes pendientes desplegado
+  // (drill-down tipo tabla dinámica, 2026-09-25).
+  const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
+
+  const fuentesPendientes = (e: EstudioDetalle | null | undefined): string[] =>
+    Object.entries(e?.fuentes ?? {})
+      .filter(([, f]) => f?.estado === "NO_DISPONIBLE" || f?.estado === "ERROR")
+      .map(([clave]) => clave);
+
+  const completarConsulta = async (consultaId: string, estudioDetalle?: EstudioDetalle | null) => {
+    const pendientes = fuentesPendientes(estudioDetalle);
+    const confirmacion = await Swal.fire({
+      title: "Completar fuentes pendientes",
+      html: pendientes.length
+        ? `Se volverán a consultar <strong>${pendientes.map(nombreFuente).join(", ")}</strong> y el informe se re-emite completo.<br/><small>Si la consulta original quedó <strong>sin costo</strong> (la mayoría de las fuentes falló), al completarla se cobra el valor del plan.</small>`
+        : `Se volverán a consultar las fuentes que no respondieron y el informe se re-emite completo.<br/><small>Si la consulta original quedó <strong>sin costo</strong> (la mayoría de las fuentes falló), al completarla se cobra el valor del plan.</small>`,
+      icon: "info",
+      showCancelButton: true,
+      confirmButtonText: "Completar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#00A5B5",
+    });
+    if (!confirmacion.isConfirmed) return;
+    setCompletando(consultaId);
+    try {
+      const estudio = await completarEstudio(consultaId);
+      playNotificationSound();
+      if (estudioDetalle) setEstudioNuevo(estudio); // actualizar la tarjeta de resultado
+      const quedan = fuentesPendientes(estudio);
+      const cobrado = (estudio as any).cobrado === true;
+      Swal.fire({
+        title: quedan.length
+          ? "Consulta actualizada (quedan fuentes sin respuesta)"
+          : "Consulta completada",
+        text: `Estado: ${textoEstado(estudio.estado)} · Informe PDF re-emitido (${estudio.consulta_id})${cobrado ? " · Se cobró el valor del plan" : ""}`,
+        icon: quedan.length ? "warning" : "success",
+        timer: 7000,
+      });
+      cargarPortal();
+    } catch (e: any) {
+      playNotificationSound();
+      Swal.fire("No se pudo completar", mensajeError(e), "error");
+    } finally {
+      setCompletando(null);
+    }
+  };
+
   // ── Estado visual de una consulta ───────────────────────────────────────
   const claseEstado = (estado: string) =>
     estado === "COMPLETADA" ? "PS-verde" : estado === "ERROR" ? "PS-rojo" : "PS-ambar";
@@ -481,497 +623,710 @@ export default function PortalSeguridadP() {
       EN_PROGRESO: "En progreso",
     }[estado] ?? estado);
 
+  // Iniciales del avatar (patrón tusdatos: círculo teal con 2 letras).
+  const iniciales = (sesion?.nombre || "U")
+    .split(" ")
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+
+  // Consultas disponibles totales (para el pill del topbar): suma de los
+  // planes con tope; cualquier plan sin tope = ∞.
+  const consultasDisponibles = (() => {
+    const planes = cupo?.planes ?? [];
+    if (!planes.length) return null;
+    if (planes.some((p) => p.ilimitado)) return null; // sin límite
+    return planes.reduce((acc, p) => acc + (p.cupo_disponible ?? 0), 0);
+  })();
+
   // ══════════════════ PANTALLA 1: LOGIN ══════════════════
   if (!sesion) {
     return (
-      <div className="PS-login-fondo">
-        <form className="PS-login-caja" onSubmit={entrar}>
-          <div className="PS-login-logo">🛡️</div>
-          <h1>Consultas de Seguridad</h1>
-          <p className="PS-login-sub">Ingrese con el correo de su empresa</p>
-          <input
-            type="email" placeholder="correo@empresa.com" value={correo}
-            onChange={(e) => setCorreo(e.target.value)} required autoFocus
-          />
-          <input
-            type="password" placeholder="Contraseña" value={clave}
-            onChange={(e) => setClave(e.target.value)} required
-          />
-          {errorLogin && <p className="PS-login-error">{errorLogin}</p>}
-          <button type="submit" disabled={entrando}>
-            {entrando ? <ClipLoader size={16} color="#fff" /> : "Ingresar"}
+      <div className="PSX-login">
+        <div className="PSX-login-ilustracion">
+          <Image src={logoSeguriDatia} alt="seguriDatia" height={52} priority />
+          <h2>Consultas de seguridad para su equipo</h2>
+          <p>
+            Antecedentes, vehículo, sanciones y formación en un solo informe,
+            desde fuentes oficiales.
+          </p>
+          <ul>
+            <li>14 fuentes públicas consolidadas</li>
+            <li>Informe PDF con evidencias de consulta</li>
+            <li>Historial y completado automático</li>
+          </ul>
+        </div>
+        <form className="PSX-login-caja" onSubmit={entrar}>
+          <h1>Bienvenido</h1>
+          <p className="PSX-login-sub">Ingrese con el correo de su empresa</p>
+          <label className="PSX-campo">
+            <span>Correo electrónico</span>
+            <input
+              type="email" placeholder="correo@empresa.com" value={correo}
+              onChange={(e) => setCorreo(e.target.value)} required autoFocus
+            />
+          </label>
+          <label className="PSX-campo">
+            <span>Contraseña</span>
+            <div className="PSX-input-clave">
+              <input
+                type={mostrarClave ? "text" : "password"} placeholder="••••••••" value={clave}
+                onChange={(e) => setClave(e.target.value)} required
+              />
+              <button
+                type="button" className="PSX-ojito"
+                onClick={() => setMostrarClave((o) => !o)}
+                title={mostrarClave ? "Ocultar la clave" : "Mostrar la clave"}
+                aria-label={mostrarClave ? "Ocultar la clave" : "Mostrar la clave"}
+              >
+                {mostrarClave ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+          </label>
+          {errorLogin && <p className="PSX-login-error">{errorLogin}</p>}
+          <button type="submit" className="PSX-boton-primario" disabled={entrando}>
+            {entrando ? <><ClipLoader size={16} color="#fff" /> Ingresando…</> : "Ingresar"}
           </button>
-          <p className="PS-login-pie">Servicio de Integra Logística</p>
+          <button type="button" className="PSX-login-olvide" onClick={abrirOlvideClave}>
+            ¿Olvidó su contraseña?
+          </button>
+          <p className="PSX-login-pie">seguriDatia · un servicio de Integra Logística</p>
         </form>
       </div>
     );
   }
 
-  // ══════════════════ PANTALLA 2: PORTAL ══════════════════
+  // ══════════════════ PANTALLA 2: PORTAL (sidebar + módulos) ══════════════════
 
-  return (
-    <div className="PS-pagina">
-      {/* Header de la app (mismo patrón que AdminSeguridad): barra a ANCHO
-          COMPLETO; hamburguesa en móvil para el menú del usuario. */}
-      <header className="AS-header-app PS-header-app">
-        <div className="AS-header-inner PS-header-inner">
-          <button className="AS-brand" onClick={() => router.push("/")} title="Volver al inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="AS-brandName">Integr<span className="AS-brandAccent">App</span></span>
+  const navItems: { id: Vista; etiqueta: string; icono: JSX.Element }[] = [
+    { id: "panel", etiqueta: "Panel", icono: <FaChartPie /> },
+    { id: "consulta", etiqueta: "Nueva consulta", icono: <FaSearch /> },
+    { id: "historial", etiqueta: "Historial de consultas", icono: <FaHistory /> },
+  ];
+
+  const sidebar = (
+    <aside className="PSX-sidebar" ref={menuRef}>
+      <div className="PSX-sidebar-logo">
+        <Image src={logoSeguriDatia} alt="seguriDatia" height={38} priority />
+      </div>
+      <nav className="PSX-sidebar-nav">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            className={`PSX-nav-item ${vista === item.id ? "PSX-nav-activo" : ""}`}
+            onClick={() => { setVista(item.id); setMenuLateralAbierto(false); }}
+          >
+            {item.icono}
+            <span>{item.etiqueta}</span>
           </button>
-
-          <div className="PS-header-info">
-            <span className="PS-header-titulo">Consultas de Seguridad</span>
-            <span className="PS-header-empresa">{sesion?.empresa?.nombre ?? sesion.nombre}</span>
-          </div>
-
-          <div className="AS-userZone" ref={menuRef}>
-            <button className="AS-userBtn PS-userBtn" onClick={() => setMenuAbierto(o => !o)} aria-label="Menú de usuario">
-              <FaUserCircle className="AS-userIcon PS-menu-icono" />
-              <div className="AS-userInfo PS-userInfo">
-                <span className="AS-userName">{sesion?.nombre}</span>
-                <span className="AS-userPerfil">{sesion?.empresa?.nombre ?? "Cliente"}</span>
-              </div>
-              <FaChevronDown className={`AS-chevron ${menuAbierto ? "AS-chevronOpen" : ""}`} />
-            </button>
-            {/* Hamburguesa (solo móvil): alterna el mismo menú desplegable. */}
-            <button className="PS-hamburguesa" onClick={() => setMenuAbierto(o => !o)} aria-label="Abrir menú">
-              <FaBars />
-            </button>
-
-            {menuAbierto && (
-              <div className="AS-dropdown">
-                <div className="PS-menu-encabezado">
-                  <strong>{sesion?.nombre}</strong>
-                  <small>{sesion?.empresa?.nombre ?? ""}</small>
-                </div>
-                <div className="AS-dropDivider" />
-                <button className="AS-dropItem" onClick={() => { setMenuAbierto(false); router.push("/"); }}>
-                  <FaArrowLeft /> Volver al inicio
-                </button>
-                <div className="AS-dropDivider" />
-                <button className="AS-dropItem AS-dropItemDanger" onClick={() => { setMenuAbierto(false); salir(); }}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
+        ))}
+      </nav>
+      <div className="PSX-sidebar-pie">
+        <div className="PSX-sidebar-usuario">
+          <div className="PSX-avatar">{iniciales}</div>
+          <div className="PSX-sidebar-usuario-datos">
+            <strong>{sesion?.nombre}</strong>
+            <small>{sesion?.empresa?.nombre ?? "Cliente"}</small>
           </div>
         </div>
-      </header>
+      </div>
+    </aside>
+  );
 
-      <div className="PS-contenedor">
-      <div className="PS-grid">
-        {/* ── Consulta ── */}
-        <section className="PS-tarjeta PS-consulta">
-          <h2><FaSearch /> Nueva consulta</h2>
-          <p className="PS-ayuda">Abra el plan con el que desea consultar y diligencie los datos que pide.</p>
-          {/* Acordeón por plan: el formulario pide los campos que ESE plan
-              requiere (cédula siempre; placa solo si incluye la fuente runt) */}
-          {(cupo?.planes?.length ?? 0) > 0 ? (
-            <div className="PS-acordeon">
-              {cupo!.planes!.map((p) => {
-                const abierto = planAbierto === p.plan_id;
-                const pidePlaca = p.fuentes?.some((f) => f === "runt" || f === "simit");
-                const pidePropietario = p.fuentes?.includes("runt");
-                const pideNombres = p.fuentes?.some(
-                  (f) => f === "procuraduria" || f === "rama_judicial"
-                );
-                const pideNit = p.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit" || f === "rues");
-                const pideFechaExp = p.fuentes?.includes("delitos_sexuales");
-                const pideCedula = p.fuentes?.some(
-                  (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial" && f !== "rues"
-                );
-                return (
-                  <div key={p.plan_id} className={`PS-acordeon-item ${abierto ? "PS-acordeon-abierto" : ""}`}>
-                    <button
-                      type="button"
-                      className="PS-acordeon-cab"
-                      onClick={() => setPlanAbierto(abierto ? null : p.plan_id)}
-                      disabled={consultando}
-                      aria-expanded={abierto}
-                    >
-                      <span className="PS-acordeon-titulo">
-                        <strong>{p.nombre}</strong>
-                        <small>
-                          {p.fuentes.map(nombreFuente).join(" + ")}
-                          {" · "}
-                          {p.ilimitado
-                            ? "sin límite"
-                            : `quedan ${p.cupo_disponible ?? 0} · ${pesosColombianos(p.precio_por_estudio)}`}
-                        </small>
-                      </span>
-                      <FaChevronDown className={`PS-chevron ${abierto ? "PS-chevron-arriba" : ""}`} />
-                    </button>
-                    {abierto && (
-                      <form onSubmit={consultar} className="PS-acordeon-cuerpo">
-                        {pideCedula && <div className="PS-input-icono">
-                          <FaIdCard />
-                          <input
-                            inputMode="numeric" pattern="[0-9]*" placeholder="Cédula" value={cedula}
-                            onChange={(e) => {
-                              setCedula(e.target.value.replace(/\D/g, ""));
-                              // Cédula editada a mano = memoria previa ya no aplica.
-                              if (personaMemoria) {
-                                setPersonaMemoria(null);
-                                setCedulaMemoria("");
-                              }
-                            }}
-                            onBlur={autollenarPersona}
-                            maxLength={15} disabled={consultando} autoFocus
-                          />
-                        </div>}
-                        {pideCedula && personaMemoria && (
-                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
-                            ✅ Persona consultada antes por su empresa
-                            {personaMemoria.total_consultas > 0
-                              ? ` (${personaMemoria.total_consultas} ${personaMemoria.total_consultas === 1 ? "consulta" : "consultas"})`
-                              : ""}
-                            {" "}— datos conocidos autollenados en los campos vacíos.
-                          </p>
-                        )}
-                        {pideCedula && buscandoPersona && (
-                          <p className="PS-ayuda" style={{ marginTop: 8 }}>Buscando en su historial…</p>
-                        )}
-                        {pideNit && (
-                          <div className="PS-input-icono">
-                            <FaIdCard />
-                            <input
-                              inputMode="numeric" pattern="[0-9]*" placeholder="NIT sin dígito de verificación"
-                              value={nit} onChange={(e) => setNit(e.target.value.replace(/\D/g, ""))}
-                              maxLength={15} disabled={consultando} autoFocus={!pideCedula}
-                            />
-                          </div>
-                        )}
-                        {pideNombres && (
-                          <>
-                            <div className="PS-input-icono">
-                              <FaUserCircle />
-                              <input
-                                placeholder="Nombres completos" value={nombres}
-                                onChange={(e) => setNombres(e.target.value)}
-                                maxLength={60} disabled={consultando} autoCapitalize="characters"
-                              />
-                            </div>
-                            <div className="PS-input-icono">
-                              <FaUserCircle />
-                              <input
-                                placeholder="Apellidos completos" value={apellidos}
-                                onChange={(e) => setApellidos(e.target.value)}
-                                maxLength={60} disabled={consultando} autoCapitalize="characters"
-                              />
-                            </div>
-                          </>
-                        )}
-                        {pideFechaExp && (
-                          <div className="PS-input-icono">
-                            <FaIdCard />
-                            <input
-                              placeholder="Fecha de expedición de la cédula (DD/MM/AAAA)"
-                              value={fechaExpedicion}
-                              onChange={(e) => setFechaExpedicion(e.target.value)}
-                              maxLength={10} disabled={consultando}
-                            />
-                          </div>
-                        )}
-                        {pidePlaca && (
-                          <div className="PS-input-icono">
-                            <FaCarSide />
-                            <input
-                              placeholder="Placa del vehículo" value={placa}
-                              onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                              maxLength={6} autoCapitalize="characters" disabled={consultando}
-                            />
-                          </div>
-                        )}
-                        {pidePropietario && (
-                          <div className="PS-input-icono">
-                            <FaUserCircle />
-                            <input
-                              inputMode="numeric" pattern="[0-9]*"
-                              placeholder="Cédula del propietario (vacía si es el conductor)"
-                              value={cedulaPropietario}
-                              onChange={(e) => setCedulaPropietario(e.target.value.replace(/\D/g, ""))}
-                              maxLength={15} disabled={consultando}
-                            />
-                          </div>
-                        )}
-                        {pidePlaca && !pidePropietario && (
-                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
-                            La fuente SIMIT consulta los comparendos y multas de la
-                            placa ante el SIMIT (no requiere cédula del propietario).
-                          </p>
-                        )}
-                        {pideFechaExp && (
-                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
-                            La consulta de inhabilidades (Ley 1918) valida la cédula con su
-                            <strong> fecha de expedición</strong>, tal como aparece en el documento.
-                          </p>
-                        )}
-                        <button
-                          type="submit" className="PS-boton-primario"
-                          disabled={
-                            consultando || (pideCedula && !cedula) || (pideNit && !nit)
-                            || (pideFechaExp && fechaExpedicion.trim().length < 10)
-                            || (pideNombres && (nombres.trim().length < 2 || apellidos.trim().length < 2))
-                          }
-                        >
-                          {consultando ? <><ClipLoader size={14} color="#fff" /> Consultando…</> : "Consultar"}
-                        </button>
-                        {pideNombres && (
-                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
-                            La Procuraduría valida la consulta preguntando por el nombre de la
-                            persona: diligencie sus <strong>nombres y apellidos sin tildes</strong> tal
-                            como aparecen en su cédula.
-                          </p>
-                        )}
-                        {pidePropietario && (
-                          <p className="PS-ayuda" style={{ marginTop: 8 }}>
-                            La fuente RUNT consulta el vehículo por placa + cédula de su propietario.
-                            Si el conductor no es el dueño, diligencie la cédula del propietario para
-                            que la validación del vehículo salga en este mismo informe.
-                          </p>
-                        )}
-                      </form>
-                    )}
+  return (
+    <div className="PSX-app">
+      {/* Desktop: sidebar fija; móvil (≤900px): drawer con overlay. */}
+      <div className="PSX-sidebar-escritorio">
+        {sidebar}
+      </div>
+      {menuLateralAbierto && (
+        <>
+          <div className="PSX-overlay" onClick={() => setMenuLateralAbierto(false)} />
+          <div className="PSX-sidebar-movil">
+            <button className="PSX-sidebar-cerrar" onClick={() => setMenuLateralAbierto(false)} aria-label="Cerrar menú">
+              <FaTimes />
+            </button>
+            {sidebar}
+          </div>
+        </>
+      )}
+
+      <div className="PSX-cuerpo">
+        {/* Top bar: breadcrumb + consultas disponibles + hamburguesa móvil. */}
+        <header className="PSX-topbar">
+          <button className="PSX-hamburguesa" onClick={() => setMenuLateralAbierto(true)} aria-label="Abrir menú">
+            <FaBars />
+          </button>
+          <div className="PSX-miga">
+            <span className="PSX-miga-inicio">Inicio</span>
+            <span className="PSX-miga-sep">/</span>
+            <span className="PSX-miga-actual">
+              {vista === "panel" ? "Panel" : vista === "consulta" ? "Nueva consulta" : "Historial de consultas"}
+            </span>
+          </div>
+          <div className="PSX-topbar-derecha">
+            {consultasDisponibles !== null && (
+              <span className="PSX-pill-cupo" title="Consultas disponibles en sus planes">
+                Consultas disponibles: <strong>{consultasDisponibles.toLocaleString("es-CO")}</strong>
+              </span>
+            )}
+            {consultasDisponibles === null && cupo?.planes?.length ? (
+              <span className="PSX-pill-cupo">Consultas disponibles: <strong>Sin límite</strong></span>
+            ) : null}
+            {/* Menú de usuario: click en el avatar de iniciales (patrón tusdatos). */}
+            <div className="PSX-avatar-zona" ref={menuRef}>
+              <button
+                className="PSX-avatar-boton"
+                onClick={() => setMenuAbierto((o) => !o)}
+                aria-label="Menú de usuario"
+                aria-expanded={menuAbierto}
+              >
+                <span className="PSX-avatar PSX-avatar-topbar">{iniciales}</span>
+                <FaChevronDown className={`PSX-chevron ${menuAbierto ? "PSX-chevron-arriba" : ""}`} />
+              </button>
+              {menuAbierto && (
+                <div className="PSX-avatar-menu">
+                  <div className="PSX-avatar-menu-cab">
+                    <strong>{sesion?.nombre}</strong>
+                    <small>{sesion?.empresa?.nombre ?? ""}</small>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="PS-cupo-sin-plan">
-              Su empresa no tiene un plan activo. Contacte a Integra Logística para activar su servicio.
-            </p>
-          )}
-          {consultando && (
-            <div className="PS-investigando">
-              <Lottie
-                animationData={animationDetective}
-                loop
-                autoplay
-                style={{ width: 190, height: 190, margin: "0 auto" }}
-              />
-              <p className="PS-investigando-mensaje">{mensajesConsulta[indiceMensaje]}</p>
-              <p className="PS-investigando-sub">
-                Las fuentes del plan se consultan en paralelo: esto puede tomar
-                de 3 a {estimacionSegundos} segundos (según la fuente más lenta). No cierre la ventana.
-              </p>
-            </div>
-          )}
-
-          {estudioNuevo && (
-            <div className={`PS-resultado ${claseEstado(estudioNuevo.estado)}`}>
-              <div className="PS-resultado-cab">
-                <strong>{estudioNuevo.nombre_consultado || "Persona no identificada"}</strong>
-                <span className="PS-badge">{textoEstado(estudioNuevo.estado)}</span>
-              </div>
-              <div className="PS-resultado-datos">
-                <span>Cédula {estudioNuevo.cedula}</span>
-                {estudioNuevo.placa && <span>Placa {estudioNuevo.placa}</span>}
-                {estudioNuevo.vehiculos?.[0] && !estudioNuevo.vehiculos[0].propietario_es_evaluado && (
-                  <span>Propietario del vehículo: cédula distinta a la evaluada (ver PDF)</span>
-                )}
-                <span>{fechaHoraColombia(estudioNuevo.creado_en)}</span>
-                {/* Badges SOLO de las fuentes que CORRIERON (las del plan): una
-                    DESHABILITADA no se consultó ni se cobró — no se muestra. */}
-                {(() => {
-                  const f = estudioNuevo.fuentes ?? {};
-                  const corrio = (x?: { estado?: string | null }) =>
-                    !!x?.estado && x.estado !== "DESHABILITADA";
-                  return (
-                    <>
-                      {corrio(f.procuraduria) && (
-                        <span>Procuraduría: {
-                          f.procuraduria!.no_registra === true ? "✅ Sin anotaciones"
-                          : f.procuraduria!.no_registra === false ? "⛔ Registra anotaciones"
-                          : "⚠️ Ver PDF"}
-                        </span>
-                      )}
-                      {corrio(f.contraloria) && (
-                        <span>Contraloría: {
-                          f.contraloria!.no_registra === true ? "✅ Sin responsabilidad fiscal"
-                          : f.contraloria!.no_registra === false ? "⛔ Reportado como responsable fiscal"
-                          : "⚠️ Ver PDF"}
-                        </span>
-                      )}
-                      {corrio(f.delitos_sexuales) && (
-                        <span>Ley 1918: {
-                          f.delitos_sexuales!.no_registra === true ? "✅ Sin inhabilidad (delitos contra menores)"
-                          : f.delitos_sexuales!.no_registra === false ? "⛔ REGISTRA INHABILIDAD — revisar"
-                          : "⚠️ Ver PDF"}
-                        </span>
-                      )}
-                      {corrio(f.policia) && (
-                        <span>Policía: {
-                          f.policia!.no_registra === true ? "✅ Sin antecedentes"
-                          : f.policia!.no_registra === false ? "⛔ Requerido por autoridad judicial"
-                          : "⚠️ Ver PDF"}
-                        </span>
-                      )}
-                      {corrio(f.manifiestos_rndc) && (
-                        <span>RNDC: {f.manifiestos_rndc!.total ?? 0} viaje(s)</span>
-                      )}
-                      {(() => {
-                        const runt = f.runt;
-                        if (!corrio(runt)) return null;
-                        if (runt!.no_registra === true) return <span>RUNT: 🔍 Placa sin información</span>;
-                        if (runt!.no_registra === false) return <span>RUNT: ⚠️ Cédula no es del propietario activo</span>;
-                        if (runt!.soat?.vigente === true) return <span>RUNT: ✅ SOAT vigente (vence {runt!.soat.fecha_fin_vigencia}){runt!.rtm?.vigente === false ? ` · ⛔ RTM vencida` : ""}</span>;
-                        if (runt!.soat?.vigente === false) return <span>RUNT: ⛔ SOAT vencido</span>;
-                        if (runt!.rtm?.vigente === false) return <span>RUNT: ⛔ RTM vencida (revisión técnico-mecánica)</span>;
-                        const marca = runt!.datos_vehiculo?.marca;
-                        return <span>RUNT: {marca ? `🚗 ${marca}` : "⚠️ Ver PDF"}</span>;
-                      })()}
-                      {(() => {
-                        const simit = f.simit;
-                        if (!corrio(simit)) return null;
-                  const aPagar = simit.total_a_pagar ?? 0;
-                  if (aPagar > 0) {
-                    const n = (simit.total_comparendos ?? 0) + (simit.total_multas ?? 0);
-                    return <span>SIMIT: ⛔ Saldo exigible ${aPagar.toLocaleString("es-CO")} ({n} registro(s))</span>;
-                  }
-                  if ((simit.total_comparendos ?? 0) > 0 || (simit.total_multas ?? 0) > 0) {
-                    return <span>SIMIT: ⚠️ Sin saldo exigible (registra antecedentes históricos)</span>;
-                  }
-                  return <span>SIMIT: ✅ Sin comparendos ni multas</span>;
-                      })()}
-                      {(() => {
-                        const sena = f.sena;
-                        if (!corrio(sena)) return null;
-                        const total = sena.total_certificados ?? 0;
-                        return <span>SENA: 🎓 {total > 0 ? `${total} certificado(s) de formación` : "Sin certificados registrados"}</span>;
-                      })()}
-                      {(() => {
-                        const sis = f.sisconmp;
-                        if (!corrio(sis)) return null;
-                        const total = sis!.total_capacitaciones ?? 0;
-                        if (total === 0) return <span>SISCONMP: 🔍 Sin capacitaciones de Mercancías Peligrosas registradas</span>;
-                        const hayVigente = (sis!.capacitaciones ?? []).some((c) => c.vigente === true);
-                        const hayVencida = (sis!.capacitaciones ?? []).some((c) => c.vigente === false);
-                        if (hayVigente) return <span>SISCONMP: ✅ {total} capacitación(es) MP (alguna vigente)</span>;
-                        if (hayVencida) return <span>SISCONMP: ⛔ {total} capacitación(es) MP — ninguna vigente (vencidas)</span>;
-                        return <span>SISCONMP: 🎓 {total} capacitación(es) MP (vigencia no reportada)</span>;
-                      })()}
-                      {(() => {
-                        const onuUe = f.onu_ue;
-                        if (!corrio(onuUe)) return null;
-                        if (onuUe!.aplica) return <span>ONU/UE: ⛔ Coincidencia en listas de sanciones (revisar)</span>;
-                        const faltantes = onuUe!.listas_no_disponibles ?? [];
-                        return <span>ONU/UE: ✅ Sin coincidencias{faltantes.length ? ` (${faltantes.join(", ")} no disponible)` : ""}</span>;
-                      })()}
-                      {(() => {
-                        const rues = f.rues;
-                        if (!corrio(rues)) return null;
-                        if (rues!.no_registra === true) return <span>RUES: 🔍 NIT sin registro mercantil</span>;
-                        const est = (rues!.estado_matricula ?? "").toUpperCase();
-                        if (est === "ACTIVA") return <span>RUES: ✅ Matrícula mercantil activa</span>;
-                        return <span>RUES: ⛔ Matrícula {est || "con estado distinto de activa"}</span>;
-                      })()}
-                      {(() => {
-                        const sm = f.situacion_militar;
-                        if (!corrio(sm)) return null;
-                        if (sm!.no_registra === true) return <span>Libreta: 🔍 Sin registro de situación militar</span>;
-                        const estadoLibreta = sm!.estado_tarjeta_militar || "";
-                        if (sm!.estado === "ADVERTENCIA") return <span>Libreta: ⛔ Situación sin definir — {estadoLibreta}</span>;
-                        return <span>Libreta: ✅ {estadoLibreta || "Ver informe"}</span>;
-                      })()}
-                    </>
-                  );
-                })()}
-              </div>
-              {estudioNuevo.pdf && (
-                <button className="PS-boton-pdf" onClick={() => abrirPdf(estudioNuevo.consulta_id)}>
-                  <FaFilePdf /> Descargar informe PDF
-                </button>
+                  <button
+                    className="PSX-avatar-item"
+                    onClick={() => { setMenuAbierto(false); router.push("/"); }}
+                  >
+                    <FaHome /> Volver al inicio
+                  </button>
+                  <button className="PSX-avatar-item" onClick={abrirCambiarClave}>
+                    <FaKey /> Cambiar contraseña
+                  </button>
+                  <button
+                    className="PSX-avatar-item PSX-avatar-item-rojo"
+                    onClick={() => { setMenuAbierto(false); salir(); }}
+                  >
+                    <FaSignOutAlt /> Cerrar sesión
+                  </button>
+                </div>
               )}
             </div>
-          )}
-        </section>
+          </div>
+        </header>
 
-        {/* ── Plan / consultas ── */}
-        <section className="PS-tarjeta PS-cupo">
-          <h2><FaChartPie /> Sus planes</h2>
-          {cupo ? (
-            cupo.planes?.length ? (
-              <>
-                {/* Solo nombre y costo (2026-09-01, pedido del usuario): el
-                    desglose de cupo/fuentes vive en el acordeón de consulta. */}
-                {cupo.planes.map((p) => (
-                  <div key={p.plan_id} className="PS-fuente-cupo">
-                    <p className="PS-fuente-nombre">
-                      {p.nombre}
-                      <span className="PS-fuente-precio">{pesosColombianos(p.precio_por_estudio)}</span>
-                    </p>
+        <main className="PSX-contenido">
+          {/* ════════ MÓDULO: PANEL ════════ */}
+          {vista === "panel" && (
+            <>
+              <div className="PSX-encabezado">
+                <h1><span>¡Hola!</span> Un resumen de su actividad</h1>
+              </div>
+              <div className="PSX-kpis">
+                <div className="PSX-kpi">
+                  <p className="PSX-kpi-label">Consultas disponibles</p>
+                  <p className="PSX-kpi-numero">
+                    {cupo
+                      ? (consultasDisponibles !== null
+                          ? consultasDisponibles.toLocaleString("es-CO")
+                          : (cupo.planes?.length ? "Sin límite" : "0"))
+                      : "—"}
+                  </p>
+                  <p className="PSX-kpi-sub">
+                    {cupo?.planes?.length
+                      ? `en ${cupo.planes.length} plan${cupo.planes.length === 1 ? "" : "es"}`
+                      : "sin planes activos"}
+                  </p>
+                </div>
+                <div className="PSX-kpi">
+                  <p className="PSX-kpi-label">Consultas este mes</p>
+                  <p className="PSX-kpi-numero">{cupo?.consumo_mes?.unidades ?? 0}</p>
+                  <p className="PSX-kpi-sub">{pesosColombianos(cupo?.consumo_mes?.cop ?? 0)} · {nombrePeriodo(cupo?.consumo_mes?.periodo)}</p>
+                </div>
+                <div className="PSX-kpi">
+                  <p className="PSX-kpi-label">Total consultas registradas</p>
+                  <p className="PSX-kpi-numero">{totalHistorial.toLocaleString("es-CO")}</p>
+                  <p className="PSX-kpi-sub">en el historial de su empresa</p>
+                </div>
+              </div>
+
+              <div className="PSX-panel-planes">
+                <div className="PSX-tarjeta-cab">
+                  <h2>Sus planes</h2>
+                  <button className="PSX-boton-primario PSX-boton-chico" onClick={() => setVista("consulta")}>
+                    <FaSearch /> Nueva consulta
+                  </button>
+                </div>
+                {cupo?.planes?.length ? (
+                  <div className="PSX-plan-lista">
+                    {cupo.planes.map((p) => {
+                      const consumido = p.cupo_consumido ?? 0;
+                      const autorizado = p.cupo_autorizado;
+                      const pct = autorizado ? Math.min(100, Math.round((consumido / autorizado) * 100)) : null;
+                      return (
+                        <div key={p.plan_id} className="PSX-plan">
+                          <div className="PSX-plan-cab">
+                            <div>
+                              <strong>{p.nombre}</strong>
+                              <small>{p.fuentes.map(nombreFuente).join(" · ")}</small>
+                            </div>
+                            <span className="PSX-plan-precio">{pesosColombianos(p.precio_por_estudio)} / consulta</span>
+                          </div>
+                          <div className="PSX-plan-barra">
+                            {pct !== null ? (
+                              <>
+                                <div className="PSX-barra-pista"><div className="PSX-barra-relleno" style={{ width: `${pct}%` }} /></div>
+                                <small>{consumido} de {autorizado?.toLocaleString("es-CO")} usadas{pct !== null ? ` · ${pct}%` : ""}</small>
+                              </>
+                            ) : (
+                              <small className="PSX-plan-sin-tope">Sin límite de consultas · {consumido} usadas</small>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-                <p className="PS-cupo-mes">
-                  Este mes: {cupo.consumo_mes.unidades} consulta(s) · {pesosColombianos(cupo.consumo_mes.cop)}
-                </p>
-              </>
-            ) : (
-              <p className="PS-cupo-sin-plan">
-                Su empresa no tiene un plan activo. Contacte a Integra Logística para activar su servicio.
-              </p>
-            )
-          ) : (
-            <ClipLoader size={20} color="#0F2A43" />
-          )}
-        </section>
-      </div>
-
-      {/* ── Historial ── */}
-      <section className="PS-tarjeta PS-historial">
-        <h2><FaHistory /> Historial de consultas</h2>
-        {cargandoHistorial ? (
-          <ClipLoader size={20} color="#0F2A43" />
-        ) : (
-          <div className="PS-tabla-envoltura">
-            <table className="PS-tabla">
-              <thead>
-                <tr>
-                  <th>Fecha</th><th>Cédula</th>
-                  {historial.some((h) => h.placa) && <th>Placa</th>}
-                  <th>Persona</th><th>Estado</th><th>Costo</th><th>Consultó</th><th>Informe</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historial.length === 0 && (
-                  <tr><td colSpan={historial.some((h) => h.placa) ? 8 : 7} className="PS-vacio">Aún no hay consultas registradas.</td></tr>
+                ) : (
+                  <p className="PSX-sin-plan">
+                    Su empresa no tiene un plan activo. Contacte a Integra Logística para activar su servicio.
+                  </p>
                 )}
-                {historial.map((h) => (
-                  <tr key={h.consulta_id}>
-                    <td data-label="Fecha">{fechaHoraColombia(h.creado_en)}</td>
-                    <td data-label="Cédula">{h.cedula}</td>
-                    {historial.some((x) => x.placa) && (
-                      <td data-label="Placa">{h.placa || "—"}</td>
+              </div>
+            </>
+          )}
+
+          {/* ════════ MÓDULO: NUEVA CONSULTA ════════ */}
+          {vista === "consulta" && (
+            <section className="PSX-tarjeta PSX-consulta">
+              <div className="PSX-tarjeta-cab">
+                <h2>¿Con qué plan desea consultar?</h2>
+              </div>
+              {/* Acordeón por plan: el formulario pide los campos que ESE plan
+                  requiere (cédula siempre; placa solo si incluye la fuente runt) */}
+              {(cupo?.planes?.length ?? 0) > 0 ? (
+                <div className="PSX-acordeon">
+                  {cupo!.planes!.map((p) => {
+                    const abierto = planAbierto === p.plan_id;
+                    const pidePlaca = p.fuentes?.some((f) => f === "runt" || f === "simit");
+                    const pidePropietario = p.fuentes?.includes("runt");
+                    const pideNit = p.fuentes?.some((f) => f === "ofac_nit" || f === "bdme_nit" || f === "rues");
+                    const pideFechaExp = p.fuentes?.includes("delitos_sexuales");
+                    const pideCedula = p.fuentes?.some(
+                      (f) => f !== "ofac_nit" && f !== "bdme_nit" && f !== "rama_judicial" && f !== "rues"
+                    );
+                    return (
+                      <div key={p.plan_id} className={`PSX-acordeon-item ${abierto ? "PSX-acordeon-abierto" : ""}`}>
+                        <button
+                          type="button"
+                          className="PSX-acordeon-cab"
+                          onClick={() => setPlanAbierto(abierto ? null : p.plan_id)}
+                          disabled={consultando}
+                          aria-expanded={abierto}
+                        >
+                          <span className="PSX-acordeon-titulo">
+                            <strong>{p.nombre}</strong>
+                            <small>
+                              {p.fuentes.map(nombreFuente).join(" + ")}
+                              {" · "}
+                              {p.ilimitado
+                                ? "sin límite"
+                                : `quedan ${p.cupo_disponible ?? 0} · ${pesosColombianos(p.precio_por_estudio)}`}
+                            </small>
+                          </span>
+                          <FaChevronDown className={`PSX-chevron ${abierto ? "PSX-chevron-arriba" : ""}`} />
+                        </button>
+                        {abierto && (
+                          <form onSubmit={consultar} className="PSX-acordeon-cuerpo">
+                            {pideCedula && (
+                              <label className="PSX-campo">
+                                <span>Cédula</span>
+                                <div className="PSX-input-icono">
+                                  <FaIdCard />
+                                  <input
+                                    inputMode="numeric" pattern="[0-9]*" placeholder="Número a consultar" value={cedula}
+                                    onChange={(e) => {
+                                      setCedula(e.target.value.replace(/\D/g, ""));
+                                      // Cédula editada a mano = memoria previa ya no aplica.
+                                      if (personaMemoria) {
+                                        setPersonaMemoria(null);
+                                        setCedulaMemoria("");
+                                      }
+                                    }}
+                                    onBlur={autollenarPersona}
+                                    maxLength={15} disabled={consultando} autoFocus
+                                  />
+                                </div>
+                              </label>
+                            )}
+                            {pideCedula && personaMemoria !== null && (
+                              <p className="PSX-ayuda-exito">
+                                ✅ Persona consultada antes por su empresa
+                                {personaMemoria > 0
+                                  ? ` (${personaMemoria} ${personaMemoria === 1 ? "consulta" : "consultas"})`
+                                  : ""}
+                                {" "}— la fecha de expedición conocida se autocompleta.
+                              </p>
+                            )}
+                            {pideNit && (
+                              <label className="PSX-campo">
+                                <span>NIT (sin dígito de verificación)</span>
+                                <div className="PSX-input-icono">
+                                  <FaIdCard />
+                                  <input
+                                    inputMode="numeric" pattern="[0-9]*" placeholder="Número a consultar"
+                                    value={nit} onChange={(e) => setNit(e.target.value.replace(/\D/g, ""))}
+                                    maxLength={15} disabled={consultando} autoFocus={!pideCedula}
+                                  />
+                                </div>
+                              </label>
+                            )}
+                            {pideFechaExp && (
+                              <label className="PSX-campo">
+                                <span>Fecha de expedición de la cédula (DD/MM/AAAA)</span>
+                                <div className="PSX-input-icono">
+                                  <FaIdCard />
+                                  <input
+                                    placeholder="dd/mm/aaaa"
+                                    value={fechaExpedicion}
+                                    onChange={(e) => setFechaExpedicion(e.target.value)}
+                                    maxLength={10} disabled={consultando}
+                                  />
+                                </div>
+                                <small className="PSX-campo-ayuda">
+                                  La consulta de inhabilidades (Ley 1918) valida la cédula con su
+                                  fecha de expedición, tal como aparece en el documento.
+                                </small>
+                              </label>
+                            )}
+                            {pidePlaca && (
+                              <label className="PSX-campo">
+                                <span>Placa del vehículo</span>
+                                <div className="PSX-input-icono">
+                                  <FaCarSide />
+                                  <input
+                                    placeholder="AAA123" value={placa}
+                                    onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                                    maxLength={6} autoCapitalize="characters" disabled={consultando}
+                                  />
+                                </div>
+                              </label>
+                            )}
+                            {pidePropietario && (
+                              <label className="PSX-campo">
+                                <span>Cédula del propietario <em>(vacía si es el conductor)</em></span>
+                                <div className="PSX-input-icono">
+                                  <FaUserCircle />
+                                  <input
+                                    inputMode="numeric" pattern="[0-9]*" placeholder="Opcional"
+                                    value={cedulaPropietario}
+                                    onChange={(e) => setCedulaPropietario(e.target.value.replace(/\D/g, ""))}
+                                    maxLength={15} disabled={consultando}
+                                  />
+                                </div>
+                                <small className="PSX-campo-ayuda">
+                                  La fuente RUNT consulta el vehículo por placa + cédula de su propietario.
+                                  Si el conductor no es el dueño, diligencie la cédula del propietario para
+                                  que la validación del vehículo salga en este mismo informe.
+                                </small>
+                              </label>
+                            )}
+                            {pidePlaca && !pidePropietario && (
+                              <p className="PSX-campo-ayuda">
+                                La fuente SIMIT consulta los comparendos y multas de la
+                                placa (no requiere cédula del propietario).
+                              </p>
+                            )}
+                            <button
+                              type="submit" className="PSX-boton-primario PSX-boton-full"
+                              disabled={
+                                consultando || (pideCedula && !cedula) || (pideNit && !nit)
+                                || (pideFechaExp && fechaExpedicion.trim().length < 10)
+                              }
+                            >
+                              {consultando ? <><ClipLoader size={14} color="#fff" /> Consultando…</> : "Generar informe"}
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="PSX-sin-plan">
+                  Su empresa no tiene un plan activo. Contacte a Integra Logística para activar su servicio.
+                </p>
+              )}
+              {consultando && (
+                <div className="PSX-investigando">
+                  <Lottie
+                    animationData={animationDetective}
+                    loop
+                    autoplay
+                    style={{ width: 190, height: 190, margin: "0 auto" }}
+                  />
+                  <p className="PSX-investigando-mensaje">{mensajesConsulta[indiceMensaje]}</p>
+                  <p className="PSX-investigando-sub">
+                    Las fuentes del plan se consultan en paralelo: esto puede tomar
+                    de 3 a {estimacionSegundos} segundos (según la fuente más lenta). No cierre la ventana.
+                  </p>
+                </div>
+              )}
+
+              {estudioNuevo && (
+                <div className={`PSX-resultado ${claseEstado(estudioNuevo.estado)}`}>
+                  <div className="PSX-resultado-cab">
+                    <strong>{estudioNuevo.nombre_consultado || "Persona no identificada"}</strong>
+                    <span className="PSX-badge">{textoEstado(estudioNuevo.estado)}</span>
+                  </div>
+                  <div className="PSX-resultado-datos">
+                    <span>Cédula {estudioNuevo.cedula}</span>
+                    {estudioNuevo.placa && <span>Placa {estudioNuevo.placa}</span>}
+                    {estudioNuevo.vehiculos?.[0] && !estudioNuevo.vehiculos[0].propietario_es_evaluado && (
+                      <span>Propietario del vehículo: cédula distinta a la evaluada (ver PDF)</span>
                     )}
-                    <td data-label="Persona">{h.nombre_consultado || "—"}</td>
-                    <td data-label="Estado">
-                      <span className={`PS-badge ${claseEstado(h.estado)}`}>{textoEstado(h.estado)}</span>{" "}
-                      {h.canal === "api" && (
-                        <span className="PS-badge PS-badge-api" title="Hecha por una integración con API key">API</span>
+                    <span>{fechaHoraColombia(estudioNuevo.creado_en)}</span>
+                    {/* Badges SOLO de las fuentes que CORRIERON (las del plan): una
+                        DESHABILITADA no se consultó ni se cobró — no se muestra. */}
+                    {(() => {
+                      const f = estudioNuevo.fuentes ?? {};
+                      const corrio = (x?: { estado?: string | null }) =>
+                        !!x?.estado && x.estado !== "DESHABILITADA";
+                      return (
+                        <>
+                          {corrio(f.procuraduria) && (
+                            <span>Procuraduría: {
+                              f.procuraduria!.no_registra === true ? "✅ Sin anotaciones"
+                              : f.procuraduria!.no_registra === false ? "⛔ Registra anotaciones"
+                              : "⚠️ Ver PDF"}
+                            </span>
+                          )}
+                          {corrio(f.contraloria) && (
+                            <span>Contraloría: {
+                              f.contraloria!.no_registra === true ? "✅ Sin responsabilidad fiscal"
+                              : f.contraloria!.no_registra === false ? "⛔ Reportado como responsable fiscal"
+                              : "⚠️ Ver PDF"}
+                            </span>
+                          )}
+                          {corrio(f.delitos_sexuales) && (
+                            <span>Ley 1918: {
+                              f.delitos_sexuales!.no_registra === true ? "✅ Sin inhabilidad (delitos contra menores)"
+                              : f.delitos_sexuales!.no_registra === false ? "⛔ REGISTRA INHABILIDAD — revisar"
+                              : "⚠️ Ver PDF"}
+                            </span>
+                          )}
+                          {corrio(f.policia) && (
+                            <span>Policía: {
+                              f.policia!.no_registra === true ? "✅ Sin antecedentes"
+                              : f.policia!.no_registra === false ? "⛔ Requerido por autoridad judicial"
+                              : "⚠️ Ver PDF"}
+                            </span>
+                          )}
+                          {corrio(f.manifiestos_rndc) && (
+                            <span>RNDC: {f.manifiestos_rndc!.total ?? 0} viaje(s)</span>
+                          )}
+                          {(() => {
+                            const runt = f.runt;
+                            if (!corrio(runt)) return null;
+                            if (runt!.no_registra === true) return <span>RUNT: 🔍 Placa sin información</span>;
+                            if (runt!.no_registra === false) return <span>RUNT: ⚠️ Cédula no es del propietario activo</span>;
+                            if (runt!.soat?.vigente === true) return <span>RUNT: ✅ SOAT vigente (vence {runt!.soat.fecha_fin_vigencia}){runt!.rtm?.vigente === false ? ` · ⛔ RTM vencida` : ""}</span>;
+                            if (runt!.soat?.vigente === false) return <span>RUNT: ⛔ SOAT vencido</span>;
+                            if (runt!.rtm?.vigente === false) return <span>RUNT: ⛔ RTM vencida (revisión técnico-mecánica)</span>;
+                            const marca = runt!.datos_vehiculo?.marca;
+                            return <span>RUNT: {marca ? `🚗 ${marca}` : "⚠️ Ver PDF"}</span>;
+                          })()}
+                          {(() => {
+                            const simit = f.simit;
+                            if (!corrio(simit)) return null;
+                            const aPagar = simit.total_a_pagar ?? 0;
+                            if (aPagar > 0) {
+                              const n = (simit.total_comparendos ?? 0) + (simit.total_multas ?? 0);
+                              return <span>SIMIT: ⛔ Saldo exigible ${aPagar.toLocaleString("es-CO")} ({n} registro(s))</span>;
+                            }
+                            if ((simit.total_comparendos ?? 0) > 0 || (simit.total_multas ?? 0) > 0) {
+                              return <span>SIMIT: ⚠️ Sin saldo exigible (registra antecedentes históricos)</span>;
+                            }
+                            return <span>SIMIT: ✅ Sin comparendos ni multas</span>;
+                          })()}
+                          {(() => {
+                            const sena = f.sena;
+                            if (!corrio(sena)) return null;
+                            const total = sena.total_certificados ?? 0;
+                            return <span>SENA: 🎓 {total > 0 ? `${total} certificado(s) de formación` : "Sin certificados registrados"}</span>;
+                          })()}
+                          {(() => {
+                            const sis = f.sisconmp;
+                            if (!corrio(sis)) return null;
+                            const total = sis!.total_capacitaciones ?? 0;
+                            if (total === 0) return <span>SISCONMP: 🔍 Sin capacitaciones de Mercancías Peligrosas registradas</span>;
+                            const hayVigente = (sis!.capacitaciones ?? []).some((c) => c.vigente === true);
+                            const hayVencida = (sis!.capacitaciones ?? []).some((c) => c.vigente === false);
+                            if (hayVigente) return <span>SISCONMP: ✅ {total} capacitación(es) MP (alguna vigente)</span>;
+                            if (hayVencida) return <span>SISCONMP: ⛔ {total} capacitación(es) MP — ninguna vigente (vencidas)</span>;
+                            return <span>SISCONMP: 🎓 {total} capacitación(es) MP (vigencia no reportada)</span>;
+                          })()}
+                          {(() => {
+                            const onuUe = f.onu_ue;
+                            if (!corrio(onuUe)) return null;
+                            if (onuUe!.aplica) return <span>ONU/UE: ⛔ Coincidencia en listas de sanciones (revisar)</span>;
+                            const faltantes = onuUe!.listas_no_disponibles ?? [];
+                            return <span>ONU/UE: ✅ Sin coincidencias{faltantes.length ? ` (${faltantes.join(", ")} no disponible)` : ""}</span>;
+                          })()}
+                          {(() => {
+                            const rues = f.rues;
+                            if (!corrio(rues)) return null;
+                            if (rues!.no_registra === true) return <span>RUES: 🔍 NIT sin registro mercantil</span>;
+                            const est = (rues!.estado_matricula ?? "").toUpperCase();
+                            if (est === "ACTIVA") return <span>RUES: ✅ Matrícula mercantil activa</span>;
+                            return <span>RUES: ⛔ Matrícula {est || "con estado distinto de activa"}</span>;
+                          })()}
+                          {(() => {
+                            const sm = f.situacion_militar;
+                            if (!corrio(sm)) return null;
+                            if (sm!.no_registra === true) return <span>Libreta: 🔍 Sin registro de situación militar</span>;
+                            const estadoLibreta = sm!.estado_tarjeta_militar || "";
+                            if (sm!.estado === "ADVERTENCIA") return <span>Libreta: ⛔ Situación sin definir — {estadoLibreta}</span>;
+                            return <span>Libreta: ✅ {estadoLibreta || "Ver informe"}</span>;
+                          })()}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="PSX-resultado-acciones">
+                    {estudioNuevo.pdf && (
+                      <button className="PSX-boton-primario" onClick={() => abrirPdf(estudioNuevo.consulta_id)}>
+                        <FaFilePdf /> Descargar informe PDF
+                      </button>
+                    )}
+                    {fuentesPendientes(estudioNuevo).length > 0 && (
+                      <button
+                        className="PSX-boton-secundario"
+                        disabled={completando === estudioNuevo.consulta_id}
+                        onClick={() => completarConsulta(estudioNuevo.consulta_id, estudioNuevo)}
+                      >
+                        {completando === estudioNuevo.consulta_id
+                          ? <><ClipLoader size={14} color="#fff" /> Completando…</>
+                          : <><FaRedoAlt /> Completar fuentes pendientes</>}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ════════ MÓDULO: HISTORIAL ════════ */}
+          {vista === "historial" && (
+            <section className="PSX-tarjeta PSX-historial">
+              <div className="PSX-tarjeta-cab">
+                <h2>Historial de consultas</h2>
+                <span className="PSX-pill-cupo">{totalHistorial.toLocaleString("es-CO")} en total</span>
+              </div>
+              {cargandoHistorial ? (
+                <ClipLoader size={20} color="#00A5B5" />
+              ) : (
+                <div className="PSX-tabla-envoltura">
+                  <table className="PSX-tabla">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th><th>Cédula</th>
+                        {historial.some((h) => h.placa) && <th>Placa</th>}
+                        <th>Persona</th><th>Estado</th><th>Pendientes</th><th>Costo</th><th>Consultó</th><th>Informe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historial.length === 0 && (
+                        <tr><td colSpan={historial.some((h) => h.placa) ? 9 : 8} className="PSX-vacio">Aún no hay consultas registradas.</td></tr>
                       )}
-                    </td>
-                    <td data-label="Costo">{h.costo_cop === 0 ? "Sin costo" : pesosColombianos(h.costo_cop ?? 0)}</td>
-                    <td data-label="Consultó">{h.usuario_nombre}</td>
-                    <td data-label="Informe">
-                      <button className="PS-boton-pdf-chico" onClick={() => abrirPdf(h.consulta_id)}>
-                        <FaFilePdf /> PDF
-                      </button>{" "}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {totalHistorial > 10 && (
-          <div className="PS-paginacion">
-            <button disabled={pagina === 0} onClick={() => setPagina((p) => p - 1)}>← Anterior</button>
-            <span>Página {pagina + 1} de {Math.ceil(totalHistorial / 10)}</span>
-            <button disabled={(pagina + 1) * 10 >= totalHistorial} onClick={() => setPagina((p) => p + 1)}>Siguiente →</button>
-          </div>
-        )}
-      </section>
+                      {historial.map((h) => {
+                        const pendientes = h.fuentes_pendientes ?? [];
+                        const expandida = detalleAbierto === h.consulta_id;
+                        const columnas = historial.some((x) => x.placa) ? 9 : 8;
+                        return (
+                          <Fragment key={h.consulta_id}>
+                            <tr
+                              className={pendientes.length ? "PSX-fila-expandible" : undefined}
+                              onClick={() => setDetalleAbierto(expandida ? null : h.consulta_id)}
+                            >
+                              <td data-label="Fecha">{fechaHoraColombia(h.creado_en)}</td>
+                              <td data-label="Cédula">{h.cedula}</td>
+                              {historial.some((x) => x.placa) && (
+                                <td data-label="Placa">{h.placa || "—"}</td>
+                              )}
+                              <td data-label="Persona">{h.nombre_consultado || "—"}</td>
+                              <td data-label="Estado">
+                                <span className={`PSX-badge ${claseEstado(h.estado)}`}>{textoEstado(h.estado)}</span>{" "}
+                                {h.canal === "api" && (
+                                  <span className="PSX-badge PSX-badge-api" title="Hecha por una integración con API key">API</span>
+                                )}
+                              </td>
+                              <td data-label="Pendientes">
+                                {pendientes.length ? (
+                                  <span className="PSX-badge PSX-badge-pendientes" title="Haga clic en la fila para ver las fuentes pendientes">
+                                    {pendientes.length} fuente{pendientes.length === 1 ? "" : "s"} <FaChevronDown className={`PSX-chevron-pend ${expandida ? "PSX-chevron-pend-arriba" : ""}`} />
+                                  </span>
+                                ) : (
+                                  <span className="PSX-texto-suave">—</span>
+                                )}
+                              </td>
+                              <td data-label="Costo">{h.costo_cop === 0 ? "Sin costo" : pesosColombianos(h.costo_cop ?? 0)}</td>
+                              <td data-label="Consultó">{h.usuario_nombre}</td>
+                              <td data-label="Informe">
+                                <button
+                                  className="PSX-boton-tabla"
+                                  onClick={(e) => { e.stopPropagation(); abrirPdf(h.consulta_id); }}
+                                >
+                                  <FaFilePdf /> PDF
+                                </button>
+                              </td>
+                            </tr>
+                            {expandida && (
+                              <tr key={`${h.consulta_id}-detalle`} className="PSX-fila-detalle">
+                                <td colSpan={columnas}>
+                                  {pendientes.length ? (
+                                    <div className="PSX-detalle-pendientes">
+                                      <strong>Fuentes sin respuesta en esta consulta:</strong>
+                                      <ul className="PSX-detalle-lista">
+                                        {pendientes.map((f) => (
+                                          <li key={f}>{nombreFuente(f)}</li>
+                                        ))}
+                                      </ul>
+                                      <p className="PSX-campo-ayuda" style={{ marginTop: 8, marginBottom: 0 }}>
+                                        Puede volver a consultar solo estas fuentes y el informe se re-emite
+                                        completo. Si la consulta original quedó sin costo (la mayoría de las
+                                        fuentes falló), al completarla se cobra el valor del plan.
+                                      </p>
+                                      <button
+                                        className="PSX-boton-tabla PSX-boton-completar-tabla"
+                                        disabled={completando === h.consulta_id}
+                                        onClick={(e) => { e.stopPropagation(); completarConsulta(h.consulta_id); }}
+                                      >
+                                        {completando === h.consulta_id
+                                          ? <><ClipLoader size={10} color="#fff" /> Completando…</>
+                                          : <><FaRedoAlt /> Completar fuentes pendientes</>}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="PSX-detalle-pendientes">
+                                      Todas las fuentes consultadas en esta consulta respondieron.
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {totalHistorial > 10 && (
+                <div className="PSX-paginacion">
+                  <button disabled={pagina === 0} onClick={() => setPagina((p) => p - 1)}>← Anterior</button>
+                  <span>Página {pagina + 1} de {Math.ceil(totalHistorial / 10)}</span>
+                  <button disabled={(pagina + 1) * 10 >= totalHistorial} onClick={() => setPagina((p) => p + 1)}>Siguiente →</button>
+                </div>
+              )}
+            </section>
+          )}
+        </main>
       </div>
     </div>
   );
