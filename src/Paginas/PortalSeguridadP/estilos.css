@@ -671,20 +671,6 @@
   background: #fdf3f3;
 }
 
-.PSX-boton-completar-tabla {
-  background: #35506b;
-  color: #fff;
-  border-color: #24384a;
-}
-
-.PSX-boton-completar-tabla:hover {
-  background: #2a4056;
-}
-
-.PSX-boton-completar-tabla:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
 
 /* ══════════════════ ACORDEÓN DE PLANES ══════════════════ */
 
@@ -865,6 +851,34 @@
 .PSX-badge-pendientes {
   background: #6e7781;
   color: #fff;
+}
+
+/* Botón ↻ junto al badge de pendientes: simple símbolo (pedido 2026-09-25). */
+.PSX-boton-recargar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--psx-borde);
+  border-radius: 50%;
+  background: #fff;
+  color: #35506b;
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.PSX-boton-recargar:hover:not(:disabled) {
+  border-color: #35506b;
+  color: #24384a;
+}
+
+.PSX-boton-recargar:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .PSX-chevron-pend {

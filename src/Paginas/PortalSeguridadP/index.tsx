@@ -73,7 +73,15 @@ const INPUT_CLAVE_SWAL = (id: string, placeholder: string, autocomplete = "new-p
 
 type Vista = "panel" | "consulta" | "historial";
 
-export default function PortalSeguridadP() {
+// Slug de URL de cada módulo (patrón /AdminSeguridad: carpeta estática por
+// vista para que el F5 aterrice en el módulo; el replaceState espeja).
+const RUTA_VISTA: Record<Vista, string> = {
+  panel: "panel",
+  consulta: "nueva-consulta",
+  historial: "historial",
+};
+
+export default function PortalSeguridadP({ vistaInicial = "panel" }: { vistaInicial?: Vista }) {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -88,8 +96,22 @@ export default function PortalSeguridadP() {
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   // Módulo activo de la sidebar (patrón tusdatos: navegación por módulos).
-  const [vista, setVista] = useState<Vista>("panel");
+  const [vista, setVista] = useState<Vista>(vistaInicial);
   const [menuLateralAbierto, setMenuLateralAbierto] = useState(false);
+
+  // ── Módulo en la URL (patrón /AdminSeguridad): replaceState NATIVO (no
+  // router.replace: la navegación del App Router re-suspende el Suspense y
+  // el módulo parpadea). Cada módulo tiene su carpeta estática
+  // (/PortalSeguridad/panel, /nueva-consulta, /historial) para que el F5
+  // aterrice en el módulo correcto; la raíz sigue siendo el panel. */
+  useEffect(() => {
+    const base = window.location.pathname
+      .replace(/\/(panel|nueva-consulta|historial)\/?$/, "")
+      .replace(/\/+$/, "");
+    window.history.replaceState(
+      window.history.state, "", `${base}/${RUTA_VISTA[vista]}${window.location.search}`
+    );
+  }, [vista]);
 
   // Login (pantalla 1) o portal (pantalla 2)
   const [correo, setCorreo] = useState("");
@@ -542,6 +564,57 @@ export default function PortalSeguridadP() {
       });
       cargarPortal();
     } catch (e: any) {
+      // Escape hatch (2026-09-25): la autodetección de nombres falló (p. ej.
+      // cédula de MUJER sin libreta ni cursos MP y sin memoria previa) y el
+      // plan exige nombres (rama_judicial busca por nombre). El dato lo tiene
+      // la propia usuaria: se le pide UNA sola vez y queda en la memoria.
+      const detalle = typeof e?.response?.data?.detail === "string" ? e.response.data.detail : "";
+      if (e?.response?.status === 422 && detalle.includes("nombres y apellidos completos")) {
+        const { value: f } = await Swal.fire({
+          title: "Necesitamos los nombres",
+          html:
+            '<p class="PSX-swal-texto">No fue posible obtenerlos automáticamente para esta cédula ' +
+            '(sin registro en las fuentes oficiales). Ingréselos una sola vez: quedan guardados ' +
+            'para las futuras consultas de su empresa.</p>' +
+            '<input id="swal-nombres" placeholder="Nombres completos (sin tildes)" class="swal2-input" maxlength="60">' +
+            '<input id="swal-apellidos" placeholder="Apellidos completos (sin tildes)" class="swal2-input" maxlength="60">',
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonText: "Consultar",
+          cancelButtonText: "Cancelar",
+          confirmButtonColor: "#00A5B5",
+          preConfirm: () => ({
+            nombres: (document.getElementById("swal-nombres") as HTMLInputElement).value.trim(),
+            apellidos: (document.getElementById("swal-apellidos") as HTMLInputElement).value.trim(),
+          }),
+        });
+        if (f?.nombres && f?.apellidos) {
+          try {
+            const estudio = await crearEstudio(
+              requiereCedula ? cedula.replace(/\D/g, "") : undefined, undefined, planAbierto,
+              placaNorm, propietarioNorm, f.nombres, f.apellidos,
+              requiereNit ? nit.trim().replace(/-\s*\d\s*$/, "").replace(/\D/g, "") : undefined, fechaExpNorm,
+            );
+            playNotificationSound();
+            setEstudioNuevo(estudio);
+            Swal.fire({
+              title: "Consulta completada",
+              text: `Persona: ${estudio.nombre_consultado || "no identificada"} · Consulta ${estudio.consulta_id}`,
+              icon: estudio.estado === "COMPLETADA" ? "success" : "warning",
+              timer: 5000,
+            });
+            cargarPortal();
+            return;
+          } catch (e2: any) {
+            playNotificationSound();
+            Swal.fire("No se pudo consultar", mensajeError(e2), "error");
+            return;
+          }
+        }
+        playNotificationSound();
+        Swal.fire("Consulta cancelada", "Sin los nombres no es posible consultar este plan.", "info");
+        return;
+      }
       playNotificationSound(); // también terminó (con error): avisar igual
       Swal.fire("No se pudo consultar", mensajeError(e), "error");
     } finally {
@@ -1258,9 +1331,22 @@ export default function PortalSeguridadP() {
                               </td>
                               <td data-label="Pendientes">
                                 {pendientes.length ? (
-                                  <span className="PSX-badge PSX-badge-pendientes" title="Haga clic en la fila para ver las fuentes pendientes">
-                                    {pendientes.length} fuente{pendientes.length === 1 ? "" : "s"} <FaChevronDown className={`PSX-chevron-pend ${expandida ? "PSX-chevron-pend-arriba" : ""}`} />
-                                  </span>
+                                  <>
+                                    <span className="PSX-badge PSX-badge-pendientes" title="Haga clic en la fila para ver las fuentes pendientes">
+                                      {pendientes.length} <FaChevronDown className={`PSX-chevron-pend ${expandida ? "PSX-chevron-pend-arriba" : ""}`} />
+                                    </span>{" "}
+                                    <button
+                                      className="PSX-boton-recargar"
+                                      disabled={completando === h.consulta_id}
+                                      title="Volver a consultar las fuentes pendientes y re-emitir el informe"
+                                      aria-label="Completar fuentes pendientes"
+                                      onClick={(e) => { e.stopPropagation(); completarConsulta(h.consulta_id); }}
+                                    >
+                                      {completando === h.consulta_id
+                                        ? <ClipLoader size={10} color="#35506b" />
+                                        : <FaRedoAlt />}
+                                    </button>
+                                  </>
                                 ) : (
                                   <span className="PSX-texto-suave">—</span>
                                 )}
@@ -1288,19 +1374,10 @@ export default function PortalSeguridadP() {
                                         ))}
                                       </ul>
                                       <p className="PSX-campo-ayuda" style={{ marginTop: 8, marginBottom: 0 }}>
-                                        Puede volver a consultar solo estas fuentes y el informe se re-emite
-                                        completo. Si la consulta original quedó sin costo (la mayoría de las
+                                        Puede volver a consultarlas con el botón ↻ junto al número de
+                                        pendientes. Si la consulta original quedó sin costo (la mayoría de las
                                         fuentes falló), al completarla se cobra el valor del plan.
                                       </p>
-                                      <button
-                                        className="PSX-boton-tabla PSX-boton-completar-tabla"
-                                        disabled={completando === h.consulta_id}
-                                        onClick={(e) => { e.stopPropagation(); completarConsulta(h.consulta_id); }}
-                                      >
-                                        {completando === h.consulta_id
-                                          ? <><ClipLoader size={10} color="#fff" /> Completando…</>
-                                          : <><FaRedoAlt /> Completar fuentes pendientes</>}
-                                      </button>
                                     </div>
                                   ) : (
                                     <div className="PSX-detalle-pendientes">
