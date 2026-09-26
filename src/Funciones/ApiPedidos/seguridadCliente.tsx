@@ -342,6 +342,51 @@ export const listarEstudios = async (filtros: {
   return res.data;
 };
 
+// ─── Consulta con progreso (2026-09-25) ───────────────────────────────────────
+// El POST /iniciar arranca el estudio y devuelve el consulta_id al instante;
+// la ejecución corre en background y este polling alimenta la barra de avance
+// (fuentes completadas / total). Al terminar TODO (incluido el PDF) llega el
+// estudio completo en `estudio`.
+
+export interface ProgresoEstudio {
+  consulta_id: string;
+  total: number;
+  hechas: number;
+  pct: number;
+  fuentes: Record<string, string | null>; // null = corriendo
+  estudio?: EstudioDetalle | null;
+}
+
+export const iniciarEstudio = async (
+  cedula: string | undefined,
+  fuentes?: string[],
+  planId?: string,
+  placa?: string,
+  cedulaPropietario?: string,
+  nombres?: string,
+  apellidos?: string,
+  nit?: string,
+  fechaExpedicion?: string
+): Promise<{ consulta_id: string; estado: string }> => {
+  const res = await api.post<{ consulta_id: string; estado: string }>("/iniciar", {
+    ...(cedula ? { cedula } : {}),
+    ...(nit ? { nit } : {}),
+    ...(fuentes ? { fuentes } : {}),
+    ...(planId ? { plan_id: planId } : {}),
+    ...(placa ? { placa } : {}),
+    ...(placa && cedulaPropietario ? { cedula_propietario: cedulaPropietario } : {}),
+    ...(nombres ? { nombres } : {}),
+    ...(apellidos ? { apellidos } : {}),
+    ...(fechaExpedicion ? { fecha_expedicion: fechaExpedicion } : {}),
+  });
+  return res.data;
+};
+
+export const obtenerProgreso = async (consultaId: string): Promise<ProgresoEstudio> => {
+  const res = await api.get<ProgresoEstudio>(`/${consultaId}/progreso`);
+  return res.data;
+};
+
 export const obtenerEstudio = async (consultaId: string): Promise<EstudioDetalle> => {
   const res = await api.get<EstudioDetalle>(`/${consultaId}`);
   return res.data;

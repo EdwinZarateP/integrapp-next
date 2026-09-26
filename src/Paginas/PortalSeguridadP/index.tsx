@@ -23,17 +23,19 @@ import {
   CupoCliente,
   EstudioDetalle,
   EstudioResumen,
+  ProgresoEstudio,
   buscarPersona,
   cambiarClave,
   completarEstudio,
-  crearEstudio,
   descargarPdfEstudio,
   haySesionCliente,
+  iniciarEstudio,
   listarEstudios,
   loginCliente,
   cerrarSesionCliente,
   mensajeError,
   obtenerCupo,
+  obtenerProgreso,
   pesosColombianos,
   recuperarConfirmar,
   recuperarSolicitar,
@@ -463,6 +465,41 @@ export default function PortalSeguridadP({ vistaInicial = "panel" }: { vistaInic
     return Math.max(...fs.map((f) => SEGUNDOS_FUENTE[f] ?? 60));
   })();
 
+  // ── Consulta con BARRA DE PROGRESO (2026-09-25) ────────────────────────
+  // POST /iniciar (devuelve el consulta_id al instante) + polling del
+  // progreso real por fuente. Si el progreso falla (404 mientras prepara o
+  // reinicio de instancia) se sigue sondeando hasta el guard de 8 min.
+  const [progreso, setProgreso] = useState<ProgresoEstudio | null>(null);
+  const esperar = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+  const ejecutarConsulta = async (nombresArg?: string, apellidosArg?: string): Promise<EstudioDetalle> => {
+    // Normalizaciones (mismas reglas que las validaciones de consultar()).
+    const placaN = requierePlaca ? placa.replace(/[^A-Za-z0-9]/g, "").toUpperCase() : undefined;
+    const propN = requierePropietario ? (cedulaPropietario.replace(/\D/g, "") || undefined) : undefined;
+    const nitN = requiereNit ? nit.trim().replace(/-\s*\d\s*$/, "").replace(/\D/g, "") : undefined;
+    const fechaN = requiereFechaExp ? fechaExpedicion.trim() : undefined;
+    const inicio = await iniciarEstudio(
+      requiereCedula ? cedula.replace(/\D/g, "") : undefined,
+      undefined, planAbierto ?? undefined, placaN, propN,
+      nombresArg, apellidosArg,
+      nitN, fechaN,
+    );
+    const t0 = Date.now();
+    for (;;) {
+      await esperar(1500);
+      try {
+        const p = await obtenerProgreso(inicio.consulta_id);
+        setProgreso(p);
+        if (p.estudio) return p.estudio;
+      } catch {
+        // Progreso aún no disponible (cascada de nombres) o caído: seguir.
+      }
+      if (Date.now() - t0 > 8 * 60 * 1000) {
+        throw new Error("La consulta está tardando más de lo esperado. Revise el historial en unos minutos: el informe quedará allí.");
+      }
+    }
+  };
+
   const consultar = async (e: React.FormEvent) => {
     e.preventDefault();
     const digitos = cedula.replace(/\D/g, "");
@@ -529,9 +566,10 @@ export default function PortalSeguridadP({ vistaInicial = "panel" }: { vistaInic
     }
     setConsultando(true);
     setEstudioNuevo(null);
+    setProgreso(null);
     try {
       // Nombres/apellidos SIN enviar: el backend los detecta solo (2026-09-25).
-      const estudio = await crearEstudio(requiereCedula ? digitos : undefined, undefined, planAbierto, placaNorm, propietarioNorm, undefined, undefined, requiereNit ? nitNorm : undefined, fechaExpNorm);
+      const estudio = await ejecutarConsulta();
       playNotificationSound(); // la consulta terminó
       setEstudioNuevo(estudio);
       // Mismo criterio del backend (2026-09-01): la consulta NO se cobra solo
@@ -590,11 +628,7 @@ export default function PortalSeguridadP({ vistaInicial = "panel" }: { vistaInic
         });
         if (f?.nombres && f?.apellidos) {
           try {
-            const estudio = await crearEstudio(
-              requiereCedula ? cedula.replace(/\D/g, "") : undefined, undefined, planAbierto,
-              placaNorm, propietarioNorm, f.nombres, f.apellidos,
-              requiereNit ? nit.trim().replace(/-\s*\d\s*$/, "").replace(/\D/g, "") : undefined, fechaExpNorm,
-            );
+            const estudio = await ejecutarConsulta(f.nombres, f.apellidos);
             playNotificationSound();
             setEstudioNuevo(estudio);
             Swal.fire({
@@ -1134,9 +1168,39 @@ export default function PortalSeguridadP({ vistaInicial = "panel" }: { vistaInic
                     style={{ width: 190, height: 190, margin: "0 auto" }}
                   />
                   <p className="PSX-investigando-mensaje">{mensajesConsulta[indiceMensaje]}</p>
+                  {progreso && (
+                    <div className="PSX-progreso">
+                      <div className="PSX-progreso-cifras">
+                        <span><strong>{progreso.hechas}</strong> de {progreso.total} fuentes completadas</span>
+                        <strong className="PSX-progreso-pct">{progreso.pct}%</strong>
+                      </div>
+                      <div className="PSX-barra-pista PSX-progreso-barra">
+                        <div
+                          className="PSX-barra-relleno"
+                          style={{ width: `${progreso.pct}%`, transition: "width 0.5s ease" }}
+                        />
+                      </div>
+                      <ul className="PSX-progreso-lista">
+                        {Object.entries(progreso.fuentes).map(([f, est]) => (
+                          <li
+                            key={f}
+                            className={
+                              est == null ? "PSX-progreso-pendiente"
+                              : est === "EXITO" || est === "ADVERTENCIA" ? "PSX-progreso-ok"
+                              : "PSX-progreso-fallo"
+                            }
+                          >
+                            {est == null ? "⏳" : est === "EXITO" || est === "ADVERTENCIA" ? "✓" : "✕"}{" "}
+                            {nombreFuente(f)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <p className="PSX-investigando-sub">
                     Las fuentes del plan se consultan en paralelo: esto puede tomar
-                    de 3 a {estimacionSegundos} segundos (según la fuente más lenta). No cierre la ventana.
+                    de 3 a {estimacionSegundos} segundos (según la fuente más lenta). Si cierra la
+                    ventana, la consulta termina igual y quedará en su historial.
                   </p>
                 </div>
               )}
