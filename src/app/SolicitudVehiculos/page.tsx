@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen, FaChevronDown, FaChevronRight, FaUndo } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import { usoVehiculoSolicitado, badgeUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
 import Swal from 'sweetalert2';
 import './estilos.css';
 
@@ -3316,6 +3317,7 @@ const SolicitudVehiculos: React.FC = () => {
                     <th>Peso Real</th>
                     <th>Ruta</th>
                     <th>Tipo Vehículo</th>
+                    <th title="Peso real ÷ tope del tipo solicitado">% Uso</th>
                     <th>Flete teórico</th>
                     <th>Flete solicitado</th>
                     <th>Total Solicitado</th>
@@ -3390,6 +3392,17 @@ const SolicitudVehiculos: React.FC = () => {
                       <td>{sol.peso_real.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</td>
                       <td>{sol.ruta}</td>
                       <td>{sol.tipo_vehiculo}</td>
+                      {/* % de uso: peso real ÷ tope del tipo solicitado (semáforo de costo-operación). */}
+                      {(() => {
+                        const usoVeh = usoVehiculoSolicitado(sol.peso_real, sol.tipo_veh_sicetac, sol.tipo_vehiculo);
+                        return (
+                          <td title="Peso real ÷ tope del tipo solicitado">
+                            {usoVeh == null ? '—' : (
+                              <span style={badgeUsoVehiculo(usoVeh)}>{Math.round(usoVeh)}%</span>
+                            )}
+                          </td>
+                        );
+                      })()}
                       <td>${sol.tarifa_calculada.toLocaleString('es-CO')}</td>
                       <td>${sol.tarifa_base?.toLocaleString('es-CO') || '-'}</td>
                       <td style={{ fontWeight: 'bold', color: '#005f56' }}>${total.toLocaleString('es-CO')}</td>
@@ -3551,6 +3564,7 @@ const SolicitudVehiculos: React.FC = () => {
                         <th>Fecha Preaprobado</th>
                         <th>Observaciones</th>
                         <th>Obs. Causal</th>
+                        <th title="Peso real ÷ tope del tipo solicitado">% Uso</th>
                         <th>Estado</th>
                         <th>Total Solicitado</th>
                         <th>Diferencia</th>
@@ -3745,6 +3759,17 @@ const SolicitudVehiculos: React.FC = () => {
                           <td className="SV-truncate" title={resultado.observacion_causal || ''} style={{ maxWidth: '160px', fontSize: '0.85rem', color: '#666' }}>
                             {resultado.observacion_causal || '-'}
                           </td>
+                          {/* % de uso: peso real ÷ tope del tipo solicitado (semáforo de costo-operación). */}
+                          {(() => {
+                            const usoVeh = usoVehiculoSolicitado(resultado.peso_real, resultado.tipo_veh_sicetac, resultado.tipo_vehiculo);
+                            return (
+                              <td title="Peso real ÷ tope del tipo solicitado">
+                                {usoVeh == null ? '—' : (
+                                  <span style={badgeUsoVehiculo(usoVeh)}>{Math.round(usoVeh)}%</span>
+                                )}
+                              </td>
+                            );
+                          })()}
                           <td>
                             {resultado.encontrada && (
                               <>
@@ -3885,7 +3910,7 @@ const SolicitudVehiculos: React.FC = () => {
                         </tr>
                         {planillasExpandidas[resultado.planilla] && resultado.encontrada && (
                           <tr className="SV-detalleRow">
-                            <td colSpan={30}>
+                            <td colSpan={31}>
                               <DetallePlanilla resultado={resultado} />
                             </td>
                           </tr>

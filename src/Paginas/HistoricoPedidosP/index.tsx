@@ -7,6 +7,8 @@ import {
   FaChevronRight, FaChevronDown,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import { usoVehiculoSolicitado, badgeUsoVehiculo, cumpleFiltroUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
+import { compararValorColumna } from '@/Funciones/ordenTabla';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
 import './estilos.css';
@@ -47,7 +49,7 @@ interface HistoricoDoc {
   [key: string]: any;
 }
 
-const COLS = 29;
+const COLS = 30;
 
 // Parseo tolerante a formato es-CO ("$1.234,56" -> 1234.56) y a números puros.
 const parseNumeroTolerante = (v: any): number => {
@@ -253,6 +255,10 @@ const HistoricoPedidosP: React.FC = () => {
   const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const [fechaInicio, setFechaInicio] = useState(hoy);
   const [fechaFin, setFechaFin] = useState(hoy);
+  // Filtro de % de uso ('' todos, 'lt30', 'lt80', 'gte80'): se aplica al Buscar.
+  const [filtroUso, setFiltroUso] = useState('');
+  // Columna de orden activa: {campo, dir} | null (null = orden del servidor).
+  const [orden, setOrden] = useState<{ campo: string; dir: 'asc' | 'desc' } | null>(null);
   const [descargando, setDescargando] = useState(false);
   // Documento del histórico cuyo detalle se muestra en el modal (al clic en el consecutivo).
   const [modalDoc, setModalDoc] = useState<HistoricoDoc | null>(null);
@@ -311,7 +317,7 @@ const HistoricoPedidosP: React.FC = () => {
     cargarHistorico(hoy, hoy, perfilCookie, regionalCookie.startsWith('CO') ? CEDI_MAP[regionalCookie] || regionalCookie : regionalCookie);
   }, [router]);
 
-  const cargarHistorico = async (fInicio: string, fFin: string, perfilVal?: string, centroVal?: string, regionalVal?: string) => {
+  const cargarHistorico = async (fInicio: string, fFin: string, perfilVal?: string, centroVal?: string, regionalVal?: string, usoVal?: string) => {
     setCargando(true);
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -323,7 +329,12 @@ const HistoricoPedidosP: React.FC = () => {
       const response = await fetch(`${API}/siscore/historico?${params}`);
       if (response.ok) {
         const data = await response.json();
-        setPlanillas(data.planillas || []);
+        // El filtro de % de uso se aplica aquí (lado cliente) para que solo
+        // tome efecto al presionar Buscar, igual que los demás filtros.
+        const docs: HistoricoDoc[] = data.planillas || [];
+        setPlanillas(usoVal
+          ? docs.filter(p => cumpleFiltroUsoVehiculo(usoVehiculoSolicitado(p.peso_real, p.tipo_veh_sicetac, p.tipo_vehiculo), usoVal))
+          : docs);
       }
     } catch (error) {
       console.error('Error al cargar historico:', error);
@@ -333,7 +344,7 @@ const HistoricoPedidosP: React.FC = () => {
   };
 
   const handleBuscar = () => {
-    cargarHistorico(fechaInicio, fechaFin, perfil, centroDistribucion, regionalSeleccionada);
+    cargarHistorico(fechaInicio, fechaFin, perfil, centroDistribucion, regionalSeleccionada, filtroUso);
   };
 
   const handleDescargarExcel = async () => {
@@ -492,6 +503,71 @@ const HistoricoPedidosP: React.FC = () => {
     (p.regional || '').toLowerCase().includes(busqueda.toLowerCase())
   );
 
+  // ── Orden por columna (clic en el título, como el filtro de Excel) ────────
+  // asc → desc → orden original. Nulos/vacíos siempre al final.
+  const valorOrden = (p: HistoricoDoc, campo: string): string | number | null => {
+    switch (campo) {
+      case 'consecutivo': return p.consecutivo || '';
+      case 'planilla': return p.planilla || '';
+      case 'pedido': return p.pedido_vulcano || '';
+      case 'fecha': return p.fecha_preaprobado || p.fecha_creacion || '';
+      case 'uso': return usoVehiculoSolicitado(p.peso_real, p.tipo_veh_sicetac, p.tipo_vehiculo);
+      case 'estado': return p.estado || '';
+      case 'total': return fmtVal(p.total_solicitado);
+      case 'diferencia': return p.diferencia !== undefined && p.diferencia !== null
+        ? fmtVal(p.diferencia)
+        : fmtVal(p.total_solicitado) - fmtVal(p.tarifa_calculada);
+      case 'regional': return p.regional || '';
+      case 'placa': return p.placa || '';
+      case 'piezas': return fmtVal(p.piezas);
+      case 'peso': return fmtVal(p.peso_real);
+      case 'peso_sic': return fmtVal(p.peso_sicetac ?? p.peso_real);
+      case 'cant_pedidos': return fmtVal(p.cantidad_pedidos);
+      case 'ruta': return p.ruta || '';
+      case 'tipo': return p.tipo_vehiculo || '';
+      case 'tipo_sic': return p.tipo_veh_sicetac || '';
+      case 'flete_teo': return fmtVal(p.tarifa_calculada);
+      case 'flete_sol': return fmtVal(p.tarifa_base || p.tarifa_calculada);
+      case 'descargue': return fmtVal(p.requiere_descargue as any);
+      case 'pto': return fmtVal(p.punto_adicional as any);
+      case 'desvio': return fmtVal(p.desvio as any);
+      case 'aforo': return fmtVal(p.aforo);
+      case 'municipio': return p.municipio_destino || '';
+      case 'cliente': return p.cliente_origen || '';
+      case 'cant_destinos': return fmtVal(p.cantidad_destinos);
+      case 'codigo': return p.codigo_pedido || '';
+      case 'causal': return p.causal || '';
+      case 'ahorro': return p.ahorro ?? null;
+      case 'observacion': return p.observacion || '';
+      default: return null;
+    }
+  };
+
+  const planillasOrdenadas = orden
+    ? [...planillasFiltradas].sort((x, y) => {
+        const va = valorOrden(x, orden.campo);
+        const vb = valorOrden(y, orden.campo);
+        if (va == null || vb == null) return compararValorColumna(va, vb);
+        const c = compararValorColumna(va, vb);
+        return orden.dir === 'asc' ? c : -c;
+      })
+    : planillasFiltradas;
+
+  const toggleOrden = (campo: string) =>
+    setOrden(o => (o?.campo !== campo ? { campo, dir: 'asc' } : o.dir === 'asc' ? { campo, dir: 'desc' } : null));
+
+  const flechaOrden = (campo: string) => (orden?.campo === campo ? (orden.dir === 'asc' ? ' ▲' : ' ▼') : '');
+
+  const thOrden = (campo: string, etiqueta: string, title?: string) => (
+    <th
+      onClick={() => toggleOrden(campo)}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
+      title={title || 'Clic para ordenar (ascendente/descendente)'}
+    >
+      {etiqueta}{flechaOrden(campo)}
+    </th>
+  );
+
   const formatDate = (val: any) => {
     if (!val) return '-';
     // FastAPI + pymongo (tz_aware=False) devuelven las fechas Mongo como ISO SIN zona hororia
@@ -585,6 +661,18 @@ const HistoricoPedidosP: React.FC = () => {
                 ))}
               </select>
             )}
+            <select
+              className="HP-dateInput"
+              style={{ minWidth: '130px' }}
+              value={filtroUso}
+              onChange={e => setFiltroUso(e.target.value)}
+              title="% de uso del vehículo — se aplica al presionar Buscar"
+            >
+              <option value="">% Uso: todos</option>
+              <option value="lt30">Uso menor a 30%</option>
+              <option value="lt80">Uso menor a 80%</option>
+              <option value="gte80">Uso 80% o más</option>
+            </select>
             <button className="HP-btn HP-btnPrimary" onClick={handleBuscar}>
               <FaSearch /> Buscar
             </button>
@@ -618,35 +706,36 @@ const HistoricoPedidosP: React.FC = () => {
               <thead>
                 <tr>
                   <th style={{ width: '44px' }} title="Ver clientes y pedidos de la planilla"></th>
-                  <th>Consecutivo</th>
-                  <th>Planilla</th>
-                  <th>Pedido Vulcano</th>
-                  <th>Fecha Preaprobado</th>
-                  <th>Estado</th>
-                  <th>Total Solicitado</th>
-                  <th>Diferencia</th>
-                  <th>Regional</th>
-                  <th>Placa</th>
-                  <th>Piezas</th>
-                  <th>Peso Real</th>
-                  <th>Peso SICETAC</th>
-                  <th>Cant. Pedidos</th>
-                  <th>Ruta</th>
-                  <th>Tipo Vehículo</th>
-                  <th>Vehículo SICETAC</th>
-                  <th>Flete Teórico</th>
-                  <th>Flete Solicitado</th>
-                  <th>Descargue</th>
-                  <th>Punto Adic.</th>
-                  <th>Desvío</th>
-                  <th>Aforo</th>
-                  <th>Municipio Principal</th>
-                  <th>Cliente Origen</th>
-                  <th>Cant. Destinos</th>
-                  <th>Código Pedido</th>
-                  <th>Observaciones</th>
-                  <th>Ahorro</th>
-                  <th>Obs. Ahorro</th>
+                  {thOrden('consecutivo', 'Consecutivo')}
+                  {thOrden('planilla', 'Planilla')}
+                  {thOrden('pedido', 'Pedido Vulcano')}
+                  {thOrden('fecha', 'Fecha Preaprobado')}
+                  {thOrden('uso', '% Uso', 'Peso real ÷ tope del tipo solicitado')}
+                  {thOrden('estado', 'Estado')}
+                  {thOrden('total', 'Total Solicitado')}
+                  {thOrden('diferencia', 'Diferencia')}
+                  {thOrden('regional', 'Regional')}
+                  {thOrden('placa', 'Placa')}
+                  {thOrden('piezas', 'Piezas')}
+                  {thOrden('peso', 'Peso Real')}
+                  {thOrden('peso_sic', 'Peso SICETAC')}
+                  {thOrden('cant_pedidos', 'Cant. Pedidos')}
+                  {thOrden('ruta', 'Ruta')}
+                  {thOrden('tipo', 'Tipo Vehículo')}
+                  {thOrden('tipo_sic', 'Vehículo SICETAC')}
+                  {thOrden('flete_teo', 'Flete Teórico')}
+                  {thOrden('flete_sol', 'Flete Solicitado')}
+                  {thOrden('descargue', 'Descargue')}
+                  {thOrden('pto', 'Punto Adic.')}
+                  {thOrden('desvio', 'Desvío')}
+                  {thOrden('aforo', 'Aforo')}
+                  {thOrden('municipio', 'Municipio Principal')}
+                  {thOrden('cliente', 'Cliente Origen')}
+                  {thOrden('cant_destinos', 'Cant. Destinos')}
+                  {thOrden('codigo', 'Código Pedido')}
+                  {thOrden('causal', 'Observaciones')}
+                  {thOrden('ahorro', 'Ahorro')}
+                  {thOrden('observacion', 'Obs. Ahorro')}
                   {['ADMIN', 'ANALISTA'].includes(perfil) && <th>Acciones</th>}
                 </tr>
               </thead>
@@ -656,7 +745,7 @@ const HistoricoPedidosP: React.FC = () => {
                     <td colSpan={COLS + 1 + (['ADMIN', 'ANALISTA'].includes(perfil) ? 1 : 0)} className="HP-empty">No se encontraron registros</td>
                   </tr>
                 ) : (
-                  planillasFiltradas.map(p => {
+                  planillasOrdenadas.map(p => {
                     const totalSolicitado = fmtVal(p.total_solicitado);
                     const fleteTeorico = fmtVal(p.tarifa_calculada);
                     const diferencia = p.diferencia !== undefined && p.diferencia !== null
@@ -689,6 +778,17 @@ const HistoricoPedidosP: React.FC = () => {
                         <td>{p.planilla}</td>
                         <td style={{ fontWeight: 600, color: '#2563eb' }}>{p.pedido_vulcano || '-'}</td>
                         <td style={{ fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>{formatDate(p.fecha_preaprobado || p.fecha_creacion)}</td>
+                        {/* % de uso: peso real ÷ tope del tipo solicitado (semáforo de costo-operación). */}
+                        {(() => {
+                          const usoVeh = usoVehiculoSolicitado(p.peso_real, p.tipo_veh_sicetac, p.tipo_vehiculo);
+                          return (
+                            <td title="Peso real ÷ tope del tipo solicitado">
+                              {usoVeh == null ? '—' : (
+                                <span style={badgeUsoVehiculo(usoVeh)}>{Math.round(usoVeh)}%</span>
+                              )}
+                            </td>
+                          );
+                        })()}
                         <td>
                           <span style={{
                             padding: '2px 8px',
@@ -819,6 +919,12 @@ const HistoricoPedidosP: React.FC = () => {
               {Campo('Piezas', modalDoc.piezas)}
               {Campo('Peso Real', fmtVal(modalDoc.peso_real).toLocaleString('es-CO'))}
               {Campo('Peso SICETAC', fmtVal(modalDoc.peso_sicetac ?? modalDoc.peso_real).toLocaleString('es-CO'))}
+              {Campo('% Uso Vehículo', (() => {
+                const usoVeh = usoVehiculoSolicitado(modalDoc.peso_real, modalDoc.tipo_veh_sicetac, modalDoc.tipo_vehiculo);
+                return usoVeh == null ? '-' : (
+                  <span style={badgeUsoVehiculo(usoVeh)}>{Math.round(usoVeh)}%</span>
+                );
+              })())}
               {Campo('Cant. Pedidos', modalDoc.cantidad_pedidos)}
               {Campo('Cant. Destinos', modalDoc.cantidad_destinos)}
               {Campo('Municipio Principal', modalDoc.municipio_destino)}

@@ -24,3 +24,228 @@
 /* El chrome compartido aplica `.IG-graficosFila { order: 4 }`. Como IG-main es
    flex-column, eso reordenaría las filas; lo reseteamos para respetar el DOM. */
 .IG-graficosFila { order: 0; }
+
+/* ── Uso de vehículos solicitados (drill-down) ───────────────────────────
+   Mismas clases DC-* que usa el dashboard de kabi (DashboardCliente) para
+   que el bloque se replique con el mismo look: trazabilidad, breadcrumb,
+   tabla de detalle con "+" por vehículo y sub-tabla de pedidos. */
+
+/* Botón Reintentar del estado de error */
+.DC-reintentar {
+  background: #e8a000;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Badge neutro del rango de fechas aplicado (junto al título) */
+.DC-badgeRango {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Barra de trazabilidad (búsqueda por pedido Vulcano) */
+.DC-trazaBarra {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.4rem 0;
+}
+
+.DC-trazaInput {
+  flex: 1;
+  background: #f1f4f8;
+  border: 1px solid #d7dde8;
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: #0f1928;
+}
+.DC-trazaInput:focus {
+  outline: none;
+  border-color: #e8a000;
+  background: #fff;
+}
+
+.DC-trazaBtn {
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.DC-trazaBtn:hover { background: #1e3a5f; }
+.DC-trazaBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.DC-trazaBtnLimpiar { background: #b91c1c; }
+.DC-trazaBtnLimpiar:hover { background: #991b1b; }
+
+.DC-trazaInfo {
+  margin: 0.5rem 1.4rem 0;
+  font-size: 0.78rem;
+  color: #3730a3;
+  background: #eef2ff;
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+}
+
+/* Cuerpo y acciones del detalle por vehículo */
+.DC-guiaCuerpo {
+  padding: 0.6rem 1.4rem 1.4rem;
+  border-top: 1px solid #e5e9f0;
+}
+
+.DC-guiaAcciones {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.DC-guiaBotonExportar {
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.DC-guiaBotonExportar:hover { background: #1e3a5f; }
+
+/* Scroll interno de la tabla (~15 filas) con thead fijo. OJO: el fondo del
+   encabezado NO puede vivir en thead (se va con el scroll); debe estar en
+   cada th, que es el elemento que se pega. */
+.DC-guiaTablaWrapper {
+  max-height: 44rem;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.DC-guiaTablaWrapper .IG-tabla thead {
+  background: none;
+  border-bottom: none;
+}
+
+.DC-guiaTablaWrapper .IG-tabla thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  border-bottom: 2px solid #e8a000;
+}
+
+.DC-guiaCeldaNum {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.DC-guiaCeldaVeh {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.DC-guiaCeldaDest {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Breadcrumb de niveles: cada segmento vuelve a su nivel. */
+.DC-usoCrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.3rem 0 0.6rem;
+  font-size: 0.82rem;
+}
+.DC-usoCrumbBtn {
+  background: #f1f5f9;
+  color: #1e3a5f;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.DC-usoCrumbBtn:hover { background: #e2e8f0; }
+.DC-usoCrumbActual {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+}
+.DC-usoCrumbActual:hover { background: #1e3a5f; }
+.DC-usoCrumbSep { color: #94a3b8; font-weight: 700; }
+/* Pista de que las barras son clicables (dentro del tooltip). */
+.DC-usoTipClic { color: #64748b; font-style: italic; }
+
+/* Detalle por vehículo: botón "+" que despliega los pedidos (destinatario,
+   entrega y kg de cada uno) — mismo gesto que el "+" de PedidosCompletados. */
+.DC-usoBtnExpandir {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #1e3a5f;
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.DC-usoBtnExpandir:hover:not(:disabled) { background: #e2e8f0; }
+.DC-usoBtnExpandir:disabled { opacity: 0.35; cursor: default; }
+.DC-usoBtnExpandirAbierto { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+.DC-usoFilaAbierta td { background: #f8fafc; }
+.DC-usoFilaDetalle td { background: #f8fafc; padding: 0 0.6rem 0.7rem 0.6rem; }
+
+/* Sub-tabla de pedidos del vehículo (destinatario / entrega / kg). */
+.DC-usoSubTabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.DC-usoSubTabla th {
+  text-align: left;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.DC-usoSubTabla td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.DC-usoSubTabla tr:last-child td { border-bottom: none; }
+/* Pedido Vulcano que hizo match en la trazabilidad: fila resaltada. */
+.DC-usoSubRowHit td { background: #fef9c3; font-weight: 600; }
+
+/* Vehículo del detalle de uso: el consecutivo es largo → salta de línea en
+   vez de truncarse (la tabla de guías sigue con elipsis). */
+.DC-usoCeldaVeh {
+  max-width: 300px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

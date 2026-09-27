@@ -10,6 +10,9 @@ import {
   asignarCausalCompletado,
   ListarCompletadosResponse
 } from '@/Funciones/ApiPedidos/apiPedidos';
+import { usoVehiculoSolicitado, badgeUsoVehiculo, cumpleFiltroUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
+import { compararValorColumna } from '@/Funciones/ordenTabla';
+import { REGIONALES_OPERACION, regionalDeVehiculo } from '@/Funciones/regionalVehiculo';
 import './TablaPedidosCompletados.css';
 
 // Causales válidas de sobre costo (espejo de opcionesObservacionesAjuste en TablaPedidos)
@@ -48,20 +51,13 @@ const numeroSeguro = (v?: number | string | null) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const regionesDisponibles = [
-  'FUNZA',
-  'CELTA',
-  'GIRARDOTA',
-  'BUCARAMANGA',
-  'CALI',
-  'BARRANQUILLA'
-];
-
 const TablaPedidosCompletados: React.FC = () => {
   const perfil = Cookies.get('perfilPedidosCookie') || '';
   const usuario = Cookies.get('usuarioPedidosCookie') || '';
   const usuarioRegional = Cookies.get('regionalPedidosCookie') || '';
-  const today = new Date().toISOString().slice(0, 10);
+  // 'Hoy' en hora Colombia: toISOString() da UTC y después de las 7 p.m.
+  // (UTC-5) amanecería en el día siguiente.
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 
   const [data, setData] = useState<ListarCompletadosResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,17 +72,18 @@ const TablaPedidosCompletados: React.FC = () => {
   );
   const [fechaInicial, setFechaInicial] = useState<string>(today);
   const [fechaFinal, setFechaFinal] = useState<string>(today);
+  // Filtro de % de uso ('' todos, 'lt30', 'lt80', 'gte80'): se aplica al Filtrar.
+  const [filtroUso, setFiltroUso] = useState<string>('');
+  // Columna de orden activa: {campo, dir} | null (null = orden del servidor).
+  const [orden, setOrden] = useState<{ campo: string; dir: 'asc' | 'desc' } | null>(null);
 
   const buildFiltros = () => {
     const filtros: any = {};
-    if (PERFILES_AMPLIOS_COMPLETADOS.includes(perfil)) {
-      // Perfiles con permisos amplios: solo enviar regionales si seleccionan una específica
-      if (regionalFiltro && regionalFiltro !== 'TODOS') {
-        filtros.regionales = [regionalFiltro];
-      }
-      // Si es TODOS, no enviar filtros.regionales (el backend muestra todo)
-    } else {
-      // Otros perfiles: siempre filtrar por su regional
+    // La regional vive DENTRO del consecutivo del vehículo
+    // ('CELTA-…-ANTIOQUIA-2'), campo que el backend no conoce (su campo
+    // `regional` es la bodega). El filtro del select se aplica en cliente
+    // (fetchData); al backend solo se le pide el alcance del perfil.
+    if (!PERFILES_AMPLIOS_COMPLETADOS.includes(perfil)) {
       if (usuarioRegional && usuarioRegional.trim()) {
         filtros.regionales = [usuarioRegional];
       }
@@ -118,7 +115,16 @@ const TablaPedidosCompletados: React.FC = () => {
         return;
       }
 
-      setData(res);
+      // Filtros de lado cliente (se aplican al presionar Filtrar):
+      // - % de uso: kg ÷ tope del tipo solicitado.
+      // - Regional: la que viene dentro del consecutivo ('…-ANTIOQUIA-2');
+      //   solo para perfiles amplios, que son quienes ven el select.
+      const filtraRegional = PERFILES_AMPLIOS_COMPLETADOS.includes(perfil) && regionalFiltro !== 'TODOS';
+      setData(filtroUso || filtraRegional
+        ? res.filter(g =>
+            (!filtraRegional || regionalDeVehiculo(g.consecutivo_vehiculo) === regionalFiltro) &&
+            cumpleFiltroUsoVehiculo(usoVehiculoSolicitado(g.total_kilos_vehiculo, g.tipo_vehiculo_sicetac, g.tipo_vehiculo), filtroUso))
+        : res);
     } catch (err: any) {
       setData([]);
       const status = err.response?.status;
@@ -210,6 +216,60 @@ const TablaPedidosCompletados: React.FC = () => {
     });
   };
 
+  // ── Orden por columna (clic en el título, como el filtro de Excel) ────────
+  // asc → desc → orden original. Nulos/vacíos siempre al final.
+  const valorOrden = (g: ListarCompletadosResponse, campo: string): string | number | null => {
+    switch (campo) {
+      case 'vehiculo': return g.consecutivo_vehiculo;
+      case 'sugerido': return (g.tipo_vehiculo || '').split('_')[0];
+      case 'solicitado': return (g.tipo_vehiculo_sicetac || '').split('_')[0];
+      case 'destino': return g.destino;
+      case 'puntos': return numeroSeguro(g.total_puntos_vehiculo);
+      case 'kg': return numeroSeguro(g.total_kilos_vehiculo);
+      case 'kg_sicetac': return numeroSeguro(g.total_kilos_vehiculo_sicetac);
+      case 'uso': return usoVehiculoSolicitado(g.total_kilos_vehiculo, g.tipo_vehiculo_sicetac, g.tipo_vehiculo);
+      case 'flete': return numeroSeguro(g.total_flete_solicitado);
+      case 'cardesc': return numeroSeguro(g.total_cargue_descargue);
+      case 'pto': return numeroSeguro(g.total_punto_adicional);
+      case 'desvio': return numeroSeguro(g.total_desvio_vehiculo);
+      case 'total': return numeroSeguro(g.costo_real_vehiculo);
+      case 'sobrecosto': return numeroSeguro(g.diferencia_flete);
+      case 'flete_teo': return numeroSeguro(g.valor_flete_sistema);
+      case 'cardesc_teo': return numeroSeguro(g.total_cargue_descargue_teorico);
+      case 'pto_teo': return numeroSeguro(g.total_punto_adicional_teorico);
+      case 'total_teo': return numeroSeguro(g.costo_teorico_vehiculo);
+      case 'causal': return g.Observaciones_ajustes || '';
+      case 'ahorro': return g.ahorro ?? null;
+      case 'estados': return g.estados.join(', ');
+      default: return null;
+    }
+  };
+
+  const dataOrdenada = orden
+    ? [...data].sort((x, y) => {
+        const va = valorOrden(x, orden.campo);
+        const vb = valorOrden(y, orden.campo);
+        if (va == null || vb == null) return compararValorColumna(va, vb);
+        const c = compararValorColumna(va, vb);
+        return orden.dir === 'asc' ? c : -c;
+      })
+    : data;
+
+  const toggleOrden = (campo: string) =>
+    setOrden(o => (o?.campo !== campo ? { campo, dir: 'asc' } : o.dir === 'asc' ? { campo, dir: 'desc' } : null));
+
+  const flechaOrden = (campo: string) => (orden?.campo === campo ? (orden.dir === 'asc' ? ' ▲' : ' ▼') : '');
+
+  const thOrden = (campo: string, etiqueta: string, title?: string) => (
+    <th
+      onClick={() => toggleOrden(campo)}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
+      title={title || 'Clic para ordenar (ascendente/descendente)'}
+    >
+      {etiqueta}{flechaOrden(campo)}
+    </th>
+  );
+
   const asignarCausal = async (g: ListarCompletadosResponse) => {
     const opcionesHtml = OPCIONES_CAUSAL
       .map(op => `<option value="${op}">${op}</option>`).join('');
@@ -250,7 +310,7 @@ const TablaPedidosCompletados: React.FC = () => {
             onChange={e => setRegionalFiltro(e.target.value)}
           >
             <option value="TODOS">Todas las regionales</option>
-            {regionesDisponibles.map(r => (
+            {REGIONALES_OPERACION.map(r => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -267,6 +327,16 @@ const TablaPedidosCompletados: React.FC = () => {
           value={fechaFinal}
           onChange={e => setFechaFinal(e.target.value)}
         />
+        <select
+          value={filtroUso}
+          onChange={e => setFiltroUso(e.target.value)}
+          title="% de uso del vehículo — se aplica al presionar Filtrar"
+        >
+          <option value="">% Uso: todos</option>
+          <option value="lt30">Uso menor a 30%</option>
+          <option value="lt80">Uso menor a 80%</option>
+          <option value="gte80">Uso 80% o más</option>
+        </select>
         <button
           className="TablaPedidosCompletados-button"
           onClick={fetchData}
@@ -297,7 +367,7 @@ const TablaPedidosCompletados: React.FC = () => {
                   onChange={e => setRegionalFiltro(e.target.value)}
                 >
                   <option value="TODOS">Todas las regionales</option>
-                  {regionesDisponibles.map(r => (
+                  {REGIONALES_OPERACION.map(r => (
                     <option key={r} value={r}>
                       {r}
                     </option>
@@ -325,6 +395,21 @@ const TablaPedidosCompletados: React.FC = () => {
                 onChange={e => setFechaFinal(e.target.value)}
               />
             </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', fontSize: '0.85rem' }}>
+                % Uso del vehículo:
+              </label>
+              <select
+                value={filtroUso}
+                onChange={e => setFiltroUso(e.target.value)}
+                style={{ width: '100%' }}
+              >
+                <option value="">Todos</option>
+                <option value="lt30">Menor a 30%</option>
+                <option value="lt80">Menor a 80%</option>
+                <option value="gte80">80% o más</option>
+              </select>
+            </div>
             <div className="TablaPedidosCompletados-modal-botones">
               <button onClick={() => { fetchData(); setModalFiltrosAbierto(false); }}>
                 Filtrar
@@ -346,30 +431,34 @@ const TablaPedidosCompletados: React.FC = () => {
               <thead>
                 <tr>
                   <th></th>
-                  <th>Vehículo</th>
-                  <th>Veh Sugerido</th>
-                  <th>Veh Solicitado</th>
-                  <th>Destino Final</th>
-                  <th>Puntos</th>
-                  <th>Kg Reales</th>
-                  <th>Kg Sicetac</th>
-                  <th>Flete Solicitado</th>
-                  <th>Car/desc Solicitado</th>
-                  <th>Pto Adic Solicitado</th>
-                  <th>Desvío</th>
-                  <th>Total Solicitado</th>
-                  <th>Sobre costo</th>
-                  <th>Flete Teórico</th>
-                  <th>Car/desc Teórico</th>
-                  <th>Pto Adic Teórico</th>
-                  <th>Total Teórico</th>
-                  <th>Causal</th>
-                  <th>Ahorro</th>
-                  <th>Estados</th>
+                  {thOrden('vehiculo', 'Vehículo')}
+                  {thOrden('sugerido', 'Veh Sugerido')}
+                  {thOrden('solicitado', 'Veh Solicitado')}
+                  {thOrden('destino', 'Destino Final')}
+                  {thOrden('puntos', 'Puntos')}
+                  {thOrden('kg', 'Kg Reales')}
+                  {thOrden('kg_sicetac', 'Kg Sicetac')}
+                  {thOrden('uso', '% Uso', 'Kg reales ÷ tope del tipo solicitado')}
+                  {thOrden('flete', 'Flete Solicitado')}
+                  {thOrden('cardesc', 'Car/desc Solicitado')}
+                  {thOrden('pto', 'Pto Adic Solicitado')}
+                  {thOrden('desvio', 'Desvío')}
+                  {thOrden('total', 'Total Solicitado')}
+                  {thOrden('sobrecosto', 'Sobre costo')}
+                  {thOrden('flete_teo', 'Flete Teórico')}
+                  {thOrden('cardesc_teo', 'Car/desc Teórico')}
+                  {thOrden('pto_teo', 'Pto Adic Teórico')}
+                  {thOrden('total_teo', 'Total Teórico')}
+                  {thOrden('causal', 'Causal')}
+                  {thOrden('ahorro', 'Ahorro')}
+                  {thOrden('estados', 'Estados')}
                 </tr>
               </thead>
               <tbody>
-                {data.map(g => (
+                {dataOrdenada.map(g => {
+                  // % de uso: kg reales ÷ tope del tipo solicitado (semáforo de costo-operación).
+                  const usoVeh = usoVehiculoSolicitado(g.total_kilos_vehiculo, g.tipo_vehiculo_sicetac, g.tipo_vehiculo);
+                  return (
                   <React.Fragment key={g.consecutivo_vehiculo}>
                     <tr
                       className={`${
@@ -389,8 +478,13 @@ const TablaPedidosCompletados: React.FC = () => {
                       <td>{g.destino}</td>
 
                       <td>{g.total_puntos_vehiculo}</td>
-                      <td>{numeroSeguro(g.total_kilos_vehiculo)}</td>
-                      <td>{numeroSeguro(g.total_kilos_vehiculo_sicetac)}</td>
+                      <td style={{ textAlign: 'right' }}>{numeroSeguro(g.total_kilos_vehiculo).toLocaleString('es-CO', { maximumFractionDigits: 1 })}</td>
+                      <td style={{ textAlign: 'right' }}>{numeroSeguro(g.total_kilos_vehiculo_sicetac).toLocaleString('es-CO', { maximumFractionDigits: 1 })}</td>
+                      <td title="Kg reales ÷ tope del tipo solicitado">
+                        {usoVeh == null ? '—' : (
+                          <span style={badgeUsoVehiculo(usoVeh)}>{Math.round(usoVeh)}%</span>
+                        )}
+                      </td>
                       <td>{formatoMoneda(g.total_flete_solicitado)}</td>
                       <td>{formatoMoneda(g.total_cargue_descargue)}</td>
                       <td>{formatoMoneda(g.total_punto_adicional)}</td>
@@ -436,7 +530,7 @@ const TablaPedidosCompletados: React.FC = () => {
 
                     {expanded.has(g.consecutivo_vehiculo) && (
                       <tr className="TablaPedidosCompletados-details">
-                        <td colSpan={21}>
+                        <td colSpan={22}>
                           <table className="TablaPedidosCompletados-subtable">
                             <thead>
                               <tr>
@@ -465,7 +559,8 @@ const TablaPedidosCompletados: React.FC = () => {
                       </tr>
                     )}
                   </React.Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

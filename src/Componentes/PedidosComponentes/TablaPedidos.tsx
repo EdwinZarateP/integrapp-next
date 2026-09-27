@@ -18,6 +18,8 @@ import {
   listarDespachadores,
   UsuarioLite
 } from '@/Funciones/ApiPedidos/apiPedidos';
+import { usoVehiculoSolicitado, badgeUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
+import { REGIONALES_OPERACION, regionalDeVehiculo } from '@/Funciones/regionalVehiculo';
 import './TablaPedidos.css';
 
 /***********************************
@@ -64,7 +66,6 @@ const ESTADO_REQ_GEREN = 'REQUIERE AUTORIZACION CONTROL';
 const ESTADO_COMPLETADO = 'COMPLETADO';
 
 const estadosDisponibles = [ESTADO_PREAUT, ESTADO_AUT, ESTADO_REQ_COORD, ESTADO_REQ_GEREN, ESTADO_COMPLETADO];
-const regionesDisponibles = ['FUNZA', 'CELTA', 'GIRARDOTA', 'BUCARAMANGA', 'CALI', 'BARRANQUILLA'];
 
 const perfilesConEdicion = ['ADMIN', 'DESPACHADOR', 'ANALISTA', 'OPERADOR'] as const;
 const opcionesObservacionesAjuste = [
@@ -286,11 +287,13 @@ const TablaPedidos: React.FC = () => {
     const esAdminType = ['ADMIN', 'COORDINADOR', 'ANALISTA', 'CONTROL'].includes(perfil);
     const filtros: any = {};
     if (filtroEstado !== 'TODOS') filtros.estados = [filtroEstado];
-    filtros.regionales = esAdminType
-      ? filtroRegional === 'TODOS'
-        ? regionesDisponibles
-        : [filtroRegional]
-      : [regionalUsuario];
+    // La regional vive DENTRO del consecutivo del vehículo
+    // ('CELTA-…-ANTIOQUIA-2'), campo que el backend no conoce (su campo
+    // `regional` es la bodega). El filtro del select se aplica en cliente
+    // (pedidosVisibles); al backend solo se le pide el alcance del perfil.
+    if (!esAdminType && regionalUsuario) {
+      filtros.regionales = [regionalUsuario];
+    }
     try {
       const res: VehiculoGroup[] = await listarPedidosVehiculos(usuario, filtros);
       setPedidos(Array.isArray(res) ? res : []);
@@ -305,6 +308,12 @@ const TablaPedidos: React.FC = () => {
   useEffect(() => {
     void obtenerPedidos();
   }, [obtenerPedidos]);
+
+  // Filtro regional en cliente: la regional viene dentro del consecutivo del
+  // vehículo ('CELTA-20260924-M-2026924-ANTIOQUIA-2' → ANTIOQUIA).
+  const pedidosVisibles = filtroRegional === 'TODOS'
+    ? pedidos
+    : pedidos.filter(g => regionalDeVehiculo(g.consecutivo_vehiculo) === filtroRegional);
 
   const manejarExpandir = useCallback((id: string) => {
     setExpandido((prev) => {
@@ -1024,7 +1033,7 @@ const TablaPedidos: React.FC = () => {
           {['ADMIN', 'COORDINADOR', 'ANALISTA', 'CONTROL'].includes(perfil) && (
             <select value={filtroRegional} onChange={(e) => setFiltroRegional(e.target.value)}>
               <option value="TODOS">Todas regionales</option>
-              {regionesDisponibles.map((r) => (
+              {REGIONALES_OPERACION.map((r) => (
                 <option key={r} value={r}>
                   {r}
                 </option>
@@ -1056,7 +1065,7 @@ const TablaPedidos: React.FC = () => {
             {['ADMIN', 'COORDINADOR', 'ANALISTA', 'CONTROL'].includes(perfil) && (
               <select value={filtroRegional} onChange={(e) => setFiltroRegional(e.target.value)}>
                 <option value="TODOS">Todas regionales</option>
-                {regionesDisponibles.map((r) => (
+                {REGIONALES_OPERACION.map((r) => (
                   <option key={r} value={r}>
                     {r}
                   </option>
@@ -1136,6 +1145,7 @@ const TablaPedidos: React.FC = () => {
                 <th>Veh sugerido</th>
                 <th>Veh solicitado</th>
                 <th>Destino Final</th>
+                <th title="Kg reales ÷ tope del tipo solicitado">% Uso</th>
                 <th>Estados</th>
                 <th>Puntos</th>
                 <th>Kg Reales</th>
@@ -1155,13 +1165,15 @@ const TablaPedidos: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {pedidos.map((g) => {
+              {pedidosVisibles.map((g) => {
                 const estados: string[] = Array.isArray(g.estados) ? g.estados : [];
                 const seleccionado = seleccionados.has(g.consecutivo_vehiculo);
                 const requiere = requeridoPorEstados(estados);
                 const puedeAutorizar = perfilPuedeAutorizar(perfil, requiere);
                 const filaRequiereAuth = estados.includes(ESTADO_REQ_COORD) || estados.includes(ESTADO_REQ_GEREN);
                 const totalSolicitadoEsCero = Number(g.costo_real_vehiculo ?? 0) === 0;
+                // % de uso: kg reales ÷ tope del tipo solicitado (semáforo de costo-operación).
+                const usoVeh = usoVehiculoSolicitado(g.total_kilos_vehiculo, g.tipo_vehiculo_sicetac, g.tipo_vehiculo);
 
 
                 return (
@@ -1229,6 +1241,11 @@ const TablaPedidos: React.FC = () => {
                       <td>{(g.tipo_vehiculo_sicetac || '').split('_')[0]}</td>
                       <td>{(g.tipo_vehiculo || '').split('_')[0]}</td>
                       <td>{g.destino}</td>
+                      <td title="Kg reales ÷ tope del tipo solicitado">
+                        {usoVeh == null ? '—' : (
+                          <span style={badgeUsoVehiculo(usoVeh)}>{Math.round(usoVeh)}%</span>
+                        )}
+                      </td>
                       <td>{estados.join(', ')}</td>
                       <td>{g.total_puntos_vehiculo}</td>
                       <td>{g.total_kilos_vehiculo}</td>
@@ -1256,7 +1273,7 @@ const TablaPedidos: React.FC = () => {
 
                     {expandido.has(g.consecutivo_vehiculo) && (
                       <tr className="TablaPedidos-details">
-                        <td colSpan={21}>
+                        <td colSpan={22}>
                           <DetailsTable pedidos={g.pedidos as unknown as Pedido[]} />
                         </td>
                       </tr>
