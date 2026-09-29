@@ -4,6 +4,15 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 
 ## Características Principales
 
+### % Uso del vehículo solicitado (Pedidos, PedidosCompletados, SolicitudVehiculos, HistoricoPedidos)
+- Columna «% Uso» = kg reales ÷ tope del tipo solicitado × 100 (topes CARRY 1.000 … TRACTOMULA 34.000, espejo de `TOPES_TIPO_VEH` del backend). Badge con fondo rojo < 80%, verde ≥ 80%, `—` gris sin tipo evaluable.
+- Helper compartido `src/Funciones/usoVehiculoSolicitado.ts`; posición a la izquierda de Estado(s) (en Completados, antes de «Flete Solicitado»).
+- Filtro «% Uso» (todos / <30% / <80% / ≥80%) en HistoricoPedidos y PedidosCompletados, aplicado al presionar Buscar/Filtrar.
+- Orden por columna estilo Excel (clic en el título: asc → desc → original) en HistoricoPedidos y PedidosCompletados (`src/Funciones/ordenTabla.ts`).
+
+### Regionales de la operación (Pedidos y PedidosCompletados)
+- La regional vive dentro del consecutivo del vehículo (`CELTA-20260924-M-2026924-ANTIOQUIA-2` → ANTIOQUIA). Filtro con las 15 regionales (ANTIOQUIA … SUR) que se aplica en cliente vía `src/Funciones/regionalVehiculo.ts`; el campo `regional` de los documentos es la bodega, no esta regional.
+
 ### Gestión de Usuarios (`/integrapp/GestionUsuarios`)
 - CRUD de usuarios
 - Asignación de perfiles: ADMIN, ANALISTA, COORDINADOR, OPERADOR, CONTROL, DESPACHADOR, etc.
@@ -45,6 +54,7 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 - Animación de carga con camión durante consulta
 - Tiempo de consulta visible al finalizar
 - Tabla de resultados con indicadores visuales de encontrado/no encontrado
+- Columna «% Uso» (badge semáforo) en la tabla de resultados y en la de solicitudes pendientes
 - **Fusión de planillas**: Seleccionar múltiples planillas y fusionarlas
   - Números concatenados: "846476-846256"
   - Selección de causal mediante dropdown
@@ -105,7 +115,8 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 - Visualización de planillas que ya pasaron por importación Vulcano
 - Filtrado por rango de fechas
 - Filtrado por regional para perfiles operativos
-- Exportación a Excel con filtros
+- Columna «% Uso» (badge semáforo, también en el modal de detalle), filtro por % de uso y orden por columna
+- Exportación a Excel con filtros (incluye «% Uso» decimal con formato porcentaje)
 - **Perfiles con acceso**: ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO
 
 ### Medical Care Dashboard (`/integrapp/MedicalCare`)

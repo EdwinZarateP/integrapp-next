@@ -60,20 +60,10 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
 
   return (
     <div className="rev-detalle-scroll">
-      {/* Estudio y foto de Seguridad (propios del área). */}
-      <div className="rev-docs-seguridad">
-        {veh.estudioSeguridad ? (
-          <div
-            className="rev-doc-card rev-doc-card--seguridad"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.estudioSeguridad, etiqueta: 'Estudio de Seguridad', reverso: undefined })}
-          >
-            <p>🛡️ Estudio de Seguridad</p>
-            <span>Ver</span>
-          </div>
-        ) : (
-          <div className="rev-doc-card rev-doc-card--falta"><p>🛡️ Estudio de Seguridad</p><span>Sin cargar</span></div>
-        )}
-        {veh.fotoconductorseguridad && (
+      {/* Foto del conductor tomada por Seguridad (el estudio de seguridad
+          vive en la pestaña Estudios). */}
+      {veh.fotoconductorseguridad && (
+        <div className="rev-docs-seguridad">
           <div
             className="rev-doc-card rev-doc-card--seguridad"
             onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.fotoconductorseguridad, etiqueta: 'Foto del Conductor (Seguridad)', reverso: undefined })}
@@ -81,8 +71,8 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
             <p>📷 Foto Conductor (Seguridad)</p>
             <span>Ver</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="grid-documentos">
         {veh.firmaUrl && (

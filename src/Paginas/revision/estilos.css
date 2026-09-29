@@ -69,8 +69,8 @@ body {
 
 .rev-input-busqueda:focus {
   outline: none;
-  border-color: #27ae60;
-  box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.15);
+  border-color: #00a5b5;
+  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
 }
 
 .rev-btn-clear {
@@ -104,9 +104,9 @@ body {
 
 /* Botón «Buscar» (solo pestaña Aprobados: consulta al servidor con Enter) */
 .rev-btn-buscar {
-  background: #0b3d2e;
+  background: #008794;
   color: white;
-  border: 1px solid #0b3d2e;
+  border: 1px solid #008794;
   border-radius: 0 10px 10px 0;
   padding: 11px 18px;
   font-size: 0.88rem;
@@ -116,7 +116,7 @@ body {
   white-space: nowrap;
 }
 
-.rev-btn-buscar:hover { background: #145a32; }
+.rev-btn-buscar:hover { background: #00a5b5; }
 
 /* ── Pestañas de la bandeja ── */
 .rev-pestanas {
@@ -186,18 +186,18 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.rev-fila:hover { border-color: #9fc3ab; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+.rev-fila:hover { border-color: #9fd8dd; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
 
 .rev-fila--activa {
-  border-color: #0b3d2e;
-  box-shadow: inset 3px 0 0 #0b3d2e;
-  background: #f4f9f5;
+  border-color: #00a5b5;
+  box-shadow: inset 3px 0 0 #00a5b5;
+  background: #f0fafb;
 }
 
 .rev-fila-placa {
   font-weight: 800;
   font-size: 1rem;
-  color: #0b3d2e;
+  color: #006b77;
   min-width: 90px;
   letter-spacing: 0.03em;
 }
@@ -270,7 +270,7 @@ body {
   gap: 10px;
   padding-top: 12px;
   padding-bottom: 12px;
-  background: #0b3d2e;
+  background: #006f7a;
   color: white;
   flex-wrap: wrap;
   position: relative;
@@ -292,7 +292,7 @@ body {
 
 .rev-panel-conductor {
   font-size: 0.8rem;
-  color: #cfe0d6;
+  color: #d4eef1;
 }
 
 .rev-panel-chips {
@@ -358,11 +358,11 @@ body {
   border-bottom: 3px solid transparent;
 }
 
-.rev-panel-pestana:hover { color: #0b3d2e; }
+.rev-panel-pestana:hover { color: #006b77; }
 
 .rev-panel-pestana--activa {
-  color: #0b3d2e;
-  border-bottom-color: #27ae60;
+  color: #006b77;
+  border-bottom-color: #00a5b5;
   background: #fff;
 }
 
@@ -510,11 +510,11 @@ body {
 .titulo-seccion {
     font-size: 1rem;
     font-weight: 700;
-    color: #0b3d2e;
+    color: #006b77;
     margin-top: 22px;
     margin-bottom: 12px;
     padding-bottom: 4px;
-    border-bottom: 3px solid #27ae60;
+    border-bottom: 3px solid #00a5b5;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -522,7 +522,7 @@ body {
 .titulo-subseccion {
     font-size: 0.92rem;
     font-weight: 600;
-    color: #145a32;
+    color: #008794;
     margin-top: 14px;
     border-bottom: 1px solid #ddd;
     padding-bottom: 3px;
@@ -576,7 +576,7 @@ body {
 .documento-card p {
     margin: 0;
     font-size: 0.85rem;
-    color: #0b3d2e;
+    color: #006b77;
     font-weight: 600;
 }
 
@@ -618,7 +618,7 @@ body {
   padding: 8px 15px;
   border: none;
   border-radius: 5px;
-  background: #0b3d2e;
+  background: #008794;
   color: white;
   cursor: pointer;
 }
@@ -691,9 +691,650 @@ body {
    ========================================================================== */
 
 @media (max-width: 900px) {
-  .rev-layout { padding: 10px; }
-
   .rev-fila-placa { min-width: 78px; font-size: 0.92rem; }
   .rev-fila-tiempo { display: none; }
   .rev-pestana { padding: 9px 12px; font-size: 0.82rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHELL REVX — rediseño 2026-09-28 con el patrón del Portal de Estudios
+   (dash-board.tusdatos.co: sidebar fija con módulos, top bar con breadcrumb,
+   tarjetas blancas radius 12 sobre fondo gris), branding IntegrApp.
+   Prefijo REVX- (las clases REV- internas siguen intactas).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.revx-app {
+  --revx-acento: #00a5b5;
+  --revx-acento-oscuro: #008794;
+  --revx-acento-suave: #e6f5f6;
+  --revx-fondo: #f4f6f8;
+  --revx-borde: #e5e9ef;
+  --revx-texto: #22313f;
+  --revx-texto-suave: #6b7684;
+  --revx-rojo: #e5484d;
+  --revx-radio: 12px;
+  --revx-sombra: 0 1px 3px rgba(16, 42, 67, 0.08);
+
+  display: flex;
+  min-height: 100vh;
+  background: var(--revx-fondo);
+  color: var(--revx-texto);
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* ── Sidebar (bandejas como módulos) ── */
+.revx-sidebar-escritorio {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  display: flex;
+}
+
+.revx-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 262px;
+  background: #fff;
+  border-right: 1px solid var(--revx-borde);
+  overflow-y: auto;
+}
+
+.revx-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 18px 16px;
+  cursor: pointer;
+}
+
+.revx-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.revx-logo-texto { display: flex; flex-direction: column; min-width: 0; }
+
+.revx-logo-texto span {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--revx-texto);
+  letter-spacing: 0.02em;
+}
+
+.revx-logo-texto span span { color: var(--revx-acento); }
+
+.revx-logo-texto small {
+  color: var(--revx-texto-suave);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.revx-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  flex: 1;
+}
+
+.revx-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  color: var(--revx-texto-suave);
+  font-size: 0.92rem;
+  font-weight: 500;
+  padding: 11px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.revx-nav-item svg {
+  font-size: 1.05rem;
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.revx-nav-item:hover { background: #f2f6f8; color: var(--revx-texto); }
+
+/* Activo: píldora suave + texto acento + filo izquierdo (patrón tusdatos). */
+.revx-nav-item.revx-nav-activo {
+  background: var(--revx-acento-suave);
+  color: var(--revx-acento-oscuro);
+  box-shadow: inset 3px 0 0 var(--revx-acento);
+  font-weight: 600;
+}
+
+.revx-nav-contador {
+  margin-left: auto;
+  background: #eef2f5;
+  color: var(--revx-texto-suave);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.revx-nav-activo .revx-nav-contador {
+  background: #fff;
+  color: var(--revx-acento-oscuro);
+}
+
+.revx-sidebar-pie {
+  border-top: 1px solid var(--revx-borde);
+  padding: 14px 12px;
+}
+
+.revx-sidebar-usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+}
+
+.revx-sidebar-usuario-datos { display: flex; flex-direction: column; min-width: 0; }
+
+.revx-sidebar-usuario-datos strong {
+  font-size: 0.86rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.revx-sidebar-usuario-datos small {
+  color: var(--revx-texto-suave);
+  font-size: 0.72rem;
+}
+
+.revx-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--revx-acento);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* Sidebar móvil (drawer con overlay). */
+.revx-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 42, 67, 0.45);
+  z-index: 60;
+}
+
+.revx-sidebar-movil {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 61;
+  animation: revx-deslizar 0.2s ease;
+}
+
+.revx-sidebar-movil .revx-sidebar { height: 100%; }
+
+.revx-sidebar-cerrar {
+  position: absolute;
+  top: 14px;
+  right: -46px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--revx-texto);
+  cursor: pointer;
+  box-shadow: var(--revx-sombra);
+}
+
+@keyframes revx-deslizar {
+  from { transform: translateX(-20px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ── Cuerpo: top bar + contenido ── */
+.revx-cuerpo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.revx-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--revx-borde);
+  padding: 14px 26px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.revx-hamburguesa {
+  display: none;
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  color: var(--revx-texto);
+  cursor: pointer;
+  padding: 6px;
+}
+
+.revx-miga {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  min-width: 0;
+}
+
+.revx-miga-inicio,
+.revx-miga-sep { color: var(--revx-texto-suave); }
+
+.revx-miga-actual {
+  color: var(--revx-acento-oscuro);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.revx-topbar-derecha {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.revx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--revx-borde);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  color: var(--revx-texto-suave);
+  background: #fff;
+  white-space: nowrap;
+}
+
+.revx-pill strong { color: var(--revx-texto); }
+
+/* Menú de usuario (avatar del topbar). */
+.revx-avatar-zona { position: relative; }
+
+.revx-avatar-boton {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: 8px;
+}
+
+.revx-avatar-boton:hover { background: #f2f6f8; }
+
+.revx-avatar-topbar { width: 34px; height: 34px; font-size: 0.74rem; }
+
+.revx-chevron { color: var(--revx-texto-suave); font-size: 0.7rem; transition: transform 0.15s ease; }
+.revx-chevron--arriba { transform: rotate(180deg); }
+
+.revx-avatar-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  background: #fff;
+  border: 1px solid var(--revx-borde);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 42, 67, 0.14);
+  padding: 6px;
+  z-index: 70;
+  animation: revx-aparecer 0.12s ease;
+}
+
+@keyframes revx-aparecer {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.revx-avatar-menu-cab {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--revx-borde);
+  margin-bottom: 6px;
+}
+
+.revx-avatar-menu-cab strong { font-size: 0.86rem; }
+.revx-avatar-menu-cab small { color: var(--revx-texto-suave); font-size: 0.74rem; }
+
+.revx-avatar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--revx-texto);
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.revx-avatar-item:hover { background: #f2f6f8; }
+.revx-avatar-item--rojo:hover { background: #fdeeee; color: var(--revx-rojo); }
+
+/* Contenido: encabezado + tarjetas blancas sobre gris. */
+.revx-contenido {
+  padding: 26px;
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.revx-encabezado h1 {
+  font-size: 1.45rem;
+  font-weight: 500;
+  margin: 4px 0 0;
+  color: var(--revx-texto);
+}
+
+.revx-encabezado h1 span { font-weight: 700; color: var(--revx-acento-oscuro); }
+.revx-encabezado p { margin: 4px 0 0; color: var(--revx-texto-suave); font-size: 0.88rem; }
+
+.revx-tarjeta {
+  background: #fff;
+  border-radius: var(--revx-radio);
+  box-shadow: var(--revx-sombra);
+  padding: 20px;
+}
+
+.revx-bandeja { padding: 16px 20px 20px; }
+
+/* El buscador rev-* respira dentro de la tarjeta. */
+.revx-bandeja .rev-toolbar { margin: 0 0 12px; }
+
+.revx-bandeja .rev-input-busqueda:focus {
+  border-color: var(--revx-acento);
+  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
+}
+
+/* ── Responsive del shell ── */
+@media (max-width: 900px) {
+  .revx-sidebar-escritorio { display: none; }
+  .revx-hamburguesa { display: block; }
+  .revx-topbar { padding: 12px 16px; }
+  .revx-contenido { padding: 16px; gap: 14px; }
+  .revx-pill { display: none; }
+  .revx-encabezado h1 { font-size: 1.2rem; }
+  .revx-tarjeta { padding: 14px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PESTAÑA ESTUDIOS (estudios de seguridad automáticos, TusDatos)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.rev-est-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 0;
+  max-width: 720px;
+}
+
+/* Tarjeta de acciones: re-consultar + documento PDF del estudio */
+.rev-est-acciones-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #e4e9ef;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 14px 16px;
+  margin: 16px 16px 0;
+  max-width: 720px;
+}
+
+@media (min-width: 700px) {
+  .rev-est-acciones-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
+
+.rev-est-acciones-card .rev-est-acciones { justify-content: flex-end; }
+
+.rev-est-card {
+  border: 1px solid #e4e9ef;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.rev-est-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rev-est-titulo { display: flex; flex-direction: column; min-width: 0; }
+.rev-est-titulo strong { font-size: 0.95rem; color: #22313f; }
+.rev-est-id { font-size: 0.78rem; color: #6b7684; }
+
+/* Semáforo del estudio */
+.rev-est-sem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+
+.rev-est-sem--limpio { color: #1e8449; background: #eaf7ef; }
+.rev-est-sem--alto { color: #c0392b; background: #fdeeec; }
+.rev-est-sem--medio { color: #b9770e; background: #fdf5e6; }
+.rev-est-sem--bajo { color: #1f6feb; background: #eaf2fe; }
+.rev-est-sem--info { color: #5d6d7e; background: #eef1f4; }
+.rev-est-sem--espera { color: #6b7684; background: #f2f4f6; }
+.rev-est-sem--error { color: #c0392b; background: #fdeeec; }
+
+/* Spinner diminuto dentro del semáforo de espera */
+.rev-est-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #d5dbe0;
+  border-top-color: #6b7684;
+  border-radius: 50%;
+  animation: rev-est-girar 0.8s linear infinite;
+}
+
+@keyframes rev-est-girar { to { transform: rotate(360deg); } }
+
+.rev-est-error { margin: 8px 0 0; font-size: 0.82rem; color: #c0392b; }
+.rev-est-espera { margin: 8px 0 0; font-size: 0.8rem; color: #6b7684; }
+
+.rev-est-resumen {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: #45504b;
+}
+
+.rev-est-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.rev-est-btn-pdf,
+.rev-est-btn-fuentes,
+.rev-est-btn-reintentar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.rev-est-btn-pdf { background: #00a5b5; color: #fff; }
+.rev-est-btn-pdf:hover { filter: brightness(1.08); }
+
+.rev-est-btn-fuentes {
+  background: #eef2f5;
+  color: #45504b;
+}
+.rev-est-btn-fuentes:hover { background: #e2e8ee; }
+
+.rev-est-chevron--abierto { transform: rotate(180deg); }
+
+/* Icono del botón de reintento mientras espera */
+.rev-est-girando { animation: rev-est-girar 0.8s linear infinite; }
+
+.rev-est-fuentes {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 4px 14px;
+}
+
+.rev-est-fuente { font-size: 0.78rem; display: flex; gap: 8px; align-items: center; }
+.rev-est-fuente-marca { font-weight: 800; width: 14px; text-align: center; }
+.rev-est-fuente--hallazgo { color: #c0392b; }
+.rev-est-fuente--limpia { color: #1e8449; }
+.rev-est-fuente--error { color: #b9770e; }
+
+.rev-est-pie {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px 16px;
+  max-width: 720px;
+}
+
+.rev-est-btn-reintentar { background: #eef2f5; color: #45504b; }
+.rev-est-btn-reintentar:hover { background: #e2e8ee; }
+
+.rev-est-pie small { color: #8a94a0; font-size: 0.74rem; }
+
+/* ── Tabla de historial de reportes ── */
+.rev-est-historial {
+  padding: 18px 16px 0;
+  max-width: 720px;
+}
+
+.rev-est-historial h4 {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  color: #22313f;
+}
+
+.rev-est-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  background: #fff;
+  border: 1px solid #e4e9ef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rev-est-tabla th {
+  text-align: left;
+  background: #f2f6f8;
+  color: #6b7684;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+}
+
+.rev-est-tabla td {
+  padding: 9px 12px;
+  border-top: 1px solid #eef1f4;
+  vertical-align: middle;
+}
+
+.rev-est-tabla-fecha { white-space: nowrap; color: #45504b; }
+
+.rev-est-tabla-id {
+  display: block;
+  font-size: 0.72rem;
+  color: #8a94a0;
+}
+
+.rev-est-btn-tabla {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  background: #00a5b5;
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rev-est-btn-tabla:hover { filter: brightness(1.08); }
+
+@media (max-width: 640px) {
+  .rev-est-tabla th:nth-child(3),
+  .rev-est-tabla td:nth-child(3) { display: none; } /* el resultado cabe en el PDF */
+}
+
+/* Estado vacío: vehículo sin estudios disparados */
+.rev-est-vacio {
+  text-align: center;
+  color: #6b7684;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.rev-est-vacio-icono { font-size: 2rem; color: #c9d2da; }
+.rev-est-vacio p { margin: 0; font-weight: 600; color: #45504b; }
+.rev-est-vacio small { max-width: 420px; line-height: 1.5; }

@@ -6,6 +6,7 @@ import { Vehiculo, PestanaDetalle } from "../tipos";
 import PestanaDatos from "./PestanaDatos";
 import PestanaDocumentos from "./PestanaDocumentos";
 import PestanaCambios from "./PestanaCambios";
+import PestanaEstudios from "./PestanaEstudios";
 import AccionesVehiculo from "./AccionesVehiculo";
 
 /* Chip de estado con color por semáforo. */
@@ -21,15 +22,21 @@ interface PanelDetalleProps {
   veh: Vehiculo;
   onClose: () => void;
   alCambiar: (mensaje: string) => void;
+  /** Pestaña inicial (restauración desde la URL: ?pestana=estudios). */
+  pestanaInicial?: PestanaDetalle;
+  /** Espeja la pestaña activa en la URL del index. */
+  onCambiarPestana?: (pestana: PestanaDetalle) => void;
 }
 
 /**
  * Panel de detalle: cabecera (placa, conductor, chip de estado, badge de
- * re-revisión) + pestañas internas (Datos/Documentos/Cambios) + barra de
- * acciones SIEMPRE visible al fondo. Desktop: lateral; móvil: fullscreen.
+ * re-revisión) + pestañas internas (Datos/Documentos/Estudios/Cambios) +
+ * barra de acciones SIEMPRE visible al fondo. Desktop: lateral; móvil:
+ * fullscreen. Se REMONTA con cada vehículo (render condicional) → la
+ * `pestanaInicial` aplica en cada apertura.
  */
-const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar }) => {
-  const [pestana, setPestana] = useState<PestanaDetalle>('datos');
+const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar, pestanaInicial, onCambiarPestana }) => {
+  const [pestana, setPestana] = useState<PestanaDetalle>(pestanaInicial ?? 'datos');
 
   const estado = ETIQUETA_ESTADO[veh.estadoIntegra] || { texto: veh.estadoIntegra, clase: '' };
   const esReRevison = (veh.historialCambios?.length ?? 0) > 0;
@@ -38,6 +45,7 @@ const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar }) 
   const pestanas: Array<{ id: PestanaDetalle; texto: string }> = [
     { id: 'datos', texto: 'Datos' },
     { id: 'documentos', texto: 'Documentos' },
+    { id: 'estudios', texto: 'Estudios' },
     { id: 'cambios', texto: 'Cambios' },
   ];
 
@@ -64,7 +72,7 @@ const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar }) 
           <button
             key={p.id}
             className={`rev-panel-pestana ${pestana === p.id ? 'rev-panel-pestana--activa' : ''}`}
-            onClick={() => setPestana(p.id)}
+            onClick={() => { setPestana(p.id); onCambiarPestana?.(p.id); }}
           >
             {p.texto}
           </button>
@@ -74,6 +82,7 @@ const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar }) 
       <div className="rev-panel-cuerpo">
         {pestana === 'datos' && <PestanaDatos veh={veh} />}
         {pestana === 'documentos' && <PestanaDocumentos veh={veh} />}
+        {pestana === 'estudios' && <PestanaEstudios veh={veh} />}
         {pestana === 'cambios' && <PestanaCambios veh={veh} />}
       </div>
 
