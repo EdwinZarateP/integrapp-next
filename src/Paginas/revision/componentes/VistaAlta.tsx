@@ -248,7 +248,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
       cargarCuentas();
       // La placa pendiente se asigna SOLA: la ficha queda con dueño ya.
       if (placaPendiente && !vinculada) await asignarResponsable(placaPendiente, nueva);
-      Swal.fire("Cuenta creada", "Envíale el usuario y la clave que se muestran en pantalla.", "success");
+      Swal.fire("Cuenta creada", "Le enviamos sus credenciales por correo y WhatsApp (si dejó celular). La clave también se muestra en pantalla por si no llegan.", "success");
     } catch (err: any) {
       Swal.fire("No se pudo crear", err?.response?.data?.detail || "Error de conexión.", "error");
     } finally {
@@ -427,7 +427,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
               </div>
               {cuenta.clave && (
                 <div>
-                  <small>Clave (una sola vez)</small>
+                  <small>Clave (📧 enviada al conductor · una sola vez)</small>
                   <strong className="revx-alta-clave">{cuenta.clave}</strong>
                 </div>
               )}
@@ -519,8 +519,9 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
             ) : (
               <>
                 <p className="revx-alta-nota">
-                  Solo pedimos <b>correo y celular</b>: la clave se genera sola y se
-                  muestra <b>una sola vez</b> para que se la envíes (WhatsApp/correo).
+                  Solo pedimos <b>correo y celular</b>: la clave se genera sola,
+                  <b> se le envía por correo</b> y se muestra <b>una sola vez</b> en
+                  pantalla por si el correo no llega.
                   El nombre, la cédula y los demás datos los lee la <b>IA</b> al
                   cargar los documentos en el panel — y llegan solos a la cuenta.
                   Él deberá aceptar las políticas al entrar por primera vez.

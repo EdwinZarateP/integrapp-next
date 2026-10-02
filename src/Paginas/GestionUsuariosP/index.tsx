@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter,
 } from 'react-icons/fa';
-import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarClientesAprobacion, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { getClientes } from '@/Funciones/ApiPedidos/otrosCostos';
 import { listarEmpresasCobro } from '@/Funciones/ApiPedidos/seguridadCobro';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
@@ -76,6 +77,13 @@ const GestionUsuariosP: React.FC = () => {
   const [errorClavePerfil, setErrorClavePerfil] = useState('');
   // Empresas del módulo de Estudios de Seguridad (selector cuando perfil=CLIENTE_ESTUDIOS)
   const [empresasSeguridad, setEmpresasSeguridad] = useState<{ id: string; nombre: string }[]>([]);
+  // Alcance de aprobación por cliente (Otros Costos, perfiles COORDINADOR/CONTROL)
+  const [clientesOc, setClientesOc] = useState<string[]>([]);
+  const [modalAlcance, setModalAlcance] = useState<BaseUsuario | null>(null);
+  const [alcanceSel, setAlcanceSel] = useState<string[]>([]);
+  const [alcanceTodos, setAlcanceTodos] = useState(true);
+  const [guardandoAlcance, setGuardandoAlcance] = useState(false);
+  const [errorAlcance, setErrorAlcance] = useState('');
 
   useEffect(() => {
     const perfil = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
@@ -91,6 +99,11 @@ const GestionUsuariosP: React.FC = () => {
     // selector quedará vacío y el backend rechazará con 422 explicativo).
     listarEmpresasCobro()
       .then(emps => setEmpresasSeguridad(emps.map(e => ({ id: e.id, nombre: e.nombre }))))
+      .catch(() => {});
+    // Catálogo de clientes de Otros Costos (best-effort: si falla, el modal de
+    // alcance quedará sin opciones hasta recargar).
+    getClientes()
+      .then(setClientesOc)
       .catch(() => {});
   }, [router]);
 
@@ -115,6 +128,50 @@ const GestionUsuariosP: React.FC = () => {
       setMsgsCliente(m => ({ ...m, [usuario.id!]: 'Error al guardar.' }));
     } finally {
       setGuardandoCliente(null);
+    }
+  };
+
+  // ── Alcance de aprobación (Otros Costos) ───────────────────────────────────
+  // Mismas reglas del backend: [] = TODOS; los nombres se guardan normalizados
+  // (MAYÚSCULAS sin acentos), así que la comparación local también normaliza.
+  const normClienteOc = (s: string): string =>
+    s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+
+  const abrirAlcance = (u: BaseUsuario) => {
+    setModalAlcance(u);
+    setErrorAlcance('');
+    const sel = (u.clientes_aprobacion || []).map(normClienteOc).filter(Boolean);
+    setAlcanceTodos(sel.length === 0 || sel.includes('TODOS'));
+    setAlcanceSel(sel.includes('TODOS') ? [] : sel);
+  };
+
+  const toggleAlcanceTodos = () => {
+    setErrorAlcance('');
+    const nuevo = !alcanceTodos;
+    setAlcanceTodos(nuevo);
+    if (nuevo) setAlcanceSel([]);
+  };
+
+  const toggleAlcanceCliente = (nombre: string) => {
+    setErrorAlcance('');
+    const n = normClienteOc(nombre);
+    setAlcanceSel(prev => (prev.includes(n) ? prev.filter(c => c !== n) : [...prev, n]));
+  };
+
+  const guardarAlcance = async () => {
+    if (!modalAlcance?.id) return;
+    setGuardandoAlcance(true);
+    setErrorAlcance('');
+    try {
+      const lista = alcanceTodos || alcanceSel.length === 0 ? [] : alcanceSel;
+      await actualizarClientesAprobacion(modalAlcance.id, lista);
+      setUsuarios(prev => prev.map(u => u.id === modalAlcance.id ? { ...u, clientes_aprobacion: lista } : u));
+      setModalAlcance(null);
+    } catch (e: any) {
+      const d = e?.response?.data?.detail;
+      setErrorAlcance(typeof d === 'string' ? d : 'Error al guardar el alcance.');
+    } finally {
+      setGuardandoAlcance(false);
     }
   };
 
@@ -349,6 +406,7 @@ const GestionUsuariosP: React.FC = () => {
                     {CLIENTES_DISPONIBLES.map(c => (
                       <th key={c.key} className="GU-th-cliente">{c.label}</th>
                     ))}
+                    <th className="GU-th-alcance-oc">Alcance OC</th>
                     <th className="GU-th-notif-mc">Notif. MC</th>
                     <th>Estado</th>
                     <th></th>
@@ -390,6 +448,23 @@ const GestionUsuariosP: React.FC = () => {
                             )}
                           </td>
                         ))}
+                        <td className="GU-td-alcance-oc">
+                          {u.perfil === 'COORDINADOR' || u.perfil === 'CONTROL' ? (
+                            <button
+                              className={`GU-btn-alcance-oc${(u.clientes_aprobacion || []).length > 0 ? ' GU-btn-alcance-oc--restringido' : ''}`}
+                              title="Alcance de aprobación por cliente (Otros Costos)"
+                              disabled={!activo}
+                              onClick={() => abrirAlcance(u)}
+                            >
+                              <FaFilter />
+                              <span>
+                                {(u.clientes_aprobacion || []).length === 0
+                                  ? 'TODOS'
+                                  : `${u.clientes_aprobacion!.length} cliente${u.clientes_aprobacion!.length === 1 ? '' : 's'}`}
+                              </span>
+                            </button>
+                          ) : '—'}
+                        </td>
                         <td className="GU-td-notif-mc">
                           {clientesUsuario.includes('MEDICAL_CARE') || esSoloNotif ? (
                             <button
@@ -770,6 +845,66 @@ const GestionUsuariosP: React.FC = () => {
                   {msgsNotifMc[modalNotifMc.id || '']}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL: ALCANCE DE APROBACIÓN (OTROS COSTOS) ══ */}
+      {modalAlcance && (
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalAlcance(null))}>
+          <div className="GU-modalCard GU-modalCard--sm" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+            <div className="GU-modalHeader">
+              <div>
+                <h3 className="GU-modalTitulo"><FaFilter style={{ marginRight: 8, color: '#004d40' }} />Alcance de aprobación — Otros Costos</h3>
+                <p className="GU-modal-sub">{modalAlcance.nombre} ({modalAlcance.perfil})</p>
+              </div>
+              <button className="GU-modalCerrar" onClick={() => setModalAlcance(null)}><FaTimes /></button>
+            </div>
+            <div className="GU-alcance-body">
+              <label className={`GU-notif-mc-opcion${alcanceTodos ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={alcanceTodos || alcanceSel.length === 0}
+                  disabled={guardandoAlcance}
+                  onChange={toggleAlcanceTodos}
+                />
+                <div className="GU-notif-mc-opcion-info">
+                  <span className="GU-notif-mc-opcion-label">TODOS</span>
+                  <span className="GU-notif-mc-opcion-desc">Puede aprobar, ver y recibir notificaciones de todos los clientes.</span>
+                </div>
+              </label>
+              <div className="GU-alcance-separador">O sólo estos clientes:</div>
+              <div className="GU-alcance-lista">
+                {clientesOc.length === 0 && (
+                  <p className="GU-notif-mc-opcion-desc">No se pudo cargar el catálogo de clientes; recargue la página.</p>
+                )}
+                {clientesOc.map(nombre => {
+                  const checked = !alcanceTodos && alcanceSel.includes(normClienteOc(nombre));
+                  return (
+                    <label key={nombre} className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={guardandoAlcance || alcanceTodos}
+                        onChange={() => toggleAlcanceCliente(nombre)}
+                      />
+                      <div className="GU-notif-mc-opcion-info">
+                        <span className="GU-notif-mc-opcion-label">{nombre}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              {errorAlcance && <p className="GU-notif-mc-feedback--err">{errorAlcance}</p>}
+              <div className="GU-alcance-acciones">
+                <button className="GU-btnCancelar" onClick={() => setModalAlcance(null)} disabled={guardandoAlcance}>
+                  Cancelar
+                </button>
+                <button className="GU-btnGuardar" onClick={guardarAlcance} disabled={guardandoAlcance}>
+                  <FaSave /> {guardandoAlcance ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

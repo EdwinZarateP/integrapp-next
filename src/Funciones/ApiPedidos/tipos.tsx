@@ -8,6 +8,8 @@ export interface BaseUsuario {
   usuario: string;
   clave: string;
   clientes?: string[];
+  // Alcance de aprobación por cliente en Otros Costos (COORDINADOR/CONTROL; [] = TODOS)
+  clientes_aprobacion?: string[];
   activo?: boolean;
   notificaciones_mc?: string[];
   // Módulo Estudios de Seguridad (solo perfil SEGURIDAD)

@@ -784,6 +784,82 @@
 /* -------------------------------------------------------------------------- */
 /* OVERLAY de lectura IA en curso (Lottie + barra animada)                    */
 /* -------------------------------------------------------------------------- */
+/* ── POPUP de invitación del conductor (paso 2, sesión TENEDOR) ── */
+.Datos-invPop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 25, 40, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050; /* mismo nivel del overlay de lectura IA; Swal queda encima */
+  animation: Datos-fadeIn 0.2s ease;
+}
+
+.Datos-invPop-caja {
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px 28px;
+  max-width: 420px;
+  width: calc(100% - 40px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  text-align: left;
+}
+
+.Datos-invPop-titulo {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1e2f45;
+  margin-bottom: 8px;
+}
+
+.Datos-invPop-texto {
+  font-size: 0.9rem;
+  color: #45566b;
+  line-height: 1.45;
+  margin: 0 0 14px;
+}
+
+.Datos-invPop-nota {
+  font-size: 0.78rem;
+  color: #8b97a6;
+  margin: 6px 0 0;
+}
+
+.Datos-invPop-acciones {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.Datos-invPop-btn {
+  border: 1px solid #d4dbe3;
+  background: #fff;
+  color: #45566b;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.Datos-invPop-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.Datos-invPop-btn--primario {
+  background: #27ae60;
+  border-color: #27ae60;
+  color: #fff;
+}
+
+.Datos-invPop-btn--primario:not(:disabled):hover {
+  background: #219a54;
+}
+
 .Datos-iaLeyendo-overlay {
   position: fixed;
   inset: 0;

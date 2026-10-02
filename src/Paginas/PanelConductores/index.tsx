@@ -385,6 +385,11 @@ const BarraConductor: React.FC = () => {
   // permanente en el perfil del header (el aviso completo es un popup de
   // entrada, no un banner fijo).
   const impersonadoPorBarra = (Cookies.get("conductorImpersonadoPor") || "").trim();
+  // Perfil REAL de la cuenta (CONDUCTOR/TENEDOR): el chip lo muestra junto a
+  // la marca de impersonación — antes estaba quemado «Conductor» y confundía
+  // (un tenedor impersonado parecía una cuenta CONDUCTOR).
+  const perfilBarra = (Cookies.get("conductorPerfil") || "CONDUCTOR").toUpperCase() === "TENEDOR"
+    ? "Tenedor" : "Conductor";
 
   const obtenerNombreMostrar = () => {
     if (primerNombreCookie) {
@@ -444,7 +449,7 @@ const BarraConductor: React.FC = () => {
               title={impersonadoPorBarra
                 ? `Sesión de Seguridad (${impersonadoPorBarra}) trabajando como este conductor`
                 : undefined}>
-              {impersonadoPorBarra ? '🕵 Seguridad' : 'Conductor'}
+              {impersonadoPorBarra ? `🕵 Seguridad · como ${perfilBarra}` : perfilBarra}
             </span>
           </div>
           <FaChevronDown className={`barra-chevron ${menuAbierto ? "barra-chevronOpen" : ""}`} />

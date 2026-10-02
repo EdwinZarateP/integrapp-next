@@ -786,6 +786,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     idConductor?: any;
     invitacion?: { correo?: string; estado?: string } | null;
   }>({});
+  // Popup de invitación (2026-10-02): al diligenciar el correo del conductor
+  // en sesión TENEDOR, se ofrece invitarlo de una vez pidiendo su WhatsApp
+  // (PhoneField, +57 default). `correoOfrecidoRef` evita repetir el popup por
+  // el mismo correo (re-renders/autoguardado) y salta los correos que llegan
+  // CARGADOS del vehículo — solo dispara con lo digitado en la sesión.
+  const [invitacionPopup, setInvitacionPopup] = useState<{ correo: string; celular: string } | null>(null);
+  const [enviandoInvitacion, setEnviandoInvitacion] = useState(false);
+  const correoOfrecidoRef = useRef<string | null>(null);
   // ¿La sesión es del TENEDOR dueño de la ficha? (también aplica cuando
   // Seguridad impersona al tenedor desde el alta).
   const idTenedorSesion = Cookies.get('conductorId') || '';
@@ -1973,28 +1981,56 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
 
   /* ── Invitación del conductor (solo TENEDOR dueño de la ficha) ──
      Usa LOS DATOS DE ESTE FORMULARIO: correo (y nombre) de la sección
-     Conductor — antes había que digitarlos de nuevo en un modal aparte. */
+     Conductor. Al DILIGENCIAR el correo salta el POPUP que confirma la
+     invitación y pide el WhatsApp del conductor (2026-10-02); el botón de la
+     caja de vinculación abre el MISMO popup como respaldo manual. */
   const correoConductorForm = () => (formData['condCorreo'] || '').trim().toLowerCase();
   const nombreConductorForm = () =>
     [formData['condNombres'], formData['condPrimerApellido'], formData['condSegundoApellido']]
       .filter(Boolean).join(' ').trim() || null;
 
-  const invitarConductorDesdeFicha = async () => {
+  // Disparo automático: 900 ms después de que el correo queda bien escrito
+  // (debounce) — solo si no hay conductor vinculado ni invitación pendiente
+  // para ESE correo, y una única vez por correo digitado.
+  useEffect(() => {
+    if (!esSesionTenedor || soloLectura) return;
+    const correo = (formData['condCorreo'] || '').trim().toLowerCase();
+    const correoValido = correo.includes('@') && correo.length >= 6;
+    // Primer registro del ref (correo cargado del vehículo): no ofrecer.
+    if (correoOfrecidoRef.current === null) {
+      correoOfrecidoRef.current = correo;
+      return;
+    }
+    if (!correoValido
+        || correoOfrecidoRef.current === correo
+        || vinculacionConductor?.idConductor
+        || (vinculacionConductor?.invitacion?.correo || '').toLowerCase() === correo) return;
+    const t = setTimeout(() => {
+      correoOfrecidoRef.current = correo;
+      setInvitacionPopup({ correo, celular: (formData['condCelular'] || '').trim() });
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData['condCorreo'], esSesionTenedor, soloLectura, vinculacionConductor]);
+
+  const abrirPopupInvitacion = () => {
     const correo = correoConductorForm();
     if (!correo.includes('@') || correo.length < 6) {
       Swal.fire('Falta el correo', 'Diligencia el <b>Correo Electrónico</b> del conductor en la sección Conductor para poder invitarlo.', 'warning');
       return;
     }
-    const ok = await Swal.fire({
-      icon: 'question',
-      title: '¿Invitar a este conductor?',
-      html: `Enviaremos la invitación a <b>${correo}</b>${nombreConductorForm() ? ` (<b>${nombreConductorForm()}</b>)` : ''}.<br/>Él elegirá su clave y quedará vinculado a la placa <b>${placa}</b>.`,
-      showCancelButton: true,
-      confirmButtonText: '✉️ Enviar invitación',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#27ae60',
-    });
-    if (!ok.isConfirmed) return;
+    setInvitacionPopup({ correo, celular: (formData['condCelular'] || '').trim() });
+  };
+
+  const celularInvitacionValido = () => {
+    const digitos = (invitacionPopup?.celular || '').replace(/\D/g, '');
+    return digitos.length >= 8;
+  };
+
+  const enviarInvitacionDesdePopup = async () => {
+    if (!invitacionPopup || !celularInvitacionValido()) return;
+    const { correo, celular } = invitacionPopup;
+    setEnviandoInvitacion(true);
     try {
       const resp = await fetch(`${API_BASE}/conductores/invitar-conductor`, {
         method: 'POST',
@@ -2004,11 +2040,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           placa,
           correo_conductor: correo,
           nombre_conductor: nombreConductorForm(),
+          celular_conductor: celular,
         }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo enviar la invitación.');
       setVinculacionConductor({ idConductor: null, invitacion: { correo, estado: 'pendiente' } });
+      setInvitacionPopup(null);
       Swal.fire({
         icon: 'success',
         title: data.estado === 'vinculado' ? 'Conductor vinculado' : 'Invitación enviada',
@@ -2017,6 +2055,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       });
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo enviar la invitación.', 'error');
+    } finally {
+      setEnviandoInvitacion(false);
     }
   };
 
@@ -2152,7 +2192,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
               </div>
               {!soloLectura && (
                 <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--primario"
-                  onClick={invitarConductorDesdeFicha}
+                  onClick={abrirPopupInvitacion}
                   disabled={!correoConductorForm().includes('@')}
                   title={!correoConductorForm().includes('@')
                     ? 'Diligencia primero el Correo Electrónico del conductor'
@@ -2407,6 +2447,43 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
               {isLoading ? "Procesando..." : "Continuar"}
           </button>
       </div>
+      )}
+
+      {/* --- POPUP de invitación del conductor (solo TENEDOR) --- */}
+      {invitacionPopup && (
+        <div className="Datos-invPop-overlay" onClick={() => !enviandoInvitacion && setInvitacionPopup(null)}>
+          <div className="Datos-invPop-caja" onClick={(e) => e.stopPropagation()}>
+            <div className="Datos-invPop-titulo">✉️ ¿Invitar a este conductor?</div>
+            <p className="Datos-invPop-texto">
+              Enviaremos la invitación a <b>{invitacionPopup.correo}</b>
+              {nombreConductorForm() ? <> (<b>{nombreConductorForm()}</b>)</> : null}.
+              Él elegirá su propia clave, aceptará las declaraciones de vinculación
+              y quedará vinculado a la placa <b>{placa}</b>.
+            </p>
+            <PhoneField
+              label="Celular (WhatsApp) del conductor"
+              name="invitacionCelular"
+              value={invitacionPopup.celular}
+              onChange={(e) => setInvitacionPopup({ ...invitacionPopup, celular: e.target.value })}
+              required
+            />
+            <p className="Datos-invPop-nota">
+              Con este WhatsApp le avisaremos novedades de su vehículo y sus viajes.
+            </p>
+            <div className="Datos-invPop-acciones">
+              <button type="button" className="Datos-invPop-btn"
+                onClick={() => setInvitacionPopup(null)} disabled={enviandoInvitacion}>
+                Ahora no
+              </button>
+              <button type="button" className="Datos-invPop-btn Datos-invPop-btn--primario"
+                onClick={enviarInvitacionDesdePopup}
+                disabled={enviandoInvitacion || !celularInvitacionValido()}
+                title={!celularInvitacionValido() ? 'Digita un celular válido (mínimo 8 dígitos)' : undefined}>
+                {enviandoInvitacion ? 'Enviando…' : '✉️ Enviar invitación'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* --- VISOR de documento de dos caras (👁 de la tarjeta IA) --- */}

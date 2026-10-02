@@ -164,6 +164,17 @@ export const getClientes = async (): Promise<string[]> => {
   return res.data;
 };
 
+// Alcance de aprobación por cliente del usuario que consulta (chip informativo)
+export const obtenerMiAlcance = async (
+  usuario: string,
+): Promise<{ perfil: string; todos: boolean; clientes: string[] }> => {
+  const res = await axios.get<{ perfil: string; todos: boolean; clientes: string[] }>(
+    `${BASE_URL}/mi-alcance`,
+    { params: { usuario } },
+  );
+  return res.data;
+};
+
 // ── Búsqueda de pedidos ──────────────────────────────────────────────────────
 export const buscarPedidos = async (
   usuario: string,

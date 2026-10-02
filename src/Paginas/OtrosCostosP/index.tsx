@@ -14,7 +14,7 @@ import {
   listarActivos, obtenerDetalleActivo, buscarPedidos, crearSolicitud, editarSolicitud,
   enviarAprobacion, aprobarSolicitud, devolverSolicitud, rechazarSolicitud,
   registrarPago, anularSolicitud, exportarExcel, marcarTramiteVulcano,
-  getTiposCosto, getBancos, getTiposCuenta, getClientes,
+  getTiposCosto, getBancos, getTiposCuenta, getClientes, obtenerMiAlcance,
   exportarPago, importarPago, verificarManifiesto, listarPagables,
   type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado, type BancoCatalogo,
   type Adjunto,
@@ -158,6 +158,8 @@ const OtrosCostosP: React.FC = () => {
   const [bancos, setBancos] = useState<BancoCatalogo[]>([]);
   const [tiposCuenta, setTiposCuenta] = useState<string[]>([]);
   const [clientes, setClientes] = useState<string[]>([]);
+  // Alcance de aprobación por cliente del usuario (COORDINADOR/CONTROL)
+  const [alcance, setAlcance] = useState<{ perfil: string; todos: boolean; clientes: string[] } | null>(null);
 
   // Filtros
   const [fEstado, setFEstado] = useState('');
@@ -203,6 +205,8 @@ const OtrosCostosP: React.FC = () => {
     getBancos().then(setBancos).catch(() => {});
     getTiposCuenta().then(setTiposCuenta).catch(() => {});
     getClientes().then(setClientes).catch(() => {});
+    // Alcance de aprobación por cliente (sólo informativo; el backend filtra y valida)
+    obtenerMiAlcance(u).then(a => setAlcance((p === 'COORDINADOR' || p === 'CONTROL') ? a : null)).catch(() => {});
     cargarListado(u, p);
   }, [router]);
 
@@ -869,6 +873,15 @@ const OtrosCostosP: React.FC = () => {
             {/* Si ya está en la página 1 hay que consultar explícito; si no, el setSkip(0)
                 dispara el useEffect de paginación (evita doble fetch con skip viejo). */}
             <button className="OC-btn OC-btnPrimary" onClick={() => { if (skip === 0) cargarListado(); else setSkip(0); }}><FaSearch /> Buscar</button>
+            {alcance && !alcance.todos && (
+              <span
+                className="OC-btn"
+                style={{ background: '#fff8e1', color: '#b26a00', border: '1.5px solid #ffb300', cursor: 'default', fontWeight: 700 }}
+                title="Su usuario sólo puede aprobar, ver y recibir notificaciones de estos clientes (configúrelo un ADMIN en Gestión de Usuarios)"
+              >
+                Alcance: {alcance.clientes.join(', ')}
+              </span>
+            )}
             <button className="OC-btn OC-btnExcel" onClick={onExportExcel}><FaFileExcel /> Excel</button>
             {puedeArchivoBancario && (
               <>

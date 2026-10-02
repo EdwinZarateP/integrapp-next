@@ -324,6 +324,26 @@
 .GU-notif-mc-feedback--ok  { margin: 0; font-size: 0.84rem; color: #16a34a; font-weight: 700; text-align: center; }
 .GU-notif-mc-feedback--err { margin: 0; font-size: 0.84rem; color: #dc3545; text-align: center; }
 
+/* ── Alcance de aprobación por cliente (Otros Costos) ── */
+.GU-btn-alcance-oc {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+  background: #fff; font-size: 0.76rem; font-weight: 700; color: #6b7a8d;
+  cursor: pointer; font-family: inherit; white-space: nowrap; transition: background 0.15s;
+}
+.GU-btn-alcance-oc:hover:not(:disabled) { background: #f0f2f5; }
+.GU-btn-alcance-oc:disabled { opacity: 0.5; cursor: not-allowed; }
+.GU-btn-alcance-oc--restringido { border-color: #ffb300; background: #fff8e1; color: #b26a00; }
+.GU-td-alcance-oc { white-space: nowrap; text-align: center; color: #adb5bd; }
+.GU-th-alcance-oc { text-align: center; }
+.GU-alcance-body { padding: 16px 28px 28px; display: flex; flex-direction: column; gap: 12px; }
+.GU-alcance-separador {
+  font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; color: #8a97a8; margin-top: 2px;
+}
+.GU-alcance-lista { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.GU-alcance-acciones { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+
 /* ── FOOTER ── */
 .GU-footer { background: #0f1928; border-top: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }
 .GU-footerInner {

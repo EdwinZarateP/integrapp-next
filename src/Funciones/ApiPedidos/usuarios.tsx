@@ -99,6 +99,18 @@ export const actualizarClientesUsuario = async (
   return res.data;
 };
 
+// Actualizar alcance de aprobación por cliente en Otros Costos ([] = TODOS)
+export const actualizarClientesAprobacion = async (
+  id: string,
+  clientes_aprobacion: string[]
+): Promise<{ mensaje: string; clientes_aprobacion: string[]; todos: boolean }> => {
+  const res = await axios.patch<{ mensaje: string; clientes_aprobacion: string[]; todos: boolean }>(
+    `${BASE_URL}/${id}/clientes-aprobacion`,
+    { clientes_aprobacion }
+  );
+  return res.data;
+};
+
 // Login de usuario
 export const loginUsuario = async (
   usuario: string,
