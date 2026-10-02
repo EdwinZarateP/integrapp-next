@@ -118,6 +118,25 @@ body {
 
 .rev-btn-buscar:hover { background: #00a5b5; }
 
+/* Botón «Excel» (export de todas las placas, bandeja Aprobados) */
+.rev-btn-excel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #1e8449;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s ease;
+}
+
+.rev-btn-excel:hover { filter: brightness(1.08); }
+
 /* ── Pestañas de la bandeja ── */
 .rev-pestanas {
   display: flex;
@@ -237,6 +256,9 @@ body {
    que no se estire en monitores grandes. z-index 1000: sobre el header
    (900), bajo los visores de documentos (1050) y Swal (1060). ── */
 .rev-panel {
+  /* Columna de lectura del contenido del panel (2026-09-28: ancha para
+     aprovechar pantallas grandes; antes 860px). */
+  --rev-panel-ancho: 1240px;
   position: fixed;
   inset: 0;
   display: flex;
@@ -256,12 +278,13 @@ body {
 
 /* Chrome del panel a ANCHO COMPLETO (fondos de borde a borde), con padding
    horizontal dinámico para que el contenido quede alineado con la columna
-   de lectura de 860px en monitores grandes. */
+   de lectura en monitores grandes (columna ancha: 2026-09-28, pedido del
+   usuario — aprovechar pantallas grandes). */
 .rev-panel-header,
 .rev-panel-pestanas,
 .rev-panel-footer {
-  padding-left: max(16px, calc((100% - 860px) / 2));
-  padding-right: max(16px, calc((100% - 860px) / 2));
+  padding-left: max(16px, calc((100% - var(--rev-panel-ancho, 1240px)) / 2));
+  padding-right: max(16px, calc((100% - var(--rev-panel-ancho, 1240px)) / 2));
 }
 
 .rev-panel-header {
@@ -276,10 +299,10 @@ body {
   position: relative;
 }
 
-/* Cuerpo: columna de lectura centrada */
+/* Cuerpo: columna de lectura centrada (ancha en pantallas grandes) */
 .rev-panel-cuerpo {
   width: 100%;
-  max-width: 860px;
+  max-width: var(--rev-panel-ancho, 1240px);
   margin-left: auto;
   margin-right: auto;
 }
@@ -337,6 +360,7 @@ body {
 .rev-chip--inactivo { color: #5d6d7e; background: #eef1f4; }
 .rev-chip--devuelto { color: #c0392b; background: #fdeeec; }
 .rev-chip--rerevision { color: #856404; background: #fff3cd; border: 1px solid #ffeeba; }
+.rev-chip--actualizacion { color: #6c3fc5; background: #f1eafd; }
 .rev-chip--mini { padding: 1px 6px; margin-left: 4px; }
 
 /* Pestañas internas del panel */
@@ -419,6 +443,7 @@ body {
 .rev-btn--devolver { background: #e74c3c; }
 .rev-btn--inactivar { background: #7f8c8d; }
 .rev-btn--reactivar { background: #27ae60; }
+.rev-btn--actualizar { background: #008794; }
 
 .rev-panel-hv {
   display: flex;
@@ -814,6 +839,13 @@ body {
   font-weight: 600;
 }
 
+/* Divisor entre bandejas y módulos en la sidebar */
+.revx-nav-divisor {
+  height: 1px;
+  background: var(--revx-borde);
+  margin: 8px 10px;
+}
+
 .revx-nav-contador {
   margin-left: auto;
   background: #eef2f5;
@@ -964,6 +996,296 @@ body {
   gap: 12px;
 }
 
+/* ── Módulo «Alta conductor» (/revision/alta) ── */
+.revx-alta {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.revx-alta-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #22313f;
+}
+
+.revx-alta-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.revx-alta-nota {
+  margin: 0 0 14px;
+  color: #6b7684;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.revx-alta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.revx-alta-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #45504b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.revx-alta-grid input,
+.revx-alta-grid select,
+.revx-alta-fila input {
+  border: 1px solid #d7dde2;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  color: #2c3a44;
+  background: #fff;
+  min-width: 0;
+}
+
+.revx-alta-grid input:focus,
+.revx-alta-grid select:focus,
+.revx-alta-fila input:focus {
+  outline: none;
+  border-color: #00a5b5;
+  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
+}
+
+.revx-alta-grid input:disabled,
+.revx-alta-grid select:disabled,
+.revx-alta-fila input:disabled {
+  background: #f2f4f6;
+  color: #8a94a0;
+}
+
+.revx-alta-fila {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.revx-alta-fila input {
+  flex: 1 1 200px;
+  max-width: 260px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.revx-alta-btn-primario {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #00a5b5;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 22px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.revx-alta-btn-primario:hover:not(:disabled) { filter: brightness(1.08); }
+.revx-alta-btn-primario:disabled { background: #b9c6cd; cursor: not-allowed; }
+
+/* Credenciales creadas */
+.revx-alta-cred {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  background: #e6f5f6;
+  border: 1px solid #00a5b5;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.revx-alta-cred > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.revx-alta-cred small {
+  color: #008794;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.revx-alta-cred strong {
+  font-size: 0.95rem;
+  color: #22313f;
+  word-break: break-all;
+}
+
+.revx-alta-clave {
+  font-size: 1.25rem !important;
+  letter-spacing: 2px;
+  font-weight: 800 !important;
+}
+
+.revx-alta-btn-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  color: #008794;
+  border: 1px solid #00a5b5;
+  border-radius: 9px;
+  padding: 9px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.revx-alta-btn-copiar:hover { background: #d9eff1; }
+
+/* Alta de vehículo: tabs cuenta existente / nueva */
+.revx-alta-tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: #eef1f4;
+  border-radius: 11px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+
+.revx-alta-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5d6d7e;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.revx-alta-tab--activo {
+  background: #fff;
+  color: #008794;
+  box-shadow: 0 1px 3px rgba(20, 40, 60, 0.12);
+}
+
+/* Mensajes inline del paso placa y avisos */
+.revx-alta-error {
+  margin: 10px 0 0;
+  color: #c0392b;
+  background: #fdeeec;
+  border: 1px solid #f5c6c0;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 0.83rem;
+}
+
+.revx-alta-aviso {
+  margin: 12px 0 0;
+  color: #8a6d3b;
+  background: #fdf5e6;
+  border: 1px solid #f0ddb8;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 0.83rem;
+}
+
+.revx-alta-mut { color: #8a94a0; font-weight: 400; }
+
+/* Botón secundario (Agregar otra placa / Cambiar placa) */
+.revx-alta-btn-sec {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  color: #45504b;
+  border: 1px solid #c7d0d6;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.revx-alta-btn-sec:hover { background: #f2f4f6; }
+
+/* Dos acciones por fila (Abrir panel / Nueva clave) */
+.revx-alta-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.revx-alta-acciones .revx-alta-btn-copiar { margin-left: 0; }
+
+/* ── Auditoría del vehículo (PestanaCambios) ── */
+.rev-aud-nota {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: #6b7684;
+  line-height: 1.5;
+}
+
+.rev-aud-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rev-aud-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--revx-borde, #e3e8ec);
+  border-radius: 9px;
+}
+
+.rev-aud-via {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 4px 10px;
+  margin-top: 2px;
+}
+
+.rev-aud-via--conductor { color: #1e8449; background: #eaf7ef; }
+.rev-aud-via--impersonacion { color: #5b21b6; background: #f1eafd; }
+.rev-aud-via--seguridad { color: #b9770e; background: #fdf5e6; }
+
+.rev-aud-cuerpo { min-width: 0; font-size: 0.85rem; line-height: 1.45; }
+
+.rev-aud-detalle { color: #55606b; font-weight: 400; }
+
+.rev-aud-meta { color: #8a94a0; font-size: 0.75rem; margin-top: 2px; }
+
 .revx-pill {
   display: inline-flex;
   align-items: center;
@@ -1106,7 +1428,16 @@ body {
   flex-direction: column;
   gap: 12px;
   padding: 16px 16px 0;
-  max-width: 720px;
+}
+
+/* Pantallas anchas: las tarjetas de estudio van en 2 columnas (2026-09-28,
+   pedido del usuario — aprovechar el ancho). */
+@media (min-width: 1100px) {
+  .rev-est-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    align-items: start;
+  }
 }
 
 /* Tarjeta de acciones: re-consultar + documento PDF del estudio */
@@ -1119,7 +1450,6 @@ body {
   background: #f8fafc;
   padding: 14px 16px;
   margin: 16px 16px 0;
-  max-width: 720px;
 }
 
 @media (min-width: 700px) {
@@ -1184,6 +1514,11 @@ body {
 
 @keyframes rev-est-girar { to { transform: rotate(360deg); } }
 
+.rev-est-reutilizado {
+  color: #008794;
+  font-weight: 600;
+}
+
 .rev-est-error { margin: 8px 0 0; font-size: 0.82rem; color: #c0392b; }
 .rev-est-espera { margin: 8px 0 0; font-size: 0.8rem; color: #6b7684; }
 
@@ -1240,7 +1575,15 @@ body {
 .rev-est-fuente-marca { font-weight: 800; width: 14px; text-align: center; }
 .rev-est-fuente--hallazgo { color: #c0392b; }
 .rev-est-fuente--limpia { color: #1e8449; }
-.rev-est-fuente--error { color: #b9770e; }
+.rev-est-fuente--caida { color: #c0392b; font-weight: 600; }
+
+/* Leyenda bajo la lista de fuentes */
+.rev-est-leyenda {
+  color: #8a94a0;
+  font-size: 0.72rem;
+  margin-top: 6px;
+  display: block;
+}
 
 .rev-est-pie {
   display: flex;
@@ -1248,7 +1591,6 @@ body {
   gap: 12px;
   flex-wrap: wrap;
   padding: 14px 16px 16px;
-  max-width: 720px;
 }
 
 .rev-est-btn-reintentar { background: #eef2f5; color: #45504b; }
@@ -1259,7 +1601,6 @@ body {
 /* ── Tabla de historial de reportes ── */
 .rev-est-historial {
   padding: 18px 16px 0;
-  max-width: 720px;
 }
 
 .rev-est-historial h4 {
@@ -1295,6 +1636,8 @@ body {
 }
 
 .rev-est-tabla-fecha { white-space: nowrap; color: #45504b; }
+
+.rev-est-tabla-antiguedad { white-space: nowrap; color: #6b7684; font-size: 0.78rem; }
 
 .rev-est-tabla-id {
   display: block;

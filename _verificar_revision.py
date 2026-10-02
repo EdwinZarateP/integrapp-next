@@ -79,6 +79,8 @@ with socketserver.TCPServer(("127.0.0.1", PUERTO), Handler) as httpd:
                 "documentos": [{"url": "https://firma/estudio.pdf",
                                 "fecha": "2026-09-15T10:00:00",
                                 "nombre": "estudio_mv.pdf"}],
+                "vigencia": {"desde": "2026-09-28T01:00:00",
+                             "vence": "2027-09-28T01:00:00"},
             })))
         ctx.route("**/vehiculos/obtener-aprobados-paginados*", lambda r: r.fulfill(
             status=200, content_type="application/json", body='{"vehiculos": []}'))
@@ -120,6 +122,19 @@ with socketserver.TCPServer(("127.0.0.1", PUERTO), Handler) as httpd:
         assert "pestana=estudios" in pagina.url, "pestana espejada en la URL"
         print("url con pestana:", pagina.url)
 
+        # ── Pantalla grande: la columna aprovecha el ancho (mín 1000px en
+        #    viewport 1440) y las tarjetas van en 2 columnas ──
+        ancho_tabla = pagina.eval_on_selector(".rev-est-tabla", "el => el.getBoundingClientRect().width")
+        cols = pagina.evaluate("getComputedStyle(document.querySelector('.rev-est-lista')).gridTemplateColumns")
+        print("ancho: tabla", round(ancho_tabla), "| columnas tarjetas:", cols)
+        assert ancho_tabla > 1000, "tabla ancha en pantalla grande"
+        assert len(cols.split()) == 2, "2 columnas de tarjetas"
+
+        # Chip de vigencia (verde "Vigente hasta el …")
+        textos_acciones = pagina.locator(".rev-est-acciones-card").inner_text()
+        assert "Vigente hasta el" in textos_acciones, "chip de vigencia"
+        print("vigencia:", [l for l in textos_acciones.splitlines() if "Vigente" in l])
+
         # Tarjeta de acciones: SOLO re-consultar + cargar PDF (sin Ver
         # documento ni Reemplazar arriba — el ver está en la tabla).
         btns_acciones = pagina.locator(".rev-est-acciones-card button").all_inner_texts()
@@ -159,12 +174,14 @@ with socketserver.TCPServer(("127.0.0.1", PUERTO), Handler) as httpd:
         assert "Documento del estudio" in textos_tabla, "documento subido en la tabla"
         pagina.screenshot(path="_caps/rev_7_historial.png")
 
-        # Expandir fuentes del primero (los btn-fuentes de las tarjetas, no los de acciones)
-        pagina.locator(".rev-est-card .rev-est-btn-fuentes").first.click()
-        pagina.wait_for_selector(".rev-est-fuente", timeout=3000)
+        # Expandir fuentes del primero (el botón literal «Fuentes…» es el
+        # ÚLTIMO que contiene esa palabra: el de reintentar va antes).
+        # Solo lista las fuentes CAÍDAS (en el mock de e1: RUAF "Error").
+        pagina.locator('.rev-est-card button:has-text("Fuentes")').last.click()
+        pagina.wait_for_selector(".rev-est-fuente--caida", timeout=3000)
         n_fuentes = pagina.locator(".rev-est-fuente").count()
-        print("estudios: fuentes expandidas", n_fuentes)
-        assert n_fuentes == 6
+        print("estudios: fuentes caídas listadas", n_fuentes)
+        assert n_fuentes == 1, "solo la fuente caída (RUAF)"
         pdf_btn = pagina.locator(".rev-est-card .rev-est-btn-pdf").count()
         assert pdf_btn == 1, "botón PDF solo en finalizados con reporte_id"
         pagina.screenshot(path="_caps/rev_2_estudios.png")
@@ -196,6 +213,29 @@ with socketserver.TCPServer(("127.0.0.1", PUERTO), Handler) as httpd:
         mov.screenshot(path="_caps/rev_4_movil_drawer.png")
         print("movil: drawer OK")
 
+        # ── Módulo «Alta conductor» (/revision/alta): sidebar item + form ──
+        pagina2 = ctx.new_page()
+        pagina2.goto(f"http://127.0.0.1:{PUERTO}/integrapp/revision/alta", wait_until="load")
+        pagina2.wait_for_selector(".revx-alta", timeout=8000)
+        assert "Alta de" in pagina2.locator(".revx-encabezado h1").inner_text()
+        activo_alta = pagina2.inner_text(".revx-nav-activo")
+        inputs = pagina2.locator(".revx-alta-grid input, .revx-alta-grid select").count()
+        print("alta: nav activo:", activo_alta.strip(), "| campos:", inputs)
+        assert "Alta conductor" in activo_alta, "módulo activo en sidebar"
+        assert inputs >= 5, "form del alta"
+        # Volver a bandejas: click en «En revisión» → URL con ?bandeja=
+        pagina2.locator('.revx-nav-item:has-text("En revisión")').click()
+        pagina2.wait_for_selector(".revx-bandeja", timeout=8000)
+        assert "bandeja=revision" in pagina2.url
+        # Alternar varias veces NO debe acumular barras (bug de la base).
+        for _ in range(3):
+            pagina2.locator('.revx-nav-item:has-text("Alta conductor")').click()
+            pagina2.wait_for_selector(".revx-alta", timeout=8000)
+            pagina2.locator('.revx-nav-item:has-text("En revisión")').click()
+            pagina2.wait_for_selector(".revx-bandeja", timeout=8000)
+        assert "//" not in pagina2.url.replace("://", ""), f"barras acumuladas: {pagina2.url}"
+        print("alta: volver a bandejas OK (sin // acumuladas) ->", pagina2.url)
+        pagina2.screenshot(path="_caps/rev_8_alta.png")
         navegador.close()
 
 print("VERIFICACION VISUAL OK")

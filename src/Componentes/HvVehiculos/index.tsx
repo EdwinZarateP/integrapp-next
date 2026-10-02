@@ -115,7 +115,7 @@ const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null 
                         <View style={styles.docColContent}>
                             <CheckItem label="Doc. Identidad Conductor" checked={hasDoc(['documentoIdentidadConductor'])} />
                             <CheckItem label="Licencia Conducción Vig." checked={hasDoc(['licenciaConduccion'])} />
-                            <CheckItem label="Planilla EPS y ARL" checked={hasDoc(['planillaEpsArl'])} />
+                            <CheckItem label="Planilla de Seguridad Social" checked={hasDoc(['planillaEpsArl'])} />
                             <CheckItem label="Foto Conductor" checked={hasDoc(['fotoConductor'])} />
                             <CheckItem label="Cert. Bancaria Conductor" checked={hasDoc(['certificacionBancariaConductor'])} />
                         </View>

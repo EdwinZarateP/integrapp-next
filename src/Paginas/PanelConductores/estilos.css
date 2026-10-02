@@ -324,69 +324,100 @@ select:focus-visible {
 /* -------------------------------------------------------------------------- */
 /* 3. LAYOUT PRINCIPAL                                                        */
 /* -------------------------------------------------------------------------- */
-/* El menú de pasos va ARRIBA en todas las pantallas (igual que en móvil):
-   fila horizontal sticky bajo el header, más ordenado visualmente. */
+/* ESCRITORIO: app-shell como /revision — la columna de navegación va PEGADA
+   al borde izquierdo a toda altura (blanca, con filo derecho) y el contenido
+   aprovecha todo el anchura restante; solo la tarjeta de contenido flota
+   sobre el fondo gris. En móvil (≤900px) la columna se vuelve fila sticky. */
 .layout-conductor {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   width: 100%;
-  max-width: 1000px; /* Compacto en desktop: sin columnas de aire a los lados */
-  margin: 0 auto;
-  padding: 20px;
-  gap: 14px;
   flex: 1;
+  padding: 0;
+  gap: 0;
   align-items: stretch;
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. STEPPER SUPERIOR (Navegación de Pasos)                                  */
+/* 4. NAVEGACIÓN DE PASOS (columna en escritorio, fila sticky en móvil)       */
 /* -------------------------------------------------------------------------- */
 .sidebar-conductor {
-  width: 100%;
   display: flex;
-  flex-direction: row;
-  overflow-x: auto;
-  gap: 10px;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 252px;
+  width: 252px;
+  /* Columna docked a toda altura (patrón /revision): al hacer scroll queda
+     fija y con scroll propio; la barra superior mide 64px. */
   position: sticky;
-  top: 0; /* el header se va al scrollear: pegar al borde superior real */
-  z-index: 500;
-  background: #eef2f5;
-  padding: 6px 0;
+  top: 0;
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+  background: #fff;
+  border: none;
+  border-right: 1px solid #e4e9ef;
+  border-radius: 0;
+  padding: 18px 14px;
+  box-shadow: none;
 }
 
-.sidebar-conductor::-webkit-scrollbar { display: none; }
+.btn-sidebar-volver {
+  width: 100%;
+  margin-bottom: 6px;
+}
 
 .btn-sidebar-step {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 16px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 20px;
+  width: 100%;
+  padding: 11px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   text-align: left;
-  font-weight: 600;
+  font-weight: 500;
   color: #666;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
 }
 
 .btn-sidebar-step:hover {
-  background: #fff;
+  background: #f2f6f8;
   color: #2c3e50;
-  border-color: #b8c2cf;
 }
 
+/* Activo: píldora suave + texto verde + filo izquierdo (patrón /revision). */
 .btn-sidebar-step.active {
-  background-color: #2c3e50;
-  color: white;
-  box-shadow: 0 4px 10px rgba(44, 62, 80, 0.2);
-  border-color: #2c3e50;
+  background: #e9f7ef;
+  color: #1e8449;
+  box-shadow: inset 3px 0 0 #27ae60;
+  font-weight: 600;
+}
+
+/* Divisor entre el flujo normal y el módulo de devueltos. */
+.pc-nav-divisor {
+  height: 1px;
+  background: #e4e9ef;
+  margin: 8px 4px;
+}
+
+/* Contador (badge) tipo bandeja de /revision. */
+.pc-nav-contador {
+  margin-left: auto;
+  background: #eef2f5;
+  color: #7f8c8d;
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.btn-rechazados.active .pc-nav-contador {
+  background: #fff;
+  color: #c0392b;
 }
 
 .step-indicator {
@@ -413,6 +444,7 @@ select:focus-visible {
 /* -------------------------------------------------------------------------- */
 .contenido-conductor-container {
   flex: 1;
+  min-width: 0;
   background: white;
   border-radius: 15px;
   box-shadow: 0 5px 20px rgba(0,0,0,0.05);
@@ -422,7 +454,9 @@ select:focus-visible {
   /* Sin min-height: la altura depende naturalmente del contenido
      (antes quedaba un bloque de aire vacío debajo del paso 1). */
   position: relative;
-  width: 100%; /* Asegura que tome el ancho disponible */
+  /* La tarjeta flota sobre el fondo gris con aire alrededor
+     (el padding ya no lo pone .layout-conductor). */
+  margin: 22px 26px 26px;
 }
 
 .step-content {
@@ -457,7 +491,17 @@ select:focus-visible {
 
 /* Barras de Progreso */
 .progreso-header {
-  margin-top: 15px;
+  /* Pegada al borde superior al hacer scroll (mismo patrón de la barra del
+     paso 2): ancho COMPLETO de la tarjeta con márgenes negativos que escapan
+     al padding (30px escritorio); en móvil se recalibra debajo de la fila de
+     pasos sticky (media queries de abajo). */
+  position: sticky;
+  top: 0;
+  z-index: 400; /* por debajo de la fila de pasos móvil (500) */
+  background: #fff;
+  margin: 15px -30px 0;
+  padding: 10px 30px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -479,7 +523,9 @@ select:focus-visible {
   background: #27ae60;
   height: 100%;
   border-radius: 4px;
-  transition: width 0.5s ease;
+  /* Transición también del color: los tramos rojo/naranja/verde
+     (pv-fill--bajo/medio, mismos umbrales del paso 2) cambian suaves. */
+  transition: width 0.5s ease, background 0.4s ease;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -601,6 +647,8 @@ select:focus-visible {
   border-radius: 8px;
 }
 
+/* Sesión IMPERSONADA (Seguridad entró vía login-como): banner violeta al
+   tope del panel — contexto claro de en nombre de quién se trabaja. */
 /* Aviso cuando un CONDUCTOR ya tiene su único vehículo posible: el
    formulario de nueva placa se reemplaza por este mensaje. */
 .pv-registro-maximo {
@@ -636,27 +684,30 @@ select:focus-visible {
 }
 
 /* --- Tarjeta de vehículo por estado --- */
+/* --- Tarjetas de placa (paso 1): SOBRIAS — tarjeta neutra, la placa luce
+       como placa y el estado habla con un punto de color, no con cajas
+       pintadas ni botones gigantes (rediseño 2026-10-01). --- */
 .pv-card {
-  border: 1px solid #e4e9ef;
-  border-left: 4px solid #b0b8c1;
-  border-radius: 12px;
-  padding: 14px 16px;
+  border: 1px solid #e8edf2;
+  border-radius: 14px;
+  padding: 16px 20px;
   background: #fff;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 10px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pv-card:hover {
+  border-color: #d3dce5;
+  box-shadow: 0 3px 10px rgba(16, 24, 40, 0.07);
 }
 .pv-card:last-child { margin-bottom: 0; }
 
-/* Color con significado funcional:
-   amarillo=registro incompleto · verde=aprobado · azul=en revisión ·
-   rojo=requiere correcciones · gris=inactivo */
-.pv-card--pendiente { border-left-color: #e6b800; }
-.pv-card--aprobado { border-left-color: #27ae60; }
-.pv-card--devuelto { border-left-color: #e74c3c; }
-.pv-card--revision { border-left-color: #3498db; }
-.pv-card--inactivo { border-left-color: #7f8c8d; background: #f9fafb; }
+/* El color del estado vive SOLO en el punto del chip (antes: borde izquierdo
+   pintado + chip con fondo + botón verde a todo el ancho). */
+.pv-card--inactivo { background: #fafbfc; }
 
 .pv-card-top {
   display: flex;
@@ -665,18 +716,20 @@ select:focus-visible {
   gap: 10px;
   flex-wrap: wrap;
 }
+/* La placa como PLACA: caja propia, espaciada, números tabulares. */
 .pv-placa {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 1.25rem;
+  font-size: 1.02rem;
   font-weight: 800;
-  letter-spacing: 1.5px;
-  color: #2c3e50;
+  letter-spacing: 3px;
+  color: #22303f;
+  background: #fafbfc;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-variant-numeric: tabular-nums;
 }
-.pv-placa svg { font-size: 1rem; color: #9aa4b0; }
-.pv-placa .icono-ok { color: #27ae60; }
-.pv-placa .icono-reloj { color: #3498db; }
 
 .pv-card-info {
   display: flex;
@@ -704,53 +757,64 @@ select:focus-visible {
   font-style: italic;
 }
 
-/* --- Botones: CTA protagonista + secundario discreto --- */
+/* --- Botones: discretos, alineados a la derecha; el color del CTA vive en
+       el TEXTO (verde acción / rojo corrección), no en un bloque pintado --- */
 .pv-acciones {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .pv-btn-cta {
-  flex: 1 1 220px;
-  min-height: 46px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: #27ae60;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-.pv-btn-cta:hover { background: #219150; }
-.pv-btn-cta--alerta { background: #e74c3c; }
-.pv-btn-cta--alerta:hover { background: #c0392b; }
-
-.pv-btn-ghost {
-  min-height: 46px;
+  flex: 0 1 auto;
+  min-height: 44px;
+  padding: 0 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   background: #fff;
-  color: #2c3e50;
-  border: 1px solid #cdd6e0;
+  color: #1e8449;
+  border: 1px solid #cfe3d6;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.pv-btn-cta:hover { background: #f2f9f4; border-color: #a9d3bb; }
+.pv-btn-cta--alerta { color: #c0392b; border-color: #eed3d0; }
+.pv-btn-cta--alerta:hover { background: #fdf4f3; border-color: #e0b3ae; }
+
+.pv-btn-ghost {
+  flex: 0 1 auto;
+  min-height: 44px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fff;
+  color: #4a5768;
+  border: 1px solid #d9e0e8;
   border-radius: 10px;
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
   font-family: inherit;
-  padding: 8px 16px;
-  transition: border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.pv-btn-ghost:hover { border-color: #2c3e50; background: #f6f8fa; }
+.pv-btn-ghost:hover { border-color: #aeb9c6; background: #f7f9fb; }
 /* --------------------------------------------- */
+
+/* Progreso de documentación en la tarjeta: línea fina con los MISMOS tramos
+   de la barra del paso 2 (rojo <70 · naranja 70–89 · verde ≥90). */
+.barra-progreso-bg--mini { height: 5px; }
+.pv-fill--bajo { background: #e74c3c; }
+.pv-fill--medio { background: #e67e22; }
 
 /* RECHAZADOS */
 .seccion-rechazados { margin-top: 25px; }
@@ -908,28 +972,35 @@ select:focus-visible {
   z-index: 10000;
   box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
-/* ESTILOS PARA EL NUEVO BOTÓN Y SECCIÓN DE RECHAZADOS */
+/* ESTILOS PARA EL MÓDULO DE RECHAZADOS (devueltos por Seguridad) */
 
 .btn-sidebar-step.disabled {
-    opacity: 0.6;
+    opacity: 0.55;
     cursor: not-allowed;
-    background-color: #f9f9f9 !important;
-    border-color: #ddd !important;
-    color: #aaa !important;
+    color: #aaa;
     box-shadow: none !important;
 }
 
-
-.btn-sidebar-step:not(.disabled):hover {
-    transform: translateX(3px);
-    background: #fff;
+/* Rojo (advertencia) en la columna lateral, mismo patrón de píldora suave. */
+.btn-sidebar-step.btn-rechazados:not(.disabled) {
+    color: #c0392b;
 }
 
-.btn-sidebar-step.btn-rechazados:not(.disabled):hover,
+.btn-sidebar-step.btn-rechazados:not(.disabled):hover {
+    background: #fdecea;
+    color: #c0392b;
+}
+
 .btn-sidebar-step.btn-rechazados.active {
+    background: #fdecea;
     color: #c0392b !important;
-    border-color: #c0392b !important;
-    background-color: #fff5f5 !important;
+    box-shadow: inset 3px 0 0 #e74c3c;
+    font-weight: 600;
+}
+
+.btn-sidebar-step.btn-rechazados:not(.disabled) .step-indicator {
+    background-color: #e74c3c;
+    color: white;
 }
 
 .btn-sidebar-step.btn-rechazados.active .step-indicator {
@@ -988,18 +1059,31 @@ select:focus-visible {
 }
 
 /* Chip de estado (pill discreto) */
+/* Chip de estado: texto discreto en mayúsculas + PUNTO de color (el único
+   acento de color de la tarjeta). */
 .estado-chip {
-  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
   font-weight: 700;
-  border-radius: 999px;
-  padding: 3px 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #6b7684;
   white-space: nowrap;
 }
-.estado-chip--aprobado { color: #1e8449; background: #eaf7ef; }
-.estado-chip--revision { color: #1f6fb2; background: #eaf3fb; }
-.estado-chip--pendiente { color: #7d8600; background: #f5f8e8; }
-.estado-chip--devuelto { color: #c0392b; background: #fdeeec; }
-.estado-chip--inactivo { color: #5d6d7e; background: #eef1f4; }
+.estado-chip::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.estado-chip--aprobado::before { background: #27ae60; }
+.estado-chip--revision::before { background: #3498db; }
+.estado-chip--pendiente::before { background: #e6b800; }
+.estado-chip--devuelto::before { background: #e74c3c; }
+.estado-chip--inactivo::before { background: #95a1ad; }
 
 /* ========================================================================== */
 /* 6c. PASO 3 — jerarquía y áreas táctiles                                    */
@@ -1081,14 +1165,15 @@ select:focus-visible {
   /* 2. LAYOUT: REDUCCIÓN DE ESPACIOS EXTERNOS */
   .layout-conductor {
     flex-direction: column;
-    padding: 5px; 
-    gap: 8px;     
+    padding: 5px;
+    gap: 8px;
     margin-top: 0;
   }
 
-  /* 3. SIDEBAR (NAVEGACIÓN): fila sticky, siempre accesible */
+  /* 3. NAVEGACIÓN: vuelve a FILA sticky arriba (la columna lateral no cabe) */
   .sidebar-conductor {
     width: 100%;
+    flex: 0 1 auto;
     flex-direction: row;
     overflow-x: auto;
     padding: 6px 0 4px;
@@ -1098,9 +1183,17 @@ select:focus-visible {
     top: 0;
     z-index: 500;
     background: #eef2f5;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    align-self: auto;
+    height: auto; /* deshace la columna a toda altura del escritorio */
   }
 
   .sidebar-conductor::-webkit-scrollbar { display: none; }
+
+  /* En fila horizontal el divisor sobra */
+  .pc-nav-divisor { display: none; }
 
   /* «← Menú» compacto dentro de la fila (no ocupa una fila entera) */
   .btn-sidebar-volver {
@@ -1115,38 +1208,61 @@ select:focus-visible {
 
   .btn-sidebar-step {
     flex: 0 0 auto;
-    padding: 6px 12px; 
+    width: auto;
+    padding: 6px 12px;
     border-radius: 20px;
-    font-size: 0.75rem; 
+    font-size: 0.75rem;
     background-color: white;
-    border: 1px solid #e0e0e0; 
-    box-shadow: none; 
+    border: 1px solid #e0e0e0;
+    box-shadow: none;
+    font-weight: 600;
   }
-  
+
   .btn-sidebar-step .step-indicator {
     width: 18px;
     height: 18px;
     font-size: 10px;
     margin-right: 5px;
   }
-  
+
+  /* Vuelve a la píldora oscura sólida (sin filo izquierdo de la columna). */
   .btn-sidebar-step.active {
     background-color: #2c3e50;
     color: white;
     border-color: #2c3e50;
+    box-shadow: none;
+    font-weight: 600;
   }
 
-  /* En fila horizontal, el botón de rechazados no debe desfazar verticalmente */
-  .btn-sidebar-step.btn-rechazados {
-    margin-top: 0 !important;
+  .btn-sidebar-step.btn-rechazados:not(.disabled) {
+    color: #c0392b;
   }
+
+  .btn-sidebar-step.btn-rechazados.active {
+    background-color: #fff5f5;
+    color: #c0392b !important;
+    border-color: #c0392b !important;
+    box-shadow: none;
+  }
+
+  /* El contador va pegado al texto en la fila (sin margin-left:auto) */
+  .pc-nav-contador { margin-left: 6px; }
 
   /* 4. CONTENIDO PRINCIPAL: APROVECHAR ESPACIO */
   .contenido-conductor-container {
-    padding: 15px; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     width: 100%;
+    margin: 0; /* sin aire de tarjeta: en móvil ocupa todo el ancho */
+  }
+
+  /* Barra «Avance Total» del paso 3: debajo de la fila de pasos sticky
+     (mismo recalibre de la barra del paso 2) y a ancho de la tarjeta. */
+  .progreso-header {
+    top: 44px;
+    margin: 12px -15px 0;
+    padding: 8px 15px;
   }
 
   .step-header {
@@ -1335,6 +1451,12 @@ select:focus-visible {
   .contenido-conductor-container {
     padding: 12px;
     border-radius: 6px;
+  }
+
+  .progreso-header {
+    top: 40px;
+    margin: 10px -12px 0;
+    padding: 8px 12px;
   }
 
   .step-header { margin-bottom: 12px; padding-bottom: 8px; }

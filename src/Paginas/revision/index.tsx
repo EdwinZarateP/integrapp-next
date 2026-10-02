@@ -3,17 +3,19 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import Swal from "sweetalert2";
 import {
   FaSearch, FaTimes, FaBars, FaChevronDown, FaHome, FaSignOutAlt,
-  FaHourglassHalf, FaClipboardList, FaCheckCircle, FaBan,
+  FaHourglassHalf, FaClipboardList, FaCheckCircle, FaBan, FaFileExcel, FaSyncAlt, FaUserPlus,
 } from "react-icons/fa";
 import ListaVehiculos from "./componentes/ListaVehiculos";
 import PanelDetalle from "./componentes/PanelDetalle";
+import VistaAlta from "./componentes/VistaAlta";
 import { Vehiculo, PestanaBandeja, PestanaDetalle } from "./tipos";
 import logoIntegrApp from "@/Imagenes/albatros.png";
 import "./estilos.css";
 
-const BANDEJAS_VALIDAS: PestanaBandeja[] = ["pendientes", "revision", "aprobados", "inactivos"];
+const BANDEJAS_VALIDAS: PestanaBandeja[] = ["pendientes", "revision", "aprobados", "inactivos", "actualizacion"];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -22,7 +24,15 @@ const ETIQUETA_BANDEJA: Record<PestanaBandeja, string> = {
   revision: "En revisión",
   aprobados: "Aprobados",
   inactivos: "Inactivos",
+  actualizacion: "En actualización",
 };
+
+type Vista = 'bandejas' | 'alta';
+
+interface RevisionVehiculosProps {
+  /** Vista inicial: la ruta estática /revision/alta arranca en el módulo. */
+  vistaInicial?: Vista;
+}
 
 /**
  * /revision — bandeja de trabajo de Seguridad.
@@ -33,14 +43,18 @@ const ETIQUETA_BANDEJA: Record<PestanaBandeja, string> = {
  * menú de usuario, tarjetas blancas radius 12 sobre fondo gris — manteniendo
  * el branding IntegrApp (este módulo SÍ es de Integra). La lógica de la
  * bandeja (carga, filtros, paginación, panel de detalle fullscreen) quedó
- * intacta del rediseño 2026-08-27.
+ * intacta del rediseño 2026-08-27. El módulo «Alta conductor» vive en
+ * /revision/alta (misma shell, vista='alta').
  */
-const RevisionVehiculos: React.FC = () => {
+const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) => {
   const router = useRouter();
+
+  const [vista, setVista] = useState<Vista>(vistaInicial ?? 'bandejas');
 
   const [vehiculosPendientes, setVehiculosPendientes] = useState<Vehiculo[]>([]);
   const [vehiculosRevision, setVehiculosRevision] = useState<Vehiculo[]>([]);
   const [vehiculosInactivos, setVehiculosInactivos] = useState<Vehiculo[]>([]);
+  const [vehiculosActualizacion, setVehiculosActualizacion] = useState<Vehiculo[]>([]);
   const [vehiculosAprobados, setVehiculosAprobados] = useState<Vehiculo[]>([]);
 
   const [pestanaActiva, setPestanaActiva] = useState<PestanaBandeja>("revision");
@@ -96,20 +110,29 @@ const RevisionVehiculos: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehiculosRevision, vehiculosPendientes, vehiculosInactivos, vehiculosAprobados, seleccionado]);
 
-  // Espejo de la bandeja activa + placa seleccionada + pestaña del panel en
-  // la URL (replaceState nativo: no ensucia el historial ni re-suspende).
+  // Espejo de la bandeja activa + placa seleccionada + pestaña del panel +
+  // la VISTA en la URL (replaceState nativo: no ensucia el historial ni
+  // re-suspende). El módulo «Alta conductor» vive en la ruta /revision/alta.
+  // La base se NORMALIZA (fuera barras finales y el sufijo /alta): sin esto,
+  // alternar vistas con la barra final del routing acumulaba "///" en la URL.
   useEffect(() => {
     if (!urlSincronizada.current) return; // No pisar la restauración inicial.
+    const base = window.location.pathname
+      .replace(/\/+$/, "")      // barras finales (trailingSlash del export)
+      .replace(/\/alta$/, "");  // sufijo del módulo
+    if (vista === 'alta') {
+      window.history.replaceState(window.history.state, '', `${base}/alta`);
+      return;
+    }
     const params = new URLSearchParams();
     params.set("bandeja", pestanaActiva);
     if (seleccionado) {
       params.set("placa", seleccionado.placa);
       if (pestanaPanel && pestanaPanel !== 'datos') params.set("pestana", pestanaPanel);
     }
-    const ruta = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState(window.history.state, '', ruta);
+    window.history.replaceState(window.history.state, '', `${base}/?${params.toString()}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pestanaActiva, seleccionado, pestanaPanel]);
+  }, [vista, pestanaActiva, seleccionado, pestanaPanel]);
 
   const [busqueda, setBusqueda] = useState("");
   const [busquedaAprobadosEnVuelo, setBusquedaAprobadosEnVuelo] = useState("");
@@ -140,6 +163,7 @@ const RevisionVehiculos: React.FC = () => {
       setVehiculosPendientes(list.filter(v => v.estadoIntegra === "registro_incompleto"));
       setVehiculosRevision(list.filter(v => v.estadoIntegra === "completado_revision" || v.estadoIntegra === "en_revision"));
       setVehiculosInactivos(list.filter(v => v.estadoIntegra === "inactivo"));
+      setVehiculosActualizacion(list.filter(v => v.estadoIntegra === "en_actualizacion"));
     } catch (error) {
       console.error("Error al cargar bandejas:", error);
     }
@@ -179,10 +203,11 @@ const RevisionVehiculos: React.FC = () => {
   const listaActiva = useMemo(() => {
     if (pestanaActiva === "pendientes") return filtrarLocales(vehiculosPendientes);
     if (pestanaActiva === "inactivos") return filtrarLocales(vehiculosInactivos);
+    if (pestanaActiva === "actualizacion") return filtrarLocales(vehiculosActualizacion);
     if (pestanaActiva === "aprobados") return vehiculosAprobados;
     return filtrarLocales(vehiculosRevision);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pestanaActiva, busqueda, vehiculosPendientes, vehiculosRevision, vehiculosInactivos, vehiculosAprobados]);
+  }, [pestanaActiva, busqueda, vehiculosPendientes, vehiculosRevision, vehiculosInactivos, vehiculosActualizacion, vehiculosAprobados]);
 
   // Paginación solo para "En revisión" (la bandeja más larga).
   const totalPages = pestanaActiva === "revision" ? Math.ceil(listaActiva.length / vehiclesPerPage) : 1;
@@ -210,6 +235,7 @@ const RevisionVehiculos: React.FC = () => {
     revision: vehiculosRevision.length,
     aprobados: vehiculosAprobados.length,
     inactivos: vehiculosInactivos.length,
+    actualizacion: vehiculosActualizacion.length,
   };
 
   const ejecutarBusquedaAprobados = () => setBusquedaAprobadosEnVuelo(busqueda.trim());
@@ -254,6 +280,7 @@ const RevisionVehiculos: React.FC = () => {
     { id: "pendientes", etiqueta: ETIQUETA_BANDEJA.pendientes, icono: <FaHourglassHalf /> },
     { id: "revision", etiqueta: ETIQUETA_BANDEJA.revision, icono: <FaClipboardList /> },
     { id: "aprobados", etiqueta: ETIQUETA_BANDEJA.aprobados, icono: <FaCheckCircle /> },
+    { id: "actualizacion", etiqueta: ETIQUETA_BANDEJA.actualizacion, icono: <FaSyncAlt /> },
     { id: "inactivos", etiqueta: ETIQUETA_BANDEJA.inactivos, icono: <FaBan /> },
   ];
 
@@ -270,8 +297,9 @@ const RevisionVehiculos: React.FC = () => {
         {navItems.map(item => (
           <button
             key={item.id}
-            className={`revx-nav-item ${pestanaActiva === item.id ? "revx-nav-activo" : ""}`}
+            className={`revx-nav-item ${vista === 'bandejas' && pestanaActiva === item.id ? "revx-nav-activo" : ""}`}
             onClick={() => {
+              setVista('bandejas');
               setPestanaActiva(item.id);
               setSeleccionado(null);
               setMenuLateralAbierto(false);
@@ -284,6 +312,16 @@ const RevisionVehiculos: React.FC = () => {
             )}
           </button>
         ))}
+        {/* Módulo «Alta conductor» (ruta propia /revision/alta), separado de
+            las bandejas — no lleva contador. */}
+        <div className="revx-nav-divisor" />
+        <button
+          className={`revx-nav-item ${vista === 'alta' ? "revx-nav-activo" : ""}`}
+          onClick={() => { setVista('alta'); setMenuLateralAbierto(false); }}
+        >
+          <FaUserPlus />
+          <span>Alta de vehículo</span>
+        </button>
       </nav>
       <div className="revx-sidebar-pie">
         <div className="revx-sidebar-usuario">
@@ -322,7 +360,10 @@ const RevisionVehiculos: React.FC = () => {
           <div className="revx-miga">
             <span className="revx-miga-inicio">Inicio</span>
             <span className="revx-miga-sep">/</span>
-            <span className="revx-miga-actual">Revisión de vehículos · {ETIQUETA_BANDEJA[pestanaActiva]}</span>
+            <span className="revx-miga-actual">
+              {vista === 'alta' ? 'Revisión de vehículos · Alta de vehículo'
+                                : `Revisión de vehículos · ${ETIQUETA_BANDEJA[pestanaActiva]}`}
+            </span>
           </div>
           <div className="revx-topbar-derecha">
             <span className="revx-pill" title="Vehículos esperando revisión">
@@ -357,6 +398,17 @@ const RevisionVehiculos: React.FC = () => {
         </header>
 
         <main className="revx-contenido">
+          {vista === 'alta' ? (
+            <>
+              <div className="revx-encabezado">
+                <h1>Alta de <span>vehículo</span></h1>
+                <p>Registra una placa nueva, vincúlala a un dueño con cuenta (o créale una)
+                   y cárgale toda la información que implica el vehículo.</p>
+              </div>
+              <VistaAlta onVolver={() => { setVista('bandejas'); setPestanaActiva('revision'); }} />
+            </>
+          ) : (
+          <>
           <div className="revx-encabezado">
             <h1>Revisión de <span>vehículos</span></h1>
             <p>Hoja de vida, documentos y estudios de seguridad de la flota En Ruta.</p>
@@ -390,6 +442,15 @@ const RevisionVehiculos: React.FC = () => {
                   </button>
                 )}
               </div>
+              {pestanaActiva === "aprobados" && (
+                <button
+                  className="rev-btn-excel"
+                  onClick={() => window.open(`${API_BASE}/vehiculos/exportar-excel`, '_blank')}
+                  title="Descarga TODAS las placas con la información detallada almacenada de cada vehículo"
+                >
+                  <FaFileExcel /> Excel
+                </button>
+              )}
             </div>
 
             <ListaVehiculos
@@ -413,6 +474,8 @@ const RevisionVehiculos: React.FC = () => {
               </div>
             )}
           </section>
+          </>
+          )}
         </main>
       </div>
 

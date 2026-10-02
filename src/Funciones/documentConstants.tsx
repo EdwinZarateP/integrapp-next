@@ -19,6 +19,8 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     "Documento de Identidad del Tenedor": `${API_BASE_URL}/subir-documento`,
     "Licencia de Conducción Vigente": `${API_BASE_URL}/subir-documento`,
     "Licencia de Conducción (Reverso)": `${API_BASE_URL}/subir-documento`,
+    "Planilla de Seguridad Social": `${API_BASE_URL}/subir-documento`,
+    // Alias históricos (compatibilidad):
     "Planilla de EPS y ARL": `${API_BASE_URL}/subir-documento`,
     "Planilla de EPS": `${API_BASE_URL}/subir-documento`,
     "Planilla de ARL": `${API_BASE_URL}/subir-documento`,
@@ -27,8 +29,11 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     "Certificación Bancaria Tenedor": `${API_BASE_URL}/subir-documento`,
     // (2026-08-31) «Certificación Bancaria Propietario» ELIMINADA del pedido.
     "Documento que lo acredite como Tenedor": `${API_BASE_URL}/subir-documento`,
-    "RUT Tenedor": `${API_BASE_URL}/subir-documento`
-    // (2026-08-31) «RUT Propietario» ELIMINADO del pedido.
+    "RUT Tenedor": `${API_BASE_URL}/subir-documento`,
+    // (2026-09-28) «RUT Propietario» VUELVE a pedirse SOLO cuando el
+    // propietario es una empresa (NIT): reemplaza su cédula.
+    "RUT Propietario": `${API_BASE_URL}/subir-documento`,
+    "Hoja de Vida Física": `${API_BASE_URL}/subir-documento`
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 
@@ -47,13 +52,15 @@ export const tiposMapping: Record<string, string> = Object.fromEntries(
     "Documento de Identidad del Tenedor": "documentoIdentidadTenedor",
     "Licencia de Conducción Vigente": "licencia",
     "Licencia de Conducción (Reverso)": "licenciaReverso",
+    "Planilla de Seguridad Social": "planillaEpsArl",
     "Planilla de EPS y ARL": "planillaEpsArl",
     "Foto Conductor": "condFoto",
     "Certificación Bancaria Conductor": "condCertificacionBancaria",
     "Certificación Bancaria Tenedor": "tenedCertificacionBancaria",
     "Documento que lo acredite como Tenedor": "documentoAcreditacionTenedor",
-    "RUT Tenedor": "rutTenedor"
-    // (2026-08-31) «RUT Propietario» ELIMINADO del pedido.
+    "RUT Tenedor": "rutTenedor",
+    "RUT Propietario": "rutPropietario",
+    "Hoja de Vida Física": "hojaVidaFisica"
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 

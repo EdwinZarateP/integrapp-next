@@ -1148,6 +1148,7 @@ const TablaPedidos: React.FC = () => {
                 <th title="Kg reales ÷ tope del tipo solicitado">% Uso</th>
                 <th>Estados</th>
                 <th>Puntos</th>
+                <th>Cajas</th>
                 <th>Kg Reales</th>
                 <th>Kg Runt</th>
                 <th>Flete Solicitado</th>
@@ -1248,6 +1249,9 @@ const TablaPedidos: React.FC = () => {
                       </td>
                       <td>{estados.join(', ')}</td>
                       <td>{g.total_puntos_vehiculo}</td>
+                      <td title={g.total_cajas_vehiculo ? 'Cajas totales del vehículo' : 'Sin cajas registradas'}>
+                        {g.total_cajas_vehiculo ? Number(g.total_cajas_vehiculo).toLocaleString('es-CO') : '—'}
+                      </td>
                       <td>{g.total_kilos_vehiculo}</td>
                       <td>{g.total_kilos_vehiculo_sicetac}</td>
                       <CellMoney value={g.total_flete_solicitado} />
@@ -1273,7 +1277,7 @@ const TablaPedidos: React.FC = () => {
 
                     {expandido.has(g.consecutivo_vehiculo) && (
                       <tr className="TablaPedidos-details">
-                        <td colSpan={22}>
+                        <td colSpan={23}>
                           <DetailsTable pedidos={g.pedidos as unknown as Pedido[]} />
                         </td>
                       </tr>

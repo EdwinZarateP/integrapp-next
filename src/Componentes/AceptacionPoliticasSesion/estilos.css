@@ -1,0 +1,96 @@
+/* Overlay bloqueante de aceptación de políticas (primer ingreso de cuentas
+   creadas por Seguridad). Patrón visual de VerificarCorreo (VC-*). */
+.APS-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 42, 67, 0.55);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 14px;
+  overflow-y: auto;
+}
+
+.APS-caja {
+  background: #fff;
+  border-radius: 14px;
+  max-width: 680px;
+  width: 100%;
+  padding: 26px;
+  box-shadow: 0 18px 50px rgba(16, 42, 67, 0.25);
+}
+
+.APS-titulo {
+  margin: 0 0 6px;
+  font-size: 1.25rem;
+  color: #22313f;
+}
+
+.APS-subtitulo {
+  margin: 0 0 16px;
+  color: #6b7684;
+  font-size: 0.9rem;
+}
+
+.APS-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin: 0 0 10px;
+}
+
+.APS-cajaDecl {
+  border: 1px solid #e5e9ef;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.APS-tituloDecl {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: #22313f;
+}
+
+.APS-tituloDecl small { color: #8a94a0; font-weight: 500; }
+
+.APS-textoDecl {
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 0.82rem;
+  color: #45504b;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.APS-fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.86rem;
+  cursor: pointer;
+  color: #22313f;
+}
+
+.APS-fila input { width: 18px; height: 18px; accent-color: #00a5b5; }
+
+.APS-progreso {
+  color: #8a94a0;
+  font-size: 0.78rem;
+  margin: 4px 0 14px;
+}
+
+.APS-boton {
+  width: 100%;
+  background: #00a5b5;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.APS-boton:disabled { background: #b9c6cd; cursor: not-allowed; }
+.APS-boton:not(:disabled):hover { filter: brightness(1.08); }

@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Cookies from 'js-cookie';
 import municipios from "@/Componentes/Municipios/municipios.json";
 import Swal from 'sweetalert2';
 import Lottie from 'lottie-react';
@@ -13,9 +14,9 @@ import './estilos.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-// El canvas de firma (react-signature-canvas) solo se carga cuando se va a
-// dibujar: baja el JS residente al entrar a la cámara en móviles con poca RAM.
-const SignatureCanvas = lazy(() => import('react-signature-canvas'));
+// La FIRMA del conductor ya no vive en este formulario (2026-10-01, orden del
+// usuario): es el último ítem del paso 3 (Documentación), componente
+// `Componentes/FirmaConductor`.
 
 const departamentosUnicos = [...new Set(municipios.map((m: any) => m.DEPARTAMENTO))].sort() as string[];
 
@@ -473,6 +474,13 @@ const aterrizarAseguradora = (crudo: string): string => {
   return String(crudo);
 };
 
+/* Color del avance por tramo: 🔴 <70% · 🟠 70–89% · 🟢 ≥90% (la barra
+   "habla" de qué tan lejos está de estar completa). */
+const claseAvance = (pct: number): string =>
+  pct < 70 ? 'Datos-progreso--bajo'
+  : pct < 90 ? 'Datos-progreso--medio'
+  : '';
+
 const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, string>> = {
   cedula: (d) => {
     const nuevos: Record<string, string> = {};
@@ -642,20 +650,82 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
   // pedirse por completo (orden del usuario).
 ];
 
-/* Documentos del conductor que pueden REUTILIZARSE como documento del
-   propietario/tenedor («es la misma persona», 2026-08-31 — cédula y
-   certificado bancario): si el del conductor ya está cargado, el botón de la
-   figura ofrece copiarlo server-side SIN gastar otra lectura de IA. */
-const REUTILIZABLES_CONDUCTOR: Record<string, {
-  figura: 'propietario' | 'tenedor';
+/* «Es la misma persona» GENERALIZADO (2026-10-01): la cédula puede copiarse
+   ENTRE cualquier par de figuras y en CUALQUIER orden — si alguien sube
+   primero la del propietario, la del conductor puede copiarse de esa. Por
+   cada botón se declaran los ORÍGENES candidatos; el Swal solo ofrece los que
+   ya tengan el documento cargado. Copia server-side SIN gastar lectura IA. */
+type Figura = 'conductor' | 'propietario' | 'tenedor';
+
+const REUTILIZABLES: Record<string, {
+  figura: Figura;
   documento: 'cedula' | 'certificado_bancario';
-  campoConductor: string;
-  nombreDoc: string;
-  femenino: boolean;
+  origenes: Figura[];
 }> = {
-  cedula_propietario: { figura: 'propietario', documento: 'cedula', campoConductor: 'documentoIdentidadConductor', nombreDoc: 'cédula', femenino: true },
-  cedula_tenedor: { figura: 'tenedor', documento: 'cedula', campoConductor: 'documentoIdentidadConductor', nombreDoc: 'cédula', femenino: true },
-  certificado_bancario_tened: { figura: 'tenedor', documento: 'certificado_bancario', campoConductor: 'condCertificacionBancaria', nombreDoc: 'certificado bancario', femenino: false },
+  cedula: { figura: 'conductor', documento: 'cedula', origenes: ['propietario', 'tenedor'] },
+  cedula_propietario: { figura: 'propietario', documento: 'cedula', origenes: ['conductor', 'tenedor'] },
+  cedula_tenedor: { figura: 'tenedor', documento: 'cedula', origenes: ['conductor', 'propietario'] },
+  // Cert. bancario: conductor ↔ tenedor en cualquier orden (puede ser la
+  // misma cuenta). El del propietario dejó de pedirse.
+  certificado_bancario_cond: { figura: 'conductor', documento: 'certificado_bancario', origenes: ['tenedor'] },
+  certificado_bancario_tened: { figura: 'tenedor', documento: 'certificado_bancario', origenes: ['conductor'] },
+};
+
+/* Campo de Mongo (y de docsSubidos) de cada documento por figura. */
+const CAMPOS_REUTIL: Record<'cedula' | 'certificado_bancario', Partial<Record<Figura, string>>> = {
+  cedula: {
+    conductor: 'documentoIdentidadConductor',
+    propietario: 'documentoIdentidadPropietario',
+    tenedor: 'documentoIdentidadTenedor',
+  },
+  certificado_bancario: {
+    conductor: 'condCertificacionBancaria',
+    tenedor: 'tenedCertificacionBancaria',
+  },
+};
+
+const NOMBRE_FIGURA: Record<Figura, string> = {
+  conductor: 'conductor', propietario: 'propietario', tenedor: 'tenedor',
+};
+
+/* Clona la identidad del formulario de una figura a OTRA (fallback sin
+   lectura IA al reutilizar una cédula). El conductor guarda nombre y
+   apellidos SEPARADOS; propietario/tenedor un solo campo Nombre. */
+const clonarIdentidad = (
+  origen: Figura, destino: Figura, fd: Record<string, string>,
+): Record<string, string> => {
+  const identidad = origen === 'conductor'
+    ? {
+        nombre: [fd.condPrimerApellido, fd.condSegundoApellido, fd.condNombres]
+          .filter(Boolean).join(' ').toUpperCase().replace(/\s+/g, ' ').trim(),
+        documento: fd.condCedulaCiudadania || '',
+        expedidaEn: fd.condExpedidaEn || '',
+      }
+    : {
+        nombre: fd[`${origen}Nombre`] || '',
+        documento: fd[`${origen}Documento`] || '',
+        expedidaEn: fd[`${origen}CiudadExpDoc`] || '',
+      };
+  const clones: Record<string, string> = {};
+  if (destino === 'conductor') {
+    // Nombre y apellidos del conductor van SEPARADOS: no se pueden partir
+    // con certeza desde un nombre completo — esos los llena la lectura IA;
+    // la cédula y la expedición sí son clonables.
+    if (identidad.documento) clones.condCedulaCiudadania = identidad.documento;
+    if (identidad.expedidaEn) clones.condExpedidaEn = identidad.expedidaEn;
+    return clones;
+  }
+  if (identidad.nombre) clones[`${destino}Nombre`] = identidad.nombre;
+  if (identidad.documento) {
+    clones[`${destino}Documento`] = identidad.documento;
+    clones[`${destino}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
+  }
+  if (identidad.expedidaEn) {
+    clones[`${destino}CiudadExpDoc`] = identidad.expedidaEn;
+    const depto = buscarDepartamentoPorCiudad(identidad.expedidaEn);
+    if (depto) clones[`${destino}DeptoExpedida`] = depto;
+  }
+  return clones;
 };
 
 interface DatosProps {
@@ -663,6 +733,10 @@ interface DatosProps {
   idUsuario?: string;
   /** True cuando se edita un vehículo aprobado: enviar editado_por al guardar. */
   editarAprobado?: boolean;
+  /** Nombre de Seguridad cuando la sesión es IMPERSONADA (login-como): se
+   *  envía como editado_por en TODAS las mutaciones → queda en la bitácora
+   *  de auditoría del vehículo quién hizo realmente cada cambio. */
+  impersonadoPor?: string;
   /** Modo CONSULTA (vehículo en revisión): todo el formulario bloqueado, sin
    * tarjeta IA, sin firma editable y sin botones de guardado. */
   soloLectura?: boolean;
@@ -692,7 +766,9 @@ const refAdicionalVacia = (): Record<string, string> => ({
 const REMOL_FIELDS = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho'];
 const REMOL_TITULO = 'Datos del Remolque (Opcional)';
 
-const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLectura, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
+const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, impersonadoPor, soloLectura, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
+  // Actor real de las mutaciones cuando Seguridad trabaja como el conductor.
+  const actorImpersonacion = (impersonadoPor || '').trim() || undefined;
   const [formData, setFormData] = useState<Record<string, string>>({});
   // Referencias laborales adicionales (opcionales): el array vive aparte del
   // formData plano y se persiste como `referenciasAdicionales` en el vehículo.
@@ -700,14 +776,20 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
   // Sección del remolque desplegada (checkbox «mi vehículo tiene remolque»).
   const [tieneRemolque, setTieneRemolque] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [editandoFirma, setEditandoFirma] = useState(false);
-  const sigCanvas = useRef<any>(null);
-  // Sello de la firma electrónica (vehiculo.firmaEvidencia): fecha de la
-  // última firma registrada vía /vehiculos/firmar. Null = firma histórica
-  // sin sellado o aún no firmado.
-  const [firmaSellada, setFirmaSellada] = useState<{ firmado_en: string; version: number } | null>(null);
   // Documentos ya guardados en el vehículo (tipo subida → URL), para los ✓.
   const [docsSubidos, setDocsSubidos] = useState<Record<string, string>>({});
+  // Vinculación del conductor invitado (la ficha es de un TENEDOR): la
+  // invitación se hace DESDE los datos de este formulario (2026-10-01) —
+  // el correo y el nombre salen de condCorreo/condNombres, no de un modal
+  // aparte donde había que digitarlos de nuevo.
+  const [vinculacionConductor, setVinculacionConductor] = useState<{
+    idConductor?: any;
+    invitacion?: { correo?: string; estado?: string } | null;
+  }>({});
+  // ¿La sesión es del TENEDOR dueño de la ficha? (también aplica cuando
+  // Seguridad impersona al tenedor desde el alta).
+  const idTenedorSesion = Cookies.get('conductorId') || '';
+  const esSesionTenedor = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase() === 'TENEDOR';
 
   // --- Lectura de documentos con IA (cédula, RUT, bancario, licencia, etc.) ---
   const [leyendoCedula, setLeyendoCedula] = useState(false);
@@ -847,13 +929,21 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
           if (!datosCargados.vehRepotenciado || String(datosCargados.vehRepotenciado).trim() === '') {
             datosCargados.vehRepotenciado = 'No';
           }
-          setFormData((prevData) => ({ ...prevData, ...datosCargados, ...departamentosCalculados }));
-
-          // Sello de la firma electrónica (si ya firmó antes con el flujo nuevo).
-          const evidencia = loadedData.firmaEvidencia;
-          if (evidencia && evidencia.firmado_en) {
-            setFirmaSellada({ firmado_en: evidencia.firmado_en, version: evidencia.version ?? 1 });
+          // Correo de la CUENTA por defecto: entró a la plataforma con ese
+          // correo, no debería digitarlo de nuevo (CONDUCTOR → condCorreo,
+          // TENEDOR → tenedCorreo; SOLO si el campo viene vacío — nunca pisa
+          // un correo ya guardado ni lo escrito a mano).
+          const correoCuenta = (Cookies.get('conductorCorreo') || '').trim().toUpperCase();
+          const campoCorreoFigura = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase() === 'TENEDOR'
+            ? 'tenedCorreo' : 'condCorreo';
+          if (correoCuenta && correoCuenta.includes('@') && !String(datosCargados[campoCorreoFigura] || '').trim()) {
+            datosCargados[campoCorreoFigura] = correoCuenta;
           }
+          setFormData((prevData) => ({ ...prevData, ...datosCargados, ...departamentosCalculados }));
+          setVinculacionConductor({
+            idConductor: loadedData.idConductor || null,
+            invitacion: loadedData.invitacionConductor || null,
+          });
 
           // Datos extraídos por IA al subir documentos (paso 3): autollenar los
           // campos aún vacíos con la misma regla de no pisar lo escrito a mano.
@@ -1047,6 +1137,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
         if (avisos.length) bodySubida.append('lectura_avisos', JSON.stringify(avisos));
         if (gemelos.length) bodySubida.append('replicar_en', gemelos.join(','));
         if (editarAprobado && idUsuario) bodySubida.append('editado_por', idUsuario);
+        else if (actorImpersonacion) bodySubida.append('editado_por', actorImpersonacion);
         const respSubida = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body: bodySubida });
         const dataSubida = await respSubida.json().catch(() => ({}));
         if (!respSubida.ok) throw new Error(dataSubida.detail || 'No se pudo guardar el documento.');
@@ -1063,6 +1154,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
         body.append('tipo', tipoSubida);
         if (gemelos.length) body.append('replicar_en', gemelos.join(','));
         if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
+        else if (actorImpersonacion) body.append('editado_por', actorImpersonacion);
         const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(data.detail || `No se pudo guardar ${etiqueta.toLowerCase()}.`);
@@ -1213,14 +1305,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
     );
   };
 
-  /** «Es la misma persona»: copia un documento del CONDUCTOR (cédula o
-   * certificado bancario) al propietario/tenedor sin gastar otra lectura de
-   * IA. El backend copia el blob (frente+reverso si aplica) con nomenclatura
-   * propia de la figura destino y devuelve la lectura IA del conductor; con
-   * ella se autollenan los datos de la figura (respetando lo escrito a mano). */
-  const reutilizarDocumentoConductor = async (
+  /** «Es la misma persona» (generalizado 2026-10-01): copia un documento ya
+   * cargado de la figura ORIGEN (conductor/propietario/tenedor) a la figura
+   * destino sin gastar otra lectura de IA — el orden de subida da igual. El
+   * backend copia el blob (frente+reverso si aplica) con nomenclatura propia
+   * de la figura destino y devuelve la lectura IA del origen; con ella se
+   * autollenan los datos de la figura (respetando lo escrito a mano). */
+  const reutilizarDocumento = async (
     documento: 'cedula' | 'certificado_bancario',
-    figura: 'propietario' | 'tenedor',
+    figura: Figura,
+    origen: Figura,
     etiqueta: string,
   ) => {
     setLeyendoCedula(true);
@@ -1230,47 +1324,35 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
       body.append('placa', placa);
       body.append('figura', figura);
       body.append('documento', documento);
+      body.append('origen', origen);
       if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
+      else if (actorImpersonacion) body.append('editado_por', actorImpersonacion);
       const resp = await fetch(`${API_BASE}/vehiculos/reutilizar-documento`, { method: 'PUT', body });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo reutilizar el documento.');
 
-      const tipoSubida = documento === 'cedula'
-        ? (figura === 'propietario' ? 'documentoIdentidadPropietario' : 'documentoIdentidadTenedor')
-        : (figura === 'propietario' ? 'propCertificacionBancaria' : 'tenedCertificacionBancaria');
+      const tipoSubida = CAMPOS_REUTIL[documento][figura]!;
       setDocsSubidos(prev => ({
         ...prev,
         [tipoSubida]: data.url,
         ...(data.url_reverso ? { [`${tipoSubida}Reverso`]: data.url_reverso } : {}),
       }));
 
-      // Autollenar los datos de la figura. Prioridad: lectura IA del
-      // conductor (la devolvió el backend); si no hay, los campos del
-      // formulario. Nunca pisa lo escrito a mano (regla de aplicarLecturaIA).
-      const prefijo = figura === 'propietario' ? 'prop' : 'tened';
+      // Autollenar los datos de la figura DESTINO. Prioridad: lectura IA del
+      // origen (la devuelve el backend); si no hay, clonar los campos del
+      // formulario del origen. Nunca pisa lo escrito a mano (aplicarLecturaIA).
       let aplicados = 0;
       if (documento === 'cedula') {
-        const mapear = MAPEOS_IA[`cedula_${figura}`];
+        const mapear = figura === 'conductor'
+          ? MAPEOS_IA['cedula']
+          : MAPEOS_IA[`cedula_${figura}`];
         if (data.lectura_ia && data.lectura_ia.datos && mapear) {
           const nuevos = mapear(data.lectura_ia.datos);
           aplicarLecturaIA(nuevos);
           aplicados = Object.keys(nuevos).length;
         } else {
-          // Fallback sin lectura IA: clonar los campos de identidad del conductor.
-          const clones: Record<string, string> = {};
-          const nombreCompleto = [
-            formData['condPrimerApellido'], formData['condSegundoApellido'], formData['condNombres'],
-          ].filter(Boolean).join(' ').toUpperCase().replace(/\s+/g, ' ').trim();
-          if (nombreCompleto) clones[`${prefijo}Nombre`] = nombreCompleto;
-          if (formData['condCedulaCiudadania']) {
-            clones[`${prefijo}Documento`] = formData['condCedulaCiudadania'];
-            clones[`${prefijo}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
-          }
-          if (formData['condExpedidaEn']) {
-            clones[`${prefijo}CiudadExpDoc`] = formData['condExpedidaEn'];
-            const depto = buscarDepartamentoPorCiudad(formData['condExpedidaEn']);
-            if (depto) clones[`${prefijo}DeptoExpedida`] = depto;
-          }
+          // Fallback sin lectura IA: clonar la identidad de la figura origen.
+          const clones = clonarIdentidad(origen, figura, formData);
           if (Object.keys(clones).length > 0) {
             aplicarLecturaIA(clones);
             aplicados = Object.keys(clones).length;
@@ -1278,19 +1360,20 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
         }
       } else {
         // Certificado bancario: lectura IA (banco/tipo/número) o clon de los
-        // campos del conductor. OJO: las claves de MAPEOS_IA usan los prefijos
-        // CORTOS (prop/tened), no figura — `certificado_bancario_${figura}`
-        // jamás existía y el autollenado con lectura IA se caía silenciosamente.
-        const mapear = MAPEOS_IA[`certificado_bancario_${figura === 'propietario' ? 'prop' : 'tened'}`];
+        // campos del origen. OJO: las claves de MAPEOS_IA usan los prefijos
+        // CORTOS (cond/tened), no la figura completa.
+        const prefijo = figura === 'tenedor' ? 'tened' : 'cond';
+        const prefijoOrigen = origen === 'tenedor' ? 'tened' : 'cond';
+        const mapear = MAPEOS_IA[`certificado_bancario_${prefijo}`];
         if (data.lectura_ia && data.lectura_ia.datos && mapear) {
           const nuevos = mapear(data.lectura_ia.datos);
           aplicarLecturaIA(nuevos);
           aplicados = Object.keys(nuevos).length;
         } else {
           const clones: Record<string, string> = {};
-          if (formData['condBanco']) clones[`${prefijo}Banco`] = formData['condBanco'];
-          if (formData['condTipoCuenta']) clones[`${prefijo}TipoCuenta`] = formData['condTipoCuenta'];
-          if (formData['condNumeroCuenta']) clones[`${prefijo}NumeroCuenta`] = formData['condNumeroCuenta'];
+          if (formData[`${prefijoOrigen}Banco`]) clones[`${prefijo}Banco`] = formData[`${prefijoOrigen}Banco`];
+          if (formData[`${prefijoOrigen}TipoCuenta`]) clones[`${prefijo}TipoCuenta`] = formData[`${prefijoOrigen}TipoCuenta`];
+          if (formData[`${prefijoOrigen}NumeroCuenta`]) clones[`${prefijo}NumeroCuenta`] = formData[`${prefijoOrigen}NumeroCuenta`];
           if (Object.keys(clones).length > 0) {
             aplicarLecturaIA(clones);
             aplicados = Object.keys(clones).length;
@@ -1317,6 +1400,73 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
     }
   };
 
+  /** Swal de «es la misma persona»: con UN origen disponible es sí/no; con
+   *  DOS, cada botón copia de una figura distinta (+ «Cargar otra»). */
+  const abrirSwalReutilizacion = (params: {
+    tipo: string;
+    etiqueta: string;
+    figura: Figura;
+    documento: 'cedula' | 'certificado_bancario';
+    disponibles: Figura[];
+    nombreDoc: string;
+    lista: string;
+  }) => {
+    const { tipo, etiqueta, figura, documento, disponibles, nombreDoc, lista } = params;
+    const htmlBase = `¿El ${NOMBRE_FIGURA[figura]} es la <b>misma persona</b> que el ${lista}?<br/>` +
+      `<span style="font-size:0.85em; color:#5a6472">Si es así, usamos el ${nombreDoc} que ya ` +
+      `cargaste${documento === 'cedula' ? ' (con su reverso)' : ''}: <b>sin foto ni lectura IA</b>, ` +
+      `y llenamos sus datos automáticamente.</span>`;
+    const cargarOtra = () => {
+      setTipoLecturaPendiente(tipo);
+      setTimeout(() => inputDocumentoRef.current?.click(), 0);
+    };
+    if (disponibles.length === 1) {
+      Swal.fire({
+        icon: 'question',
+        title: etiqueta,
+        html: htmlBase,
+        showDenyButton: true,
+        showCloseButton: true,
+        confirmButtonText: '♻️ Sí, es la misma persona',
+        denyButtonText: `📷 No, cargar ${documento === 'cedula' ? 'otra' : 'otro'}`,
+        confirmButtonColor: '#27ae60',
+        denyButtonColor: '#2c5f9e',
+        reverseButtons: true,
+      }).then(async res => {
+        if (res.isConfirmed) {
+          await reutilizarDocumento(documento, figura, disponibles[0], etiqueta);
+        } else if (res.isDenied) {
+          cargarOtra();
+        }
+      });
+      return;
+    }
+    // DOS orígenes cargados: cada botón copia de una figura distinta.
+    Swal.fire({
+      icon: 'question',
+      title: etiqueta,
+      html: htmlBase,
+      showDenyButton: true,
+      showCancelButton: true,
+      showCloseButton: true,
+      confirmButtonText: `♻️ Copiar la del ${NOMBRE_FIGURA[disponibles[0]]}`,
+      denyButtonText: `♻️ Copiar la del ${NOMBRE_FIGURA[disponibles[1]]}`,
+      cancelButtonText: '📷 Cargar otra',
+      confirmButtonColor: '#27ae60',
+      denyButtonColor: '#27ae60',
+      cancelButtonColor: '#2c5f9e',
+      reverseButtons: true,
+    }).then(async res => {
+      if (res.isConfirmed) {
+        await reutilizarDocumento(documento, figura, disponibles[0], etiqueta);
+      } else if (res.isDenied) {
+        await reutilizarDocumento(documento, figura, disponibles[1], etiqueta);
+      } else if (res.dismiss === Swal.DismissReason.cancel) {
+        cargarOtra();
+      }
+    });
+  };
+
   // Al tocar un botón de documento de la tarjeta IA: elegir cómo cargar.
   // «Tomar foto» abre la cámara DENTRO de la página (getUserMedia) — en varios
   // celulares la entrada Cámara del selector de Android muere con «memoria
@@ -1336,32 +1486,24 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
       return;
     }
     if (inputDocumentoRef.current) inputDocumentoRef.current.accept = 'image/jpeg, image/png, image/jpg, application/pdf';
-    // Cédula o certificado bancario de propietario/tenedor: si el del
-    // conductor ya está cargado, ofrecer reutilizarlo (misma persona) — copia
-    // el archivo ya guardado y autollena SIN gastar otra lectura de IA.
-    const reutilizable = REUTILIZABLES_CONDUCTOR[tipo];
-    if (reutilizable && docsSubidos[reutilizable.campoConductor]) {
-      const { figura, documento, nombreDoc, femenino } = reutilizable;
-      Swal.fire({
-        icon: 'question',
-        title: etiqueta,
-        html: `¿El ${figura} es la <b>misma persona</b> que el conductor?<br/><span style="font-size:0.85em; color:#5a6472">Si es así, usamos el ${nombreDoc} que ya cargaste${documento === 'cedula' ? ' (con su reverso)' : ''}: <b>sin foto ni lectura IA</b>, y llenamos sus datos automáticamente.</span>`,
-        showDenyButton: true,
-        showCloseButton: true,
-        confirmButtonText: '♻️ Sí, es la misma persona',
-        denyButtonText: `📷 No, cargar ${femenino ? 'otra' : 'otro'}`,
-        confirmButtonColor: '#27ae60',
-        denyButtonColor: '#2c5f9e',
-        reverseButtons: true,
-      }).then(async res => {
-        if (res.isConfirmed) {
-          await reutilizarDocumentoConductor(documento, figura, etiqueta);
-        } else if (res.isDenied) {
-          setTipoLecturaPendiente(tipo);
-          setTimeout(() => inputDocumentoRef.current?.click(), 0);
-        }
-      });
-      return;
+    // Cédula de CUALQUIER figura (o cert. bancario del tenedor): si otra
+    // figura ya tiene el documento cargado, ofrecer copiarlo («es la misma
+    // persona») — copia el archivo ya guardado y autollena SIN gastar lectura
+    // de IA. El orden de subida da igual: pueden ofrecerse hasta 2 orígenes.
+    const reutilizable = REUTILIZABLES[tipo];
+    if (reutilizable) {
+      const { figura, documento } = reutilizable;
+      const disponibles = reutilizable.origenes
+        .filter(o => o !== figura && CAMPOS_REUTIL[documento][o])
+        .filter(o => docsSubidos[CAMPOS_REUTIL[documento][o]!]);
+      if (disponibles.length > 0) {
+        const nombreDoc = documento === 'cedula' ? 'cédula' : 'certificado bancario';
+        const lista = disponibles.map(o => NOMBRE_FIGURA[o]).join(' o el ');
+        abrirSwalReutilizacion({
+          tipo, etiqueta, figura, documento, disponibles, nombreDoc, lista,
+        });
+        return;
+      }
     }
     Swal.fire({
       icon: 'question',
@@ -1438,77 +1580,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
     );
   };
 
-  const dataURLtoBlob = (dataurl: string) => {
-    const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)![1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) u8arr[n] = bstr.charCodeAt(n);
-    return new Blob([u8arr], { type: mime });
-  };
-
-  // La fecha del backend llega ISO sin zona (naive UTC): se interpreta como
-  // UTC y se muestra en hora de Colombia.
-  const formatoFechaFirma = (iso: string): string => {
-    try {
-      return new Date(iso.endsWith('Z') ? iso : `${iso}Z`).toLocaleString('es-CO', {
-        timeZone: 'America/Bogota', dateStyle: 'long', timeStyle: 'short',
-      });
-    } catch { return iso; }
-  };
-
-  /**
-   * FIRMA ELECTRÓNICA con evidencia sellada (Ley 1955 art. 76 / Dec. 1499):
-   * en un solo request (PUT /vehiculos/firmar) sube la imagen Y sella el
-   * registro inmutable — hash SHA-256 de los datos declarados, fecha UTC,
-   * IP y user-agent. Retorna la fecha ISO del sellado.
-   */
-  const firmarAhora = async (): Promise<string> => {
-    if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
-      throw new Error('Dibuja tu firma antes de firmar.');
-    }
-    const dataURL = sigCanvas.current.getCanvas().toDataURL('image/webp');
-    const blob = dataURLtoBlob(dataURL);
-    const fileFirma = new File([blob], 'firma_conductor.webp', { type: 'image/webp' });
-    const body = new FormData();
-    body.append('archivo', fileFirma);
-    body.append('placa', placa);
-    if (idUsuario) body.append('id_usuario', idUsuario);
-    if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
-
-    const resp = await fetch(`${API_BASE}/vehiculos/firmar`, { method: 'PUT', body });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new Error(data.detail || 'No se pudo registrar la firma.');
-    if (data.url) setFormData(prev => ({ ...prev, firmaUrl: data.url }));
-    if (data.firmado_en) setFirmaSellada({ firmado_en: data.firmado_en, version: data.version ?? 1 });
-    return data.firmado_en || '';
-  };
-
-  // Botón «Firmar»: acto explícito e informado (qué firma y cuándo quedó sellado).
-  const manejarFirmar = async () => {
-    setIsLoading(true);
-    try {
-      const firmadoEn = await firmarAhora();
-      await Swal.fire({
-        icon: 'success',
-        title: 'Firma registrada',
-        html: `Firmaste electrónicamente el <b>${formatoFechaFirma(firmadoEn)}</b>.<br/>
-               <span style="font-size:0.85em; color:#666">La firma quedó sellada con el hash de tus datos
-               y la fecha exacta, como evidencia inmutable.</span>`,
-        confirmButtonColor: '#27ae60',
-      });
-    } catch (error: any) {
-      Swal.fire({ icon: 'error', title: 'No se pudo firmar', text: error?.message || 'Intenta de nuevo.', confirmButtonColor: '#d33' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const limpiarFirma = () => {
-    if (sigCanvas.current) sigCanvas.current.clear();
-  };
-
   // Campos de DOCUMENTOS que viven en el vehículo pero que ESTE formulario no
   // controla: subir-documento/eliminar-documento son sus dueños. Si se enviaran
   // (ej. el autoguardado con un valor null viejo cargado al montar), pisarían
@@ -1555,6 +1626,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
     // (los históricos que los tengan en BD siguen respetándose en el backend).
     const urlGuardado = new URL(`${API_BASE}/vehiculos/actualizar-informacion/${placa}`);
     if (editarAprobado && idUsuario) urlGuardado.searchParams.set('editado_por', idUsuario);
+    else if (actorImpersonacion) urlGuardado.searchParams.set('editado_por', actorImpersonacion);
 
     try {
       const response = await fetch(urlGuardado.toString(), {
@@ -1693,27 +1765,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
     setIsLoading(true);
 
     try {
-      const hasSignatureDrawn = sigCanvas.current && !sigCanvas.current.isEmpty();
-      const hasSavedSignature = (formData['firmaUrl'] && formData['firmaUrl'].length > 0) || (formData['firma'] && formData['firma'].length > 0);
-
-      if (esFinalizar && !hasSignatureDrawn && !hasSavedSignature) {
-          Swal.fire("Falta la firma", "Para continuar, es OBLIGATORIO que el conductor firme.", "error");
-          setIsLoading(false);
-          return;
-      }
-
       // Cancelar el autoguardado pendiente: ya se guarda acá.
       if (debounceRef.current) clearTimeout(debounceRef.current);
-
-      if (hasSignatureDrawn) {
-          // Subida + sellado en un solo acto (firma electrónica con evidencia:
-          // hash de los datos, fecha UTC, IP — antes era solo subir-firma).
-          try {
-              await firmarAhora();
-          } catch {
-              throw new Error('Fallo al registrar la firma electrónica');
-          }
-      }
 
       const ok = await guardarDatos();
       if (!ok) throw new Error("Fallo al guardar los datos");
@@ -1918,13 +1971,106 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
     return { etiqueta: grupo.etiqueta, pct: campos.length ? Math.round((llenos / campos.length) * 100) : 0 };
   });
 
+  /* ── Invitación del conductor (solo TENEDOR dueño de la ficha) ──
+     Usa LOS DATOS DE ESTE FORMULARIO: correo (y nombre) de la sección
+     Conductor — antes había que digitarlos de nuevo en un modal aparte. */
+  const correoConductorForm = () => (formData['condCorreo'] || '').trim().toLowerCase();
+  const nombreConductorForm = () =>
+    [formData['condNombres'], formData['condPrimerApellido'], formData['condSegundoApellido']]
+      .filter(Boolean).join(' ').trim() || null;
+
+  const invitarConductorDesdeFicha = async () => {
+    const correo = correoConductorForm();
+    if (!correo.includes('@') || correo.length < 6) {
+      Swal.fire('Falta el correo', 'Diligencia el <b>Correo Electrónico</b> del conductor en la sección Conductor para poder invitarlo.', 'warning');
+      return;
+    }
+    const ok = await Swal.fire({
+      icon: 'question',
+      title: '¿Invitar a este conductor?',
+      html: `Enviaremos la invitación a <b>${correo}</b>${nombreConductorForm() ? ` (<b>${nombreConductorForm()}</b>)` : ''}.<br/>Él elegirá su clave y quedará vinculado a la placa <b>${placa}</b>.`,
+      showCancelButton: true,
+      confirmButtonText: '✉️ Enviar invitación',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#27ae60',
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      const resp = await fetch(`${API_BASE}/conductores/invitar-conductor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_tenedor: idTenedorSesion,
+          placa,
+          correo_conductor: correo,
+          nombre_conductor: nombreConductorForm(),
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo enviar la invitación.');
+      setVinculacionConductor({ idConductor: null, invitacion: { correo, estado: 'pendiente' } });
+      Swal.fire({
+        icon: 'success',
+        title: data.estado === 'vinculado' ? 'Conductor vinculado' : 'Invitación enviada',
+        text: data.mensaje,
+        confirmButtonColor: '#27ae60',
+      });
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo enviar la invitación.', 'error');
+    }
+  };
+
+  const reenviarInvitacionFicha = async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/conductores/reenviar-invitacion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_tenedor: idTenedorSesion, placa }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo reenviar.');
+      Swal.fire({ icon: 'success', title: 'Reenviada', text: data.mensaje, timer: 1800, showConfirmButton: false });
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo reenviar.', 'error');
+    }
+  };
+
+  const quitarConductorFicha = async () => {
+    const res = await Swal.fire({
+      icon: 'question',
+      title: `Quitar conductor de ${placa}`,
+      text: vinculacionConductor?.idConductor
+        ? 'El conductor dejará de ver este vehículo en su panel. Puedes invitar a otro después.'
+        : 'Se cancela la invitación pendiente. Puedes invitar a otro después.',
+      showCancelButton: true,
+      confirmButtonText: 'Quitar',
+      confirmButtonColor: '#c0392b',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!res.isConfirmed) return;
+    try {
+      const resp = await fetch(`${API_BASE}/conductores/desvincular-conductor`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_tenedor: idTenedorSesion, placa }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo desvincular.');
+      setVinculacionConductor({});
+      Swal.fire({ icon: 'success', title: 'Listo', timer: 1500, showConfirmButton: false });
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo desvincular.', 'error');
+    }
+  };
+
   return (
     <div className="Datos-contenedor">
       <div className="Datos-avance-container">
         <div className="Datos-avance-fila">
           <span className="Datos-avance-texto">Avance: {calcularAvance()}%</span>
           <div className="Datos-barra-avance">
-            <div className="Datos-progreso" style={{ width: `${calcularAvance()}%` }}></div>
+            <div className={`Datos-progreso ${claseAvance(calcularAvance())}`.trim()}
+                 style={{ width: `${calcularAvance()}%` }}></div>
           </div>
           {calcularAvance() < 100 && (
             <span className="Datos-avance-faltan" style={{ display: 'block', fontSize: '0.85rem', color: '#e67e22', marginTop: '6px' }}>
@@ -1951,11 +2097,73 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
               {g.etiqueta} <b>{g.pct}%</b>
             </span>
             <div className="Datos-barra-avance Datos-barra-avance--mini">
-              <div className="Datos-progreso" style={{ width: `${g.pct}%` }}></div>
+              <div className={`Datos-progreso ${claseAvance(g.pct)}`.trim()}
+                   style={{ width: `${g.pct}%` }}></div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* ── Vinculación del conductor invitado (solo TENEDOR dueño de la ficha).
+          La invitación se hace con LOS DATOS DE ESTE FORMULARIO (2026-10-01):
+          correo y nombre de la sección Conductor — ya no hay un botón afuera
+          con un modal que pedía digitarlos de nuevo. ── */}
+      {esSesionTenedor && (
+        <div className="Datos-vinculacion">
+          {vinculacionConductor?.idConductor ? (
+            <>
+              <div className="Datos-vinculacion-estado Datos-vinculacion-estado--ok">
+                ✅ Conductor vinculado
+                {vinculacionConductor.invitacion?.correo
+                  ? <> — <b>{vinculacionConductor.invitacion.correo}</b></> : null}
+              </div>
+              {!soloLectura && (
+                <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--peligro"
+                  onClick={quitarConductorFicha}>
+                  ✖ Quitar
+                </button>
+              )}
+            </>
+          ) : vinculacionConductor?.invitacion?.correo ? (
+            <>
+              <div className="Datos-vinculacion-estado Datos-vinculacion-estado--pendiente">
+                ⏳ Invitación {vinculacionConductor.invitacion.estado || 'pendiente'} →{' '}
+                <b>{vinculacionConductor.invitacion.correo}</b>
+              </div>
+              {!soloLectura && (
+                <>
+                  <button type="button" className="Datos-vinculacion-btn"
+                    onClick={reenviarInvitacionFicha}>
+                    ✉️ Reenviar
+                  </button>
+                  <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--peligro"
+                    onClick={quitarConductorFicha}>
+                    ✖ Quitar
+                  </button>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="Datos-vinculacion-estado">
+                👥 ¿Otra persona conduce este vehículo? Invítala con el{' '}
+                <b>Correo Electrónico</b> de la sección Conductor — ella elige
+                su clave y queda vinculada a esta placa.
+              </div>
+              {!soloLectura && (
+                <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--primario"
+                  onClick={invitarConductorDesdeFicha}
+                  disabled={!correoConductorForm().includes('@')}
+                  title={!correoConductorForm().includes('@')
+                    ? 'Diligencia primero el Correo Electrónico del conductor'
+                    : `Enviar la invitación a ${correoConductorForm()}`}>
+                  ✉️ Invitar a {correoConductorForm().includes('@') ? correoConductorForm() : 'este correo'}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* --- LECTURA DE DOCUMENTOS CON IA (guarda el documento Y autollena) ---
           Oculta en modo consulta: no se pueden subir documentos. */}
@@ -2187,65 +2395,6 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, soloLec
             )}
           </div>
         ))}
-
-        {/* --- SECCIÓN DE FIRMA --- */}
-        <div className="Datos-form-section">
-            <h4>Firma del Conductor </h4>
-            {soloLectura ? (
-              /* Modo consulta: la firma se muestra, jamás se edita. */
-              formData['firmaUrl'] ? (
-                <div style={{ textAlign: 'center', padding: '15px', border: '1px solid #d5dbdb', borderRadius: '8px', backgroundColor: '#f8f9fa' }}>
-                  <div style={{ color: '#2c3e50', fontWeight: 'bold', marginBottom: '10px' }}>Firma registrada</div>
-                  {firmaSellada && (
-                    <div style={{ fontSize: '0.82rem', color: '#5a6472', marginTop: '-4px', marginBottom: '10px' }}>
-                      ✍️ Firmada electrónicamente el <b>{formatoFechaFirma(firmaSellada.firmado_en)}</b>
-                    </div>
-                  )}
-                  <img src={formData['firmaUrl']} alt="Firma Conductor" style={{ maxWidth: '100%', height: '150px', border: '1px dashed #ccc', backgroundColor: 'white' }} />
-                </div>
-              ) : (
-                <p style={{ color: '#6c757d', fontSize: '0.9rem' }}>Sin firma registrada.</p>
-              )
-            ) : formData['firmaUrl'] && !editandoFirma ? (
-                <div className="firma-existente-container" style={{textAlign: 'center', padding: '15px', border: '1px solid #27ae60', borderRadius: '8px', backgroundColor: '#e8f8f5'}}>
-                    <div style={{color: '#27ae60', fontWeight: 'bold', marginBottom: '10px', fontSize: '1.1rem'}}>Firma Registrada Exitosamente</div>
-                    {firmaSellada ? (
-                      <div style={{fontSize: '0.82rem', color: '#5a6472', marginTop: '-4px', marginBottom: '10px'}}>
-                        ✍️ Firmada electrónicamente el <b>{formatoFechaFirma(firmaSellada.firmado_en)}</b> — evidencia sellada (hash de tus datos + fecha exacta{firmaSellada.version > 1 ? `, firma #${firmaSellada.version}` : ''}).
-                      </div>
-                    ) : (
-                      <div style={{fontSize: '0.82rem', color: '#8a6d3b', marginTop: '-4px', marginBottom: '10px'}}>
-                        Firma histórica sin sellado electrónico — usa «Cambiar / Volver a firmar» para firmar con evidencia.
-                      </div>
-                    )}
-                    <img src={formData['firmaUrl']} alt="Firma Conductor" style={{maxWidth: '100%', height: '150px', border: '1px dashed #ccc', marginBottom: '15px', backgroundColor: 'white'}} />
-                    <div>
-                        <button type="button" className="btn-cambiar-firma" onClick={() => { setEditandoFirma(true); setTimeout(() => limpiarFirma(), 100); }} style={{backgroundColor: '#f39c12', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold'}}>
-                            Cambiar / Volver a firmar
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div className="firma-nueva-container">
-                    <p style={{fontSize: '0.9rem', color: '#4d4d4dff', marginBottom: '10px'}}>{formData['firmaUrl'] ? "Estas en modo edición." : "Dibuja tu firma y pulsa «Firmar»: queda sellada con la fecha exacta y el hash de tus datos (firma electrónica)."}</p>
-                    {/* onPointerDown suelta el foco del último input: en móvil, si el input
-                        conserva el foco, al levantar el dedo de la firma el navegador vuelve
-                        a ese input (scroll + teclado) y confunde al conductor. */}
-                    <div className="signature-wrapper" onPointerDown={() => { (document.activeElement as HTMLElement | null)?.blur?.(); }} style={{border: '2px dashed #ccc', borderRadius: '8px', overflow: 'hidden'}}>
-                        <Suspense fallback={<div style={{height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8a94a6', fontSize: '0.9rem'}}>Cargando espacio de firma…</div>}>
-                            <SignatureCanvas ref={sigCanvas} penColor='black' canvasProps={{className: 'signature-canvas', style: {width: '100%', height: '200px'}}} backgroundColor="white" />
-                        </Suspense>
-                    </div>
-                    <div style={{marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
-                        <button type="button" onClick={manejarFirmar} disabled={isLoading} style={{backgroundColor: '#2F6B3E', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold'}}>
-                            {isLoading ? 'Sellando…' : '✍️ Firmar'}
-                        </button>
-                        <button type="button" onClick={limpiarFirma} className="btn-limpiar-firma" style={{backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer'}}>Borrar dibujo</button>
-                        {formData['firmaUrl'] && (<button type="button" onClick={() => { setEditandoFirma(false); limpiarFirma(); }} style={{backgroundColor: '#7f8c8d', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer'}}>Cancelar edición</button>)}
-                    </div>
-                </div>
-            )}
-        </div>
       </div>
 
       {/* --- BOTONES DE ACCIÓN (FIXED) — ocultos en modo consulta --- */}

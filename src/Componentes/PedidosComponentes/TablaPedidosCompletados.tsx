@@ -225,6 +225,7 @@ const TablaPedidosCompletados: React.FC = () => {
       case 'solicitado': return (g.tipo_vehiculo_sicetac || '').split('_')[0];
       case 'destino': return g.destino;
       case 'puntos': return numeroSeguro(g.total_puntos_vehiculo);
+      case 'cajas': return numeroSeguro(g.total_cajas_vehiculo);
       case 'kg': return numeroSeguro(g.total_kilos_vehiculo);
       case 'kg_sicetac': return numeroSeguro(g.total_kilos_vehiculo_sicetac);
       case 'uso': return usoVehiculoSolicitado(g.total_kilos_vehiculo, g.tipo_vehiculo_sicetac, g.tipo_vehiculo);
@@ -436,6 +437,7 @@ const TablaPedidosCompletados: React.FC = () => {
                   {thOrden('solicitado', 'Veh Solicitado')}
                   {thOrden('destino', 'Destino Final')}
                   {thOrden('puntos', 'Puntos')}
+                  {thOrden('cajas', 'Cajas')}
                   {thOrden('kg', 'Kg Reales')}
                   {thOrden('kg_sicetac', 'Kg Sicetac')}
                   {thOrden('uso', '% Uso', 'Kg reales ÷ tope del tipo solicitado')}
@@ -478,6 +480,9 @@ const TablaPedidosCompletados: React.FC = () => {
                       <td>{g.destino}</td>
 
                       <td>{g.total_puntos_vehiculo}</td>
+                      <td style={{ textAlign: 'right' }} title={g.total_cajas_vehiculo ? 'Cajas totales del vehículo' : 'Sin cajas registradas'}>
+                        {g.total_cajas_vehiculo ? numeroSeguro(g.total_cajas_vehiculo).toLocaleString('es-CO') : '—'}
+                      </td>
                       <td style={{ textAlign: 'right' }}>{numeroSeguro(g.total_kilos_vehiculo).toLocaleString('es-CO', { maximumFractionDigits: 1 })}</td>
                       <td style={{ textAlign: 'right' }}>{numeroSeguro(g.total_kilos_vehiculo_sicetac).toLocaleString('es-CO', { maximumFractionDigits: 1 })}</td>
                       <td title="Kg reales ÷ tope del tipo solicitado">
@@ -530,7 +535,7 @@ const TablaPedidosCompletados: React.FC = () => {
 
                     {expanded.has(g.consecutivo_vehiculo) && (
                       <tr className="TablaPedidosCompletados-details">
-                        <td colSpan={22}>
+                        <td colSpan={23}>
                           <table className="TablaPedidosCompletados-subtable">
                             <thead>
                               <tr>

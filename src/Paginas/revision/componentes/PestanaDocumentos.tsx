@@ -1,11 +1,19 @@
 'use client';
-import React, { useContext, useState } from "react";
+import React, { useContext, useRef, useState } from "react";
+import Cookies from "js-cookie";
+import Swal from "sweetalert2";
+import { FaUpload } from "react-icons/fa";
 import { ContextoApp } from "@/Contexto/index";
 import VerCaraDocumento from "@/Componentes/VerCaraDocumento";
 import VerDocumento from "@/Componentes/VerDocumento";
 import { Vehiculo } from "../tipos";
 
-/* Documentos mostrados como tarjetas (las de Seguridad van aparte, abajo). */
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+/* Documentos mostrados como tarjetas (las de Seguridad van aparte, abajo).
+   La Hoja de Vida Física NO está aquí: tiene su propia tarjeta con botón de
+   subida — la carga Seguridad (casos históricos con autorización en papel),
+   no el conductor. */
 const DOCUMENTOS_DISPLAY = [
   { key: "documentoIdentidadConductor", label: "Cédula Conductor", dosCaras: true },
   { key: "licencia", label: "Licencia Conducción", dosCaras: true },
@@ -16,10 +24,11 @@ const DOCUMENTOS_DISPLAY = [
   { key: "polizaResponsabilidad", label: "Póliza Resp." },
   { key: "condFoto", label: "Foto Conductor (App)" },
   { key: "fotoconductorseguridad", label: "Foto Conductor (Seguridad)" },
-  { key: "planillaEpsArl", label: "Planilla EPS/ARL" },
+  { key: "planillaEpsArl", label: "Planilla de Seguridad Social" },
   { key: "documentoIdentidadTenedor", label: "Cédula Tenedor", dosCaras: true },
   { key: "documentoIdentidadPropietario", label: "Cédula Propietario", dosCaras: true },
   { key: "rutTenedor", label: "RUT Tenedor" },
+  { key: "rutPropietario", label: "RUT Propietario (empresa)" },
   { key: "condCertificacionBancaria", label: "Cert. Bancaria Cond." },
   { key: "tenedCertificacionBancaria", label: "Cert. Bancaria Tened." },
 ];
@@ -32,12 +41,38 @@ interface DocAbierto {
   etiqueta: string;
 }
 
-const PestanaDocumentos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
+const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) => void }> = ({ veh, alCambiar }) => {
   const almacenVariables = useContext(ContextoApp);
   if (!almacenVariables) throw new Error("Contexto no disponible");
   const { verDocumento, setVerDocumento } = almacenVariables;
 
   const [docAbierto, setDocAbierto] = useState<DocAbierto | null>(null);
+  const inputHV = useRef<HTMLInputElement | null>(null);
+
+  /* Hoja de Vida Física: la sube SEGURIDAD desde acá (PDF o imagen firmada).
+     No baja un aprobado a re-revisión (excepción backend) — es un adjunto de
+     archivo histórico, no un dato del conductor. */
+  const subirHojaVida = async (archivo: File) => {
+    if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
+      Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la hoja de vida firmada.', 'warning');
+      return;
+    }
+    Swal.fire({ title: 'Subiendo Hoja de Vida…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const body = new FormData();
+      body.append('placa', veh.placa);
+      body.append('tipo', 'hojaVidaFisica');
+      body.append('archivo', archivo);
+      const nombre = Cookies.get('seguridadNombre');
+      if (nombre) body.append('editado_por', nombre);
+      const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo subir la hoja de vida.');
+      alCambiar(`Hoja de Vida Física cargada en ${veh.placa}`);
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo subir la hoja de vida.', 'error');
+    }
+  };
 
   const abrirDosCaras = (frente: string | undefined, campoBase: string, etiqueta: string) => {
     if (!frente) return;
@@ -97,6 +132,39 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
             <span className="text-xs text-blue-600">Ver</span>
           </div>
         )}
+
+        {/* Hoja de Vida FÍSICA: documento que sube Seguridad (autorización en
+            papel de los casos históricos) — el conductor ya no la ve en su
+            paso 3. Sin archivo → botón de carga directo. */}
+        {veh.hojaVidaFisica ? (
+          <div
+            className="documento-card"
+            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.hojaVidaFisica as string, etiqueta: 'Hoja de Vida Física', reverso: undefined })}
+          >
+            <p className="font-medium">📄 Hoja de Vida Física</p>
+            <span className="text-xs text-blue-600">Ver</span>
+          </div>
+        ) : (
+          <div
+            className="documento-card"
+            onClick={() => inputHV.current?.click()}
+            title="Subir la hoja de vida firmada (solo la carga Seguridad)"
+          >
+            <p className="font-medium"><FaUpload /> Hoja de Vida Física</p>
+            <span className="text-xs text-blue-600">Cargar</span>
+          </div>
+        )}
+        <input
+          ref={inputHV}
+          type="file"
+          accept="image/*,application/pdf"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const archivo = e.target.files?.[0];
+            e.target.value = ''; // permitir re-elegir el mismo archivo
+            if (archivo) subirHojaVida(archivo);
+          }}
+        />
 
         {DOCUMENTOS_DISPLAY.map((doc) => {
           const url = veh[doc.key] as string | undefined;

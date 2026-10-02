@@ -33,28 +33,51 @@ export interface Vehiculo {
   estudiosSeguridadAuto?: EstudioAuto[];
   // Corridas anteriores (append por el frente, tope 10 en el backend).
   historialEstudios?: Array<{ fecha: string; estudios: EstudioAuto[] }>;
+  // Vigencia de la corrida vigente (renovación automática).
+  estudiosVigencia?: { desde?: string; vence?: string };
+  // Bitácora de auditoría (append-only): quién hizo cada mutación, cuándo y
+  // por qué canal — conductor con su cuenta | Seguridad impersonando |
+  // Seguridad directa.
+  auditoriaVehiculo?: EntradaAuditoria[];
   [key: string]: any;
+}
+
+/** Entrada de la bitácora de auditoría del vehículo (append-only, backend). */
+export interface EntradaAuditoria {
+  fecha: string;
+  actor?: string | null;         // nombre de Seguridad; null = el titular
+  via: 'conductor' | 'impersonacion' | 'seguridad';
+  accion: string;                // vehiculo_creado, datos_actualizados, documento_subido…
+  detalle?: string;
 }
 
 /** Un estudio automático (elemento de `estudiosSeguridadAuto` del vehículo). */
 export interface EstudioAuto {
   id: string;
-  tipo: 'persona' | 'vehiculo';
-  roles?: string[];            // solo persona: conductor/propietario/tenedor
+  tipo: 'persona' | 'vehiculo' | 'empresa';
+  roles?: string[];            // persona/empresa: conductor/propietario/tenedor
   cedula?: string;             // solo persona
+  nit?: string;                // solo empresa
   placa?: string;              // solo vehiculo
   estado: 'pendiente' | 'en_curso' | 'finalizado' | 'error';
   proveedor: string;           // hoy "tusdatos"
   hallazgo?: boolean;          // true si alguna fuente registró hallazgo
   categoria?: string;          // alto | medio | bajo | info | ""
-  fuentes?: Record<string, boolean | 'Error'>;
+  /** true=hallazgo, false=sin hallazgo, 'Error'/'Página no disponible'=fallida,
+   *  ''=no aplicó a la consulta (el proveedor envía más estados de los documentados). */
+  fuentes?: Record<string, boolean | string | null>;
   reporte_id?: string;         // PDF del reporte vía /tusdatos/reportes/{id}/pdf
+  /** URL firmada del PDF ARCHIVADO en el bucket privado (si existe). */
+  pdf_url?: string;
+  pdf_gcs?: { ruta: string; tamano?: number; archivado_en?: string };
+  /** Placa de la que se copió este estudio sin gastar consulta. */
+  reutilizado_de?: string;
   error?: string;
   iniciado_en?: string;
   finalizado_en?: string;
   [key: string]: any;
 }
 
-export type PestanaBandeja = 'pendientes' | 'revision' | 'aprobados' | 'inactivos';
+export type PestanaBandeja = 'pendientes' | 'revision' | 'aprobados' | 'inactivos' | 'actualizacion';
 
 export type PestanaDetalle = 'datos' | 'documentos' | 'cambios' | 'estudios';

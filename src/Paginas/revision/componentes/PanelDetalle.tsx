@@ -16,6 +16,7 @@ const ETIQUETA_ESTADO: Record<string, { texto: string; clase: string }> = {
   aprobado: { texto: 'Aprobado', clase: 'rev-chip--aprobado' },
   inactivo: { texto: 'Inactivo', clase: 'rev-chip--inactivo' },
   devuelto: { texto: 'Devuelto', clase: 'rev-chip--devuelto' },
+  en_actualizacion: { texto: 'En actualización', clase: 'rev-chip--actualizacion' },
 };
 
 interface PanelDetalleProps {
@@ -81,7 +82,7 @@ const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar, pe
 
       <div className="rev-panel-cuerpo">
         {pestana === 'datos' && <PestanaDatos veh={veh} />}
-        {pestana === 'documentos' && <PestanaDocumentos veh={veh} />}
+        {pestana === 'documentos' && <PestanaDocumentos veh={veh} alCambiar={alCambiar} />}
         {pestana === 'estudios' && <PestanaEstudios veh={veh} />}
         {pestana === 'cambios' && <PestanaCambios veh={veh} />}
       </div>

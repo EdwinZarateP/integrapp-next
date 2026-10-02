@@ -252,27 +252,27 @@
   color: var(--tp-text-main) !important;
 }
 
-/* Columnas destacadas: Total Solicitado (17) y Total Teórico (22)
+/* Columnas destacadas: Total Solicitado (19) y Total Teórico (24)
    Se aplican siempre, incluso en hover, zebra y filas de estado especial */
-.TablaPedidos-table td:nth-child(17),
-.TablaPedidos-table td:nth-child(22),
-.TablaPedidos-table tbody tr:hover td:nth-child(17),
-.TablaPedidos-table tbody tr:hover td:nth-child(22),
-.TablaPedidos-row--requires-auth td:nth-child(17),
-.TablaPedidos-row--requires-auth td:nth-child(22),
-.TablaPedidos-row--requires-auth:hover td:nth-child(17),
-.TablaPedidos-row--requires-auth:hover td:nth-child(22),
-.TablaPedidos-row--expanded td:nth-child(17),
-.TablaPedidos-row--expanded td:nth-child(22),
-.TablaPedidos-row--total-solicitado-cero td:nth-child(17),
-.TablaPedidos-row--total-solicitado-cero td:nth-child(22) {
+.TablaPedidos-table td:nth-child(19),
+.TablaPedidos-table td:nth-child(24),
+.TablaPedidos-table tbody tr:hover td:nth-child(19),
+.TablaPedidos-table tbody tr:hover td:nth-child(24),
+.TablaPedidos-row--requires-auth td:nth-child(19),
+.TablaPedidos-row--requires-auth td:nth-child(24),
+.TablaPedidos-row--requires-auth:hover td:nth-child(19),
+.TablaPedidos-row--requires-auth:hover td:nth-child(24),
+.TablaPedidos-row--expanded td:nth-child(19),
+.TablaPedidos-row--expanded td:nth-child(24),
+.TablaPedidos-row--total-solicitado-cero td:nth-child(19),
+.TablaPedidos-row--total-solicitado-cero td:nth-child(24) {
   font-weight: 800;
   background: var(--tp-navy) !important;
   color: var(--tp-amber) !important;
 }
 
-/* Diferencia (18) */
-.TablaPedidos-table td:nth-child(18) { font-weight: 700; color: var(--tp-red); }
+/* Diferencia (20) */
+.TablaPedidos-table td:nth-child(20) { font-weight: 700; color: var(--tp-red); }
 
 /* Celda error (diferencia positiva) */
 .TablaPedidos-cell--error { color: var(--tp-red) !important; font-weight: 700; }

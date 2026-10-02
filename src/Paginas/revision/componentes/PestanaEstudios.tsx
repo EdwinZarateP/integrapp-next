@@ -24,6 +24,13 @@ const ERRORES_AMABLES: Record<string, string> = {
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** URL del reporte: el PDF ARCHIVADO en el bucket (firmado) si existe;
+ *  si no, el endpoint del backend que baja del proveedor Y ARCHIVA (los
+ *  reportes de TusDatos expiran — 410 — el histórico no debe morir con
+ *  ellos). */
+const urlReporte = (e: EstudioAuto, placa: string): string =>
+  e.pdf_url || `${API_BASE}/vehiculos/estudios-seguridad/${placa}/pdf/${e.id}`;
+
 /** true mientras queden estudios sin resolver (para el polling). */
 const hayEnCurso = (estudios: EstudioAuto[]) =>
   estudios.some(e => e.estado === 'pendiente' || e.estado === 'en_curso');
@@ -47,7 +54,8 @@ function semaforoEstudio(e: EstudioAuto): Semanaforo {
 
 function tituloEstudio(e: EstudioAuto): string {
   if (e.tipo === 'vehiculo') return `Vehículo · ${e.placa ?? ''}`;
-  return (e.roles ?? []).map(r => ETIQUETA_ROL[r] ?? r).join(' · ') || 'Persona';
+  const prefijo = e.tipo === 'empresa' ? ' (empresa)' : '';
+  return ((e.roles ?? []).map(r => ETIQUETA_ROL[r] ?? r).join(' · ') || 'Persona') + prefijo;
 }
 
 /** Fecha legible en hora Colombia (el backend guarda UTC naive). */
@@ -61,12 +69,45 @@ const fechaLegible = (iso?: string): string => {
   });
 };
 
+/** Antigüedad del estudio respecto a hoy: "hoy", "hace N días/meses/años". */
+const antiguedadLegible = (iso?: string): string => {
+  if (!iso) return '—';
+  const d = new Date(iso.endsWith('Z') ? iso : `${iso}Z`);
+  if (isNaN(d.getTime())) return '—';
+  const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'hace 1 día';
+  if (dias < 31) return `hace ${dias} días`;
+  const meses = Math.floor(dias / 30.44);
+  if (meses < 24) return `hace ${meses} ${meses === 1 ? 'mes' : 'meses'}`;
+  const anios = Math.floor(meses / 12);
+  return `hace ${anios} ${anios === 1 ? 'año' : 'años'}`;
+};
+
 /** PDF del estudio cargado manualmente por Seguridad (acumulativo). */
 interface DocumentoEstudio {
   url: string;
   fecha?: string;
   nombre?: string;
 }
+
+/* Clasificación real de una fuente según lo que devuelve el proveedor
+   (más estados que el true/false/"Error" documentado):
+   - true  → hallazgo
+   - false → consultada, sin hallazgo
+   - 'Error' / 'Página no disponible' / otro texto → FALLIDA (reintentable)
+   - '' / null → NO APLICÓ a esta consulta (no es un fallo: fuente que no
+     se ejecutó para ese tipo de búsqueda). */
+type EstadoFuente = 'hallazgo' | 'limpia' | 'fallida' | 'noaplica';
+
+function clasificarFuente(valor: boolean | string | null | undefined): EstadoFuente {
+  if (valor === true) return 'hallazgo';
+  if (valor === false) return 'limpia';
+  if (valor === null || valor === undefined || String(valor).trim() === '') return 'noaplica';
+  return 'fallida';
+}
+
+const LEYENDA_FUENTES = '⚠ Rojas: fuentes que no estaban disponibles en la consulta (reintentables). Las demás no se listan: el conteo va en el resumen y el detalle en el reporte PDF.';
 
 interface PestanaEstudiosProps {
   veh: Vehiculo;
@@ -84,6 +125,8 @@ interface PestanaEstudiosProps {
  */
 const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
   const [estudios, setEstudios] = useState<EstudioAuto[]>(veh.estudiosSeguridadAuto ?? []);
+  const [vigencia, setVigencia] = useState<{ desde?: string; vence?: string } | null>(
+    veh.estudiosVigencia ?? null);
   const [historico, setHistorico] = useState<EstudioAuto[]>(
     (veh.historialEstudios ?? []).flatMap(c => c.estudios ?? []));
   const [documentos, setDocumentos] = useState<DocumentoEstudio[]>([]);
@@ -94,20 +137,66 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
   const sondeandoRef = useRef(false);
   const inputDocRef = useRef<HTMLInputElement>(null);
 
+  /** Abre el PDF del estudio: la URL firmada del bucket va directa; el
+   *  endpoint del backend se descarga primero para poder mostrar un Swal
+   *  claro si el reporte ya expiró en el proveedor (antes: window.open
+   *  dejaba ver el JSON crudo del 410). */
+  const abrirReporte = async (e: EstudioAuto) => {
+    const url = urlReporte(e, veh.placa);
+    if (e.pdf_url) {
+      window.open(url, '_blank');
+      return;
+    }
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({} as any));
+        const detalle = typeof data?.detail === 'string'
+          ? data.detail
+          : data?.detail?.estado || 'El reporte no está disponible.';
+        Swal.fire({
+          icon: 'warning',
+          title: 'Reporte no disponible',
+          html: `${detalle}<br/><br/>Si el estudio ya expiró en el proveedor, usa <b>«Volver a consultar»</b> para regenerarlo (consume una consulta).`,
+          confirmButtonColor: '#e67e22',
+        });
+        return;
+      }
+      const blob = await resp.blob();
+      window.open(URL.createObjectURL(blob), '_blank');
+    } catch {
+      Swal.fire('Error', 'No se pudo abrir el reporte. Intenta de nuevo.', 'error');
+    }
+  };
+
   const cargar = async (): Promise<EstudioAuto[]> => {
     try {
       const res = await axios.get<{
         estudios: EstudioAuto[]; historico: EstudioAuto[]; documentos: DocumentoEstudio[];
+        vigencia?: { desde?: string; vence?: string } | null;
       }>(`${API_BASE}/vehiculos/estudios-seguridad/${veh.placa}`);
       if (vivoRef.current) {
         setEstudios(res.data.estudios || []);
         setHistorico(res.data.historico || []);
         setDocumentos(res.data.documentos || []);
+        setVigencia(res.data.vigencia ?? null);
       }
       return res.data.estudios || [];
     } catch {
       return estudios; // sondeo best-effort: se reintenta en el próximo ciclo
     }
+  };
+
+  /** Semáforo de vigencia de la corrida (verde >60 días · ámbar ≤60 · rojo vencida). */
+  const semaforoVigencia = (): { clase: string; texto: string } | null => {
+    if (!vigencia?.vence) return null;
+    const vence = new Date(vigencia.vence.endsWith('Z') ? vigencia.vence : `${vigencia.vence}Z`);
+    if (isNaN(vence.getTime())) return null;
+    const dias = Math.floor((vence.getTime() - Date.now()) / 86400000);
+    const fecha = vence.toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
+    if (dias < 0) return { clase: 'rev-est-sem--alto', texto: `Vencida el ${fecha}` };
+    if (dias <= 60) return { clase: 'rev-est-sem--medio', texto: `Vence el ${fecha} (${dias} días)` };
+    return { clase: 'rev-est-sem--limpio', texto: `Vigente hasta el ${fecha}` };
   };
 
   // Polling mientras queden estudios pendiente/en_curso (patrón del portal
@@ -208,6 +297,10 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
           </span>
         </div>
         <div className="rev-est-acciones">
+          {(() => {
+            const sem = semaforoVigencia();
+            return sem ? <span className={`rev-est-sem ${sem.clase}`}>{sem.texto}</span> : null;
+          })()}
           <button className="rev-est-btn-fuentes" onClick={disparar} title="Relanza las consultas al proveedor">
             <FaRedo /> Volver a consultar
           </button>
@@ -243,8 +336,10 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
             const sem = semaforoEstudio(e);
             const abierto = detalleAbierto === e.id;
             const fuentes = Object.entries(e.fuentes ?? {});
-            const conHallazgo = fuentes.filter(([, v]) => v === true).length;
-            const errores = fuentes.filter(([, v]) => v === 'Error').length;
+            const estados = fuentes.map(([k, v]) => [k, clasificarFuente(v)] as const);
+            const conHallazgo = estados.filter(([, s]) => s === 'hallazgo').length;
+            const fallidas = estados.filter(([, s]) => s === 'fallida').length;
+            const noAplican = estados.filter(([, s]) => s === 'noaplica').length;
             return (
               <div key={e.id} className="rev-est-card">
                 <div className="rev-est-cab">
@@ -253,7 +348,9 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                     <span className="rev-est-id">
                       {e.tipo === 'vehiculo'
                         ? `Estudio de vehículo · placa ${e.placa}`
-                        : `Cédula ${e.cedula}`}
+                        : e.tipo === 'empresa'
+                          ? `Validación de empresa · NIT ${e.nit}`
+                          : `Cédula ${e.cedula}`}
                     </span>
                   </div>
                   <span className={`rev-est-sem ${sem.clase}`}>
@@ -272,12 +369,17 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
 
                 {e.estado === 'finalizado' && (
                   <div className="rev-est-resumen">
-                    {e.hallazgo === false ? (
+                    {e.reutilizado_de ? (
+                      <span className="rev-est-reutilizado">
+                        ♻️ Estudio reutilizado de la placa {e.reutilizado_de} (vigente, sin nueva consulta)
+                      </span>
+                    ) : e.hallazgo === false ? (
                       <span>Ninguna fuente registró hallazgos para este sujeto.</span>
                     ) : (
                       <span>
                         {conHallazgo} fuente{conHallazgo !== 1 ? 's' : ''} con hallazgo
-                        {errores > 0 && ` · ${errores} sin respuesta`}
+                        {fallidas > 0 && ` · ${fallidas} sin respuesta`}
+                        {noAplican > 0 && ` · ${noAplican} no aplicaron`}
                         {e.categoria && ` · categoría ${e.categoria.toUpperCase()}`}
                       </span>
                     )}
@@ -285,12 +387,12 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                       {e.reporte_id && (
                         <button
                           className="rev-est-btn-pdf"
-                          onClick={() => window.open(`${API_BASE}/tusdatos/reportes/${e.reporte_id}/pdf`, '_blank')}
+                          onClick={() => abrirReporte(e)}
                         >
                           <FaFilePdf /> Ver reporte PDF
                         </button>
                       )}
-                      {errores > 0 && e.reporte_id && (
+                      {fallidas > 0 && e.reporte_id && (
                         <button
                           className="rev-est-btn-fuentes"
                           onClick={() => reintentarFallidas(e)}
@@ -298,30 +400,31 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                           title="Relanza ante el proveedor solo las fuentes que fallaron (mismo reporte)"
                         >
                           <FaSyncAlt className={reintentando === e.id ? 'rev-est-girando' : ''} />
-                          {reintentando === e.id ? 'Reintentando…' : `Reintentar fuentes fallidas (${errores})`}
+                          {reintentando === e.id ? 'Reintentando…' : `Reintentar fuentes fallidas (${fallidas})`}
                         </button>
                       )}
-                      {fuentes.length > 0 && (
+                      {fallidas > 0 && (
                         <button
                           className="rev-est-btn-fuentes"
                           onClick={() => setDetalleAbierto(abierto ? null : e.id)}
                         >
-                          Fuentes <FaChevronDown className={abierto ? 'rev-est-chevron--abierto' : ''} />
+                          Fuentes sin respuesta ({fallidas}) <FaChevronDown className={abierto ? 'rev-est-chevron--abierto' : ''} />
                         </button>
                       )}
                     </div>
                     {abierto && (
-                      <ul className="rev-est-fuentes">
-                        {fuentes.map(([fuente, valor]) => (
-                          <li key={fuente} className={`rev-est-fuente rev-est-fuente--${
-                            valor === true ? 'hallazgo' : valor === false ? 'limpia' : 'error'}`}>
-                            <span className="rev-est-fuente-marca">
-                              {valor === true ? '✔' : valor === false ? '✖' : '⚠'}
-                            </span>
-                            {fuente}
-                          </li>
-                        ))}
-                      </ul>
+                      <>
+                        <ul className="rev-est-fuentes">
+                          {estados.filter(([, estado]) => estado === 'fallida').map(([fuente]) => (
+                            <li key={fuente} className="rev-est-fuente rev-est-fuente--caida"
+                                title="La fuente no estaba disponible al momento de la consulta">
+                              <span className="rev-est-fuente-marca">⚠</span>
+                              {fuente}
+                            </li>
+                          ))}
+                        </ul>
+                        <small className="rev-est-leyenda">{LEYENDA_FUENTES}</small>
+                      </>
                     )}
                   </div>
                 )}
@@ -345,6 +448,8 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
         interface Fila {
           key: string; fecha?: string; sujeto: string; sub?: string;
           semClase: string; semTexto: string; url: string;
+          /** Estudio automático (apertura con manejo de expiración). */
+          estudio?: EstudioAuto;
         }
         const filas: Fila[] = [];
         documentos.forEach((d, i) => {
@@ -366,9 +471,11 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
               key: `${e.id ?? ''}-${e.reporte_id}`,
               fecha: e.finalizado_en || e.iniciado_en,
               sujeto: tituloEstudio(e),
-              sub: e.tipo === 'vehiculo' ? `placa ${e.placa}` : `CC ${e.cedula}`,
+              sub: e.tipo === 'vehiculo' ? `placa ${e.placa}`
+                : e.tipo === 'empresa' ? `NIT ${e.nit}` : `CC ${e.cedula}`,
               semClase: sem.clase, semTexto: sem.texto,
-              url: `${API_BASE}/tusdatos/reportes/${e.reporte_id}/pdf`,
+              url: urlReporte(e, veh.placa),
+              estudio: e,
             });
           });
         filas.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
@@ -380,6 +487,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
               <thead>
                 <tr>
                   <th>Fecha</th>
+                  <th>Antigüedad</th>
                   <th>Sujeto</th>
                   <th>Resultado</th>
                   <th></th>
@@ -389,6 +497,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                 {filas.map(f => (
                   <tr key={f.key}>
                     <td className="rev-est-tabla-fecha">{f.fecha ? fechaLegible(f.fecha) : '—'}</td>
+                    <td className="rev-est-tabla-antiguedad">{antiguedadLegible(f.fecha)}</td>
                     <td>
                       {f.sujeto}
                       {f.sub && <span className="rev-est-tabla-id">{f.sub}</span>}
@@ -397,7 +506,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                     <td>
                       <button
                         className="rev-est-btn-tabla"
-                        onClick={() => window.open(f.url, '_blank')}
+                        onClick={() => (f.estudio ? abrirReporte(f.estudio) : window.open(f.url, '_blank'))}
                         title="Abrir el documento"
                       >
                         <FaFilePdf /> Abrir

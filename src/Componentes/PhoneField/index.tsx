@@ -90,9 +90,17 @@ const PhoneField: React.FC<PhoneFieldProps> = ({
         title="Región del número"
         aria-label="Región del número celular"
       >
-        {REGIONES_CELULAR.map((r, i) => (
-          <option key={`${r.code}-${i}`} value={r.code}>{r.label}</option>
-        ))}
+        {REGIONES_CELULAR.map((r, i) => {
+          // Etiqueta CORTA en el select: bandera + indicativo (el nombre
+          // completo del país solo en el title/tooltip — no abarrota el caja).
+          const corto = r.label.split(" ").slice(0, 2).join(" ");
+          const pais = r.label.split(" ").slice(2).join(" ");
+          return (
+            <option key={`${r.code}-${i}`} value={r.code} title={pais}>
+              {corto}
+            </option>
+          );
+        })}
       </select>
       <input
         id={id}

@@ -54,7 +54,8 @@ const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
   const cerrarSesion = () => {
     if (modo === "conductor") {
       ["conductorCorreo", "conductorClave", "conductorId", "conductorPerfil",
-       "conductorPrimerNombre", "conductorNombre", "conductorUsuario", "tenedorIntegrapp"]
+       "conductorPrimerNombre", "conductorNombre", "conductorUsuario", "tenedorIntegrapp",
+       "conductorImpersonadoPor", "conductorPoliticasPendientes"]
         .forEach((c) => Cookies.remove(c));
       router.replace("/LoginConductores");
     } else {

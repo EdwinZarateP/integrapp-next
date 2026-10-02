@@ -11,7 +11,9 @@ import {
 import logo from "@/Imagenes/albatros.png";
 import Datos from '@/Componentes/Datos';
 import CargaDocumento from '@/Componentes/CargaDocumento';
+import FirmaConductor from '@/Componentes/FirmaConductor';
 import VerDocumento from '@/Componentes/VerDocumento';
+import AceptacionPoliticasSesion from '@/Componentes/AceptacionPoliticasSesion';
 import { ContextoApp } from "@/Contexto/index";
 import { obtenerVehiculoPorPlaca } from '@/Funciones/ObtenerInfoPlaca';
 import { endpoints, tiposMapping, FAMILIAS_FIGURA, calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
@@ -20,6 +22,11 @@ import "./estilos.css";
 /* --- CONFIGURACIÓN --- */
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 const normalizeKey = (key: string) => key.trim().toLowerCase();
+
+/* Tramos de color de las barras de avance (mismos umbrales del paso 2):
+   🔴 rojo <70% · 🟠 naranja 70–89% · 🟢 verde ≥90% (verde = estilo base). */
+const claseAvanceFill = (pct: number): string =>
+  pct < 70 ? 'pv-fill--bajo' : pct < 90 ? 'pv-fill--medio' : '';
 
 interface DocumentoItem {
   nombre: string;
@@ -35,6 +42,14 @@ interface DocumentoItem {
   hint?: string;
   /** Doc de dos caras (licencia/tarjeta) con frente pero SIN reverso. */
   faltaReverso?: boolean;
+  /** Sugerencia de reutilización (2026-10-01): el correo o el documento de la
+   *  figura coincide con el del conductor y él ya tiene el documento → se
+   *  ofrece copiarlo sin nueva lectura IA (botón ♻️ en el paso 3). */
+  reutilizableDe?: {
+    figura: 'propietario' | 'tenedor';
+    origen: 'conductor';
+    documento: 'cedula' | 'certificado_bancario';
+  };
 }
 interface SeccionDocumentos {
   subtitulo: string;
@@ -74,6 +89,44 @@ const figuraQueCubre = (field: string, vehiculo: any): string | undefined => {
   return undefined;
 };
 
+/* ── Sugerencia de reutilización (2026-10-01) ──────────────────────────────
+   La deduplicación automática (gemelos/cubiertoPor) solo mira los DÍGITOS del
+   documento; el correo es una señal adicional. Cuando el correo O el documento
+   de propietario/tenedor coincide con el del conductor y él ya tiene el
+   documento cargado, el paso 3 ofrece «♻️ Usar la del conductor» (copia
+   server-side, sin lectura IA). */
+const _soloDigitosSug = (v: any) => String(v || '').replace(/\D/g, '');
+
+const pareceMismaPersonaQueConductor = (vehiculo: any, figura: 'propietario' | 'tenedor'): boolean => {
+  if (!vehiculo) return false;
+  const prefijo = figura === 'propietario' ? 'prop' : 'tened';
+  const correoCond = String(vehiculo.condCorreo || '').trim().toUpperCase();
+  const correoFig = String(vehiculo[`${prefijo}Correo`] || '').trim().toUpperCase();
+  if (correoCond && correoFig && correoCond === correoFig) return true;
+  const docCond = _soloDigitosSug(vehiculo.condCedulaCiudadania);
+  const docFig = _soloDigitosSug(vehiculo[`${prefijo}Documento`]);
+  return Boolean(docCond && docFig && docCond === docFig);
+};
+
+const REUTILIZABLES_PASO3: Record<string, {
+  figura: 'propietario' | 'tenedor';
+  documento: 'cedula' | 'certificado_bancario';
+  campoOrigen: string;
+}> = {
+  documentoIdentidadPropietario: { figura: 'propietario', documento: 'cedula', campoOrigen: 'documentoIdentidadConductor' },
+  documentoIdentidadTenedor: { figura: 'tenedor', documento: 'cedula', campoOrigen: 'documentoIdentidadConductor' },
+  tenedCertificacionBancaria: { figura: 'tenedor', documento: 'certificado_bancario', campoOrigen: 'condCertificacionBancaria' },
+};
+
+const reutilizableDeItem = (field: string, vehiculo: any): DocumentoItem['reutilizableDe'] => {
+  const conf = REUTILIZABLES_PASO3[field];
+  if (!conf || !vehiculo) return undefined;
+  if (!pareceMismaPersonaQueConductor(vehiculo, conf.figura)) return undefined;
+  // El conductor debe tener YA el documento (de ahí se copia).
+  if (!docEstaLleno(vehiculo[conf.campoOrigen])) return undefined;
+  return { figura: conf.figura, origen: 'conductor', documento: conf.documento };
+};
+
 const initialSecciones: SeccionDocumentos[] = [
     {
       subtitulo: "1. Documentos del Vehículo",
@@ -84,6 +137,9 @@ const initialSecciones: SeccionDocumentos[] = [
         { nombre: "Revisión Tecnomecánica", progreso: 0 },
         { nombre: "Tarjeta de Remolque", progreso: 0, opcional: true },
         { nombre: "Póliza de Responsabilidad Civil", progreso: 0, opcional: true },
+        // La Hoja de Vida FÍSICA no se le pide al conductor (2026-10-01): la
+        // sube Seguridad desde /revision solo en los casos históricos con
+        // autorización en papel.
       ]
     },
     {
@@ -91,7 +147,7 @@ const initialSecciones: SeccionDocumentos[] = [
         items: [
           { nombre: "Documento de Identidad del Conductor", progreso: 0 },
           { nombre: "Licencia de Conducción Vigente", progreso: 0 },
-          { nombre: "Planilla de EPS y ARL", progreso: 0 },
+          { nombre: "Planilla de Seguridad Social", progreso: 0 },
           { nombre: "Foto Conductor", progreso: 0 },
           { nombre: "Certificación Bancaria Conductor", progreso: 0 },
         ]
@@ -145,13 +201,26 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
   // «Documento que lo acredite como Tenedor» deja de ser obligatorio
   // (espejo de _documentos_faltantes del backend).
   const { tenedIgualProp } = calcularFigurasIguales(vehiculo || {});
-  return limpias.map((sec: SeccionDocumentos) => ({
-    ...sec,
-    items: sec.items.map((item: DocumentoItem) => {
+  // Figuras EMPRESA (NIT, 2026-09-28): la cédula no existe — en su lugar se
+  // pide el RUT de la empresa (propietario; el tenedor ya exige RUT).
+  const propEmpresa = String(vehiculo?.propTipoDocumento || '').toUpperCase().includes('NIT');
+  const tenedEmpresa = String(vehiculo?.tenedTipoDocumento || '').toUpperCase().includes('NIT');
+  return limpias.map((sec: SeccionDocumentos) => {
+    let items = sec.items;
+    if (propEmpresa && sec.subtitulo === '4. Documentos del Propietario') {
+      items = [...items, {
+        nombre: 'RUT Propietario', progreso: 0,
+        hint: 'El propietario es una empresa (NIT): el RUT reemplaza la cédula',
+      }];
+    }
+    return {
+      ...sec,
+      items: items.map((item: DocumentoItem) => {
       const field = tiposMapping[normalizeKey(item.nombre)] || "";
       const opcionalFinal = Boolean(item.opcional) || (
         field === 'documentoAcreditacionTenedor' && tenedIgualProp
-      );
+      ) || (propEmpresa && field.startsWith('documentoIdentidadPropietario'))
+      || (tenedEmpresa && field.startsWith('documentoIdentidadTenedor'));
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
       // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
       // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.
@@ -160,6 +229,12 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       // TODAS las cédulas + licencia + tarjeta exigen reverso (2026-08-27):
       // si hay frente pero no reverso, se marca para que el conductor lo complete.
       const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'licencia', 'tarjetaPropiedad'].includes(field);
+      // «Cubierto por» (gemelos por dígitos) tiene precedencia sobre la
+      // sugerencia de reutilización (correo/dígitos + doc del conductor).
+      const cubiertoPor = figuraQueCubre(field, vehiculo);
+      const reutilizableDe = !cubiertoPor && !docEstaLleno(vehiculo?.[field])
+        ? reutilizableDeItem(field, vehiculo)
+        : undefined;
       if (field && vehiculo[field]) {
         let valor = vehiculo[field];
         if (Array.isArray(valor)) {
@@ -175,8 +250,9 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
               opcional: opcionalFinal,
               progreso: 0,
               url: undefined,
-              cubiertoPor: figuraQueCubre(field, vehiculo),
+              cubiertoPor,
               reversoUrl,
+              reutilizableDe,
             };
           }
         }
@@ -190,9 +266,10 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
           hint: requiereReverso && !reversoUrl ? 'Falta el reverso' : item.hint,
         };
       }
-      return { ...item, opcional: opcionalFinal, progreso: 0, url: undefined, cubiertoPor: figuraQueCubre(field, vehiculo), reversoUrl };
+      return { ...item, opcional: opcionalFinal, progreso: 0, url: undefined, cubiertoPor, reutilizableDe, reversoUrl };
     })
-  }));
+    };
+  });
 };
 
 /* Validación de la placa del paso 1: devuelve el mensaje de error inline o
@@ -304,6 +381,10 @@ const BarraConductor: React.FC = () => {
   const primerNombreCookie = Cookies.get("conductorPrimerNombre");
   const [menuAbierto, setMenuAbierto] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  // Sesión impersonada (Seguridad via login-como): marca discreta y
+  // permanente en el perfil del header (el aviso completo es un popup de
+  // entrada, no un banner fijo).
+  const impersonadoPorBarra = (Cookies.get("conductorImpersonadoPor") || "").trim();
 
   const obtenerNombreMostrar = () => {
     if (primerNombreCookie) {
@@ -336,6 +417,8 @@ const BarraConductor: React.FC = () => {
     Cookies.remove("conductorId");
     Cookies.remove("conductorPerfil");
     Cookies.remove("conductorPrimerNombre");
+    Cookies.remove("conductorImpersonadoPor");
+    Cookies.remove("conductorPoliticasPendientes");
 
     router.replace("/LoginConductores");
   };
@@ -356,7 +439,13 @@ const BarraConductor: React.FC = () => {
           <FaUserCircle className="barra-userIcon" />
           <div className="barra-userInfo">
             <span className="barra-userName">{obtenerNombreMostrar()}</span>
-            <span className="barra-userPerfil">Conductor</span>
+            <span className="barra-userPerfil"
+              style={impersonadoPorBarra ? { color: '#c39bd3' } : undefined}
+              title={impersonadoPorBarra
+                ? `Sesión de Seguridad (${impersonadoPorBarra}) trabajando como este conductor`
+                : undefined}>
+              {impersonadoPorBarra ? '🕵 Seguridad' : 'Conductor'}
+            </span>
           </div>
           <FaChevronDown className={`barra-chevron ${menuAbierto ? "barra-chevronOpen" : ""}`} />
         </button>
@@ -377,13 +466,14 @@ const BarraConductor: React.FC = () => {
   );
 };
 
-/* --- Bloque de conductor vinculado (visible solo para TENEDOR) --- */
+/* --- Bloque de conductor vinculado (visible solo para TENEDOR). La INVITACIÓN
+       se hace desde el paso 2 con los datos del formulario (2026-10-01): aquí
+       solo se ve el estado y se administra (reenviar/quitar). --- */
 const TenedorConductorInfo: React.FC<{
   veh: any;
-  onInvitar: (placa: string) => void;
   onReenviar: (placa: string) => void;
   onQuitar: (placa: string) => void;
-}> = ({ veh, onInvitar, onReenviar, onQuitar }) => {
+}> = ({ veh, onReenviar, onQuitar }) => {
   const estado = (() => {
     if (veh.idConductor) {
       return { texto: `✅ ${veh.invitacionConductor?.correo || 'conductor activo'}`, color: '#155724' };
@@ -392,7 +482,8 @@ const TenedorConductorInfo: React.FC<{
     if (inv?.correo) {
       return { texto: `⏳ invitación ${inv.estado || 'pendiente'} → ${inv.correo}`, color: '#856404' };
     }
-    return { texto: '— sin conductor —', color: '#6c757d' };
+    // Sin invitación: se invita desde «Datos básicos» con el correo del formulario.
+    return { texto: '— sin conductor (invítalo en Datos básicos) —', color: '#6c757d' };
   })();
 
   return (
@@ -400,16 +491,6 @@ const TenedorConductorInfo: React.FC<{
       <span style={{ fontSize: '0.75rem', fontWeight: '600', color: estado.color }}>
         {estado.texto}
       </span>
-      {!veh.idConductor && !veh.invitacionConductor?.correo && (
-        <button
-          className="btn-ver-mis-datos"
-          style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-          onClick={() => onInvitar(veh.placa)}
-          title="Invitar a un conductor por correo para esta placa"
-        >
-          ➕ Invitar
-        </button>
-      )}
       {!veh.idConductor && veh.invitacionConductor?.correo && (
         <>
           <button
@@ -447,6 +528,11 @@ const TenedorConductorInfo: React.FC<{
 /* --- COMPONENTE PRINCIPAL --- */
 const PanelConductoresVista: React.FC = () => {
   const router = useRouter();
+
+  // Cuenta creada por Seguridad (alta): políticas pendientes de aceptar en
+  // el PRIMER ingreso — overlay bloqueante hasta aceptarlas.
+  const [politicasPendientes, setPoliticasPendientes] = useState(
+    () => Cookies.get('conductorPoliticasPendientes') === '1');
 
   const idUsuario = Cookies.get('conductorId') || Cookies.get('tenedorIntegrapp') || '';
   useEffect(() => {
@@ -488,7 +574,7 @@ const PanelConductoresVista: React.FC = () => {
     const pasoUrl = parseInt(paramsUrl.get('paso') || '', 10);
     const placaUrl = (paramsUrl.get('placa') || '').trim().toUpperCase();
     if (paramsUrl.get('vista') === 'flujo' && [1, 2, 3, 4].includes(pasoUrl)) {
-      if (placaUrl) setSelectedPlate(placaUrl);
+      if (placaUrl) { setSelectedPlate(placaUrl); setEditarAprobadoActivo(false); }
       setVistaModulos(false);
       setCurrentStep(pasoUrl);
     }
@@ -510,12 +596,37 @@ const PanelConductoresVista: React.FC = () => {
   // Perfil del usuario logueado (TENEDOR gestiona flota + conductores invitados).
   const perfilUsuario = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase();
   const esTenedor = perfilUsuario === 'TENEDOR';
+  // Sesión IMPERSONADA (Seguridad entró vía login-como desde el alta): marca
+  // el popup «Modo Seguridad» al entrar y viaja como editado_por en TODAS las
+  // mutaciones → la bitácora del vehículo queda con el actor real.
+  const impersonadoPor = (Cookies.get('conductorImpersonadoPor') || '').trim() || undefined;
 
-  // Modal «Invitar conductor» para el tenedor.
-  const [invitarPlaca, setInvitarPlaca] = useState<string | null>(null);
-  const [invitarCorreo, setInvitarCorreo] = useState('');
-  const [invitarNombre, setInvitarNombre] = useState('');
-  const [invitando, setInvitando] = useState(false);
+  // Aviso de impersonación: popup informativo UNA sola vez al entrar (por
+  // sesión del navegador y por conductor) — el aviso fijo arriba se veía feo.
+  // La marca persistente queda discreta en el header (perfil «🕵 Seguridad»).
+  useEffect(() => {
+    if (!impersonadoPor) return;
+    const correo = Cookies.get('conductorCorreo') || 'este conductor';
+    const claveSesion = `aviso-impersonacion:${impersonadoPor}:${correo}`;
+    try {
+      if (sessionStorage.getItem(claveSesion)) return;
+      sessionStorage.setItem(claveSesion, '1');
+    } catch { /* sessionStorage bloqueado: mostrar igual (mejor avisar) */ }
+    Swal.fire({
+      icon: 'info',
+      title: '🕵 Modo Seguridad',
+      html: `Estás trabajando como <b>${correo}</b> — cada cambio queda auditado
+             a nombre de <b>${impersonadoPor}</b>.` +
+        (Cookies.get('conductorPoliticasPendientes') === '1'
+          ? `<br><br>Las <b>políticas de datos quedan pendientes</b>: las aceptará
+             el conductor con su clave en su primer ingreso (tú no puedes
+             aceptarlas por él). Mientras tanto puedes construir toda la ficha.`
+          : ''),
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#8e44ad',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [secciones, setSecciones] = useState<SeccionDocumentos[]>(() => JSON.parse(JSON.stringify(initialSecciones)));
 
@@ -542,6 +653,9 @@ const PanelConductoresVista: React.FC = () => {
   const [datosValidos, setDatosValidos] = useState<boolean>(false);
   // Vehículo completo de la placa seleccionada (para figuras/gemelos del paso 3).
   const [vehiculoActual, setVehiculoActual] = useState<any>(null);
+  // ¿El conductor ya firmó esta ficha? Gate de «Finalizar» — la firma vive en
+  // el paso 3 (último ítem de Documentación) desde 2026-10-01.
+  const [firmaRegistrada, setFirmaRegistrada] = useState(false);
   // True cuando se edita un vehículo aprobado: los componentes envían editado_por
   // para que el backend lo baje a re-revisión con diff.
   const [editarAprobadoActivo, setEditarAprobadoActivo] = useState<boolean>(false);
@@ -591,6 +705,7 @@ const PanelConductoresVista: React.FC = () => {
 
         const rechazados = data.vehiculos.filter((v: any) =>
             v.estadoIntegra === 'devuelto' ||
+            v.estadoIntegra === 'en_actualizacion' ||
             (v.estadoIntegra === 'registro_incompleto' && v.observaciones && v.observaciones.trim() !== "")
         );
 
@@ -651,6 +766,7 @@ const PanelConductoresVista: React.FC = () => {
         });
         await fetchVehiculosUsuario();
         setSelectedPlate(placaCreada);
+        setEditarAprobadoActivo(false);
         setNewPlate("");
         setCurrentStep(2);
       } else {
@@ -664,6 +780,7 @@ const PanelConductoresVista: React.FC = () => {
       if (!selectedPlate) {
           setSecciones(JSON.parse(JSON.stringify(initialSecciones)));
           setVehiculoActual(null);
+          setFirmaRegistrada(false);
           return;
       }
 
@@ -674,6 +791,7 @@ const PanelConductoresVista: React.FC = () => {
         if (data && data.data) {
           setVehiculoActual(data.data);
           setSecciones(construirSeccionesDesdeVehiculo(data.data));
+          setFirmaRegistrada(!!data.data.firmaUrl);
           // En revisión → modo consulta (solo lectura). Es la fuente de verdad:
           // cubre el botón «Ver» y también un refresh en ?paso=2&placa=… de un
           // vehículo en revisión (antes quedaba editable por URL).
@@ -737,51 +855,9 @@ const PanelConductoresVista: React.FC = () => {
     });
   };
 
-  /* --- Invitación de conductor (solo TENEDOR) --- */
-  const abrirInvitar = (placa: string) => {
-    setInvitarPlaca(placa);
-    setInvitarCorreo("");
-    setInvitarNombre("");
-  };
-
-  const cerrarInvitar = () => setInvitarPlaca(null);
-
-  const enviarInvitacion = async () => {
-    if (!invitarPlaca || invitando) return;
-    const correoLimpio = invitarCorreo.trim().toLowerCase();
-    if (!correoLimpio.includes('@')) {
-      Swal.fire("Correo inválido", "Escribe el correo del conductor.", "warning");
-      return;
-    }
-    setInvitando(true);
-    try {
-      const resp = await fetch(`${API_BASE}/conductores/invitar-conductor`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id_tenedor: idUsuario,
-          placa: invitarPlaca,
-          correo_conductor: correoLimpio,
-          nombre_conductor: invitarNombre.trim() || null,
-        }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.detail || 'No se pudo enviar la invitación.');
-      await Swal.fire({
-        icon: 'success',
-        title: data.estado === 'vinculado' ? 'Conductor vinculado' : 'Invitación enviada',
-        text: data.mensaje,
-        confirmButtonColor: '#27ae60',
-      });
-      cerrarInvitar();
-      await fetchVehiculosUsuario();
-    } catch (error: any) {
-      Swal.fire('Error', error.message || 'No se pudo enviar la invitación.', 'error');
-    } finally {
-      setInvitando(false);
-    }
-  };
-
+  /* --- Invitación de conductor (solo TENEDOR): la invitación NUEVA se hace
+         desde el paso 2 con los datos del formulario (2026-10-01); aquí solo
+         quedan reenvío y desvinculación sobre invitaciones existentes. --- */
   const reenviarInvitacion = async (placa: string) => {
     try {
       const resp = await fetch(`${API_BASE}/conductores/reenviar-invitacion`, {
@@ -867,14 +943,18 @@ const PanelConductoresVista: React.FC = () => {
       if (!confirmacion.isConfirmed) return;
 
       try {
+        // Actor real de la eliminación (auditoría): Seguridad impersonando o
+        // edición de aprobado; si no, lo hizo el titular con su cuenta.
+        const actorEdicion = impersonadoPor || (editarAprobadoActivo ? idUsuario : undefined);
+        const qsActor = actorEdicion ? `&editado_por=${encodeURIComponent(actorEdicion)}` : "";
         if (tipo === "fotos") {
           const urls = Array.isArray(item.url) ? item.url : (item.url ? [item.url] : []);
           for (const rawUrl of urls) {
             const urlLimpia = String(rawUrl).split("?")[0];
-            await fetch(`${API_BASE}/vehiculos/eliminar-foto?placa=${selectedPlate}&url=${encodeURIComponent(urlLimpia)}`, { method: "DELETE" });
+            await fetch(`${API_BASE}/vehiculos/eliminar-foto?placa=${selectedPlate}&url=${encodeURIComponent(urlLimpia)}${qsActor}`, { method: "DELETE" });
           }
         } else {
-          const res = await fetch(`${API_BASE}/vehiculos/eliminar-documento?placa=${selectedPlate}&tipo=${tipo}`, { method: "DELETE" });
+          const res = await fetch(`${API_BASE}/vehiculos/eliminar-documento?placa=${selectedPlate}&tipo=${tipo}${qsActor}`, { method: "DELETE" });
           if (!res.ok) throw new Error("El servidor no pudo eliminar el documento.");
         }
         const newSec = JSON.parse(JSON.stringify(secciones));
@@ -887,10 +967,58 @@ const PanelConductoresVista: React.FC = () => {
       }
   };
 
+  /* «Es la misma persona» desde el PASO 3 (2026-10-01): el correo o el
+     documento de la figura coincide con el del conductor y él ya tiene el
+     documento → copia server-side sin lectura IA y refresca las secciones. */
+  const reutilizarDocumentoPaso3 = async (sectionIdx: number, itemIdx: number) => {
+    const conf = secciones[sectionIdx]?.items[itemIdx]?.reutilizableDe;
+    if (!conf || !selectedPlate) return;
+    const nombreDoc = conf.documento === 'cedula' ? 'cédula' : 'certificado bancario';
+    const ok = await Swal.fire({
+      icon: 'question',
+      title: '¿Es la misma persona?',
+      html: `El correo o el documento del <b>${NOMBRE_FIGURA[conf.figura].toLowerCase()}</b> coincide con el del <b>conductor</b>.<br/>` +
+        `Podemos usar su ${nombreDoc} ya cargado${conf.documento === 'cedula' ? ' (con su reverso)' : ''}: ` +
+        `<b>sin foto ni lectura IA</b>.`,
+      showCancelButton: true,
+      confirmButtonText: '♻️ Sí, usar la del conductor',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#27ae60',
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      const body = new FormData();
+      body.append('placa', selectedPlate);
+      body.append('figura', conf.figura);
+      body.append('documento', conf.documento);
+      body.append('origen', 'conductor');
+      const actor = impersonadoPor || (editarAprobadoActivo ? idUsuario : undefined);
+      if (actor) body.append('editado_por', actor);
+      const resp = await fetch(`${API_BASE}/vehiculos/reutilizar-documento`, { method: 'PUT', body });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo reutilizar el documento.');
+      const fresh = await obtenerVehiculoPorPlaca(selectedPlate);
+      if (fresh && fresh.data) {
+        setVehiculoActual(fresh.data);
+        setSecciones(construirSeccionesDesdeVehiculo(fresh.data));
+      }
+      Swal.fire({ icon: 'success', title: 'Documento reutilizado', timer: 1600, showConfirmButton: false });
+    } catch (e: any) {
+      Swal.fire({ icon: 'error', title: 'No se pudo reutilizar', text: e?.message || 'Intenta de nuevo.' });
+    }
+  };
+
   const handleFinalizar = async () => {
       if (!cedulaConductor) return Swal.fire("Error", "No se ha capturado la cédula del conductor.", "error");
       const progreso = getOverallDocumentProgress(secciones);
       if (progreso < 100) return Swal.fire("Incompleto", "Faltan documentos por cargar.", "warning");
+      // La firma es el último requisito del paso 3 (se pide acá, no en Datos).
+      // EXCEPCIÓN Modo Seguridad: Seguridad SÍ puede finalizar sin firma (necesita
+      // dar de alta el vehículo y disparar los estudios; es un acto personal que
+      // el conductor completará en su primer ingreso, como las políticas).
+      if (!firmaRegistrada && !impersonadoPor) {
+        return Swal.fire("Falta la firma", "Para finalizar, es OBLIGATORIO que el conductor firme en el ítem «Firma del Conductor».", "error");
+      }
 
       try {
         Swal.fire({
@@ -918,6 +1046,13 @@ const PanelConductoresVista: React.FC = () => {
         formData.append("nuevo_estado", "completado_revision");
         formData.append("usuario_id", idUsuario);
         formData.append("nombre_conductor", nombreParaEnviar);
+        // Actor real del «Finalizar» cuando Seguridad trabaja como el conductor.
+        // via=impersonacion además evita el disparo automático de estudios:
+        // esos los corre Seguridad con «Volver a consultar» al evaluar la placa.
+        if (impersonadoPor) {
+          formData.append("editado_por", impersonadoPor);
+          formData.append("via", "impersonacion");
+        }
 
         const response = await fetch(`${API_BASE}/vehiculos/actualizar-estado`, { method: "PUT", body: formData });
 
@@ -1045,18 +1180,35 @@ const PanelConductoresVista: React.FC = () => {
             </button>
           ))}
 
+          {/* Devueltos por Seguridad: módulo separado por divisor (patrón de la
+              sidebar de /revision — bandejas vs módulos). */}
+          <div className="pc-nav-divisor" />
           <button
             className={`btn-sidebar-step btn-rechazados ${currentStep === 4 ? "active" : ""} ${vehiculosRechazados.length === 0 ? "disabled" : ""}`}
             onClick={() => changeStep(4)}
             disabled={vehiculosRechazados.length === 0}
-            style={{ border: '2px solid #e74c3c', color: vehiculosRechazados.length === 0 ? '#ccc' : '#c0392b' }}
           >
-              <div className="step-indicator" style={{ backgroundColor: vehiculosRechazados.length === 0 ? '#eee' : '#e74c3c', color: 'white' }}><FaExclamationTriangle /></div>
-              <span>Revisión ({vehiculosRechazados.length})</span>
+              <div className="step-indicator"><FaExclamationTriangle /></div>
+              <span>Revisión</span>
+              {vehiculosRechazados.length > 0 && (
+                <span className="pc-nav-contador">{vehiculosRechazados.length}</span>
+              )}
           </button>
         </div>
 
         <div className="contenido-conductor-container">
+          {/* Políticas pendientes (cuenta creada por Seguridad): bloqueante SOLO
+              para el titular. En sesión impersonada NO se muestra — Seguridad
+              no puede aceptar políticas de tratamiento de datos por alguien:
+              sigue pendiente para el primer ingreso real del conductor. */}
+          {politicasPendientes && !impersonadoPor && (
+            <AceptacionPoliticasSesion
+              onAceptada={() => {
+                Cookies.remove('conductorPoliticasPendientes');
+                setPoliticasPendientes(false);
+              }}
+            />
+          )}
           {/* PASO 1 */}
           {currentStep === 1 && (
             <div className="step-content fade-in">
@@ -1125,14 +1277,16 @@ const PanelConductoresVista: React.FC = () => {
                                         <div className="pv-card-info">
                                             <span>{pct === 100 ? 'Documentos listos: falta finalizar el registro' : 'Falta completar tu información y documentación'}</span>
                                             <div className="barra-progreso-bg barra-progreso-bg--mini">
-                                                <div className="barra-progreso-fill" style={{ width: `${pct}%` }} />
+                                                <div
+                                                    className={`barra-progreso-fill ${claseAvanceFill(pct)}`.trim()}
+                                                    style={{ width: `${pct}%` }}
+                                                />
                                             </div>
                                             <span className="pv-card-progreso">Documentación: {pct}%</span>
                                         </div>
                                         {esTenedor && (
                                             <TenedorConductorInfo
                                                 veh={veh}
-                                                onInvitar={abrirInvitar}
                                                 onReenviar={reenviarInvitacion}
                                                 onQuitar={desvincularConductor}
                                             />
@@ -1140,7 +1294,7 @@ const PanelConductoresVista: React.FC = () => {
                                         <div className="pv-acciones">
                                             <button
                                                 className="pv-btn-cta"
-                                                onClick={() => { setSelectedPlate(veh.placa); setCurrentStep(2); }}
+                                                onClick={() => { setSelectedPlate(veh.placa); setEditarAprobadoActivo(false); setCurrentStep(2); }}
                                             >
                                                 Continuar registro
                                             </button>
@@ -1167,7 +1321,7 @@ const PanelConductoresVista: React.FC = () => {
                                     <div className="pv-acciones">
                                         <button
                                             className="pv-btn-cta pv-btn-cta--alerta"
-                                            onClick={() => { setSelectedPlate(veh.placa); changeStep(4); }}
+                                            onClick={() => { setSelectedPlate(veh.placa); setEditarAprobadoActivo(false); changeStep(4); }}
                                         >
                                             <FaExclamationTriangle /> Corregir
                                         </button>
@@ -1184,8 +1338,8 @@ const PanelConductoresVista: React.FC = () => {
                             {vehiculosAprobados.map((veh) => (
                                 <div key={veh.placa} className="pv-card pv-card--aprobado">
                                     <div className="pv-card-top">
-                                        <span className="pv-placa"><FaCheckCircle className="icono-ok" /> {veh.placa}</span>
-                                        <span className="estado-chip estado-chip--aprobado">● Aprobado para operar</span>
+                                        <span className="pv-placa">{veh.placa}</span>
+                                        <span className="estado-chip estado-chip--aprobado">Aprobado para operar</span>
                                     </div>
                                     <div className="pv-card-info">
                                         <span>Documentación completa. Puedes ofrecer tu disponibilidad con este vehículo.</span>
@@ -1193,7 +1347,6 @@ const PanelConductoresVista: React.FC = () => {
                                     {esTenedor && (
                                       <TenedorConductorInfo
                                         veh={veh}
-                                        onInvitar={abrirInvitar}
                                         onReenviar={reenviarInvitacion}
                                         onQuitar={desvincularConductor}
                                       />
@@ -1233,7 +1386,7 @@ const PanelConductoresVista: React.FC = () => {
                               return (
                                 <div key={veh.placa} className="pv-card pv-card--inactivo">
                                     <div className="pv-card-top">
-                                        <span className="pv-placa"><FaBan style={{ color: '#7f8c8d' }} /> {veh.placa}</span>
+                                        <span className="pv-placa">{veh.placa}</span>
                                         <span className="estado-chip estado-chip--inactivo">Inactivo</span>
                                     </div>
                                     {ultima && (
@@ -1264,7 +1417,7 @@ const PanelConductoresVista: React.FC = () => {
                             {vehiculosEnRevision.map((veh) => (
                                 <div key={veh.placa} className="pv-card pv-card--revision">
                                     <div className="pv-card-top">
-                                        <span className="pv-placa"><FaClock className="icono-reloj" /> {veh.placa}</span>
+                                        <span className="pv-placa">{veh.placa}</span>
                                         <span className="estado-chip estado-chip--revision">En revisión</span>
                                     </div>
                                     <div className="pv-card-info">
@@ -1273,7 +1426,7 @@ const PanelConductoresVista: React.FC = () => {
                                     <div className="pv-acciones">
                                       <button
                                         className="pv-btn-ghost"
-                                        onClick={() => { setSelectedPlate(veh.placa); setModoLectura(true); setCurrentStep(2); }}
+                                        onClick={() => { setSelectedPlate(veh.placa); setModoLectura(true); setEditarAprobadoActivo(false); setCurrentStep(2); }}
                                         title="Consultar los datos y documentos registrados (solo lectura mientras está en revisión)"
                                       >
                                         <FaEye /> Ver
@@ -1282,7 +1435,6 @@ const PanelConductoresVista: React.FC = () => {
                                     {esTenedor && (
                                       <TenedorConductorInfo
                                         veh={veh}
-                                        onInvitar={abrirInvitar}
                                         onReenviar={reenviarInvitacion}
                                         onQuitar={desvincularConductor}
                                       />
@@ -1321,6 +1473,7 @@ const PanelConductoresVista: React.FC = () => {
                         placa={selectedPlate}
                         idUsuario={idUsuario}
                         editarAprobado={editarAprobadoActivo}
+                        impersonadoPor={impersonadoPor}
                         soloLectura={modoLectura}
                         onValidChange={setDatosValidos}
                         onCedulaConductorChange={setCedulaConductor}
@@ -1345,7 +1498,10 @@ const PanelConductoresVista: React.FC = () => {
                 <div className="progreso-header">
                     <span>Avance Total: {getOverallDocumentProgress(secciones)}%</span>
                     <div className="barra-progreso-bg">
-                        <div className="barra-progreso-fill" style={{width: `${getOverallDocumentProgress(secciones)}%`}}></div>
+                        <div
+                            className={`barra-progreso-fill ${claseAvanceFill(getOverallDocumentProgress(secciones))}`.trim()}
+                            style={{width: `${getOverallDocumentProgress(secciones)}%`}}
+                        />
                     </div>
                 </div>
               </div>
@@ -1361,7 +1517,7 @@ const PanelConductoresVista: React.FC = () => {
                                     </h4>
                                     <div className="barra-progreso-bg barra-progreso-bg--mini">
                                         <div
-                                            className="barra-progreso-fill"
+                                            className={`barra-progreso-fill ${claseAvanceFill(calculateSectionProgress(seccion.items))}`.trim()}
                                             style={{ width: `${calculateSectionProgress(seccion.items)}%` }}
                                         />
                                     </div>
@@ -1405,12 +1561,26 @@ const PanelConductoresVista: React.FC = () => {
                                                     </>
                                                 ) : item.progreso < 100 ? (
                                                     !modoLectura && (
-                                                        <button
-                                                            className="btn-doc-action upload"
-                                                            onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
-                                                        >
-                                                            Cargar
-                                                        </button>
+                                                        <>
+                                                            {/* Mismo correo/documento que el conductor y él tiene el doc:
+                                                                ofrecer copiarlo sin lectura IA. */}
+                                                            {item.reutilizableDe && (
+                                                                <button
+                                                                    className="btn-doc-action upload"
+                                                                    style={{ borderColor: '#a9d3bb', color: '#1e8449' }}
+                                                                    onClick={() => reutilizarDocumentoPaso3(idx, iIdx)}
+                                                                    title="El correo o el documento coincide con el del conductor: usa su documento ya cargado (sin lectura IA)"
+                                                                >
+                                                                    ♻️ Usar la del conductor
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                className="btn-doc-action upload"
+                                                                onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                            >
+                                                                Cargar
+                                                            </button>
+                                                        </>
                                                     )
                                                 ) : (
                                                     <>
@@ -1466,6 +1636,19 @@ const PanelConductoresVista: React.FC = () => {
                             )}
                         </div>
                     ))}
+                    {/* FIRMA: último ítem del paso 3 (2026-10-01, orden del
+                        usuario — antes vivía al final del formulario Datos). */}
+                    <FirmaConductor
+                      key={selectedPlate}
+                      placa={selectedPlate}
+                      idUsuario={idUsuario}
+                      editarAprobado={editarAprobadoActivo}
+                      impersonadoPor={impersonadoPor}
+                      soloLectura={modoLectura}
+                      firmaUrlInicial={vehiculoActual?.firmaUrl}
+                      firmaEvidenciaInicial={vehiculoActual?.firmaEvidencia}
+                      onFirmaRegistrada={() => setFirmaRegistrada(true)}
+                    />
                     {!modoLectura && (
                       <button className="btn-finalizar" onClick={handleFinalizar}>Finalizar Registro</button>
                     )}
@@ -1496,6 +1679,7 @@ const PanelConductoresVista: React.FC = () => {
                                         className="btn-corregir"
                                         onClick={() => {
                                             setSelectedPlate(veh.placa);
+                                            setEditarAprobadoActivo(false);
                                             changeStep(2);
                                         }}
                                         title="Corregir los datos del formulario (paso 2)"
@@ -1506,6 +1690,7 @@ const PanelConductoresVista: React.FC = () => {
                                         className="btn-corregir"
                                         onClick={() => {
                                             setSelectedPlate(veh.placa);
+                                            setEditarAprobadoActivo(false);
                                             changeStep(3);
                                         }}
                                         title="Corregir los documentos (paso 3)"
@@ -1526,63 +1711,12 @@ const PanelConductoresVista: React.FC = () => {
       )}
 
       {/* MODALES */}
-
-      {/* Modal «Invitar conductor» (solo tenedor) */}
-      {invitarPlaca && (
-        <div className="CargaDocumento-overlay" onClick={(e) => { if (e.target === e.currentTarget) cerrarInvitar(); }}>
-          <div className="CargaDocumento-modal" style={{ maxWidth: '440px' }}>
-            <h2>Invitar conductor — {invitarPlaca}</h2>
-            <p style={{ fontSize: '0.88rem', color: '#555', marginTop: 0 }}>
-              El conductor recibirá un correo para activar su cuenta y quedará vinculado
-              a esta placa. Si ya tiene cuenta, se vincula de inmediato.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                  Correo del conductor *
-                </label>
-                <input
-                  type="email"
-                  className="input-moderno"
-                  placeholder="conductor@ejemplo.com"
-                  value={invitarCorreo}
-                  onChange={(e) => setInvitarCorreo(e.target.value)}
-                  disabled={invitando}
-                  style={{ width: '100%' }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                  Nombre del conductor (opcional)
-                </label>
-                <input
-                  type="text"
-                  className="input-moderno"
-                  placeholder="Ej: Juan Pérez"
-                  value={invitarNombre}
-                  onChange={(e) => setInvitarNombre(e.target.value)}
-                  disabled={invitando}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '18px', justifyContent: 'flex-end' }}>
-              <button className="CargaDocumento-btn-cerrar" onClick={cerrarInvitar} disabled={invitando}>
-                Cancelar
-              </button>
-              <button className="btn-moderno-accion" onClick={enviarInvitacion} disabled={invitando}>
-                {invitando ? 'Enviando…' : 'Enviar invitación'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {selectedDocumento && selectedPlate && (
         <CargaDocumento
           documentName={selectedDocumento.documentName}
           endpoint={selectedDocumento.endpoint}
           placa={selectedPlate}
-          editadoPor={editarAprobadoActivo ? idUsuario : undefined}
+          editadoPor={editarAprobadoActivo ? idUsuario : impersonadoPor}
           /* Tope de fotos del vehículo (mín. 1 · máx. 10): el modal avisa
              antes de subir si esta tanda se pasa del límite. */
           maximo={normalizeKey(selectedDocumento.documentName) === 'fotos' ? 10 : undefined}

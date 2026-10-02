@@ -38,7 +38,7 @@ const formatFecha = (val: any): string => {
     hour: '2-digit', minute: '2-digit', hour12: false,
   }).formatToParts(d);
   const g = (t: string) => partes.find((p) => p.type === t)?.value ?? '00';
-  return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}`;
+  return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}`;
 };
 
 const formatMoney = (v: any) => `$${Number(v || 0).toLocaleString('es-CO')}`;
@@ -264,8 +264,8 @@ const HistoricoOtrosCostosP: React.FC = () => {
                     <td className="OC-truncate">{(it.costos || []).map((c) => c.tipo_costo).join(', ') || '-'}</td>
                     <td style={{ fontWeight: 700, color: '#005f56' }}>{formatMoney(it.valor_total)}</td>
                     <td style={{ color: '#0d9488' }}>{it.valor_despues_retenciones != null ? formatMoney(it.valor_despues_retenciones) : '-'}</td>
-                    <td>{it.creado_por?.usuario || it.usuario_registro || '-'}</td>
-                    <td>{it.aprobacion?.usuario || '-'}</td>
+                    <td>{it.creado_por?.nombre || it.creado_por?.usuario || it.usuario_registro || '-'}</td>
+                    <td>{it.aprobacion?.nombre || it.aprobacion?.usuario || '-'}</td>
                     <td>{it.pago?.usuario || '-'}</td>
                     <td style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>{it.pago?.fecha_pago ? formatFecha(it.pago.fecha_pago) : '-'}</td>
                   </tr>
@@ -337,8 +337,8 @@ const HistoricoOtrosCostosP: React.FC = () => {
               <Campo label="Titular" v={detalle.datos_bancarios?.nombre_titular} />
               <Campo label="Conductor" v={detalle.conductor?.nombre} />
               <Campo label="Teléfono conductor" v={detalle.conductor?.telefono} />
-              <Campo label="Aprobado por" v={`${detalle.aprobacion?.usuario || '-'} (${detalle.aprobacion?.rol || ''})`} />
-              <Campo label="Pagado por" v={detalle.pago?.usuario} />
+              <Campo label="Aprobado por" v={`${detalle.aprobacion?.nombre || detalle.aprobacion?.usuario || '-'} (${detalle.aprobacion?.rol || ''})`} />
+              <Campo label="Pagado por" v={detalle.pago?.nombre || detalle.pago?.usuario} />
               <Campo label="Referencia bancaria" v={detalle.Referencia_bancaria || detalle.pago?.referencia} />
               <Campo label="Valor tras retenciones" v={detalle.valor_despues_retenciones != null ? formatMoney(detalle.valor_despues_retenciones) : (detalle.pago?.valor_despues_retenciones != null ? formatMoney(detalle.pago.valor_despues_retenciones) : '-')} />
               <Campo label="Observaciones pago" v={detalle.pago?.observaciones} />

@@ -23,6 +23,8 @@ interface RespuestaBackend {
   mensaje: string;
   usuario: UsuarioBackend;
   token?: string;
+  /** Cuenta creada por Seguridad: acepta políticas en su primer ingreso. */
+  politicas_pendientes?: boolean;
 }
 
 const LoginConductores = () => {
@@ -87,6 +89,16 @@ const LoginConductores = () => {
       if (data.primerNombre) {
           Cookies.set("conductorPrimerNombre", data.primerNombre, { expires: 30 });
       }
+      // Cuenta creada por Seguridad: políticas pendientes de aceptar en el panel.
+      if (response.data.politicas_pendientes) {
+          Cookies.set("conductorPoliticasPendientes", "1", { expires: 30 });
+      } else {
+          Cookies.remove("conductorPoliticasPendientes");
+      }
+      // Login REAL del titular: fuera la marca de sesión impersonada (si
+      // Seguridad usó este navegador antes, sus ediciones no deben atribuirse
+      // por error a Seguridad).
+      Cookies.remove("conductorImpersonadoPor");
 
       // Efecto de éxito
       confetti({
