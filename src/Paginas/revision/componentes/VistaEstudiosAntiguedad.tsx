@@ -30,6 +30,7 @@ interface SujetoAntiguedad {
   documento: string;
   roles: string[];
   correo?: string;
+  autorizado?: boolean;
 }
 
 interface FilaAntiguedad {
@@ -43,6 +44,8 @@ interface FilaAntiguedad {
   vencida: boolean;
   tiene_corrida_vigente: boolean;
   total_estudios: number;
+  personas: number;
+  pendientes_autorizacion: number;
 }
 
 /** Fecha legible en hora Colombia (el backend guarda UTC naive). */
@@ -91,6 +94,10 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
   const [error, setError] = useState<string | null>(null);
   const [filtroPlaca, setFiltroPlaca] = useState('');
   const [soloVencidas, setSoloVencidas] = useState(false);
+  const [soloPendientes, setSoloPendientes] = useState(false);
+  // Contador de placas con pendientes que reporta el backend para el label
+  // del filtro (se actualiza con cada búsqueda).
+  const [conPendientes, setConPendientes] = useState(0);
   const [actualizando, setActualizando] = useState<string | null>(null);
   const [expandida, setExpandida] = useState<string | null>(null);
   // Switch del disparo automático (2026-10-05): pausa temporal para ingresos
@@ -145,19 +152,32 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
     }
   };
 
-  const cargar = async () => {
+  // La búsqueda la procesa el BACKEND (2026-10-06, pedido del usuario): el
+  // front solo pasa los criterios (placa / vencidas / pendientes de
+  // autorización) con el botón «Buscar».
+  const buscar = async () => {
     setCargando(true);
     setError(null);
     try {
-      const res = await axios.get<{ vehiculos: FilaAntiguedad[]; vencidas: number }>(
-        `${API_BASE}/vehiculos/estudios-antiguedad`);
+      const params = new URLSearchParams();
+      if (filtroPlaca.trim()) params.set('placa', filtroPlaca.trim());
+      if (soloVencidas) params.set('solo_vencidas', 'true');
+      if (soloPendientes) params.set('solo_pendientes', 'true');
+      const qs = params.toString();
+      const res = await axios.get<{
+        vehiculos: FilaAntiguedad[]; vencidas: number; con_pendientes: number;
+      }>(`${API_BASE}/vehiculos/estudios-antiguedad${qs ? `?${qs}` : ''}`);
       setFilas(res.data.vehiculos || []);
+      setConPendientes(res.data.con_pendientes ?? 0);
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'No se pudo cargar el listado de estudios.');
     } finally {
       setCargando(false);
     }
   };
+
+  // Recarga con los filtros ACTUALES (tras «Actualizar estudios»).
+  const cargar = buscar;
 
   useEffect(() => { cargar(); cargarSwitch(); }, []);
 
@@ -191,9 +211,9 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
     }
   };
 
-  const visibles = filas
-    .filter(f => !soloVencidas || f.vencida)
-    .filter(f => !filtroPlaca.trim() || f.placa.toUpperCase().includes(filtroPlaca.trim().toUpperCase()));
+  // Sin filtrado local (2026-10-06): el resultado que muestra la tabla es
+  // EXACTAMENTE lo que devolvió el backend con los criterios de búsqueda.
+  const visibles = filas;
 
   const vencidas = filas.filter(f => f.vencida).length;
 
@@ -204,12 +224,21 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
           <input
             type="text"
             className="rev-input-busqueda"
-            placeholder="Filtrar por placa…"
+            placeholder="Buscar por placa…"
             value={filtroPlaca}
             onChange={(e) => setFiltroPlaca(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') buscar(); }}
             style={{ paddingLeft: 12 }}
           />
         </div>
+        <button
+          className="rev-est-btn-fuentes"
+          onClick={buscar}
+          title="Ejecuta la búsqueda con los criterios (la procesa el servidor)"
+          style={{ fontWeight: 700 }}
+        >
+          🔍 Buscar
+        </button>
         <label style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           fontSize: '0.85rem', color: '#3b4a5a', cursor: 'pointer', userSelect: 'none',
@@ -219,9 +248,20 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
             checked={soloVencidas}
             onChange={(e) => setSoloVencidas(e.target.checked)}
           />
-          Solo vigencias vencidas ({vencidas})
+          Solo vigencias vencidas
         </label>
-        <button className="rev-est-btn-fuentes" onClick={cargar} title="Recargar el listado">
+        <label style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontSize: '0.85rem', color: '#3b4a5a', cursor: 'pointer', userSelect: 'none',
+        }}>
+          <input
+            type="checkbox"
+            checked={soloPendientes}
+            onChange={(e) => setSoloPendientes(e.target.checked)}
+          />
+          Solo con autorizaciones pendientes ({conPendientes})
+        </label>
+        <button className="rev-est-btn-fuentes" onClick={cargar} title="Recargar el listado con los filtros actuales">
           <FaRedo /> Actualizar
         </button>
         <button
@@ -261,8 +301,7 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
 
       <p style={{ color: '#5a6472', fontSize: '0.85rem', margin: '8px 0 14px' }}>
         <FaHistory style={{ verticalAlign: '-2px' }} /> Estudios de seguridad organizados
-        por <strong>antigüedad</strong> (el más antiguo primero). La renovación ya no es
-        automática: usa <strong>«Actualizar estudios»</strong> cuando quieras re-consultar
+        por <strong>antigüedad</strong> (el más antiguo primero). Usa <strong>«Actualizar estudios»</strong> cuando quieras re-consultar
         una placa. <strong>{filas.length}</strong> placa(s) con estudios · <strong>{vencidas}</strong> con vigencia vencida.
         {autoDisparo === false && (
           <>
@@ -287,6 +326,7 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
               <th>Placa</th>
               <th>Estado</th>
               <th>Sujetos consultados</th>
+              <th>Autorización de datos</th>
               <th>Último estudio</th>
               <th>Antigüedad</th>
               <th>Vigencia</th>
@@ -325,6 +365,25 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
                         {f.sujetos.length} sujeto(s) <FaChevronDown style={{ transform: abierta ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
                       </button>
                     </td>
+                    <td>
+                      {f.personas === 0 ? (
+                        <span style={{ color: '#7f8c8d', fontSize: '0.78rem' }}>sin personas</span>
+                      ) : f.pendientes_autorizacion > 0 ? (
+                        <span style={{
+                          display: 'inline-block', background: '#fdeeec', color: '#c0392b',
+                          borderRadius: 999, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
+                        }}>
+                          ⏳ {f.pendientes_autorizacion} de {f.personas} pendiente(s)
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-block', background: '#eaf7ef', color: '#1e8449',
+                          borderRadius: 999, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
+                        }}>
+                          ✓ {f.personas} al día
+                        </span>
+                      )}
+                    </td>
                     <td className="rev-est-tabla-fecha">{fechaLegible(f.ultimo_estudio)}</td>
                     <td className="rev-est-tabla-antiguedad">{antiguedadLegible(f.antiguedad_dias)}</td>
                     <td>
@@ -346,14 +405,17 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
                   </tr>
                   {abierta && (
                     <tr>
-                      <td colSpan={7} style={{ background: '#fbfcfd' }}>
+                      <td colSpan={8} style={{ background: '#fbfcfd' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '6px 0' }}>
                           {f.sujetos.map((s, i) => (
                             <span key={i} style={{
-                              background: '#f0f2f4', borderRadius: 999, padding: '2px 10px',
-                              fontSize: '0.75rem', color: '#3b4a5a',
+                              background: s.tipo === 'persona' && s.autorizado === false ? '#fdeeec' : '#f0f2f4',
+                              borderRadius: 999, padding: '2px 10px',
+                              fontSize: '0.75rem',
+                              color: s.tipo === 'persona' && s.autorizado === false ? '#c0392b' : '#3b4a5a',
                             }}>
                               {(s.roles.map(r => ETIQUETA_ROL[r] ?? r).join(' · ') || 'Sujeto')} · {s.documento}
+                              {s.tipo === 'persona' && (s.autorizado ? ' ✓' : ' ⏳')}
                             </span>
                           ))}
                         </div>

@@ -4,71 +4,40 @@
   display: flex;
   flex-direction: column;
   font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-  background: #f0f2f5;
+  background: #fafbfc;
 }
 
-/* ── HEADER ── */
+/* ── HEADER ── Idéntico al de LoginConductores/LoginUsuario (LC-/LU-):
+   mismo alto, sombra, espaciados y logo 40px (2026-10-06, pedido del
+   usuario: «que se vea como en LoginConductores»). */
 .header {
   background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
-  height: 70px;
+  height: 64px;
   display: flex;
   align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+  flex-shrink: 0;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
 .headerInner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
   padding: 0 28px;
 }
 
-.buscador {
-  display: flex;
-  align-items: center;
-  background: rgba(255,255,255,0.08);
-  border-radius: 50px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.15);
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.buscador:focus-within {
-  border-color: #e8a000;
-  background: rgba(255,255,255,0.13);
-}
-
-.input {
-  background: transparent;
-  border: none;
+/* Wordmark «IntegrApp» junto al logo, a la IZQUIERDA — «App» en verde
+   (mismos valores de LC-brandName / LU-brandName). */
+.marca {
   color: #fff;
-  padding: 10px 18px;
-  font-size: 0.9rem;
-  outline: none;
-  width: 220px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
 }
 
-.input::placeholder { color: rgba(255,255,255,0.4); }
-
-.btnBuscar {
-  background: #e8a000;
-  border: none;
-  color: #fff;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  transition: background 0.2s;
-}
-
-.btnBuscar:hover { background: #c88800; }
+.marcaApp { color: #27ae60; }
 
 /* ── MAIN / PORTALES ── */
 .main {
@@ -80,30 +49,12 @@
   padding: 64px 24px;
 }
 
-.seccionHeader {
-  text-align: center;
-  margin-bottom: 44px;
-}
-
-.seccionTitulo {
-  font-size: clamp(1.5rem, 3vw, 2rem);
-  font-weight: 800;
-  color: #0f1928;
-  margin-bottom: 8px;
-  letter-spacing: -0.3px;
-}
-
-.seccionDesc {
-  font-size: 1rem;
-  color: #6b7a8d;
-}
-
 .portalGrid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 320px));
   justify-content: center;
   gap: 24px;
-  flex-wrap: wrap;
-  max-width: 960px;
+  max-width: 1080px;
   width: 100%;
 }
 
@@ -112,129 +63,88 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 10px;
+  gap: 16px;
   background: #fff;
-  border: 2px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 36px 28px;
+  border: 1px solid #d9e1ea;
+  border-radius: 18px;
+  padding: 44px 28px 36px;
   cursor: pointer;
-  transition: all 0.25s ease;
-  width: 260px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .portalCard:hover {
-  transform: translateY(-6px);
+  transform: translateY(-5px);
   border-color: #e8a000;
-  box-shadow: 0 16px 40px rgba(232,160,0,0.15);
+  box-shadow: 0 14px 34px rgba(15, 25, 40, 0.12);
 }
 
-.portalCardAccent {
-  background: linear-gradient(135deg, #0f1928 0%, #1e3a5f 100%);
-  border-color: transparent;
-}
-
-.portalCardAccent:hover {
-  border-color: #e8a000;
-  box-shadow: 0 16px 40px rgba(15,25,40,0.3);
-}
-
-.portalIconoWrap {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(232,160,0,0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 4px;
-}
-
-.portalCardAccent .portalIconoWrap {
-  background: rgba(255,255,255,0.1);
+.portalCard:focus-visible {
+  outline: 2px solid #e8a000;
+  outline-offset: 2px;
 }
 
 .portalIcono {
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   color: #e8a000;
 }
 
 .portalTexto {
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #0f1928;
 }
 
-.portalCardAccent .portalTexto { color: #fff; }
-
-.portalDesc {
-  font-size: 0.82rem;
-  color: #6b7a8d;
-  line-height: 1.5;
-}
-
-.portalCardAccent .portalDesc { color: rgba(255,255,255,0.6); }
-
+/* «Ingresar →»: affordance explícita de que la tarjeta es un botón. */
 .portalBtn {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #e8a000;
-  margin-top: 4px;
-  transition: letter-spacing 0.2s;
+  margin-top: 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
+  background: #0f1928;
+  border-radius: 999px;
+  padding: 10px 26px;
+  transition: background 0.2s ease;
 }
 
-.portalCard:hover .portalBtn { letter-spacing: 0.5px; }
+.portalCard:hover .portalBtn {
+  background: #e8a000;
+}
 
-/* ── FOOTER ── */
+/* ── FOOTER ── Una sola fila compacta: © a la izquierda, contacto en línea
+   a la derecha (antes eran dos bloques grandes que ocupaban media pantalla). */
 .footer {
   background: #080f1a;
-  color: rgba(255,255,255,0.65);
-  padding: 48px 24px 20px;
+  padding: 16px 24px;
 }
 
 .footerInner {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
-  max-width: 700px;
-  margin: 0 auto 32px;
-  align-items: start;
-}
-
-.footerBrand {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.footerTagline {
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: rgba(255,255,255,0.9);
-}
-
-.footerSub { font-size: 0.83rem; line-height: 1.6; }
-
-.footerTitulo {
+.footerCopy {
   font-size: 0.78rem;
-  font-weight: 700;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 14px;
+  color: rgba(255,255,255,0.4);
+  text-decoration: none;
 }
 
 .footerContacto {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
 }
 
 .footerLink {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
+  gap: 6px;
+  font-size: 0.78rem;
   color: rgba(255,255,255,0.55);
   text-decoration: none;
   transition: color 0.2s;
@@ -242,38 +152,17 @@
 
 .footerLink:hover { color: #e8a000; }
 
-.footerNavLink {
-  background: none;
-  border: none;
-  text-align: left;
-  font-size: 0.85rem;
-  color: rgba(255,255,255,0.55);
-  cursor: pointer;
-  padding: 0;
-  font-family: inherit;
-  transition: color 0.2s;
-}
-
-.footerNavLink:hover { color: #e8a000; }
-
-.footerCopy {
-  border-top: 1px solid rgba(255,255,255,0.06);
-  padding-top: 20px;
-  text-align: center;
-  font-size: 0.78rem;
-  color: rgba(255,255,255,0.3);
-  max-width: 700px;
-  margin: 0 auto;
-}
-
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
-  .input { width: 150px; }
-  .portalCard { width: 100%; max-width: 340px; }
-  .footerInner { grid-template-columns: 1fr; max-width: 400px; }
+  .main { padding: 48px 20px; }
+  /* Una tarjeta por fila, a ancho generoso (touch target grande). */
+  .portalGrid { grid-template-columns: 1fr; max-width: 420px; }
+  /* Footer compacto apilado y centrado en móvil. */
+  .footer { padding: 14px 18px; }
+  .footerInner { flex-direction: column; gap: 8px; }
+  .footerContacto { justify-content: center; }
 }
 
 @media (max-width: 480px) {
-  .footerInner { grid-template-columns: 1fr; }
-  .input { width: 120px; font-size: 0.82rem; }
+  .portalCard { padding: 34px 22px 28px; }
 }

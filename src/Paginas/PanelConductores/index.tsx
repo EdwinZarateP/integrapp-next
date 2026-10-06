@@ -6,7 +6,7 @@ import Swal from "sweetalert2";
 import {
   FaCar, FaClipboardList, FaFileUpload, FaCheckCircle,
   FaUserCircle, FaEdit, FaTrashAlt, FaEye, FaExclamationTriangle, FaClock, FaTimesCircle, FaTruck,
-  FaChevronDown, FaSignOutAlt, FaBan
+  FaChevronDown, FaSignOutAlt, FaBan, FaShieldAlt
 } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
 import Datos from '@/Componentes/Datos';
@@ -213,6 +213,17 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
   const tieneRemolque = Boolean(
     String(vehiculo?.RemolPlaca || '').trim() ||
     String(vehiculo?.RemolDuenoDocumento || '').replace(/\D/g, ''));
+  // Remolque declarado con CUALQUIER dato de la sección (espejo de
+  // _tiene_remolque del backend): con remolque, la Tarjeta de Remolque pasa a
+  // ser OBLIGATORIA (2026-10-06, pedido del usuario).
+  const remolqueDeclarado = [
+    'RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria',
+    'RemolAlto', 'RemolLargo', 'RemolAncho',
+    'RemolDuenoNombre', 'RemolDuenoDocumento', 'RemolDuenoCorreo',
+  ].some(k => {
+    const v = String(vehiculo?.[k] || '').trim();
+    return v && v !== 'null' && v !== 'undefined';
+  });
   return limpias.map((sec: SeccionDocumentos) => {
     let items = sec.items;
     if (tieneRemolque && sec.subtitulo === '1. Documentos del Vehículo') {
@@ -231,10 +242,18 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       ...sec,
       items: items.map((item: DocumentoItem) => {
       const field = tiposMapping[normalizeKey(item.nombre)] || "";
-      const opcionalFinal = Boolean(item.opcional) || (
+      // Tarjeta de Remolque: opcional por defecto, OBLIGATORIA con remolque
+      // declarado (cuenta en el avance y bloquea «Finalizar»).
+      const esTarjetaRemolque = field === 'tarjetaRemolque';
+      const opcionalFinal = esTarjetaRemolque && remolqueDeclarado
+        ? false
+        : Boolean(item.opcional) || (
         field === 'documentoAcreditacionTenedor' && tenedIgualProp
       ) || (propEmpresa && field.startsWith('documentoIdentidadPropietario'))
       || (tenedEmpresa && field.startsWith('documentoIdentidadTenedor'));
+      const hintFinal = esTarjetaRemolque && remolqueDeclarado && !vehiculo?.[field]
+        ? 'Obligatoria: tu vehículo tiene remolque'
+        : item.hint;
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
       // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
       // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.
@@ -267,6 +286,7 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
               cubiertoPor,
               reversoUrl,
               reutilizableDe,
+              hint: hintFinal,
             };
           }
         }
@@ -277,10 +297,10 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
           url: valor,
           reversoUrl,
           faltaReverso: requiereReverso && !reversoUrl,
-          hint: requiereReverso && !reversoUrl ? 'Falta el reverso' : item.hint,
+          hint: requiereReverso && !reversoUrl ? 'Falta el reverso' : hintFinal,
         };
       }
-      return { ...item, opcional: opcionalFinal, progreso: 0, url: undefined, cubiertoPor, reutilizableDe, reversoUrl };
+      return { ...item, opcional: opcionalFinal, progreso: 0, url: undefined, cubiertoPor, reutilizableDe, reversoUrl, hint: hintFinal };
     })
     };
   });
@@ -442,6 +462,22 @@ const BarraConductor: React.FC = () => {
     router.replace("/LoginConductores");
   };
 
+  /** Modo Seguridad: salir de la sesión del conductor y volver a /revision
+   *  (las cookies seguridad* siguen vivas — nunca se tocaron). Solo visible
+   *  en sesión impersonada; cierra la del conductor sin tocar la de Seguridad. */
+  const volverASeguridad = () => {
+    setMenuAbierto(false);
+    Cookies.remove("conductorCorreo");
+    Cookies.remove("conductorClave");
+    Cookies.remove("conductorId");
+    Cookies.remove("conductorPerfil");
+    Cookies.remove("conductorPrimerNombre");
+    Cookies.remove("conductorImpersonadoPor");
+    Cookies.remove("conductorPoliticasPendientes");
+
+    router.replace("/revision");
+  };
+
   return (
     <div className="barra-superior">
       <div className="barra-izquierda" onClick={irInicio} title="Volver al inicio">
@@ -474,6 +510,14 @@ const BarraConductor: React.FC = () => {
             <button className="menu-item" onClick={irDisponibilidad}>
               <FaTruck /> Mi disponibilidad
             </button>
+            {impersonadoPorBarra && (
+              <>
+                <div className="menu-divisor" />
+                <button className="menu-item menu-itemSeguridad" onClick={volverASeguridad}>
+                  <FaShieldAlt /> Volver a Seguridad
+                </button>
+              </>
+            )}
             <div className="menu-divisor" />
             <button className="menu-item menu-itemDanger" onClick={cerrarSesion}>
               <FaSignOutAlt /> Cerrar sesión
@@ -1038,7 +1082,23 @@ const PanelConductoresVista: React.FC = () => {
   };
 
   const handleFinalizar = async () => {
-      if (!cedulaConductor) return Swal.fire("Error", "No se ha capturado la cédula del conductor.", "error");
+      // La cédula del conductor para el gate: el callback del paso 2
+      // (`onCedulaConductorChange`) SOLO vive mientras `Datos` está montado —
+      // entrando directo a paso 3 (F5 con ?paso=3, link compartible, o antes
+      // de que la ficha cargue) quedaba vacía y «Finalizar» fallaba con
+      // «No se ha capturado la cédula» aunque el vehículo la tuviera (bug
+      // reportado 2026-10-06). Fallback: la cédula de la ficha que carga
+      // cargarInfo al entrar al paso 3.
+      const cedulaEfectiva = String(
+        cedulaConductor || vehiculoActual?.condCedulaCiudadania || ""
+      ).replace(/\D/g, "");
+      if (!cedulaEfectiva) {
+        return Swal.fire(
+          "Falta la cédula del conductor",
+          "El vehículo no tiene la cédula del conductor. Ve a «Datos básicos» y dilígiala (la lee la IA al subir su documento).",
+          "warning"
+        );
+      }
       const progreso = getOverallDocumentProgress(secciones);
       if (progreso < 100) return Swal.fire("Incompleto", "Faltan documentos por cargar.", "warning");
       // La firma es el último requisito del paso 3 (se pide acá, no en Datos).
@@ -1594,7 +1654,13 @@ const PanelConductoresVista: React.FC = () => {
                             {visibleSeccion === idx && (
                                 <div className="seccion-body">
                                     {seccion.items.map((item, iIdx) => (
-                                        <div key={iIdx} className="doc-item-row">
+                                        <div
+                                          key={iIdx}
+                                          /* Obligatorio faltante → fondo rosadito clarito
+                                             (pedido del usuario 2026-10-06): resalta lo
+                                             que falta sin tocar los cargados/opcionales. */
+                                          className={`doc-item-row ${!item.opcional && item.progreso < 100 ? 'doc-item-row--falta' : ''}`}
+                                        >
                                             <span className="doc-name">
                                                 {item.progreso === 100 && <FaCheckCircle className="text-success"/>} {item.nombre}
                                                 {item.opcional && <span className="doc-tag-opcional">opcional</span>}
@@ -1790,6 +1856,9 @@ const PanelConductoresVista: React.FC = () => {
           /* RUT del tenedor: SOLO PDF (archivo descargado de la DIAN), sin
              opción de tomar foto. */
           soloPdf={normalizeKey(selectedDocumento.documentName) === 'rut tenedor'}
+          /* Foto del conductor: SOLO cámara (se toma en vivo, sin archivo de
+             galería — pedido del usuario 2026-10-06). */
+          soloCamara={normalizeKey(selectedDocumento.documentName) === 'foto conductor'}
           cantidadActual={(() => {
             if (normalizeKey(selectedDocumento.documentName) !== 'fotos') return undefined;
             const it = secciones[selectedDocumento.sectionIndex]?.items[selectedDocumento.itemIndex];

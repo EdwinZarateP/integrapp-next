@@ -9,6 +9,7 @@ import {
   FaSearch, FaTimes, FaTruck, FaUserPlus,
 } from "react-icons/fa";
 import PhoneField from "@/Componentes/PhoneField";
+import { abrirPanelComoConductor } from "./impersonacion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -291,51 +292,17 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
    * Abre el panel DEL conductor SIEMPRE por impersonación (login-como), sea
    * la cuenta nueva o existente: Seguridad no necesita recordar claves y
    * TODAS las mutaciones quedan trazadas con su nombre (cookie de sesión
-   * impersonada + bitácora auditoriaVehiculo del backend).
+   * impersonada + bitácora auditoriaVehiculo del backend). La lógica vive en
+   * el helper compartido ./impersonacion (también la usan las bandejas).
    */
-  const abrirPanel = async () => {
+  const abrirPanel = () => {
     if (!cuenta) return;
-    try {
-      Swal.fire({ title: "Ingresando al panel...", didOpen: () => Swal.showLoading() });
-      const res = await axios.post(`${API_BASE}/conductores/login-como/${cuenta.id}`, {
-        solicitante: seguridadNombre() });
-      _montarSesionImpersonada(res.data);
-    } catch (err: any) {
-      Swal.fire("No se pudo entrar", err?.response?.data?.detail || "Error de conexión.", "error");
-    }
+    abrirPanelComoConductor(cuenta.id, router);
   };
 
   /** Re-ingreso desde la tabla de cuentas creadas (vehículos a medias). */
-  const abrirPanelCuenta = async (c: CuentaLista) => {
-    try {
-      Swal.fire({ title: "Ingresando al panel...", didOpen: () => Swal.showLoading() });
-      const res = await axios.post(`${API_BASE}/conductores/login-como/${c.id}`, {
-        solicitante: seguridadNombre() });
-      _montarSesionImpersonada(res.data);
-    } catch (err: any) {
-      Swal.fire("No se pudo entrar", err?.response?.data?.detail || "Error de conexión.", "error");
-    }
-  };
-
-  const _montarSesionImpersonada = (data: any) => {
-    // El login fue exitoso: cerrar el Swal de carga ANTES de navegar —
-    // la navegación de Next es client-side (no desmonta el overlay, que
-    // vive fuera de React) y quedaba pegado "Ingresando al panel…".
-    Swal.close();
-    const u = data.usuario;
-    Cookies.set('conductorCorreo', u.correo, { expires: 30 });
-    Cookies.set('conductorId', u.id, { expires: 30 });
-    Cookies.set('conductorPerfil', u.perfil, { expires: 30 });
-    if (u.primerNombre) Cookies.set('conductorPrimerNombre', u.primerNombre, { expires: 30 });
-    // Marca de impersonación: el panel la usa para el banner «Modo Seguridad»
-    // y para enviar editado_por en TODAS las mutaciones (trazabilidad).
-    Cookies.set('conductorImpersonadoPor', data.impersonado_por || seguridadNombre(), { expires: 30 });
-    if (data.politicas_pendientes) {
-      Cookies.set('conductorPoliticasPendientes', '1', { expires: 30 });
-    } else {
-      Cookies.remove('conductorPoliticasPendientes');
-    }
-    router.push('/PanelConductores');
+  const abrirPanelCuenta = (c: CuentaLista) => {
+    abrirPanelComoConductor(c.id, router);
   };
 
   /** Rescate: la clave mostrada se perdió (o el conductor la olvidó) →

@@ -321,6 +321,10 @@ select:focus-visible {
 .menu-itemDanger { color: #c9302c; }
 .menu-itemDanger:hover { background: #fff5f5; }
 
+/* «Volver a Seguridad» (solo sesión impersonada): violeta de Modo Seguridad. */
+.menu-itemSeguridad { color: #8e44ad; }
+.menu-itemSeguridad:hover { background: #f8f0fc; }
+
 /* -------------------------------------------------------------------------- */
 /* 3. LAYOUT PRINCIPAL                                                        */
 /* -------------------------------------------------------------------------- */
@@ -872,6 +876,18 @@ select:focus-visible {
   border-bottom: 1px solid #f1f1f1;
 }
 .doc-item-row:last-child { border-bottom: none; }
+
+/* Obligatorio FALTANTE (pedido del usuario 2026-10-06): fondo rosadito
+   clarito + borde suave para resaltarlo; los cargados y los opcionales
+   quedan como siempre. */
+.doc-item-row--falta {
+  background: #fff1f3;
+  border: 1px solid #f7ccd4;
+  border-radius: 10px;
+  padding: 12px 12px;
+  margin: 2px -12px; /* compensa el padding para no encoger la fila */
+}
+.doc-item-row--falta .doc-name { color: #8d3a4a; }
 
 .doc-name {
     display: flex; align-items: center; gap: 8px;

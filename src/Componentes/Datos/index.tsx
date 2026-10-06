@@ -670,11 +670,13 @@ const REUTILIZABLES: Record<string, {
   documento: 'cedula' | 'certificado_bancario';
   origenes: Figura[];
 }> = {
-  cedula: { figura: 'conductor', documento: 'cedula', origenes: ['propietario', 'tenedor'] },
-  cedula_propietario: { figura: 'propietario', documento: 'cedula', origenes: ['conductor', 'tenedor'] },
-  cedula_tenedor: { figura: 'tenedor', documento: 'cedula', origenes: ['conductor', 'propietario'] },
-  // Dueño del remolque: puede ser la misma persona que cualquiera de las 3
-  // figuras (el Swal muestra hasta 2 orígenes cargados + «Cargar otra»).
+  // La cédula del dueño del remolque es origen/destino como cualquier figura
+  // (2026-10-06: si se subió PRIMERO la del remolque, las demás pueden copiarse
+  // de ella — el orden de subida da igual). Con 3 orígenes cargados el Swal
+  // pasa a un desplegable de selección.
+  cedula: { figura: 'conductor', documento: 'cedula', origenes: ['propietario', 'tenedor', 'remolque'] },
+  cedula_propietario: { figura: 'propietario', documento: 'cedula', origenes: ['conductor', 'tenedor', 'remolque'] },
+  cedula_tenedor: { figura: 'tenedor', documento: 'cedula', origenes: ['conductor', 'propietario', 'remolque'] },
   cedula_remolque: { figura: 'remolque', documento: 'cedula', origenes: ['conductor', 'propietario', 'tenedor'] },
   // Cert. bancario: conductor ↔ tenedor en cualquier orden (puede ser la
   // misma cuenta). El del propietario dejó de pedirse.
@@ -784,13 +786,20 @@ const refAdicionalVacia = (): Record<string, string> => ({
 
 /* ── Remolque (opcional): la mayoría de conductores no tiene remolque, así
    que la sección solo se despliega tras marcar el checkbox «tengo remolque».
-   Los campos NO son obligatorios (no están en requiredFields). ── */
-const REMOL_FIELDS = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho',
+   Con el checkbox ACTIVO, los datos del vehículo del remolque SÍ son
+   obligatorios (2026-10-06); el dueño queda a discreción (su correo solo se
+   exige si se diligencia el dueño). ── */
+const REMOL_FIELDS_VEHICULO = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho'];
+const REMOL_FIELDS = [...REMOL_FIELDS_VEHICULO,
   // Dueño del remolque (2026-10-05): identidad mínima; su cédula (foto en la
   // tarjeta IA) alimenta el estudio de seguridad como rol «Dueño remolque».
   'RemolDuenoNombre', 'RemolDuenoTipoDocumento', 'RemolDuenoDocumento', 'RemolDuenoCiudadExpDoc',
   // Correo para enviarle la AUTORIZACIÓN de tratamiento de datos (link).
   'RemolDuenoCorreo'];
+/* Alto/Largo/Ancho del remolque en METROS: tope 50 (un valor mayor es un
+   error de dedo — las dimensiones reales de un remolque caben holgadas). */
+const REMOL_DIMENSIONES = ['RemolAlto', 'RemolLargo', 'RemolAncho'];
+const REMOL_DIM_MAX = 50;
 const REMOL_TITULO = 'Datos del Remolque (Opcional)';
 
 const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, impersonadoPor, soloLectura, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
@@ -859,6 +868,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         const n = parseInt(valor.replace(/\D/g, ''), 10);
         return isNaN(n) || n < 300 || n > 50000;
       }
+      // Dimensiones del remolque (m): fuera de 1–50 sigue en rojo.
+      if (REMOL_DIMENSIONES.includes(c)) {
+        const n = parseInt(valor, 10);
+        return isNaN(n) || n < 1 || n > REMOL_DIM_MAX;
+      }
+      // Modelo del remolque: fuera de 1990–año en curso sigue en rojo.
+      if (c === 'RemolModelo') {
+        const n = parseInt(valor, 10);
+        return isNaN(n) || n < 1990 || n > ANIO_ACTUAL;
+      }
       return false;
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -885,8 +904,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
   const propEsEmpresa = String(formData['propTipoDocumento'] || '').toUpperCase().includes('NIT');
   const tenedEsEmpresa = String(formData['tenedTipoDocumento'] || '').toUpperCase().includes('NIT');
   // El correo del dueño del remolque se exige SOLO si se diligenció el dueño
-  // (el remolque completo es opcional).
+  // (el remolque completo es opcional). Si el dueño es una EMPRESA (NIT), el
+  // bloque de persona se relaja completo — mismo criterio del tenedor.
   const remolqueConDueno = Boolean(String(formData['RemolDuenoDocumento'] || '').replace(/\D/g, ''));
+  const remolqueEsEmpresa = String(formData['RemolDuenoTipoDocumento'] || '').toUpperCase().includes('NIT');
 
   const requiredFields = [
     'condPrimerApellido', 'condSegundoApellido', 'condNombres', 'condCedulaCiudadania', 'condExpedidaEn', 'condDireccion',
@@ -903,8 +924,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     'vehAseguradoraSoat', 'vehPolizaSoat', 'vehVencimientoSoat',
     // El Año de Repotenciación es obligatorio SOLO si el vehículo fue repotenciado.
     ...(formData['vehRepotenciado'] === 'Sí' ? ['vehAno'] : []),
-    // Dueño del remolque: correo para su autorización de datos.
-    ...(remolqueConDueno ? ['RemolDuenoCorreo'] : []),
+    // Dueño del remolque: correo para su autorización de datos (las empresas
+    // NIT quedan exentas, igual que propietario/tenedor persona→empresa).
+    ...(remolqueConDueno && !remolqueEsEmpresa ? ['RemolDuenoCorreo'] : []),
+    // Remolque HABILITADO (checkbox «mi vehículo tiene remolque»): sus datos
+    // del vehículo pasan a ser OBLIGATORIOS (2026-10-06, pedido del usuario —
+    // antes solo avisaba el conteo pero «Continuar» no restringía). El dueño
+    // sigue siendo opcional (solo su correo si se diligencia, regla de arriba).
+    ...(tieneRemolque ? REMOL_FIELDS_VEHICULO : []),
   ];
 
   const calcularAvance = () => {
@@ -1060,6 +1087,23 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         // El año de repotenciación: nunca futuro ni anterior a 2010.
         if (name === 'vehAno' && (parseInt(value) > ANIO_ACTUAL || parseInt(value) < 2010)) return;
         if (name === 'condAntiguedadRef' && parseInt(value) > 30) return;
+        // Placa del remolque: máximo 10 caracteres (pedido del usuario
+        // 2026-10-06; se rechaza la tecla que sobra).
+        if (name === 'RemolPlaca' && value.length > 10) return;
+        // Modelo del remolque: año de 4 dígitos. El valor COMPLETO fuera de
+        // 1990–año en curso se rechaza por tecla (1120 queda en 112); los
+        // prefijos de 1-3 dígitos no se juzgan — si no, no se podría digitar
+        // «1995» (el «1» inicial ya sería menor que 1990).
+        if (name === 'RemolModelo') {
+            if (value.length > 4) return;
+            if (value.length === 4) {
+                const anio = parseInt(value, 10);
+                if (isNaN(anio) || anio < 1990 || anio > ANIO_ACTUAL) return;
+            }
+        }
+        // Dimensiones del remolque (m): nada por encima de 50 pasa al estado
+        // (se rechaza la tecla, igual que antiguedad/modelo).
+        if (REMOL_DIMENSIONES.includes(name) && parseInt(value) > REMOL_DIM_MAX) return;
     }
     // Repotenciado ≠ «Sí»: el año pierde sentido — se limpia para que no
     // quede un dato huérfano guardado (y el campo vuelve bloqueado).
@@ -1470,6 +1514,34 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       setTipoLecturaPendiente(tipo);
       setTimeout(() => inputDocumentoRef.current?.click(), 0);
     };
+    // TRES orígenes cargados (p. ej. las cédulas de propietario, tenedor y
+    // dueño del remolque al pedir la del conductor): no caben 3 botones de
+    // copia + «Cargar otra», así que los orígenes van en un desplegable.
+    if (disponibles.length >= 3) {
+      Swal.fire({
+        icon: 'question',
+        title: etiqueta,
+        html: htmlBase,
+        input: 'select',
+        inputOptions: Object.fromEntries(disponibles.map(o => [o, `La del ${NOMBRE_FIGURA[o]}`])),
+        inputPlaceholder: '¿De quién copiamos el documento?',
+        showDenyButton: true,
+        showCloseButton: true,
+        confirmButtonText: '♻️ Usar la seleccionada',
+        denyButtonText: '📷 Cargar otra',
+        confirmButtonColor: '#27ae60',
+        denyButtonColor: '#2c5f9e',
+        reverseButtons: true,
+        preConfirm: (valor) => valor || Swal.showValidationMessage('Elige de quién copiar'),
+      }).then(async res => {
+        if (res.isConfirmed && res.value) {
+          await reutilizarDocumento(documento, figura, res.value as Figura, etiqueta);
+        } else if (res.isDenied) {
+          cargarOtra();
+        }
+      });
+      return;
+    }
     if (disponibles.length === 1) {
       Swal.fire({
         icon: 'question',
@@ -1545,10 +1617,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       const { figura, documento } = reutilizable;
       const disponibles = reutilizable.origenes
         .filter(o => o !== figura && CAMPOS_REUTIL[documento][o])
-        .filter(o => docsSubidos[CAMPOS_REUTIL[documento][o]!])
-        // El Swal tiene 2 botones de copia + «Cargar otra» (el dueño del
-        // remolque tiene 3 orígenes posibles; se muestran los 2 primeros).
-        .slice(0, 2);
+        .filter(o => docsSubidos[CAMPOS_REUTIL[documento][o]!]);
       if (disponibles.length > 0) {
         const nombreDoc = documento === 'cedula' ? 'cédula' : 'certificado bancario';
         const lista = disponibles.map(o => NOMBRE_FIGURA[o]).join(' o el ');
@@ -1639,13 +1708,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
   // con "" la URL recién subida. Nunca se mandan desde aquí.
   const CAMPOS_DOCUMENTOS_PROTEGIDOS = [
     'documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor',
+    'documentoIdentidadRemolque',
     'licencia', 'tarjetaPropiedad', 'soat', 'revisionTecnomecanica', 'tarjetaRemolque',
     'polizaResponsabilidad', 'planillaEpsArl', 'condFoto',
     'condCertificacionBancaria', 'propCertificacionBancaria', 'tenedCertificacionBancaria',
     'documentoAcreditacionTenedor', 'rutTenedor', 'rutPropietario', 'fotos', 'firmaUrl',
     // Reversos de documentos de dos caras (mismo blindaje que sus frentes).
     'documentoIdentidadConductorReverso', 'documentoIdentidadPropietarioReverso',
-    'documentoIdentidadTenedorReverso', 'licenciaReverso', 'tarjetaPropiedadReverso',
+    'documentoIdentidadTenedorReverso', 'documentoIdentidadRemolqueReverso',
+    'licenciaReverso', 'tarjetaPropiedadReverso',
     // Sello de la firma electrónica: solo /vehiculos/firmar lo escribe.
     'firmaEvidencia',
   ];
@@ -1660,18 +1731,36 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     const datos = formDataRef.current;
     const { firma, firmaUrl, ...restFormData } = datos;
     void firma; void firmaUrl;
+    // Los campos de TEXTO se guardan EN MAYÚSCULA en la base de datos (pedido
+    // del usuario 2026-10-06). Se exceptúan los que vienen de CATÁLOGOS
+    // (selects con opciones en mixed-case: EPS/ARL, aseguradoras, ciudades,
+    // tipos de documento/carrocería) — si se mayuscularan dejarían de
+    // coincidir con su catálogo y el select los mostraría «fuera de lista».
+    const camposCatalogo = new Set(
+      sections.flatMap(s => s.fields.filter(f => f.options).map(f => f.name))
+    );
     const cleanedFormData: any = Object.fromEntries(
       Object.entries(restFormData)
         .filter(([key]) => !CAMPOS_DOCUMENTOS_PROTEGIDOS.includes(key))
-        .map(([key, value]) => [key, value || ""])
+        .map(([key, value]) => {
+          let v = value || "";
+          if (v !== "" && !camposCatalogo.has(key)) v = String(v).toUpperCase();
+          return [key, v];
+        })
     );
 
     // Referencias adicionales: solo las que tengan algo diligenciado (empresa
     // o celular) — una tarjeta vacía no debe dejar basura en el doc. El array
     // se envía SIEMPRE (vacío incluido) para que QUITAR referencias también
     // persista; el backend iguala «vacío» con «ausente» en el diff.
+    // Los textos de la referencia (empresa/mercancía) también van en mayúscula;
+    // departamento/ciudad son catálogos y se respetan.
     const refsLimpias = refsAdicionalesRef.current
-      .map(r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, (v || '').toString().trim()])))
+      .map(r => Object.fromEntries(Object.entries(r).map(([k, v]) => {
+        let val = (v || '').toString().trim();
+        if ((k === 'empresa' || k === 'mercancia') && val) val = val.toUpperCase();
+        return [k, val];
+      })))
       .filter(r => r.empresa || r.celular);
     cleanedFormData.referenciasAdicionales = refsLimpias;
 
@@ -1775,6 +1864,44 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
             Swal.fire({
                 title: 'Campos obligatorios incompletos',
                 html: `Te faltan <b>${faltantes.length}</b> campo(s); quedaron marcados en <b style="color:#e74c3c">rojo</b> en el formulario:<ul style="text-align:left; margin:10px 0 0; padding-left:20px;">${etiquetas}${resto}</ul>`,
+                icon: 'warning',
+                confirmButtonColor: '#e67e22',
+            });
+            return;
+        }
+    }
+    // Modelo del remolque: rango 1990–año en curso (el teclado solo tapaba el
+    // tope superior; el mínimo se valida acá, donde también caen los valores
+    // históricos cargados del vehículo).
+    if (esFinalizar) {
+        const modelo = (formData['RemolModelo'] || '').trim();
+        if (modelo !== '' &&
+            (parseInt(modelo, 10) > ANIO_ACTUAL || parseInt(modelo, 10) < 1990)) {
+            setCamposError(prev => Array.from(new Set([...prev, 'RemolModelo'])));
+            const campo = document.querySelector('[data-campo="RemolModelo"]');
+            if (campo) campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            Swal.fire({
+                title: 'Modelo del remolque inválido',
+                html: `El <b>Modelo</b> debe ser un año entre <b>1990 y ${ANIO_ACTUAL}</b>.`,
+                icon: 'warning',
+                confirmButtonColor: '#e67e22',
+            });
+            return;
+        }
+    }
+    // Dimensiones del remolque (m): fuera de 1–50 bloquea «Continuar». Cubre
+    // también valores HISTÓRICOS cargados del vehículo (el guard del tecleo
+    // solo aplica lo que se digita en la sesión).
+    if (esFinalizar) {
+        const malas = REMOL_DIMENSIONES.filter(f => (formData[f] || '').trim() !== ''
+            && (parseInt(formData[f], 10) > REMOL_DIM_MAX || parseInt(formData[f], 10) < 1));
+        if (malas.length > 0) {
+            setCamposError(prev => Array.from(new Set([...prev, ...malas])));
+            const campo = document.querySelector(`[data-campo="${malas[0]}"]`);
+            if (campo) campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            Swal.fire({
+                title: 'Dimensión del remolque inválida',
+                html: `El <b>Alto/Largo/Ancho</b> del remolque va en <b>metros</b> y debe ser un número entre <b>1 y ${REMOL_DIM_MAX}</b>.<br/>Revisa lo marcado en rojo.`,
                 icon: 'warning',
                 confirmButtonColor: '#e67e22',
             });
@@ -1990,13 +2117,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     {
       title: 'Datos del Remolque (Opcional)',
       fields: [
-        { label: 'Placa Remolque', name: 'RemolPlaca' },
-        { label: 'Modelo', name: 'RemolModelo', type: 'number' },
+        { label: 'Placa Remolque', name: 'RemolPlaca', inputProps: { maxLength: 10 } },
+        { label: 'Modelo', name: 'RemolModelo', type: 'number', inputProps: { min: 1990, max: ANIO_ACTUAL } },
         { label: 'Clase/config', name: 'RemolClase' },
         { label: "Tipo Carroceria", name: "RemolTipoCarroceria", options: tiposCarroceria },
-        { label: 'Alto (m)', name: 'RemolAlto', type: 'number', inputProps: { min: 1, max: 30 } },
-        { label: 'Largo (m)', name: 'RemolLargo', type: 'number', inputProps: { min: 1, max: 30 } },
-        { label: 'Ancho (m)', name: 'RemolAncho', type: 'number', inputProps: { min: 1, max: 30 } },
+        { label: 'Alto (m)', name: 'RemolAlto', type: 'number', inputProps: { min: 1, max: REMOL_DIM_MAX } },
+        { label: 'Largo (m)', name: 'RemolLargo', type: 'number', inputProps: { min: 1, max: REMOL_DIM_MAX } },
+        { label: 'Ancho (m)', name: 'RemolAncho', type: 'number', inputProps: { min: 1, max: REMOL_DIM_MAX } },
         // Dueño del remolque: identidad mínima (la cédula se fotografía en la
         // tarjeta IA — mismo patrón de frente+reverso que el conductor).
         { label: 'Nombre del Dueño', name: 'RemolDuenoNombre' },
@@ -2269,7 +2396,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           </span>
         </div>
         <div className="Datos-iaCedula-acciones">
-          {OPCIONES_LECTURA_IA.map(opcion => {
+          {/* La cédula del dueño del remolque NO vive aquí (2026-10-06, pedido
+              del usuario): se muestra DENTRO de la sección «Datos del Remolque
+              (Opcional)», donde tiene sentido — solo cuando hay remolque. */}
+          {OPCIONES_LECTURA_IA.filter(opcion => opcion.tipo !== 'cedula_remolque').map(opcion => {
             const tipoSubida = opcion.tipo === 'cedula'
               ? 'documentoIdentidadConductor'
               : LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
@@ -2391,20 +2521,90 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
                   Mi vehículo tiene remolque
                 </label>
                 {tieneRemolque && (
-                  <div className="Datos-fields-container">
-                    {fields.map(({ label, name, type, options, inputProps }) => (
-                      <InputField
-                        key={name}
-                        label={label}
-                        name={name}
-                        type={type}
-                        value={formData[name] || ""}
-                        onChange={handleChange}
-                        options={options}
-                        inputProps={inputProps}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    {/* Cédula del dueño del remolque: PRIMERO que se ve en la
+                        sección (pedido del usuario 2026-10-06) — sube
+                        frente+reverso con lectura IA (mismo flujo de los
+                        demás actores) o REUTILIZA la de otra figura («es la
+                        misma persona», sin gastar IA). Solo dueño PERSONA. */}
+                    {!soloLectura && !remolqueEsEmpresa && (
+                      <div className="Datos-remolque-doc">
+                        {(() => {
+                          const tipoSubida = 'documentoIdentidadRemolque';
+                          const listo = Boolean(
+                            docsSubidos[tipoSubida] && docsSubidos[`${tipoSubida}Reverso`]);
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                className={`Datos-iaDoc-boton ${listo ? 'Datos-iaDoc-listo' : ''}`}
+                                onClick={() => solicitarLecturaDocumento('cedula_remolque')}
+                                disabled={leyendoCedula}
+                                title={listo
+                                  ? 'Documento cargado — toca para reemplazarlo'
+                                  : 'Frente y reverso: se guarda y llena los datos del dueño con IA'}
+                              >
+                                <span className="Datos-iaDoc-texto">🪪 Cédula del dueño del remolque</span>
+                                {listo && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
+                              </button>
+                              {listo && (
+                                <button
+                                  type="button"
+                                  className="Datos-iaDoc-ver"
+                                  onClick={() => {
+                                    setVerCaraIA({
+                                      frente: docsSubidos[tipoSubida],
+                                      reverso: docsSubidos[`${tipoSubida}Reverso`],
+                                      etiqueta: 'Cédula del dueño del remolque',
+                                    });
+                                  }}
+                                  title={docsSubidos[`${tipoSubida}Reverso`]
+                                    ? 'Ver el documento (gira al respaldo)'
+                                    : 'Ver el documento subido (foto o PDF)'}
+                                >
+                                  👁
+                                </button>
+                              )}
+                            </span>
+                          );
+                        })()}
+                        <span style={{ fontSize: '0.78rem', color: '#5a6472' }}>
+                          Foto frente y reverso: se guarda y llena los datos del dueño con IA.
+                          Si es la misma persona del conductor/propietario/tenedor, te ofrecemos reutilizar su cédula.
+                        </span>
+                      </div>
+                    )}
+                    {remolqueEsEmpresa && (
+                      <p style={{ fontSize: '0.78rem', color: '#5a6472', margin: '6px 0 0' }}>
+                        🏢 Dueño empresa (NIT): no aplica cédula ni autorización de datos por link.
+                      </p>
+                    )}
+                    <div className="Datos-fields-container">
+                      {fields
+                        // Dueño EMPRESA (NIT): «Expedida en» no aplica (no hay
+                        // cédula) — mismo espíritu del tenedor NIT, que relaja
+                        // el bloque de persona natural completo.
+                        .filter(({ name }) => !(remolqueEsEmpresa && name === 'RemolDuenoCiudadExpDoc'))
+                        .map(({ label, name, type, options, inputProps }) => (
+                          <InputField
+                            key={name}
+                            label={label}
+                            name={name}
+                            type={type}
+                            value={formData[name] || ""}
+                            onChange={handleChange}
+                            options={options}
+                            inputProps={inputProps}
+                            // Con el checkbox activo los campos del remolque son
+                            // obligatorios: asterisco + rojo al Continuar como
+                            // los demás (2026-10-06 — antes esta sección no
+                            // pasaba por FormSection y se perdía el marcado).
+                            required={requiredFields.includes(name)}
+                            error={camposError.includes(name)}
+                          />
+                        ))}
+                    </div>
+                  </>
                 )}
               </div>
             ) : fields.length > 0 && (

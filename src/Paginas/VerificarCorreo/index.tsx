@@ -162,7 +162,9 @@ const VerificarCorreo: React.FC = () => {
       </header>
 
       <main className="VC-main">
-        <div className="VC-card">
+        {/* En pantallas grandes la lista de declaraciones aprovecha el ancho
+            (tarjeta ancha + 2 columnas); los demás estados siguen compactos. */}
+        <div className={`VC-card ${estado === 'pendiente_aceptacion' ? 'VC-card--ancha' : ''}`}>
           {estado === 'verificando' && (
             <div className="VC-estado">
               <FaSpinner className="VC-spinner" />
@@ -182,29 +184,31 @@ const VerificarCorreo: React.FC = () => {
 
               {declaraciones.length > 0 ? (
                 <>
-                  {declaraciones.map((decl) => (
-                    <div key={decl.id} className="VC-politicaCaja">
-                      <h3 className="VC-politicaTitulo">
-                        {decl.titulo}
-                      </h3>
-                      <div
-                        className="VC-politicaTexto"
-                        dangerouslySetInnerHTML={{ __html: decl.texto_html }}
-                      />
-                      <label className="VC-checkboxFila">
-                        <input
-                          type="checkbox"
-                          className="VC-checkbox"
-                          checked={!!aceptadas[decl.id]}
-                          onChange={(e) =>
-                            setAceptadas((prev) => ({ ...prev, [decl.id]: e.target.checked }))
-                          }
-                          disabled={enviando}
+                  <div className="VC-declaraciones">
+                    {declaraciones.map((decl) => (
+                      <div key={decl.id} className="VC-politicaCaja">
+                        <h3 className="VC-politicaTitulo">
+                          {decl.titulo}
+                        </h3>
+                        <div
+                          className="VC-politicaTexto"
+                          dangerouslySetInnerHTML={{ __html: decl.texto_html }}
                         />
-                        <span className="VC-checkboxLabel">Acepto esta declaración</span>
-                      </label>
-                    </div>
-                  ))}
+                        <label className="VC-checkboxFila">
+                          <input
+                            type="checkbox"
+                            className="VC-checkbox"
+                            checked={!!aceptadas[decl.id]}
+                            onChange={(e) =>
+                              setAceptadas((prev) => ({ ...prev, [decl.id]: e.target.checked }))
+                            }
+                            disabled={enviando}
+                          />
+                          <span className="VC-checkboxLabel">Acepto esta declaración</span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                   <p className="VC-progresoDeclaraciones">
                     {declaracionesExigidas.filter((d) => aceptadas[d.id]).length} de{' '}
                     {declaracionesExigidas.length} declaraciones aceptadas

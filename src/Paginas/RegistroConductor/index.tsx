@@ -6,7 +6,6 @@ import Link from 'next/link';
 import confetti from 'canvas-confetti';
 import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
-import PhoneField from '@/Componentes/PhoneField';
 // Mismo sistema visual que el login de conductores (LC-*): header, card, footer.
 import '../LoginConductores/estilos.css';
 import './estilos.css';
@@ -22,8 +21,6 @@ const RegistroConductor: React.FC = () => {
   const [cargando, setCargando] = useState(false);
 
   const [formData, setFormData] = useState({
-      nombre: '',
-      telefono: '',
       email: '',
       password: ''
   });
@@ -59,9 +56,7 @@ const RegistroConductor: React.FC = () => {
 
     try {
       const payload = {
-        nombre: formData.nombre,
         usuario: formData.email,
-        celular: formData.telefono,
         regional: 'N/A',
         correo: formData.email,
         clave: formData.password,
@@ -183,33 +178,8 @@ const RegistroConductor: React.FC = () => {
                   )}
                 </div>
 
-                <div className="LC-grupo">
-                  <label className="LC-label" htmlFor="nombre">Nombre Completo</label>
-                  <input
-                    id="nombre" name="nombre" type="text" placeholder="Ej: Juan Pérez"
-                    className="LC-input"
-                    value={formData.nombre} onChange={manejarCambio} required disabled={cargando}
-                    autoComplete="name"
-                  />
-                </div>
-
-                <div className="LC-grupo">
-                  <label className="LC-label" htmlFor="telefono">Celular</label>
-                  {/* Selector de región (+57 Colombia por defecto) + número.
-                      Mismo componente y formato de storage que el paso 2 del
-                      panel: +57 → solo dígitos; otra región → "+<código> <número>". */}
-                  <PhoneField
-                    id="telefono"
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={manejarCambio}
-                    disabled={cargando}
-                    required
-                    selectClassName="LC-input"
-                    inputClassName="LC-input"
-                  />
-                </div>
-
+                {/* El nombre y el celular YA NO se piden (2026-10-06): la IA los
+                    lee de la cédula/RUT en el paso 2 y se propagan a la cuenta. */}
                 <div className="LC-grupo">
                   <label className="LC-label" htmlFor="email">Correo Electrónico (Usuario)</label>
                   <input

@@ -877,15 +877,6 @@ const OtrosCostosP: React.FC = () => {
             {/* Si ya está en la página 1 hay que consultar explícito; si no, el setSkip(0)
                 dispara el useEffect de paginación (evita doble fetch con skip viejo). */}
             <button className="OC-btn OC-btnPrimary" onClick={() => { if (skip === 0) cargarListado(); else setSkip(0); }}><FaSearch /> Buscar</button>
-            {alcance && !alcance.todos && (
-              <span
-                className="OC-btn"
-                style={{ background: '#fff8e1', color: '#b26a00', border: '1.5px solid #ffb300', cursor: 'default', fontWeight: 700 }}
-                title="Su usuario sólo puede aprobar, ver y recibir notificaciones de estos clientes (configúrelo un ADMIN en Gestión de Usuarios)"
-              >
-                Alcance: {alcance.clientes.join(', ')}
-              </span>
-            )}
             <button className="OC-btn OC-btnExcel" onClick={onExportExcel}><FaFileExcel /> Excel</button>
             {puedeArchivoBancario && (
               <>

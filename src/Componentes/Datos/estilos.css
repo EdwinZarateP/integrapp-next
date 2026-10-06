@@ -95,6 +95,25 @@
 
 .Datos-remolque-toggle:last-child { margin-bottom: 0; }
 
+/* Cédula del dueño del remolque: botón de carga IA + reutilización, DENTRO
+   de la sección (2026-10-06) — solo se ve con el checkbox de remolque activo. */
+.Datos-remolque-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Ahora vive PRIMERA en la sección (encima de los campos): margen abajo
+     para no quedar pegada a «Placa Remolque» (reporte del usuario). */
+  margin: 0 0 1.25rem;
+  padding: 10px 12px;
+  border: 1px dashed #c9d3de;
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.Datos-remolque-doc .Datos-iaDoc-boton {
+  align-self: flex-start;
+}
+
 /* Contenedor de los inputs dentro de cada sección */
 .Datos-fields-container {
   display: grid;

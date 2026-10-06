@@ -37,12 +37,14 @@
 .LU-brandName {
   font-size: 1.3rem;
   font-weight: 800;
-  text-transform: uppercase;
+  /* Sin uppercase (2026-10-06, pedido del usuario): el wordmark se muestra
+     tal cual «IntegrApp» — igual que el home. */
   color: #fff;
   letter-spacing: -0.3px;
 }
 
-.LU-brandAccent { color: #e8a000; }
+/* «App» del wordmark en VERDE (2026-10-06, pedido del usuario — igual que el home). */
+.LU-brandAccent { color: #27ae60; }
 
 /* ── MAIN ── */
 .LU-main {

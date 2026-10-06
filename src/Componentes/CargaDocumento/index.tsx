@@ -34,6 +34,9 @@ interface CargaDocumentoProps {
   cantidadActual?: number;
   /** Solo PDF, sin cámara (RUT: se descarga de la DIAN, no se fotografía). */
   soloPdf?: boolean;
+  /** Solo CÁMARA, sin «Elegir Archivo» (foto del conductor: se toma en vivo,
+   *  no se admite archivo de galería — pedido del usuario 2026-10-06). */
+  soloCamara?: boolean;
   onClose: () => void;
   onUploadSuccess?: (result: string | string[], urlReverso?: string) => void;
 }
@@ -55,6 +58,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   maximo,
   cantidadActual,
   soloPdf,
+  soloCamara,
   onClose,
   onUploadSuccess,
 }) => {
@@ -75,6 +79,12 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   const esDosCaras = TIPOS_DOS_CARAS.includes(tipoDoc);
 
   const validarArchivo = (file: File): boolean => {
+    // soloCamara (foto del conductor): solo imágenes tomadas con la cámara —
+    // el picker de archivos no se muestra, pero el guard blinda igual.
+    if (soloCamara && !file.type.startsWith('image/')) {
+      Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'La foto del conductor se toma con la cámara — no se admite archivo.' });
+      return false;
+    }
     // soloPdf (RUT): únicamente PDF — se descarga de la DIAN, no se fotografía.
     if (soloPdf && file.type !== 'application/pdf') {
       Swal.fire({ icon: 'error', title: 'Formato no válido', text: 'El RUT solo se puede subir en PDF (se descarga de la DIAN; no se admite foto).' });
@@ -318,7 +328,13 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             admite el archivo PDF, no fotos.
           </p>
         )}
-        {!soloPdf && (
+        {soloCamara && (
+          <p className="CargaDocumento-hint">
+            📸 La <b>foto del conductor</b> se toma <b>con la cámara</b> en vivo —
+            no se admite archivo de galería.
+          </p>
+        )}
+        {!soloPdf && !soloCamara && (
           <p className="CargaDocumento-hint">
             💡 Si al tomar la foto con la cámara el celular dice <b>«memoria insuficiente»</b>,
             tómala primero con la app de cámara y adjúntala aquí desde la galería.
@@ -335,21 +351,27 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
               📷 Tomar foto
             </button>
           )}
-          <label className="CargaDocumento-btn-file" htmlFor="file-upload">
-            {documentName === "Fotos" ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
-          </label>
-          <span className="CargaDocumento-file-text">
-            {selectedFileNames}
-          </span>
-          <input
-            id="file-upload"
-            type="file"
-            accept={soloPdf ? 'application/pdf' : 'image/jpeg, image/png, image/jpg, application/pdf'}
-            multiple={documentName === "Fotos"}
-            onChange={handleFileChange}
-            disabled={uploading || preparando}
-            className="CargaDocumento-input-hidden"
-          />
+          {!soloCamara && (
+            <label className="CargaDocumento-btn-file" htmlFor="file-upload">
+              {documentName === "Fotos" ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
+            </label>
+          )}
+          {!soloCamara && (
+            <span className="CargaDocumento-file-text">
+              {selectedFileNames}
+            </span>
+          )}
+          {!soloCamara && (
+            <input
+              id="file-upload"
+              type="file"
+              accept={soloPdf ? 'application/pdf' : 'image/jpeg, image/png, image/jpg, application/pdf'}
+              multiple={documentName === "Fotos"}
+              onChange={handleFileChange}
+              disabled={uploading || preparando}
+              className="CargaDocumento-input-hidden"
+            />
+          )}
           {/* Reverso del documento de dos caras (elegido tras el frente). */}
           <input
             ref={inputReversoRef}

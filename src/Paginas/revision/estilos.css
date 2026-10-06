@@ -343,6 +343,27 @@ body {
 
 .rev-panel-volver:hover { background: rgba(255, 255, 255, 0.25); }
 
+/* «Abrir panel del conductor» (Modo Seguridad desde las bandejas): píldora
+   violeta (color de impersonación del módulo) sobre el header teal. */
+.rev-panel-impersonar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #8e44ad;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.rev-panel-impersonar:hover { background: #7d3c98; }
+
 /* Chips de estado */
 .rev-chip {
   display: inline-flex;
@@ -1245,7 +1266,7 @@ body {
 
 .revx-alta-acciones .revx-alta-btn-copiar { margin-left: 0; }
 
-/* ── Auditoría del vehículo (PestanaCambios) ── */
+/* ── Auditoría del vehículo (PestanaCambios) — tablas + exportación ── */
 .rev-aud-nota {
   margin: 0 0 12px;
   font-size: 0.8rem;
@@ -1253,42 +1274,68 @@ body {
   line-height: 1.5;
 }
 
-.rev-aud-lista {
+/* Toolbar de la pestaña: botón de exportar a Excel a la derecha. */
+.rev-cambios-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 
-.rev-aud-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #fff;
-  border: 1px solid var(--revx-borde, #e3e8ec);
-  border-radius: 9px;
+/* Contenedor de las tablas: scroll horizontal en pantallas angostas. */
+.rev-tabla-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 10px;
+  border-radius: 10px;
 }
 
 .rev-aud-via {
-  flex-shrink: 0;
+  display: inline-block;
   font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   border-radius: 999px;
   padding: 4px 10px;
-  margin-top: 2px;
+  white-space: nowrap;
 }
 
 .rev-aud-via--conductor { color: #1e8449; background: #eaf7ef; }
 .rev-aud-via--impersonacion { color: #5b21b6; background: #f1eafd; }
 .rev-aud-via--seguridad { color: #b9770e; background: #fdf5e6; }
 
-.rev-aud-cuerpo { min-width: 0; font-size: 0.85rem; line-height: 1.45; }
+/* ── Detalle de la firma electrónica (PestanaCambios) ── */
+.rev-firma-caja {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-.rev-aud-detalle { color: #55606b; font-weight: 400; }
+.rev-firma-estado {
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 9px;
+  padding: 10px 12px;
+}
 
-.rev-aud-meta { color: #8a94a0; font-size: 0.75rem; margin-top: 2px; }
+.rev-firma-estado--ok { color: #1e8449; background: #eaf7ef; border: 1px solid #c8e6d2; }
+.rev-firma-estado--alerta { color: #9a6208; background: #fdf5e6; border: 1px solid #f2e2bd; }
+
+.rev-firma-imagen {
+  background: #fff;
+  border: 1px solid var(--revx-borde, #e3e8ec);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.rev-firma-imagen img {
+  display: block;
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+  background: #fafbfc;
+  border-radius: 8px;
+}
 
 .revx-pill {
   display: inline-flex;

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
-import { FaTruck, FaSearch, FaRoad } from "react-icons/fa";
+import { FaRoad } from "react-icons/fa";
 import { GiRadioTower } from "react-icons/gi";
 import { LiaPeopleCarrySolid } from "react-icons/lia";
 import { FaMapMarkerAlt, FaPhone, FaEnvelope } from "react-icons/fa";
@@ -10,48 +10,18 @@ import Image from "next/image";
 import logo from "@/Imagenes/albatros.png";
 import styles from "./page.module.css";
 
+/* (2026-10-06) Home minimalista, pedido del usuario: FUERA «Portal
+   Transportadores», FUERA el rastreador de guía del header y FUERA los
+   textos «Selecciona tu portal / Accede a la plataforma según tu perfil» —
+   solo el título IntegrApp + 3 accesos limpios. */
 const portales = [
-  {
-    icon: <FaRoad />,
-    text: "En Ruta",
-    descripcion: "Conductores: registra tu vehículo y hoja de vida",
-    ruta: "/LoginConductores",
-    acento: false,
-  },
-  {
-    icon: <FaTruck />,
-    text: "Portal Transportadores",
-    descripcion: "Gestiona tus vehículos, manifiestos y pagos",
-    ruta: "/loginpropietarios",
-    acento: false,
-  },
-  {
-    icon: <LiaPeopleCarrySolid />,
-    text: "Portal Empleados",
-    descripcion: "Accede a certificados y documentos laborales",
-    ruta: "/CertificadoLaboralP",
-    acento: false,
-  },
-  {
-    icon: <GiRadioTower />,
-    text: "Torre de Control",
-    descripcion: "Administración y operaciones en tiempo real",
-    ruta: "/LoginUsuario",
-    acento: true,
-  },
+  { icon: <FaRoad />, text: "En Ruta", ruta: "/LoginConductores" },
+  { icon: <LiaPeopleCarrySolid />, text: "Portal Empleados", ruta: "/CertificadoLaboralP" },
+  { icon: <GiRadioTower />, text: "Torre de Control", ruta: "/LoginUsuario" },
 ];
 
 export default function Home() {
   const router = useRouter();
-  const [numeroGuia, setNumeroGuia] = useState("");
-
-  const handleBuscar = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (numeroGuia.trim()) {
-      const url = `https://integra.appsiscore.com/app/app-cliente/cons_publica.php?GUIA=${encodeURIComponent(numeroGuia)}`;
-      window.open(url, "_blank");
-    }
-  };
 
   return (
     <div className={styles.contenedor}>
@@ -59,63 +29,44 @@ export default function Home() {
       {/* ── HEADER ── */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <Image src={logo} alt="Integra Logística" height={44} priority />
-          <form onSubmit={handleBuscar} className={styles.buscador}>
-            <input
-              type="text"
-              placeholder="Rastrea tu guía..."
-              value={numeroGuia}
-              onChange={(e) => setNumeroGuia(e.target.value)}
-              className={styles.input}
-            />
-            <button type="submit" className={styles.btnBuscar} title="Rastrear">
-              <FaSearch />
-            </button>
-          </form>
+          <Image src={logo} alt="Integra Logística" height={40} priority />
+          <span className={styles.marca}>
+            Integr<span className={styles.marcaApp}>App</span>
+          </span>
         </div>
       </header>
 
       {/* ── PORTALES ── */}
       <main className={styles.main}>
-        <div className={styles.seccionHeader}>
-          <h2 className={styles.seccionTitulo}>Selecciona tu portal</h2>
-          <p className={styles.seccionDesc}>Accede a la plataforma según tu perfil</p>
-        </div>
         <div className={styles.portalGrid}>
-          {portales.map((portal, i) => (
+          {portales.map((portal) => (
             <button
-              key={i}
-              className={`${styles.portalCard} ${portal.acento ? styles.portalCardAccent : ""}`}
+              key={portal.text}
+              className={styles.portalCard}
               onClick={() => router.push(portal.ruta)}
             >
-              <div className={styles.portalIconoWrap}>
-                <span className={styles.portalIcono}>{portal.icon}</span>
-              </div>
+              <span className={styles.portalIcono}>{portal.icon}</span>
               <span className={styles.portalTexto}>{portal.text}</span>
-              <span className={styles.portalDesc}>{portal.descripcion}</span>
               <span className={styles.portalBtn}>Ingresar →</span>
             </button>
           ))}
         </div>
       </main>
 
-      {/* ── FOOTER ── */}
+      {/* ── FOOTER ── Una sola fila compacta (2026-10-06): el footer grande
+          ocupaba media pantalla — minimalista, © a la izquierda y contacto
+          en línea a la derecha. */}
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          <div className={styles.footerBrand}>
-            <Image src={logo} alt="Integra" height={38} />
-            <p className={styles.footerTagline}>Integra Cadena de Servicios S.A.S.</p>
-            <p className={styles.footerSub}>Soluciones logísticas con experiencia y tecnología</p>
-          </div>
+          <a href="/integrapp/banco" className={styles.footerCopy}
+             title="Integra Cadena de Servicios S.A.S.">
+            © {new Date().getFullYear()} Integra Cadena de Servicios S.A.S.
+          </a>
           <div className={styles.footerContacto}>
-            <p className={styles.footerTitulo}>Contacto</p>
             <a href="tel:+573125443396" className={styles.footerLink}><FaPhone /> +57 312 544 3396</a>
             <a href="mailto:edwin.zarate@integralogistica.com" className={styles.footerLink}><FaEnvelope /> edwin.zarate@integralogistica.com</a>
             <span className={styles.footerLink}><FaMapMarkerAlt /> Colombia</span>
           </div>
-        </div>
-        <div className={styles.footerCopy}>
-          <a href="/integrapp/banco" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>© {new Date().getFullYear()} Integra Cadena de Servicios S.A.S.</a> — Todos los derechos reservados
         </div>
       </footer>
     </div>

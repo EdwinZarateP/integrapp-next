@@ -37,12 +37,13 @@
 .VC-brandName {
   font-size: 1.3rem;
   font-weight: 800;
-  text-transform: uppercase;
+  /* Sin uppercase: el wordmark se muestra tal cual «IntegrApp», igual que
+     el home y los logines (pedido del usuario 2026-10-06). */
   color: #fff;
   letter-spacing: -0.3px;
 }
 
-.VC-brandAccent { color: #e8a000; }
+.VC-brandAccent { color: #27ae60; }
 
 /* ── MAIN ── */
 .VC-main {
@@ -262,9 +263,35 @@
   padding: 14px 28px;
 }
 
+/* ── Pantallas grandes: la aceptación de declaraciones aprovecha el ancho ──
+   Una declaración POR FILA a todo el ancho de la tarjeta (pedido del
+   usuario); los estados simples —verificando/exito/error— siguen compactos
+   y centrados; móvil no cambia. */
+.VC-card--ancha {
+  max-width: 1040px;
+  padding: 44px 48px;
+}
+
+/* El subtítulo no se estira a todo el ancho de la tarjeta ancha. */
+.VC-card--ancha .VC-subtitulo {
+  max-width: 680px;
+}
+
+/* Con la política vieja (una sola caja) también se lee más cómodo. */
+.VC-card--ancha .VC-politicaTexto { max-height: 320px; }
+
+.VC-declaraciones {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .VC-card { padding: 28px 20px; }
+  .VC-card--ancha { padding: 28px 20px; }
   .VC-headerInner { padding: 0 16px; }
   .VC-politicaTexto { max-height: 180px; }
+  .VC-card--ancha .VC-politicaTexto { max-height: 180px; }
 }
