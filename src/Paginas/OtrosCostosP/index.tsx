@@ -869,7 +869,11 @@ const OtrosCostosP: React.FC = () => {
             <input className="OC-input" style={{ maxWidth: '160px' }} placeholder="Pedido" value={fPedido} onChange={(e) => setFPedido(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '120px' }} placeholder="Placa" value={fPlaca} onChange={(e) => setFPlaca(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '140px' }} placeholder="Manifiesto" value={fManifiesto} onChange={(e) => setFManifiesto(e.target.value)} />
-            <input className="OC-input" style={{ maxWidth: '180px' }} placeholder="Cliente" value={fCliente} onChange={(e) => setFCliente(e.target.value)} />
+            {/* Con alcance por cliente restringido (COORDINADOR/CONTROL) sólo se ofrecen los del alcance */}
+            <select className="OC-select" style={{ width: 'auto' }} value={fCliente} onChange={(e) => setFCliente(e.target.value)}>
+              <option value="">Todos los clientes</option>
+              {(alcance && !alcance.todos ? alcance.clientes : clientes).map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
             {/* Si ya está en la página 1 hay que consultar explícito; si no, el setSkip(0)
                 dispara el useEffect de paginación (evita doble fetch con skip viejo). */}
             <button className="OC-btn OC-btnPrimary" onClick={() => { if (skip === 0) cargarListado(); else setSkip(0); }}><FaSearch /> Buscar</button>
@@ -979,7 +983,7 @@ const OtrosCostosP: React.FC = () => {
                     </td>
                     <td style={{ fontWeight: 700, color: '#005f56' }}>{formatMoney(it.valor_total)}</td>
                     <td>{estadoBadge(it.estado)}</td>
-                    <td>{it.creado_por?.usuario || it.usuario_registro || '-'}</td>
+                    <td>{it.creado_por?.nombre || it.creado_por?.usuario || it.usuario_registro || '-'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="OC-btnAction" title="Detalle" style={{ background: '#334155' }} onClick={() => abrirDetalle(it)}><FaEye /></button>
                       {puedeEditar(it) && <button className="OC-btnAction" title="Editar" style={{ background: '#2563eb' }} onClick={() => abrirEditar(it)}><FaEdit /></button>}
@@ -1090,16 +1094,16 @@ const OtrosCostosP: React.FC = () => {
               <>
                 <div className="OC-modalSection">Aprobación / Pago</div>
                 <div className="OC-modalGrid">
-                  <Campo label="Aprobado por" v={detalle.aprobacion?.usuario} />
+                  <Campo label="Aprobado por" v={detalle.aprobacion?.nombre || detalle.aprobacion?.usuario} />
                   <Campo label="Rol aprobación" v={detalle.aprobacion?.rol} />
                   <Campo label="Fecha aprobación" v={detalle.aprobacion?.fecha ? formatFecha(detalle.aprobacion.fecha) : '-'} />
-                  <Campo label="Pagado por" v={detalle.pago?.usuario} />
+                  <Campo label="Pagado por" v={detalle.pago?.nombre || detalle.pago?.usuario} />
                   <Campo label="Fecha pago" v={detalle.pago?.fecha_pago ? formatFecha(detalle.pago.fecha_pago) : '-'} />
                   <Campo label="Referencia" v={detalle.pago?.referencia} />
                   <Campo label="Valor tras retenciones" v={detalle.valor_despues_retenciones != null ? formatMoney(detalle.valor_despues_retenciones) : (detalle.pago?.valor_despues_retenciones != null ? formatMoney(detalle.pago.valor_despues_retenciones) : '-')} />
                   <Campo label="Observaciones pago" v={detalle.pago?.observaciones} />
                   <Campo label="Trámite Vulcano" v={detalle.tramite_vulcano === 'ok' ? 'OK' : (detalle.tramite_vulcano === 'pendiente' ? 'Pendiente' : '-')} />
-                  <Campo label="Tramitado por" v={detalle.tramite_vulcano_info?.usuario} />
+                  <Campo label="Tramitado por" v={detalle.tramite_vulcano_info?.nombre || detalle.tramite_vulcano_info?.usuario} />
                 </div>
               </>
             )}

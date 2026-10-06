@@ -17,6 +17,7 @@ const ETIQUETA_ESTADO: Record<string, { texto: string; clase: string }> = {
   inactivo: { texto: 'Inactivo', clase: 'rev-chip--inactivo' },
   devuelto: { texto: 'Devuelto', clase: 'rev-chip--devuelto' },
   en_actualizacion: { texto: 'En actualización', clase: 'rev-chip--actualizacion' },
+  rechazado: { texto: 'Rechazado (no editable)', clase: 'rev-chip--rechazado' },
 };
 
 interface PanelDetalleProps {

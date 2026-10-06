@@ -46,7 +46,7 @@ interface DocumentoItem {
    *  figura coincide con el del conductor y él ya tiene el documento → se
    *  ofrece copiarlo sin nueva lectura IA (botón ♻️ en el paso 3). */
   reutilizableDe?: {
-    figura: 'propietario' | 'tenedor';
+    figura: 'propietario' | 'tenedor' | 'remolque';
     origen: 'conductor';
     documento: 'cedula' | 'certificado_bancario';
   };
@@ -60,6 +60,7 @@ const NOMBRE_FIGURA: Record<string, string> = {
   conductor: 'Conductor',
   propietario: 'Propietario',
   tenedor: 'Tenedor',
+  remolque: 'Dueño del remolque',
 };
 
 /* Un documento de figura se marca "cubierto" cuando su campo está vacío pero
@@ -97,9 +98,9 @@ const figuraQueCubre = (field: string, vehiculo: any): string | undefined => {
    server-side, sin lectura IA). */
 const _soloDigitosSug = (v: any) => String(v || '').replace(/\D/g, '');
 
-const pareceMismaPersonaQueConductor = (vehiculo: any, figura: 'propietario' | 'tenedor'): boolean => {
+const pareceMismaPersonaQueConductor = (vehiculo: any, figura: 'propietario' | 'tenedor' | 'remolque'): boolean => {
   if (!vehiculo) return false;
-  const prefijo = figura === 'propietario' ? 'prop' : 'tened';
+  const prefijo = figura === 'propietario' ? 'prop' : figura === 'tenedor' ? 'tened' : 'RemolDueno';
   const correoCond = String(vehiculo.condCorreo || '').trim().toUpperCase();
   const correoFig = String(vehiculo[`${prefijo}Correo`] || '').trim().toUpperCase();
   if (correoCond && correoFig && correoCond === correoFig) return true;
@@ -109,12 +110,14 @@ const pareceMismaPersonaQueConductor = (vehiculo: any, figura: 'propietario' | '
 };
 
 const REUTILIZABLES_PASO3: Record<string, {
-  figura: 'propietario' | 'tenedor';
+  figura: 'propietario' | 'tenedor' | 'remolque';
   documento: 'cedula' | 'certificado_bancario';
   campoOrigen: string;
 }> = {
   documentoIdentidadPropietario: { figura: 'propietario', documento: 'cedula', campoOrigen: 'documentoIdentidadConductor' },
   documentoIdentidadTenedor: { figura: 'tenedor', documento: 'cedula', campoOrigen: 'documentoIdentidadConductor' },
+  // Dueño del remolque (2026-10-05): si es la misma persona del conductor.
+  documentoIdentidadRemolque: { figura: 'remolque', documento: 'cedula', campoOrigen: 'documentoIdentidadConductor' },
   tenedCertificacionBancaria: { figura: 'tenedor', documento: 'certificado_bancario', campoOrigen: 'condCertificacionBancaria' },
 };
 
@@ -205,8 +208,19 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
   // pide el RUT de la empresa (propietario; el tenedor ya exige RUT).
   const propEmpresa = String(vehiculo?.propTipoDocumento || '').toUpperCase().includes('NIT');
   const tenedEmpresa = String(vehiculo?.tenedTipoDocumento || '').toUpperCase().includes('NIT');
+  // Dueño del remolque (2026-10-05): su cédula solo se pide cuando el vehículo
+  // TIENE remolque (placa del remolque o documento del dueño diligenciados).
+  const tieneRemolque = Boolean(
+    String(vehiculo?.RemolPlaca || '').trim() ||
+    String(vehiculo?.RemolDuenoDocumento || '').replace(/\D/g, ''));
   return limpias.map((sec: SeccionDocumentos) => {
     let items = sec.items;
+    if (tieneRemolque && sec.subtitulo === '1. Documentos del Vehículo') {
+      items = [...items, {
+        nombre: 'Cédula del Dueño del Remolque', progreso: 0, opcional: true,
+        hint: 'Frente y reverso — su cédula entra al estudio de seguridad',
+      }];
+    }
     if (propEmpresa && sec.subtitulo === '4. Documentos del Propietario') {
       items = [...items, {
         nombre: 'RUT Propietario', progreso: 0,
@@ -224,11 +238,11 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
       // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
       // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.
-      const esDosCaras = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'licencia', 'tarjetaPropiedad'].includes(field);
+      const esDosCaras = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad'].includes(field);
       const reversoUrl = esDosCaras && vehiculo[`${field}Reverso`] ? vehiculo[`${field}Reverso`] : undefined;
       // TODAS las cédulas + licencia + tarjeta exigen reverso (2026-08-27):
       // si hay frente pero no reverso, se marca para que el conductor lo complete.
-      const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'licencia', 'tarjetaPropiedad'].includes(field);
+      const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad'].includes(field);
       // «Cubierto por» (gemelos por dígitos) tiene precedencia sobre la
       // sugerencia de reutilización (correo/dígitos + doc del conductor).
       const cubiertoPor = figuraQueCubre(field, vehiculo);
@@ -597,6 +611,8 @@ const PanelConductoresVista: React.FC = () => {
   const [vehiculosPropios, setVehiculosPropios] = useState<any[]>([]);
   // Aprobados pausados por Seguridad: siguen en la base pero sin operar.
   const [vehiculosInactivos, setVehiculosInactivos] = useState<any[]>([]);
+  // Rechazo DEFINITIVO (2026-10-05): candados — solo visibles, no editables.
+  const [vehiculosRechazadosDefinitivos, setVehiculosRechazadosDefinitivos] = useState<any[]>([]);
 
   // Perfil del usuario logueado (TENEDOR gestiona flota + conductores invitados).
   const perfilUsuario = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase();
@@ -696,6 +712,7 @@ const PanelConductoresVista: React.FC = () => {
           setVehiculosEnRevision([]);
           setVehiculosAprobados([]);
           setVehiculosInactivos([]);
+          setVehiculosRechazadosDefinitivos([]);
           return;
       }
 
@@ -726,12 +743,17 @@ const PanelConductoresVista: React.FC = () => {
             v.estadoIntegra === 'inactivo'
         );
 
+        const rechazadosDefinitivos = data.vehiculos.filter((v: any) =>
+            v.estadoIntegra === 'rechazado'
+        );
+
         setVehicles(pendientes);
         setVehiculosPendientes(pendientesDocs);
         setVehiculosRechazados(rechazados);
         setVehiculosEnRevision(revision);
         setVehiculosAprobados(aprobados);
         setVehiculosInactivos(inactivos);
+        setVehiculosRechazadosDefinitivos(rechazadosDefinitivos);
         setVehiculosPropios(data.vehiculos.filter((v: any) => v.idUsuario === idUsuario));
 
       } else {
@@ -742,6 +764,7 @@ const PanelConductoresVista: React.FC = () => {
           setVehiculosEnRevision([]);
           setVehiculosAprobados([]);
           setVehiculosInactivos([]);
+          setVehiculosRechazadosDefinitivos([]);
       }
     } catch (error) { console.error("Error fetching vehiculos", error); }
   };
@@ -799,8 +822,9 @@ const PanelConductoresVista: React.FC = () => {
           setFirmaRegistrada(!!data.data.firmaUrl);
           // En revisión → modo consulta (solo lectura). Es la fuente de verdad:
           // cubre el botón «Ver» y también un refresh en ?paso=2&placa=… de un
-          // vehículo en revisión (antes quedaba editable por URL).
-          setModoLectura(['completado_revision', 'en_revision'].includes(data.data.estadoIntegra));
+          // vehículo en revisión (antes quedaba editable por URL). Los
+          // RECHAZADOS también son de solo lectura (candado definitivo).
+          setModoLectura(['completado_revision', 'en_revision', 'rechazado'].includes(data.data.estadoIntegra));
         } else {
            setVehiculoActual(null);
            setSecciones(seccionesLimpias);
@@ -1405,6 +1429,44 @@ const PanelConductoresVista: React.FC = () => {
                                           className="pv-btn-ghost"
                                           onClick={() => abrirVer(veh.placa)}
                                           title="Ver los datos que cargaste"
+                                        >
+                                          <FaEye /> Ver vehículo
+                                        </button>
+                                    </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                    )}
+
+                    {/* SECCIÓN: RECHAZADOS definitivos (2026-10-05) — candados:
+                        solo se pueden VER, no editar ni corregir. */}
+                    {vehiculosRechazadosDefinitivos.length > 0 && (
+                        <div className="estado-seccion estado-seccion--inactivo">
+                            <h4><FaTimesCircle /> Rechazados por Seguridad</h4>
+                            <p className="estado-seccion-sub" style={{ margin: '0 0 10px' }}>
+                              Rechazo definitivo: estos vehículos no se pueden editar ni corregir.
+                              Contacta al área de Seguridad si consideras que es un error.
+                            </p>
+                            {vehiculosRechazadosDefinitivos.map((veh) => {
+                              const ultima = (veh.historialInactivacion || []).at(-1);
+                              return (
+                                <div key={veh.placa} className="pv-card pv-card--inactivo">
+                                    <div className="pv-card-top">
+                                        <span className="pv-placa">{veh.placa}</span>
+                                        <span className="estado-chip estado-chip--inactivo">Rechazado</span>
+                                    </div>
+                                    {ultima && (
+                                      <span className="pv-card-motivo">
+                                        {ultima.motivo}
+                                        {ultima.fecha ? ` — ${new Date(ultima.fecha.endsWith('Z') ? ultima.fecha : `${ultima.fecha}Z`).toLocaleDateString('es-CO')}` : ''}
+                                      </span>
+                                    )}
+                                    <div className="pv-acciones">
+                                        <button
+                                          className="pv-btn-ghost"
+                                          onClick={() => abrirVer(veh.placa)}
+                                          title="Ver los datos (solo lectura)"
                                         >
                                           <FaEye /> Ver vehículo
                                         </button>

@@ -31,62 +31,17 @@ interface AccionesVehiculoProps {
 const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) => {
 
   const aprobarVehiculo = async () => {
-    // 2026-09-28: los estudios AUTOMÁTICOS finalizados cuentan como estudio
-    // de seguridad vigente (antes solo se miraba el PDF subido a mano).
-    let estudiosAutoOk = false;
-    try {
-      const res = await axios.get<{ estudios: Array<{ estado: string }>; vigencia?: { vence?: string } }>(
-        `${API_BASE}/vehiculos/estudios-seguridad/${veh.placa}`);
-      estudiosAutoOk = (res.data.estudios || []).some(e => e.estado === 'finalizado');
-    } catch { /* si falla, se evalúa solo el documento manual */ }
-
-    const tieneEstudioPrevio = !!veh.estudioSeguridad || estudiosAutoOk;
-
-    let htmlEstudio = "";
-    if (tieneEstudioPrevio) {
-        htmlEstudio = `
-            <div style="text-align: left; margin-bottom: 15px; background: #eff6ff; padding: 10px; border-radius: 6px; border: 1px solid #bfdbfe;">
-                <p style="margin: 0 0 8px 0; color: #1e40af; font-size: 0.9rem; display: flex; align-items: center; gap: 5px;">
-                    <strong>✅ Estudio de Seguridad Vigente</strong> ${estudiosAutoOk ? '(estudios automáticos)' : ''}
-                </p>
-                ${veh.estudioSeguridad ? `
-                <a href="${veh.estudioSeguridad}" target="_blank" class="link-ver-doc-swal">
-                    Ver documento actual
-                </a>` : '<small style="color:#666;">Los estudios automáticos de la pestaña Estudios son el soporte.</small>'}
-                <label style="font-weight:600; font-size: 0.85rem; display:block; margin-bottom:5px; margin-top: 10px; color: #333;">
-                    1. ¿Desea adjuntar/actualizar un documento? (Opcional)
-                </label>
-                <input type="file" id="swal-file-estudio" class="swal2-file" style="display:block; width:100%; box-sizing:border-box; font-size: 0.9rem;" />
-            </div>
-        `;
-    } else {
-        htmlEstudio = `
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label style="font-weight:600; font-size: 0.9rem; display:block; margin-bottom:5px;">
-                    1. Cargar Estudio de Seguridad <span style="color:red">* (Obligatorio)</span>
-                </label>
-                <input type="file" id="swal-file-estudio" class="swal2-file" style="display:block; width:100%; box-sizing:border-box;" />
-            </div>
-        `;
-    }
-
-    const { value: formValues } = await Swal.fire({
+    // 2026-10-05 (orden del usuario): el modal de aprobar SOLO pide el
+    // comentario — la foto del conductor (condFoto, paso 3) y el estudio de
+    // seguridad (PDFs/estudios automáticos) ya viven en el vehículo y se
+    // consultan desde sus pestañas; nada se sube ni se re-pide aquí.
+    const { value: comment } = await Swal.fire({
       title: `Aprobar Vehículo`,
       text: `Gestionar aprobación para placa: ${veh.placa}`,
       html: `
-        ${htmlEstudio}
-
-        <div style="text-align: left; margin-bottom: 15px;">
-            <label style="font-weight:600; font-size: 0.9rem; display:block; margin-bottom:5px;">
-                2. Cargar Foto de Conductor <span style="color:red">* (Obligatorio)</span>
-            </label>
-            <input type="file" id="swal-file-foto" class="swal2-file" accept="image/*" style="display:block; width:100%; box-sizing:border-box;" />
-            <small style="color: #666;">Evidencia de seguridad (Obligatoria).</small>
-        </div>
-
         <div style="text-align: left;">
             <label style="font-weight:600; font-size: 0.9rem; display:block; margin-bottom:5px;">
-                3. Comentario / Observación (Opcional)
+                Comentario / Observación (Opcional)
             </label>
             <textarea id="swal-comment" class="swal2-textarea" placeholder="Observaciones..." style="margin:0; width:100%; box-sizing:border-box;"></textarea>
         </div>
@@ -98,58 +53,20 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
       cancelButtonColor: "#6c757d",
       width: '550px',
       preConfirm: () => {
-        const fileInputEstudio = document.getElementById("swal-file-estudio") as HTMLInputElement;
-        const fileInputFoto = document.getElementById("swal-file-foto") as HTMLInputElement;
         const commentInput = document.getElementById("swal-comment") as HTMLInputElement;
-
-        const archivoEstudioSeleccionado = fileInputEstudio?.files?.[0] || null;
-        const archivoFotoSeleccionado = fileInputFoto?.files?.[0] || null;
-
-        if (!tieneEstudioPrevio && !archivoEstudioSeleccionado) {
-            Swal.showValidationMessage('⚠️ Falta el Estudio de Seguridad.');
-            return false;
-        }
-        if (!archivoFotoSeleccionado) {
-            Swal.showValidationMessage('⚠️ Falta la Foto del Conductor.');
-            return false;
-        }
-
-        return {
-            fileEstudio: archivoEstudioSeleccionado,
-            fileFoto: archivoFotoSeleccionado,
-            comment: commentInput ? commentInput.value : ""
-        };
+        return commentInput ? commentInput.value : "";
       }
     });
 
-    if (!formValues) return;
-    const { fileEstudio, fileFoto, comment } = formValues;
+    if (comment === undefined || comment === null) return;
 
     Swal.fire({
         title: 'Procesando...',
-        html: 'Iniciando carga de archivos...',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
     });
 
     try {
-        if (fileEstudio) {
-            Swal.getHtmlContainer()!.textContent = 'Subiendo Estudio de Seguridad...';
-            const formDataEstudio = new FormData();
-            formDataEstudio.append("archivo", fileEstudio);
-            formDataEstudio.append("placa", veh.placa);
-            marcarSeguridad(formDataEstudio);
-            await axios.put(`${API_BASE}/vehiculos/subir-estudio-seguridad`, formDataEstudio);
-        }
-
-        Swal.getHtmlContainer()!.textContent = 'Subiendo Foto de Conductor...';
-        const formDataFoto = new FormData();
-        formDataFoto.append("archivo", fileFoto);
-        formDataFoto.append("placa", veh.placa);
-        marcarSeguridad(formDataFoto);
-        await axios.put(`${API_BASE}/vehiculos/subir-foto-seguridad`, formDataFoto);
-
-        Swal.getHtmlContainer()!.textContent = 'Finalizando aprobación...';
         const seguridadId = Cookies.get("seguridadId") || "";
         const formDataEstado = new FormData();
         formDataEstado.append("placa", veh.placa);
@@ -164,29 +81,9 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
         alCambiar(`Vehículo ${veh.placa} aprobado`);
     } catch (error: any) {
         console.error("Detalle del error:", error);
-
-        let mensajeError = "Ocurrió un error inesperado.";
-
-        if (error.response) {
-            const detalleServidor = error.response.data?.detail || error.message;
-            const urlFallida = error.config?.url || "desconocido";
-
-            if (urlFallida.includes("subir-foto-seguridad")) {
-                mensajeError = `Error al subir la FOTO: ${detalleServidor}`;
-            } else if (urlFallida.includes("subir-estudio-seguridad")) {
-                mensajeError = `Error al subir el ESTUDIO: ${detalleServidor}`;
-            } else if (urlFallida.includes("actualizar-estado")) {
-                mensajeError = `Error al ACTUALIZAR ESTADO: ${detalleServidor}`;
-            } else {
-                mensajeError = `Error del servidor (${error.response.status}): ${detalleServidor}`;
-            }
-        } else if (error.request) {
-            mensajeError = "No se recibió respuesta del servidor. Verifique su conexión.";
-        } else {
-            mensajeError = error.message;
-        }
-
-        Swal.fire({ icon: 'error', title: 'Falló la operación', text: mensajeError });
+        const detalle = error?.response?.data?.detail
+          || (error.request ? "No se recibió respuesta del servidor. Verifique su conexión." : error.message);
+        Swal.fire({ icon: 'error', title: 'Falló la operación', text: String(detalle) });
     }
   };
 
@@ -221,6 +118,55 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
       alCambiar(`Vehículo ${veh.placa} devuelto`);
     } catch {
       Swal.fire("Error", "Error al procesar devolución.", "error");
+    }
+  };
+
+  /**
+   * RECHAZAR (2026-10-05, pedido del usuario): rechazo DEFINITIVO con motivo.
+   * A diferencia de «Devolver» (que devuelve el vehículo al conductor para
+   * que lo corrija), un vehículo rechazado queda CANDADO: nadie puede
+   * editarlo (ni el conductor/tenedor ni Seguridad) y no tiene camino de
+   * vuelta — el backend bloquea todas sus mutaciones y transiciones.
+   */
+  const rechazarDefinitivo = async () => {
+    const { value: motivo } = await Swal.fire({
+      icon: 'warning',
+      title: `Rechazar ${veh.placa}`,
+      html: `El vehículo quedará <b>RECHAZADO de forma definitiva</b>:<br/>
+             <small>Nadie podrá editarlo (ni el conductor ni Seguridad) y no tiene
+             camino de vuelta. Si solo necesita correcciones, usa <b>Devolver</b>.</small>`,
+      input: 'textarea',
+      inputPlaceholder: 'Motivo del rechazo (obligatorio): p. ej. "estudio de seguridad con hallazgos", "documentación fraudulenta"...',
+      showCancelButton: true,
+      confirmButtonText: 'Rechazar definitivamente',
+      confirmButtonColor: '#c0392b',
+      cancelButtonText: 'Cancelar',
+      preConfirm: (t: string) => {
+        if (!t || !t.trim()) {
+          Swal.showValidationMessage('El motivo del rechazo es obligatorio');
+          return false;
+        }
+        return t.trim();
+      },
+    });
+    if (!motivo) return;
+
+    try {
+      Swal.fire({ title: 'Procesando...', didOpen: () => Swal.showLoading() });
+      const seguridadId = Cookies.get("seguridadId") || "";
+      const formData = new FormData();
+      formData.append("placa", veh.placa);
+      formData.append("nuevo_estado", "rechazado");
+      formData.append("usuario_id", seguridadId);
+      formData.append("motivo", motivo);
+      formData.append("observaciones", `RECHAZADO: ${motivo}`);
+      marcarSeguridad(formData);
+
+      await axios.put(`${API_BASE}/vehiculos/actualizar-estado`, formData);
+      Swal.fire("Rechazado", `El vehículo ${veh.placa} quedó rechazado de forma definitiva (no editable).`, "success");
+      alCambiar(`Vehículo ${veh.placa} rechazado`);
+    } catch (error: any) {
+      Swal.fire("Error", error?.response?.data?.detail || "Error al rechazar el vehículo.", "error");
     }
   };
 
@@ -384,6 +330,9 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
           </button>
           <button className="rev-btn rev-btn--devolver" onClick={rechazarVehiculo}>
             <FaTimesCircle /> Devolver
+          </button>
+          <button className="rev-btn rev-btn--rechazar" onClick={rechazarDefinitivo}>
+            <FaBan /> Rechazar
           </button>
         </>
       )}

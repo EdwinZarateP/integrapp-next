@@ -27,6 +27,7 @@ const DOCUMENTOS_DISPLAY = [
   { key: "planillaEpsArl", label: "Planilla de Seguridad Social" },
   { key: "documentoIdentidadTenedor", label: "Cédula Tenedor", dosCaras: true },
   { key: "documentoIdentidadPropietario", label: "Cédula Propietario", dosCaras: true },
+  { key: "documentoIdentidadRemolque", label: "Cédula Dueño Remolque", dosCaras: true },
   { key: "rutTenedor", label: "RUT Tenedor" },
   { key: "rutPropietario", label: "RUT Propietario (empresa)" },
   { key: "condCertificacionBancaria", label: "Cert. Bancaria Cond." },

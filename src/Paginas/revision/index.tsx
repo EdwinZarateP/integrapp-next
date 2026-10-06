@@ -7,15 +7,17 @@ import Swal from "sweetalert2";
 import {
   FaSearch, FaTimes, FaBars, FaChevronDown, FaHome, FaSignOutAlt,
   FaHourglassHalf, FaClipboardList, FaCheckCircle, FaBan, FaFileExcel, FaSyncAlt, FaUserPlus,
+  FaHistory, FaTimesCircle,
 } from "react-icons/fa";
 import ListaVehiculos from "./componentes/ListaVehiculos";
 import PanelDetalle from "./componentes/PanelDetalle";
 import VistaAlta from "./componentes/VistaAlta";
+import VistaEstudiosAntiguedad from "./componentes/VistaEstudiosAntiguedad";
 import { Vehiculo, PestanaBandeja, PestanaDetalle } from "./tipos";
 import logoIntegrApp from "@/Imagenes/albatros.png";
 import "./estilos.css";
 
-const BANDEJAS_VALIDAS: PestanaBandeja[] = ["pendientes", "revision", "aprobados", "inactivos", "actualizacion"];
+const BANDEJAS_VALIDAS: PestanaBandeja[] = ["pendientes", "revision", "aprobados", "inactivos", "actualizacion", "rechazados"];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -25,12 +27,14 @@ const ETIQUETA_BANDEJA: Record<PestanaBandeja, string> = {
   aprobados: "Aprobados",
   inactivos: "Inactivos",
   actualizacion: "En actualización",
+  rechazados: "Rechazados",
 };
 
-type Vista = 'bandejas' | 'alta';
+type Vista = 'bandejas' | 'alta' | 'estudios';
 
 interface RevisionVehiculosProps {
-  /** Vista inicial: la ruta estática /revision/alta arranca en el módulo. */
+  /** Vista inicial: las rutas estáticas /revision/alta y /revision/estudios
+   *  arrancan en su módulo. */
   vistaInicial?: Vista;
 }
 
@@ -55,6 +59,8 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   const [vehiculosRevision, setVehiculosRevision] = useState<Vehiculo[]>([]);
   const [vehiculosInactivos, setVehiculosInactivos] = useState<Vehiculo[]>([]);
   const [vehiculosActualizacion, setVehiculosActualizacion] = useState<Vehiculo[]>([]);
+  // Rechazo DEFINITIVO (2026-10-05): candados, sin acciones de recuperación.
+  const [vehiculosRechazados, setVehiculosRechazados] = useState<Vehiculo[]>([]);
   const [vehiculosAprobados, setVehiculosAprobados] = useState<Vehiculo[]>([]);
 
   const [pestanaActiva, setPestanaActiva] = useState<PestanaBandeja>("revision");
@@ -119,9 +125,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     if (!urlSincronizada.current) return; // No pisar la restauración inicial.
     const base = window.location.pathname
       .replace(/\/+$/, "")      // barras finales (trailingSlash del export)
-      .replace(/\/alta$/, "");  // sufijo del módulo
+      .replace(/\/alta$/, "")   // sufijo del módulo
+      .replace(/\/estudios$/, ""); // módulo Estudios por antigüedad
     if (vista === 'alta') {
       window.history.replaceState(window.history.state, '', `${base}/alta`);
+      return;
+    }
+    if (vista === 'estudios') {
+      window.history.replaceState(window.history.state, '', `${base}/estudios`);
       return;
     }
     const params = new URLSearchParams();
@@ -164,6 +175,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       setVehiculosRevision(list.filter(v => v.estadoIntegra === "completado_revision" || v.estadoIntegra === "en_revision"));
       setVehiculosInactivos(list.filter(v => v.estadoIntegra === "inactivo"));
       setVehiculosActualizacion(list.filter(v => v.estadoIntegra === "en_actualizacion"));
+      setVehiculosRechazados(list.filter(v => v.estadoIntegra === "rechazado"));
     } catch (error) {
       console.error("Error al cargar bandejas:", error);
     }
@@ -204,10 +216,11 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     if (pestanaActiva === "pendientes") return filtrarLocales(vehiculosPendientes);
     if (pestanaActiva === "inactivos") return filtrarLocales(vehiculosInactivos);
     if (pestanaActiva === "actualizacion") return filtrarLocales(vehiculosActualizacion);
+    if (pestanaActiva === "rechazados") return filtrarLocales(vehiculosRechazados);
     if (pestanaActiva === "aprobados") return vehiculosAprobados;
     return filtrarLocales(vehiculosRevision);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pestanaActiva, busqueda, vehiculosPendientes, vehiculosRevision, vehiculosInactivos, vehiculosActualizacion, vehiculosAprobados]);
+  }, [pestanaActiva, busqueda, vehiculosPendientes, vehiculosRevision, vehiculosInactivos, vehiculosActualizacion, vehiculosRechazados, vehiculosAprobados]);
 
   // Paginación solo para "En revisión" (la bandeja más larga).
   const totalPages = pestanaActiva === "revision" ? Math.ceil(listaActiva.length / vehiclesPerPage) : 1;
@@ -236,6 +249,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     aprobados: vehiculosAprobados.length,
     inactivos: vehiculosInactivos.length,
     actualizacion: vehiculosActualizacion.length,
+    rechazados: vehiculosRechazados.length,
   };
 
   const ejecutarBusquedaAprobados = () => setBusquedaAprobadosEnVuelo(busqueda.trim());
@@ -282,6 +296,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     { id: "aprobados", etiqueta: ETIQUETA_BANDEJA.aprobados, icono: <FaCheckCircle /> },
     { id: "actualizacion", etiqueta: ETIQUETA_BANDEJA.actualizacion, icono: <FaSyncAlt /> },
     { id: "inactivos", etiqueta: ETIQUETA_BANDEJA.inactivos, icono: <FaBan /> },
+    { id: "rechazados", etiqueta: ETIQUETA_BANDEJA.rechazados, icono: <FaTimesCircle /> },
   ];
 
   const sidebar = (
@@ -312,8 +327,8 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
             )}
           </button>
         ))}
-        {/* Módulo «Alta conductor» (ruta propia /revision/alta), separado de
-            las bandejas — no lleva contador. */}
+        {/* Módulos separados de las bandejas (rutas propias, sin contador de
+            bandeja): alta de vehículo y estudios por antigüedad. */}
         <div className="revx-nav-divisor" />
         <button
           className={`revx-nav-item ${vista === 'alta' ? "revx-nav-activo" : ""}`}
@@ -321,6 +336,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
         >
           <FaUserPlus />
           <span>Alta de vehículo</span>
+        </button>
+        <button
+          className={`revx-nav-item ${vista === 'estudios' ? "revx-nav-activo" : ""}`}
+          onClick={() => { setVista('estudios'); setMenuLateralAbierto(false); }}
+          title="Estudios de seguridad organizados por antigüedad — actualización manual"
+        >
+          <FaHistory />
+          <span>Estudios por antigüedad</span>
         </button>
       </nav>
       <div className="revx-sidebar-pie">
@@ -362,6 +385,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
             <span className="revx-miga-sep">/</span>
             <span className="revx-miga-actual">
               {vista === 'alta' ? 'Revisión de vehículos · Alta de vehículo'
+                : vista === 'estudios' ? 'Revisión de vehículos · Estudios por antigüedad'
                                 : `Revisión de vehículos · ${ETIQUETA_BANDEJA[pestanaActiva]}`}
             </span>
           </div>
@@ -406,6 +430,15 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
                    y cárgale toda la información que implica el vehículo.</p>
               </div>
               <VistaAlta onVolver={() => { setVista('bandejas'); setPestanaActiva('revision'); }} />
+            </>
+          ) : vista === 'estudios' ? (
+            <>
+              <div className="revx-encabezado">
+                <h1>Estudios por <span>antigüedad</span></h1>
+                <p>Los estudios de seguridad de la flota ordenados del más antiguo al más
+                   reciente — la actualización de cada placa la decides tú, ya no es automática.</p>
+              </div>
+              <VistaEstudiosAntiguedad onVolver={() => { setVista('bandejas'); setPestanaActiva('revision'); }} />
             </>
           ) : (
           <>

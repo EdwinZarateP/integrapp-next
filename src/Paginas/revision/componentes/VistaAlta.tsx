@@ -53,6 +53,7 @@ const ETIQUETAS_ESTADO: Record<string, string> = {
   aprobado: "Aprobado",
   devuelto: "Devuelto",
   inactivo: "Inactivo",
+  rechazado: "Rechazado",
   en_actualizacion: "En actualización",
 };
 

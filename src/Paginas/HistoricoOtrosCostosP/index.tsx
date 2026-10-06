@@ -7,7 +7,7 @@ import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
 import {
-  listarHistorico, obtenerDetalleHistorico, exportarExcel, devolverDelHistorico,
+  listarHistorico, obtenerDetalleHistorico, exportarExcel, devolverDelHistorico, getClientes,
   type OtroCosto,
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import '../OtrosCostosP/estilos.css';
@@ -85,6 +85,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
   const [fPlaca, setFPlaca] = useState('');
   const [fManifiesto, setFManifiesto] = useState('');
   const [fCliente, setFCliente] = useState('');
+  const [clientes, setClientes] = useState<string[]>([]);
   const [fRegional, setFRegional] = useState('');
   const [detalle, setDetalle] = useState<OtroCosto | null>(null);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
@@ -96,6 +97,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
     if (!PERFILES_PERMITIDOS.includes(p)) { router.replace('/MedicalCare'); return; }
     setUsuario(u);
     setPerfil(p);
+    getClientes().then(setClientes).catch(() => {});
     cargar(u, p);
   }, [router]);
 
@@ -227,7 +229,10 @@ const HistoricoOtrosCostosP: React.FC = () => {
             <input className="OC-input" style={{ maxWidth: '160px' }} placeholder="Pedido" value={fPedido} onChange={(e) => setFPedido(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '120px' }} placeholder="Placa" value={fPlaca} onChange={(e) => setFPlaca(e.target.value)} />
             <input className="OC-input" style={{ maxWidth: '140px' }} placeholder="Manifiesto" value={fManifiesto} onChange={(e) => setFManifiesto(e.target.value)} />
-            <input className="OC-input" style={{ maxWidth: '180px' }} placeholder="Cliente" value={fCliente} onChange={(e) => setFCliente(e.target.value)} />
+            <select className="OC-select" style={{ width: 'auto' }} value={fCliente} onChange={(e) => setFCliente(e.target.value)}>
+              <option value="">Todos los clientes</option>
+              {clientes.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
             {PERFILES_GLOBALES_OC.includes(perfil) && (
               <select className="OC-select" style={{ width: 'auto' }} value={fRegional} onChange={(e) => setFRegional(e.target.value)}>
                 <option value="">Todas las regionales</option>

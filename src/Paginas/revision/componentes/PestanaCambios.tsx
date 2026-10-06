@@ -28,6 +28,8 @@ const ETIQUETAS_ACCION: Record<string, string> = {
   firma_sellada: '✍️ Firma electrónica sellada',
   estudio_seguridad_cargado: '🛡️ Estudio de seguridad cargado',
   foto_seguridad_cargada: '🛡️ Foto de conductor cargada',
+  estado_rechazado: '🚫 Vehículo RECHAZADO',
+  responsable_asignado: '🔗 Responsable asignado',
 };
 
 const ETIQUETAS_VIA: Record<string, { texto: string; clase: string }> = {
@@ -51,6 +53,14 @@ const PestanaCambios: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
         </div>
       )}
 
+      {/* Rechazo definitivo (2026-10-05): candado visible con su motivo. */}
+      {veh.estadoIntegra === 'rechazado' && inactivaciones.length > 0 && (
+        <div className="rev-inactivo-vigente" style={{ borderLeft: '4px solid #90222b', background: '#fbe9ea' }}>
+          <strong style={{ color: '#90222b' }}>🚫 Rechazado — no editable</strong>
+          <span>Motivo: {inactivaciones[inactivaciones.length - 1].motivo}</span>
+        </div>
+      )}
+
       {inactivaciones.length > 0 && (
         <>
           <h4 className="titulo-seccion">⛔ Historial de inactivación</h4>
@@ -59,7 +69,7 @@ const PestanaCambios: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
               <div key={i} className={`rev-timeline-item rev-timeline-item--${h.accion}`}>
                 <span className="rev-timeline-punto" />
                 <div>
-                  <strong>{h.accion === 'inactivo' ? 'Inactivado' : 'Reactivado'}</strong>
+                  <strong>{h.accion === 'inactivo' ? 'Inactivado' : h.accion === 'rechazado' ? 'Rechazado' : 'Reactivado'}</strong>
                   <span className="rev-timeline-meta"> · {fechaLegible(h.fecha)} · por {h.usuario}</span>
                   <div className="rev-timeline-motivo">{h.motivo}</div>
                 </div>

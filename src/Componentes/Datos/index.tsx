@@ -423,7 +423,7 @@ const mapearRutAPersona = (prefijo: 'prop' | 'tened', d: Record<string, any>): R
 // Helper: cédula de ciudadanía (propietario/tenedor) → campos de la figura.
 // El RUT se carga en el paso 3; en el paso 2 la cédula autollena la
 // identidad: nombre, número de documento y lugar de expedición.
-const mapearCedulaAPersona = (prefijo: 'prop' | 'tened', d: Record<string, any>): Record<string, string> => {
+const mapearCedulaAPersona = (prefijo: 'prop' | 'tened' | 'RemolDueno', d: Record<string, any>): Record<string, string> => {
   const nuevos: Record<string, string> = {};
   const nombre = [d.nombres, d.apellidos].filter(Boolean).join(' ').toUpperCase().replace(/\s+/g, ' ').trim();
   if (nombre) nuevos[`${prefijo}Nombre`] = nombre;
@@ -526,6 +526,9 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
   rut_propietario: (d) => mapearRutAPersona('prop', d),
   cedula_tenedor: (d) => mapearCedulaAPersona('tened', d),
   cedula_propietario: (d) => mapearCedulaAPersona('prop', d),
+  // Dueño del remolque (2026-10-05): identidad mínima — mismo helper, prefijo
+  // de la familia Remol* (mapea RemolDuenoNombre/Documento/TipoDocumento/CiudadExpDoc).
+  cedula_remolque: (d) => mapearCedulaAPersona('RemolDueno', d),
   certificado_bancario_cond: (d) => mapearBancario('cond', d),
   certificado_bancario_tened: (d) => mapearBancario('tened', d),
   certificado_bancario_prop: (d) => mapearBancario('prop', d),
@@ -589,6 +592,7 @@ const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
   documentoIdentidadConductor: 'cedula',
   documentoIdentidadPropietario: 'cedula_propietario',
   documentoIdentidadTenedor: 'cedula_tenedor',
+  documentoIdentidadRemolque: 'cedula_remolque',
   rutTenedor: 'rut_tenedor',
   rutPropietario: 'rut_propietario',
   condCertificacionBancaria: 'certificado_bancario_cond',
@@ -608,6 +612,7 @@ const LECTURA_IA_A_TIPO_SUBIDA: Record<string, string> = {
   // Cédulas de propietario/tenedor: identidad en el paso 2.
   cedula_propietario: 'documentoIdentidadPropietario',
   cedula_tenedor: 'documentoIdentidadTenedor',
+  cedula_remolque: 'documentoIdentidadRemolque',
   // RUT: complemento (dirección, ciudad, correo, fechas, NIT) — también se
   // pueden subir en el paso 3 y su lectura se aplica aquí al montar.
   rut_tenedor: 'rutTenedor',
@@ -641,6 +646,9 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
   { tipo: 'soat', esquema: 'soat', etiqueta: '🛡️ SOAT' },
   { tipo: 'cedula_propietario', esquema: 'cedula', etiqueta: '🪪 Cédula del propietario' },
   { tipo: 'cedula_tenedor', esquema: 'cedula', etiqueta: '🪪 Cédula del tenedor' },
+  // Dueño del remolque (2026-10-05): opcional — su cédula entra al estudio
+  // de seguridad cuando el remolque aplica.
+  { tipo: 'cedula_remolque', esquema: 'cedula', etiqueta: '🪪 Cédula del dueño del remolque' },
   { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor', soloPdf: true },
   // (2026-08-31) Sin «RUT del propietario»: ese documento dejó de pedirse
   // por completo (orden del usuario).
@@ -655,7 +663,7 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
    primero la del propietario, la del conductor puede copiarse de esa. Por
    cada botón se declaran los ORÍGENES candidatos; el Swal solo ofrece los que
    ya tengan el documento cargado. Copia server-side SIN gastar lectura IA. */
-type Figura = 'conductor' | 'propietario' | 'tenedor';
+type Figura = 'conductor' | 'propietario' | 'tenedor' | 'remolque';
 
 const REUTILIZABLES: Record<string, {
   figura: Figura;
@@ -665,6 +673,9 @@ const REUTILIZABLES: Record<string, {
   cedula: { figura: 'conductor', documento: 'cedula', origenes: ['propietario', 'tenedor'] },
   cedula_propietario: { figura: 'propietario', documento: 'cedula', origenes: ['conductor', 'tenedor'] },
   cedula_tenedor: { figura: 'tenedor', documento: 'cedula', origenes: ['conductor', 'propietario'] },
+  // Dueño del remolque: puede ser la misma persona que cualquiera de las 3
+  // figuras (el Swal muestra hasta 2 orígenes cargados + «Cargar otra»).
+  cedula_remolque: { figura: 'remolque', documento: 'cedula', origenes: ['conductor', 'propietario', 'tenedor'] },
   // Cert. bancario: conductor ↔ tenedor en cualquier orden (puede ser la
   // misma cuenta). El del propietario dejó de pedirse.
   certificado_bancario_cond: { figura: 'conductor', documento: 'certificado_bancario', origenes: ['tenedor'] },
@@ -677,6 +688,7 @@ const CAMPOS_REUTIL: Record<'cedula' | 'certificado_bancario', Partial<Record<Fi
     conductor: 'documentoIdentidadConductor',
     propietario: 'documentoIdentidadPropietario',
     tenedor: 'documentoIdentidadTenedor',
+    remolque: 'documentoIdentidadRemolque',
   },
   certificado_bancario: {
     conductor: 'condCertificacionBancaria',
@@ -686,6 +698,14 @@ const CAMPOS_REUTIL: Record<'cedula' | 'certificado_bancario', Partial<Record<Fi
 
 const NOMBRE_FIGURA: Record<Figura, string> = {
   conductor: 'conductor', propietario: 'propietario', tenedor: 'tenedor',
+  remolque: 'dueño del remolque',
+};
+
+/* Prefijo de los campos de identidad de cada figura en el formulario (el
+   conductor guarda nombre/apellidos SEPARADOS — se trata aparte). El dueño
+   del remolque usa la familia Remol* (RemolDueno*). */
+const PREFIJO_FIGURA: Record<Exclude<Figura, 'conductor'>, string> = {
+  propietario: 'prop', tenedor: 'tened', remolque: 'RemolDueno',
 };
 
 /* Clona la identidad del formulario de una figura a OTRA (fallback sin
@@ -694,6 +714,8 @@ const NOMBRE_FIGURA: Record<Figura, string> = {
 const clonarIdentidad = (
   origen: Figura, destino: Figura, fd: Record<string, string>,
 ): Record<string, string> => {
+  const prefijoOrigen = origen === 'conductor' ? null : PREFIJO_FIGURA[origen];
+  const prefijoDestino = destino === 'conductor' ? null : PREFIJO_FIGURA[destino];
   const identidad = origen === 'conductor'
     ? {
         nombre: [fd.condPrimerApellido, fd.condSegundoApellido, fd.condNombres]
@@ -702,9 +724,9 @@ const clonarIdentidad = (
         expedidaEn: fd.condExpedidaEn || '',
       }
     : {
-        nombre: fd[`${origen}Nombre`] || '',
-        documento: fd[`${origen}Documento`] || '',
-        expedidaEn: fd[`${origen}CiudadExpDoc`] || '',
+        nombre: fd[`${prefijoOrigen}Nombre`] || '',
+        documento: fd[`${prefijoOrigen}Documento`] || '',
+        expedidaEn: fd[`${prefijoOrigen}CiudadExpDoc`] || '',
       };
   const clones: Record<string, string> = {};
   if (destino === 'conductor') {
@@ -715,15 +737,15 @@ const clonarIdentidad = (
     if (identidad.expedidaEn) clones.condExpedidaEn = identidad.expedidaEn;
     return clones;
   }
-  if (identidad.nombre) clones[`${destino}Nombre`] = identidad.nombre;
+  if (identidad.nombre) clones[`${prefijoDestino}Nombre`] = identidad.nombre;
   if (identidad.documento) {
-    clones[`${destino}Documento`] = identidad.documento;
-    clones[`${destino}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
+    clones[`${prefijoDestino}Documento`] = identidad.documento;
+    clones[`${prefijoDestino}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
   }
   if (identidad.expedidaEn) {
-    clones[`${destino}CiudadExpDoc`] = identidad.expedidaEn;
+    clones[`${prefijoDestino}CiudadExpDoc`] = identidad.expedidaEn;
     const depto = buscarDepartamentoPorCiudad(identidad.expedidaEn);
-    if (depto) clones[`${destino}DeptoExpedida`] = depto;
+    if (depto) clones[`${prefijoDestino}DeptoExpedida`] = depto;
   }
   return clones;
 };
@@ -763,7 +785,12 @@ const refAdicionalVacia = (): Record<string, string> => ({
 /* ── Remolque (opcional): la mayoría de conductores no tiene remolque, así
    que la sección solo se despliega tras marcar el checkbox «tengo remolque».
    Los campos NO son obligatorios (no están en requiredFields). ── */
-const REMOL_FIELDS = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho'];
+const REMOL_FIELDS = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho',
+  // Dueño del remolque (2026-10-05): identidad mínima; su cédula (foto en la
+  // tarjeta IA) alimenta el estudio de seguridad como rol «Dueño remolque».
+  'RemolDuenoNombre', 'RemolDuenoTipoDocumento', 'RemolDuenoDocumento', 'RemolDuenoCiudadExpDoc',
+  // Correo para enviarle la AUTORIZACIÓN de tratamiento de datos (link).
+  'RemolDuenoCorreo'];
 const REMOL_TITULO = 'Datos del Remolque (Opcional)';
 
 const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, impersonadoPor, soloLectura, onValidChange, onCedulaConductorChange, onSavedSuccess }) => {
@@ -851,18 +878,33 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
 
   const phoneFields = PHONE_FIELDS;
 
+  // Correo OBLIGATORIO para los actores PERSONA del estudio (2026-10-05,
+  // plan aprobado): sin correo no se les puede enviar la autorización de
+  // tratamiento de datos. Las EMPRESAS (NIT) quedan exentas (autorización
+  // vía contrato/tenedor) — su bloque de persona natural se relaja completo.
+  const propEsEmpresa = String(formData['propTipoDocumento'] || '').toUpperCase().includes('NIT');
+  const tenedEsEmpresa = String(formData['tenedTipoDocumento'] || '').toUpperCase().includes('NIT');
+  // El correo del dueño del remolque se exige SOLO si se diligenció el dueño
+  // (el remolque completo es opcional).
+  const remolqueConDueno = Boolean(String(formData['RemolDuenoDocumento'] || '').replace(/\D/g, ''));
+
   const requiredFields = [
     'condPrimerApellido', 'condSegundoApellido', 'condNombres', 'condCedulaCiudadania', 'condExpedidaEn', 'condDireccion',
     'condCiudad', 'condCelular', 'condCorreo', 'condEps', 'condArl', 'condNoLicencia', 'condFechaVencimientoLic', 'condCategoriaLic',
     'condGrupoSanguineo', 'condNombreEmergencia', 'condCelularEmergencia', 'condParentescoEmergencia', 'condEmpresaRef', 'condCelularRef',
-    'condCiudadRef', 'condNroViajesRef', 'condAntiguedadRef', 'condMercTransportada', 'propNombre', 'propDocumento', 'propCiudadExpDoc',
-    'propCorreo', 'propCelular', 'propDireccion', 'propCiudad', 'tenedNombre', 'tenedDocumento', 'tenedCiudadExpDoc', 'tenedCorreo',
-    'tenedCelular', 'tenedDireccion', 'tenedCiudad', 'vehModelo', 'vehMarca', 'vehTipoCarroceria', 'vehLinea', 'vehColor',
+    'condCiudadRef', 'condNroViajesRef', 'condAntiguedadRef', 'condMercTransportada',
+    'propNombre', 'propDocumento',
+    ...(propEsEmpresa ? [] : ['propCiudadExpDoc', 'propCorreo', 'propCelular', 'propDireccion', 'propCiudad']),
+    'tenedNombre', 'tenedDocumento',
+    ...(tenedEsEmpresa ? [] : ['tenedCiudadExpDoc', 'tenedCorreo', 'tenedCelular', 'tenedDireccion', 'tenedCiudad']),
+    'vehModelo', 'vehMarca', 'vehTipoCarroceria', 'vehLinea', 'vehColor',
     'vehEmpresaSat', 'vehUsuarioSat', 'vehClaveSat', 'vehCapacidadCarga',
     // Datos del SOAT OBLIGATORIOS (2026-08-27, orden del usuario).
     'vehAseguradoraSoat', 'vehPolizaSoat', 'vehVencimientoSoat',
     // El Año de Repotenciación es obligatorio SOLO si el vehículo fue repotenciado.
     ...(formData['vehRepotenciado'] === 'Sí' ? ['vehAno'] : []),
+    // Dueño del remolque: correo para su autorización de datos.
+    ...(remolqueConDueno ? ['RemolDuenoCorreo'] : []),
   ];
 
   const calcularAvance = () => {
@@ -1069,7 +1111,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (!mapear) return;
     // Reverso OBLIGATORIO para TODOS los docs de dos caras (cédulas, licencia
     // y tarjeta de propiedad — siempre frente y reverso, sin excepciones).
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
       Swal.fire({
         icon: 'warning',
         title: 'Falta el reverso',
@@ -1096,7 +1138,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       // Documentos de DOS caras (cédulas de conductor/propietario/tenedor,
       // licencia, tarjeta de propiedad): leer frente+reverso con IA y subir
       // el frente como documento oficial.
-      const esDosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura);
+      const esDosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura);
 
       if (esDosCaras) {
         // 1) Lectura con IA (frente + reverso opcional).
@@ -1271,7 +1313,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     // Documentos de DOS caras OBLIGATORIAS (todas las cédulas, licencia y
     // tarjeta de propiedad — 2026-08-27, orden del usuario: siempre reverso):
     // tras el frente se pide el reverso inmediatamente, sin poder saltarlo.
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
       setLeyendoCedula(false); // El Swal del reverso manda; no dejar el overlay pegado.
       Swal.fire({
         icon: 'info',
@@ -1394,7 +1436,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       await Swal.fire({
         icon: 'success',
         title: 'Documento reutilizado',
-        html: `Guardamos una copia como <b>${nombreDoc} del ${figura}</b> (${aplicados > 0 ? `${aplicados} campo(s) llenados` : 'sin datos para llenar — revisa el formulario'}).${data.url_reverso ? '<br/>Incluye el reverso.' : ''}`,
+        html: `Guardamos una copia como <b>${nombreDoc} del ${NOMBRE_FIGURA[figura]}</b> (${aplicados > 0 ? `${aplicados} campo(s) llenados` : 'sin datos para llenar — revisa el formulario'}).${data.url_reverso ? '<br/>Incluye el reverso.' : ''}`,
         confirmButtonColor: '#27ae60',
       });
     } catch (error: any) {
@@ -1503,7 +1545,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       const { figura, documento } = reutilizable;
       const disponibles = reutilizable.origenes
         .filter(o => o !== figura && CAMPOS_REUTIL[documento][o])
-        .filter(o => docsSubidos[CAMPOS_REUTIL[documento][o]!]);
+        .filter(o => docsSubidos[CAMPOS_REUTIL[documento][o]!])
+        // El Swal tiene 2 botones de copia + «Cargar otra» (el dueño del
+        // remolque tiene 3 orígenes posibles; se muestran los 2 primeros).
+        .slice(0, 2);
       if (disponibles.length > 0) {
         const nombreDoc = documento === 'cedula' ? 'cédula' : 'certificado bancario';
         const lista = disponibles.map(o => NOMBRE_FIGURA[o]).join(' o el ');
@@ -1556,7 +1601,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (!tipo) return;
     const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipo);
     if (!opcion) return;
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(tipo)) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(tipo)) {
       Swal.fire({
         icon: 'info',
         title: 'Ahora el REVERSO',
@@ -1952,6 +1997,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         { label: 'Alto (m)', name: 'RemolAlto', type: 'number', inputProps: { min: 1, max: 30 } },
         { label: 'Largo (m)', name: 'RemolLargo', type: 'number', inputProps: { min: 1, max: 30 } },
         { label: 'Ancho (m)', name: 'RemolAncho', type: 'number', inputProps: { min: 1, max: 30 } },
+        // Dueño del remolque: identidad mínima (la cédula se fotografía en la
+        // tarjeta IA — mismo patrón de frente+reverso que el conductor).
+        { label: 'Nombre del Dueño', name: 'RemolDuenoNombre' },
+        { label: 'Tipo de Documento', name: 'RemolDuenoTipoDocumento', options: tiposDocumentoRut },
+        { label: 'Número documento dueño', name: 'RemolDuenoDocumento', type: 'number' },
+        { label: 'Expedida en', name: 'RemolDuenoCiudadExpDoc', options: formData['RemolDuenoCiudadExpDoc'] && !todasLasCiudades.includes(formData['RemolDuenoCiudadExpDoc']) ? [formData['RemolDuenoCiudadExpDoc'], ...todasLasCiudades] : todasLasCiudades },
+        { label: 'Correo (autorización de datos)', name: 'RemolDuenoCorreo', type: 'email' },
       ],
     },
   ];
@@ -2223,7 +2275,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
               : LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
             // TODAS las cédulas + licencia + tarjeta: dos caras OBLIGATORIAS
             // (el ✓ exige frente y reverso).
-            const dosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo);
+            const dosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo);
             // Dos caras obligatorias: el ✓ solo con FRENTE y REVERSO subidos.
             const listo = Boolean(
               tipoSubida && docsSubidos[tipoSubida]

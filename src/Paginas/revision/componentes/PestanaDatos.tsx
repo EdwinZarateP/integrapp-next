@@ -303,7 +303,7 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
         <p><strong>Clave Satélite:</strong> {veh.vehClaveSat}</p>
       </div>
 
-      {(veh.RemolPlaca || veh.tarjetaRemolque) && (
+      {(veh.RemolPlaca || veh.tarjetaRemolque || veh.RemolDuenoDocumento) && (
         <>
           <h4 className="titulo-seccion">🚛 Datos del Remolque</h4>
           <div className="datos-grid">
@@ -315,6 +315,13 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
             <p><strong>Largo:</strong> {veh.RemolLargo}</p>
             <p><strong>Ancho:</strong> {veh.RemolAncho}</p>
           </div>
+          {veh.RemolDuenoDocumento && (
+            <div className="datos-grid datos-grid--suave">
+              <p><strong>Dueño:</strong> {veh.RemolDuenoNombre}</p>
+              <p><strong>Doc. Dueño:</strong> {veh.RemolDuenoTipoDocumento} {veh.RemolDuenoDocumento}</p>
+              <p><strong>Expedida en:</strong> {veh.RemolDuenoCiudadExpDoc}</p>
+            </div>
+          )}
         </>
       )}
     </div>

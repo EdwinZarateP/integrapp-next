@@ -18,12 +18,13 @@ export interface Vehiculo {
     seccion: string;
     campos: Array<{ campo: string; antes: any; despues: any }>;
   }>;
-  // Inactivaciones/reactivaciones por Seguridad (append-only).
+  // Inactivaciones/reactivaciones por Seguridad (append-only). El rechazo
+  // definitivo también viaja aquí con su acción propia.
   historialInactivacion?: Array<{
     fecha: string;
     usuario: string;
     motivo: string;
-    accion: 'inactivo' | 'reactivado';
+    accion: 'inactivo' | 'reactivado' | 'rechazado';
   }>;
   // Vinculación tenedor → conductor invitado.
   idConductor?: string | null;
@@ -78,6 +79,6 @@ export interface EstudioAuto {
   [key: string]: any;
 }
 
-export type PestanaBandeja = 'pendientes' | 'revision' | 'aprobados' | 'inactivos' | 'actualizacion';
+export type PestanaBandeja = 'pendientes' | 'revision' | 'aprobados' | 'inactivos' | 'actualizacion' | 'rechazados';
 
 export type PestanaDetalle = 'datos' | 'documentos' | 'cambios' | 'estudios';

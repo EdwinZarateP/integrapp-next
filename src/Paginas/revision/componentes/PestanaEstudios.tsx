@@ -4,6 +4,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { FaChevronDown, FaFilePdf, FaRedo, FaShieldAlt, FaSyncAlt, FaUpload } from "react-icons/fa";
 import { Vehiculo, EstudioAuto } from "../tipos";
+import TarjetaHabeasData from "./TarjetaHabeasData";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -11,6 +12,7 @@ const ETIQUETA_ROL: Record<string, string> = {
   conductor: 'Conductor',
   propietario: 'Propietario',
   tenedor: 'Tenedor',
+  dueño_remolque: 'Dueño remolque',
 };
 
 const ERRORES_AMABLES: Record<string, string> = {
@@ -435,6 +437,10 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                     la pestaña se actualiza sola.
                   </p>
                 )}
+
+                {/* ⚖️ Evidencia de habeas data del sujeto (auditoría legal):
+                    con acciones de envío/papel si no tiene autorización. */}
+                {e.tipo === 'persona' && e.cedula && <TarjetaHabeasData cedulas={[e.cedula]} veh={veh} />}
               </div>
             );
           })}

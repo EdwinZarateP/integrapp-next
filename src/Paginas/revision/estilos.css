@@ -361,6 +361,8 @@ body {
 .rev-chip--devuelto { color: #c0392b; background: #fdeeec; }
 .rev-chip--rerevision { color: #856404; background: #fff3cd; border: 1px solid #ffeeba; }
 .rev-chip--actualizacion { color: #6c3fc5; background: #f1eafd; }
+/* Rechazo definitivo: rojo oscuro (más fuerte que «devuelto»). */
+.rev-chip--rechazado { color: #90222b; background: #fbe9ea; }
 .rev-chip--mini { padding: 1px 6px; margin-left: 4px; }
 
 /* Pestañas internas del panel */
@@ -444,6 +446,8 @@ body {
 .rev-btn--inactivar { background: #7f8c8d; }
 .rev-btn--reactivar { background: #27ae60; }
 .rev-btn--actualizar { background: #008794; }
+/* Rechazo DEFINITIVO: rojo oscuro, se distingue del «Devolver» correctivo. */
+.rev-btn--rechazar { background: #90222b; }
 
 .rev-panel-hv {
   display: flex;
