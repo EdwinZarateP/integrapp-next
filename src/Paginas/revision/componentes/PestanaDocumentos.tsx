@@ -6,6 +6,7 @@ import { FaUpload } from "react-icons/fa";
 import { ContextoApp } from "@/Contexto/index";
 import VerCaraDocumento from "@/Componentes/VerCaraDocumento";
 import VerDocumento from "@/Componentes/VerDocumento";
+import RecortarDocumento from "@/Componentes/RecortarDocumento";
 import { Vehiculo } from "../tipos";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -49,6 +50,10 @@ interface DocAbierto {
   reverso?: string;
   urls?: string[];
   etiqueta: string;
+  /** Campo Mongo del documento ACTUAL (base, sin Reverso): habilita el
+   *  botón ✂️ Recortar de Seguridad en el visor. Sin él (firma, historial,
+   *  planilla, fotos) no se ofrece el recorte. */
+  campoRecorte?: string;
 }
 
 const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) => void }> = ({ veh, alCambiar }) => {
@@ -57,6 +62,8 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
   const { verDocumento, setVerDocumento } = almacenVariables;
 
   const [docAbierto, setDocAbierto] = useState<DocAbierto | null>(null);
+  /* Recorte en curso (Seguridad): campo exacto (frente o reverso) + etiqueta. */
+  const [recorte, setRecorte] = useState<{ campo: string; etiqueta: string } | null>(null);
   const inputHV = useRef<HTMLInputElement | null>(null);
   const inputPlanilla = useRef<HTMLInputElement | null>(null);
 
@@ -88,18 +95,47 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
   /* Planilla de Seguridad Social: se actualiza MENSUALMENTE → cada carga
      ACUMULA en el historial (nada se reemplaza) y NO baja un aprobado a
      re-revisión (excepción backend). La puede subir Seguridad desde acá o el
-     conductor desde su paso 3 — ambos acumulan igual. */
+     conductor desde su paso 3 — ambos acumulan igual.
+     La FECHA DE VENCIMIENTO es obligatoria (2026-10-07): con ella el vehículo
+     queda INHABILITADO de la bolsa al vencerse. */
   const subirPlanilla = async (archivo: File) => {
     if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
       Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la planilla.', 'warning');
       return;
     }
+    // Fecha de vencimiento (por si la IA no la lee): obligatoria, vigente y
+    // máximo 31 días desde hoy — misma regla del backend.
+    const isoLocal = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const hoy = isoLocal(new Date());
+    const tope = new Date(); tope.setDate(tope.getDate() + 31);
+    const topeIso = isoLocal(tope);
+    const resFecha = await Swal.fire({
+      icon: 'info',
+      title: 'Fecha de vencimiento de la planilla',
+      html: '¿Hasta qué fecha está <b>vigente</b> esta planilla?<br/><small>Aparece en el documento — máximo 31 días desde hoy. Vencida esa fecha, el vehículo queda inhabilitado hasta que suban una planilla nueva.</small>',
+      input: 'date',
+      inputAttributes: { min: hoy, max: topeIso },
+      showCancelButton: true,
+      confirmButtonText: 'Subir planilla',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2c5f9e',
+      allowOutsideClick: false,
+      inputValidator: (valor) => {
+        if (!valor) return 'Indica la fecha de vencimiento de la planilla.';
+        if (valor < hoy) return 'Esa fecha ya pasó: sube una planilla VIGENTE.';
+        if (valor > topeIso) return `La fecha no puede ser superior a 31 días desde hoy (tope: ${topeIso}).`;
+        return null;
+      },
+    });
+    if (!resFecha.isConfirmed || !resFecha.value) return;
     Swal.fire({ title: 'Subiendo Planilla…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
       const body = new FormData();
       body.append('placa', veh.placa);
       body.append('tipo', 'planillaEpsArl');
       body.append('archivo', archivo);
+      body.append('fecha_vencimiento', resFecha.value as string);
       const nombre = Cookies.get('seguridadNombre');
       if (nombre) body.append('editado_por', nombre);
       const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
@@ -118,6 +154,7 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
       frente,
       reverso: veh[`${campoBase}Reverso`] as string | undefined,
       etiqueta,
+      campoRecorte: campoBase,
     });
   };
 
@@ -138,7 +175,7 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
         <div className="rev-docs-seguridad">
           <div
             className="rev-doc-card rev-doc-card--seguridad"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.fotoconductorseguridad, etiqueta: 'Foto del Conductor (Seguridad)', reverso: undefined })}
+            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.fotoconductorseguridad, etiqueta: 'Foto del Conductor (Seguridad)', reverso: undefined, campoRecorte: 'fotoconductorseguridad' })}
           >
             <p>📷 Foto Conductor (Seguridad)</p>
             <span>Ver</span>
@@ -176,7 +213,7 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
         {veh.hojaVidaFisica ? (
           <div
             className="documento-card"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.hojaVidaFisica as string, etiqueta: 'Hoja de Vida Física', reverso: undefined })}
+            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.hojaVidaFisica as string, etiqueta: 'Hoja de Vida Física', reverso: undefined, campoRecorte: 'hojaVidaFisica' })}
           >
             <p className="font-medium">📄 Hoja de Vida Física</p>
             <span className="text-xs text-blue-600">Ver</span>
@@ -216,7 +253,7 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
           }
           if (url && typeof url === 'string') {
             return (
-              <div key={doc.key} className="documento-card" onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: url, etiqueta: doc.label, reverso: undefined })}>
+              <div key={doc.key} className="documento-card" onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: url, etiqueta: doc.label, reverso: undefined, campoRecorte: doc.key })}>
                 <p className="font-medium">{doc.label}</p>
                 <span className="text-xs text-blue-600">Ver</span>
               </div>
@@ -237,6 +274,17 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
             <span className="rev-planilla-sub">
               Se actualiza mensualmente · cada carga queda en el historial y NO inhabilita el vehículo
             </span>
+            {typeof veh.planillaVencimiento === 'string' && veh.planillaVencimiento && (() => {
+              // Vence dd/mm/aaaa + VENCIDA en rojo (misma convención de la
+              // pestaña Datos para licencia/SOAT).
+              const [a, m, d] = veh.planillaVencimiento.slice(0, 10).split('-');
+              const vencida = veh.planillaVencimiento.slice(0, 10) < new Date().toISOString().slice(0, 10);
+              return (
+                <span className={`rev-planilla-vence${vencida ? ' rev-planilla-vence--vencida' : ''}`}>
+                  Vence: {`${d}/${m}/${a}`}{vencida ? ' · VENCIDA — vehículo inhabilitado' : ''}
+                </span>
+              );
+            })()}
           </div>
           <button type="button" className="rev-planilla-btn" onClick={() => inputPlanilla.current?.click()}>
             <FaUpload /> Cargar nueva
@@ -244,33 +292,37 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
         </div>
         <div className="rev-planilla-lista">
           {(() => {
-            const historial: Array<{ ruta?: string; fecha?: string; nombre?: string }> =
+            const historial: Array<{ ruta?: string; fecha?: string; nombre?: string; vence?: string }> =
               Array.isArray(veh.documentosPlanillaSegSocial)
                 ? veh.documentosPlanillaSegSocial
                 : [];
             // Históricos previos al array: se muestra la planilla del campo espejo.
-            const filas: Array<{ ruta?: string; fecha?: string; nombre?: string }> = historial.length
+            const filas: Array<{ ruta?: string; fecha?: string; nombre?: string; vence?: string }> = historial.length
               ? historial
               : (veh.planillaEpsArl ? [{ ruta: veh.planillaEpsArl }] : []);
             if (!filas.length) {
               return <p className="rev-planilla-vacia">Sin planilla cargada todavía.</p>;
             }
-            return filas.map((f, i) => (
-              <button
-                key={i}
-                type="button"
-                className="rev-planilla-item"
-                onClick={() => f.ruta && setDocAbierto({
-                  tipo: 'dosCaras', frente: f.ruta as string,
-                  etiqueta: 'Planilla de Seguridad Social', reverso: undefined,
-                })}
-              >
-                <span className="rev-planilla-fecha">{f.fecha ? fechaLegible(f.fecha) : 'Anterior al historial'}</span>
-                <span className="rev-planilla-nombre">{f.nombre || 'Planilla'}</span>
-                {i === 0 && historial.length > 0 && <span className="rev-planilla-chip">Última</span>}
-                <span className="rev-planilla-ver">Ver</span>
-              </button>
-            ));
+            return filas.map((f, i) => {
+              const vence = (f.vence || '').slice(0, 10);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className="rev-planilla-item"
+                  onClick={() => f.ruta && setDocAbierto({
+                    tipo: 'dosCaras', frente: f.ruta as string,
+                    etiqueta: 'Planilla de Seguridad Social', reverso: undefined,
+                  })}
+                >
+                  <span className="rev-planilla-fecha">{f.fecha ? fechaLegible(f.fecha) : 'Anterior al historial'}</span>
+                  <span className="rev-planilla-nombre">{f.nombre || 'Planilla'}</span>
+                  {vence && <span className="rev-planilla-vence-mini">Vence {vence.split('-').reverse().join('/')}</span>}
+                  {i === 0 && historial.length > 0 && <span className="rev-planilla-chip">Última</span>}
+                  <span className="rev-planilla-ver">Ver</span>
+                </button>
+              );
+            });
           })()}
         </div>
       </div>
@@ -334,16 +386,27 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
         </>
       )}
 
-      {/* Visores (en app, no window.open): dos caras con giro, fotos en carrusel. */}
-      {docAbierto?.tipo === 'dosCaras' && docAbierto.frente && (
-        <VerCaraDocumento
-          frenteUrl={docAbierto.frente}
-          reversoUrl={docAbierto.reverso}
-          etiqueta={docAbierto.etiqueta}
-          unaCara={!docAbierto.reverso}
-          onClose={cerrar}
-        />
-      )}
+      {/* Visores (en app, no window.open): dos caras con giro, fotos en carrusel.
+          El recorte ✂️ solo se ofrece en el documento ACTUAL (campoRecorte):
+          firma (hash), historial, planilla y fotos no se recortan. */}
+      {docAbierto?.tipo === 'dosCaras' && docAbierto.frente && (() => {
+        const campoBase = docAbierto.campoRecorte;
+        return (
+          <VerCaraDocumento
+            frenteUrl={docAbierto.frente}
+            reversoUrl={docAbierto.reverso}
+            etiqueta={docAbierto.etiqueta}
+            unaCara={!docAbierto.reverso}
+            onClose={cerrar}
+            onRecortar={campoBase ? (cara) => {
+              setRecorte({
+                campo: cara === 'reverso' ? `${campoBase}Reverso` : campoBase,
+                etiqueta: `${docAbierto.etiqueta}${docAbierto.reverso ? (cara === 'reverso' ? ' · reverso' : ' · frente') : ''}`,
+              });
+            } : undefined}
+          />
+        );
+      })()}
       {docAbierto?.tipo === 'galeria' && verDocumento && (
         <VerDocumento
           urls={docAbierto.urls || []}
@@ -351,6 +414,21 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
           soloLectura
           onClose={cerrar}
           onDeleteSuccess={() => undefined}
+        />
+      )}
+
+      {/* Recorte de imagen (Seguridad): guarda la copia recortada como versión
+          nueva del documento y refresca el vehículo (la URL cambió). */}
+      {recorte && (
+        <RecortarDocumento
+          placa={veh.placa}
+          campo={recorte.campo}
+          etiqueta={recorte.etiqueta}
+          onGuardado={(mensaje) => {
+            setDocAbierto(null); // la URL anterior ya no es la vigente
+            alCambiar(mensaje);
+          }}
+          onClose={() => setRecorte(null)}
         />
       )}
     </div>

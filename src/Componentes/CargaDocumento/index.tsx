@@ -231,12 +231,44 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   };
 
   const handleUpload = async (files: File[], reverso?: File) => {
+    // Planilla de Seguridad Social (2026-10-07): la fecha de VENCIMIENTO es
+    // OBLIGATORIA — se pide al subir (por si la IA no la lee), no puede estar
+    // vencida ni superar 31 días desde hoy. Sin ella no se sube nada.
+    let fechaVencimiento: string | undefined;
+    if (tipoDoc === 'planillaEpsArl') {
+      const isoLocal = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const hoy = isoLocal(new Date());
+      const tope = new Date(); tope.setDate(tope.getDate() + 31);
+      const topeIso = isoLocal(tope);
+      const res = await Swal.fire({
+        icon: 'info',
+        title: 'Fecha de vencimiento de la planilla',
+        html: '¿Hasta qué fecha está <b>vigente</b> esta planilla de seguridad social?<br/><small>La fecha aparece en el documento — máximo 31 días desde hoy. Con ella el vehículo queda habilitado hasta ese día.</small>',
+        input: 'date',
+        inputAttributes: { min: hoy, max: topeIso },
+        showCancelButton: true,
+        confirmButtonText: 'Subir planilla',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#2c5f9e',
+        allowOutsideClick: false,
+        inputValidator: (valor) => {
+          if (!valor) return 'Indica la fecha de vencimiento de la planilla.';
+          if (valor < hoy) return 'Esa fecha ya pasó: sube una planilla VIGENTE.';
+          if (valor > topeIso) return `La fecha no puede ser superior a 31 días desde hoy (tope: ${topeIso}).`;
+          return null;
+        },
+      });
+      if (!res.isConfirmed || !res.value) return; // canceló: no se sube nada
+      fechaVencimiento = res.value as string;
+    }
     const formData = new FormData();
     const key = documentName === "Fotos" ? 'archivos' : 'archivo';
     files.forEach(file => formData.append(key, file));
     if (reverso) formData.append('reverso', reverso);
     formData.append('placa', placa);
     if (editadoPor) formData.append('editado_por', editadoPor);
+    if (fechaVencimiento) formData.append('fecha_vencimiento', fechaVencimiento);
 
     const lower = documentName.toLowerCase();
     const tipo = tiposMapping[lower] || lower.replace(/\s+/g, "_");

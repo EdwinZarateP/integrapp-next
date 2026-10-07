@@ -425,7 +425,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                           <FaFilePdf /> Ver reporte PDF
                         </button>
                       )}
-                      {fallidas > 0 && e.reporte_id && (
+                      {fallidas > 0 && e.reporte_id && e.tipo !== 'vehiculo' && (
                         <button
                           className="rev-est-btn-fuentes"
                           onClick={() => reintentarFallidas(e)}

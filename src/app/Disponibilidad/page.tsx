@@ -16,6 +16,9 @@ interface VehiculoAprobado {
   vehClase?: string;
   vehTipoCarroceria?: string;
   tipo_veh_sicetac?: string;
+  /** Planilla de seguridad social VENCIDA (2026-10-07): el vehículo no se
+   *  puede ofrecer hasta subir una planilla nueva. */
+  planillaVencida?: boolean;
 }
 interface CheckInHoy {
   placa: string;
@@ -199,6 +202,13 @@ const Disponibilidad: React.FC = () => {
                   de hoy. Si no lo van a usar, la operación puede devolverlo y volverá a estar disponible.
                 </div>
               )}
+              {v.planillaVencida && (
+                <div className="Disp-nota Disp-nota--alerta">
+                  ⚠️ <strong>Planilla de seguridad social VENCIDA:</strong> sube una planilla vigente
+                  desde tu panel (Documentación → Planilla de Seguridad Social) para volver a ofrecer
+                  este vehículo.
+                </div>
+              )}
               <div className="Disp-card-head">
                 <div>
                   <div className="Disp-placa">{v.placa}</div>
@@ -210,7 +220,12 @@ const Disponibilidad: React.FC = () => {
                   </div>
                 </div>
                 <label className="Disp-switch" title="Disponible hoy">
-                  <input type="checkbox" checked={e.disponible} onChange={() => set(v.placa, { disponible: !e.disponible })} />
+                  <input
+                    type="checkbox"
+                    checked={e.disponible}
+                    disabled={v.planillaVencida}
+                    onChange={() => set(v.placa, { disponible: !e.disponible })}
+                  />
                   <span className="Disp-slider"></span>
                 </label>
               </div>

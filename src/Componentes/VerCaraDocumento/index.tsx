@@ -9,6 +9,10 @@ interface VerCaraDocumentoProps {
   onClose: () => void;
   /** true = documento de UNA cara: oculta el aviso «sin reverso cargado». */
   unaCara?: boolean;
+  /** Recorte de la imagen (solo Seguridad en /revision, 2026-10-07): se
+   *  llama con la cara que está EN PANTALLA; solo se ofrece para imágenes
+   *  (los PDF no se recortan). */
+  onRecortar?: (cara: 'frente' | 'reverso') => void;
 }
 
 const esImagen = (url: string): boolean => {
@@ -22,7 +26,7 @@ const esImagen = (url: string): boolean => {
  * el respaldo» que voltea la vista (con animación de giro) — en vez de tener
  * que elegir la cara ANTES de ver nada. Imágenes inline; PDF en iframe.
  */
-const VerCaraDocumento: React.FC<VerCaraDocumentoProps> = ({ frenteUrl, reversoUrl, etiqueta, unaCara = false, onClose }) => {
+const VerCaraDocumento: React.FC<VerCaraDocumentoProps> = ({ frenteUrl, reversoUrl, etiqueta, unaCara = false, onClose, onRecortar }) => {
   const [viendoReverso, setViendoReverso] = useState(false);
   const urlActual = viendoReverso && reversoUrl ? reversoUrl : frenteUrl;
 
@@ -53,6 +57,17 @@ const VerCaraDocumento: React.FC<VerCaraDocumentoProps> = ({ frenteUrl, reversoU
         ) : !unaCara ? (
           <div className="VerCara-sinReverso">Este documento no tiene reverso cargado</div>
         ) : null}
+
+        {/* Recorte (Solo Seguridad en /revision): sobre la cara en pantalla. */}
+        {onRecortar && esImagen(urlActual) && (
+          <button
+            type="button"
+            className="VerCara-recortar"
+            onClick={() => onRecortar(viendoReverso && reversoUrl ? 'reverso' : 'frente')}
+          >
+            ✂️ Recortar esta imagen
+          </button>
+        )}
       </div>
     </div>
   );

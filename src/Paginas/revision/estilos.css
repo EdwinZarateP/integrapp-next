@@ -234,6 +234,25 @@ body {
   gap: 6px;
 }
 
+/* Avance de documentación (%) de la fila — chip con los mismos tramos de
+   color de las barras de avance del panel del conductor: rojo <70 · naranja
+   70-89 · verde ≥90 (pedido del usuario 2026-10-07). */
+.rev-fila-avance { flex-shrink: 0; }
+.rev-avance {
+  display: inline-block;
+  min-width: 44px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.rev-avance--alto { color: #1e7e46; background: #e3f4e9; }
+.rev-avance--medio { color: #b35b06; background: #fdf0dd; }
+.rev-avance--bajo { color: #c0392b; background: #fdecea; }
+
 .rev-fila-tiempo {
   flex-shrink: 0;
   font-size: 0.78rem;
@@ -524,6 +543,28 @@ body {
 .rev-planilla-titulo { display: flex; flex-direction: column; gap: 2px; }
 .rev-planilla-titulo strong { font-size: 0.9rem; color: #26313d; }
 .rev-planilla-sub { font-size: 0.74rem; color: #7f8c8d; }
+
+/* Vencimiento de la planilla (2026-10-07): vigente en verde suave; VENCIDA
+   en rojo — el vehículo queda inhabilitado para la bolsa. */
+.rev-planilla-vence {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #1e7e46;
+  background: #e3f4e9;
+  border-radius: 999px;
+  padding: 3px 10px;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.rev-planilla-vence--vencida { color: #c0392b; background: #fdecea; }
+.rev-planilla-vence-mini {
+  font-size: 0.7rem;
+  color: #6b756e;
+  background: #f2f4f6;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
 
 .rev-planilla-btn {
   border: none;

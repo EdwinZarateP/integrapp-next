@@ -1,6 +1,7 @@
 'use client';
 import React from "react";
 import { Vehiculo } from "../tipos";
+import { avanceDocumentosVehiculo } from "@/Funciones/avanceDocumentosVehiculo";
 
 /* Fecha del último cambio de estado; fallback: timestamp del ObjectId (_id). */
 export const obtenerFechaEstado = (veh: Vehiculo): Date | null => {
@@ -45,16 +46,23 @@ const ListaVehiculos: React.FC<ListaVehiculosProps> = ({ vehiculos, seleccionado
     <div className="rev-lista">
       {vehiculos.map(veh => {
         const reRevison = (veh.historialCambios?.length ?? 0) > 0;
+        // Avance de documentación (misma semántica del gate del backend).
+        const pct = avanceDocumentosVehiculo(veh);
+        const clasePct = pct >= 90 ? 'rev-avance--alto' : pct >= 70 ? 'rev-avance--medio' : 'rev-avance--bajo';
         return (
           <button
             key={veh._id}
             className={`rev-fila ${seleccionadoId === veh._id ? 'rev-fila--activa' : ''}`}
             onClick={() => onSeleccionar(veh)}
+            title={`Documentación: ${pct}%`}
           >
             <span className="rev-fila-placa">{veh.placa}</span>
             <span className="rev-fila-conductor">
               {veh.condNombres || 'SIN NOMBRE'} {veh.condPrimerApellido || ''}
               {reRevison && <span className="rev-chip rev-chip--rerevision rev-chip--mini">🔄</span>}
+            </span>
+            <span className="rev-fila-avance">
+              <span className={`rev-avance ${clasePct}`}>{pct}%</span>
             </span>
             <span className="rev-fila-tiempo">{tiempoEsperando(veh)}</span>
           </button>

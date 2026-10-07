@@ -231,6 +231,10 @@ const categoriasLicencia = ["A1", "A2", "B1", "B2", "B3", "C1", "C2", "C3"];
 
 // Año en curso (Colombia): tope del Año de Repotenciación — nunca futuro.
 const ANIO_ACTUAL = new Date().getFullYear();
+// El MODELO del vehículo/remolque puede ser el año presente o el siguiente
+// (los concesionarios venden modelos del año próximo antes de cambiar el
+// calendario — pedido del usuario 2026-10-07). No aplica a «Año Repotenciación».
+const ANIO_MODELO_MAX = ANIO_ACTUAL + 1;
 
 /* ── Celular con región (selector de país +57 default): el componente y el
    catálogo de regiones viven en Componentes/PhoneField (compartido desde
@@ -873,10 +877,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         const n = parseInt(valor, 10);
         return isNaN(n) || n < 1 || n > REMOL_DIM_MAX;
       }
-      // Modelo del remolque: fuera de 1990–año en curso sigue en rojo.
+      // Modelo del remolque: fuera de 1990–año siguiente sigue en rojo.
       if (c === 'RemolModelo') {
         const n = parseInt(valor, 10);
-        return isNaN(n) || n < 1990 || n > ANIO_ACTUAL;
+        return isNaN(n) || n < 1990 || n > ANIO_MODELO_MAX;
       }
       return false;
     }));
@@ -1083,7 +1087,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         return;
     }
     if (value !== "") {
-        if (name === 'vehModelo' && parseInt(value) > 2026) return;
+        if (name === 'vehModelo' && parseInt(value) > ANIO_MODELO_MAX) return;
         // El año de repotenciación: nunca futuro ni anterior a 2010.
         if (name === 'vehAno' && (parseInt(value) > ANIO_ACTUAL || parseInt(value) < 2010)) return;
         if (name === 'condAntiguedadRef' && parseInt(value) > 30) return;
@@ -1091,14 +1095,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         // 2026-10-06; se rechaza la tecla que sobra).
         if (name === 'RemolPlaca' && value.length > 10) return;
         // Modelo del remolque: año de 4 dígitos. El valor COMPLETO fuera de
-        // 1990–año en curso se rechaza por tecla (1120 queda en 112); los
+        // 1990–año siguiente se rechaza por tecla (1120 queda en 112); los
         // prefijos de 1-3 dígitos no se juzgan — si no, no se podría digitar
         // «1995» (el «1» inicial ya sería menor que 1990).
         if (name === 'RemolModelo') {
             if (value.length > 4) return;
             if (value.length === 4) {
                 const anio = parseInt(value, 10);
-                if (isNaN(anio) || anio < 1990 || anio > ANIO_ACTUAL) return;
+                if (isNaN(anio) || anio < 1990 || anio > ANIO_MODELO_MAX) return;
             }
         }
         // Dimensiones del remolque (m): nada por encima de 50 pasa al estado
@@ -1876,13 +1880,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (esFinalizar) {
         const modelo = (formData['RemolModelo'] || '').trim();
         if (modelo !== '' &&
-            (parseInt(modelo, 10) > ANIO_ACTUAL || parseInt(modelo, 10) < 1990)) {
+            (parseInt(modelo, 10) > ANIO_MODELO_MAX || parseInt(modelo, 10) < 1990)) {
             setCamposError(prev => Array.from(new Set([...prev, 'RemolModelo'])));
             const campo = document.querySelector('[data-campo="RemolModelo"]');
             if (campo) campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
             Swal.fire({
                 title: 'Modelo del remolque inválido',
-                html: `El <b>Modelo</b> debe ser un año entre <b>1990 y ${ANIO_ACTUAL}</b>.`,
+                html: `El <b>Modelo</b> debe ser un año entre <b>1990 y ${ANIO_MODELO_MAX}</b>.`,
                 icon: 'warning',
                 confirmButtonColor: '#e67e22',
             });
@@ -2063,7 +2067,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     {
       title: 'Datos del Vehiculo',
       fields: [
-        { label: 'Modelo', name: 'vehModelo', type: 'number', inputProps: { min: 1990, max: 2026 } },
+        { label: 'Modelo', name: 'vehModelo', type: 'number', inputProps: { min: 1990, max: ANIO_MODELO_MAX } },
         { label: 'Marca', name: 'vehMarca' },
         { label: "Tipo Carroceria", name: "vehTipoCarroceria", options: tiposCarroceria },
         { label: 'Línea', name: 'vehLinea' },
@@ -2118,7 +2122,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       title: 'Datos del Remolque (Opcional)',
       fields: [
         { label: 'Placa Remolque', name: 'RemolPlaca', inputProps: { maxLength: 10 } },
-        { label: 'Modelo', name: 'RemolModelo', type: 'number', inputProps: { min: 1990, max: ANIO_ACTUAL } },
+        { label: 'Modelo', name: 'RemolModelo', type: 'number', inputProps: { min: 1990, max: ANIO_MODELO_MAX } },
         { label: 'Clase/config', name: 'RemolClase' },
         { label: "Tipo Carroceria", name: "RemolTipoCarroceria", options: tiposCarroceria },
         { label: 'Alto (m)', name: 'RemolAlto', type: 'number', inputProps: { min: 1, max: REMOL_DIM_MAX } },

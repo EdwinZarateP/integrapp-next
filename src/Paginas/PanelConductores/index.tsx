@@ -224,8 +224,20 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
     const v = String(vehiculo?.[k] || '').trim();
     return v && v !== 'null' && v !== 'undefined';
   });
+  // Vehículo NUEVO (modelo < 2 años, incluidos modelos del año siguiente):
+  // la Revisión Tecnomecánica no se exige (espejo de _exento_tecnomecanica
+  // del backend — pedido del usuario 2026-10-07).
+  const modeloAnio = parseInt(String(vehiculo?.vehModelo || '').replace(/\D/g, '').slice(0, 4), 10);
+  const exentoTecno = !isNaN(modeloAnio) && modeloAnio >= new Date().getFullYear() - 1;
   return limpias.map((sec: SeccionDocumentos) => {
     let items = sec.items;
+    // Vehículo nuevo (modelo < 2 años): la tecnomecánica NI se pide NI se
+    // deja subir (backend 400) — si no está cargada, el ítem desaparece; si
+    // ya existía (cargada antes de la regla), se mantiene para ver/borrar.
+    if (exentoTecno && sec.subtitulo === '1. Documentos del Vehículo'
+      && !docEstaLleno(vehiculo?.revisionTecnomecanica)) {
+      items = items.filter((i: DocumentoItem) => tiposMapping[normalizeKey(i.nombre)] !== 'revisionTecnomecanica');
+    }
     if (tieneRemolque && sec.subtitulo === '1. Documentos del Vehículo') {
       items = [...items, {
         nombre: 'Cédula del Dueño del Remolque', progreso: 0, opcional: true,
@@ -250,10 +262,14 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
         : Boolean(item.opcional) || (
         field === 'documentoAcreditacionTenedor' && tenedIgualProp
       ) || (propEmpresa && field.startsWith('documentoIdentidadPropietario'))
-      || (tenedEmpresa && field.startsWith('documentoIdentidadTenedor'));
-      const hintFinal = esTarjetaRemolque && remolqueDeclarado && !vehiculo?.[field]
+      || (tenedEmpresa && field.startsWith('documentoIdentidadTenedor'))
+      || (field === 'revisionTecnomecanica' && exentoTecno);
+      let hintFinal = esTarjetaRemolque && remolqueDeclarado && !vehiculo?.[field]
         ? 'Obligatoria: tu vehículo tiene remolque'
         : item.hint;
+      if (field === 'revisionTecnomecanica' && exentoTecno) {
+        hintFinal = 'Opcional: vehículo nuevo (modelo de menos de 2 años)';
+      }
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
       // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
       // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.

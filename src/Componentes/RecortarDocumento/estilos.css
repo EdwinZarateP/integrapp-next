@@ -1,0 +1,171 @@
+/* RecortarDocumento — recorte de imágenes de documentos por Seguridad
+   (2026-10-07). Patrón visual del visor VerCaraDocumento. */
+
+.Recu-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1060; /* por encima del visor de documentos (1050) */
+  padding: 14px;
+}
+
+.Recu-caja {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.Recu-cerrar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  font-size: 1rem;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.25s ease;
+  z-index: 10;
+}
+
+.Recu-cerrar:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.Recu-titulo {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #24303e;
+  padding-right: 36px;
+}
+
+.Recu-nota {
+  font-size: 0.8rem;
+  color: #6b756e;
+  margin: 0;
+}
+
+.Recu-cargando,
+.Recu-error {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b756e;
+  background: #f7f8f9;
+  border-radius: 8px;
+}
+
+.Recu-error {
+  color: #c0392b;
+  background: #fdecea;
+}
+
+/* Área de recorte: la imagen y el recuadro viven acá; el pointer capture
+   hace que arrastrar fuera de la foto no pierda el gesto. */
+.Recu-area {
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  touch-action: none; /* el arrastre es selección, no scroll */
+  cursor: crosshair;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  background: #fafafa;
+}
+
+.Recu-imagen {
+  display: block;
+  max-width: 100%;
+  max-height: 58vh;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Recuadro de selección: borde blanco + oscurecer TODO lo que queda por
+   fuera (box-shadow infinito recortado por el overflow:hidden del área). */
+.Recu-sel {
+  position: absolute;
+  border: 2px dashed #ffffff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.Recu-acciones {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.Recu-btn {
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.Recu-btn:active {
+  transform: scale(0.98);
+}
+
+.Recu-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.Recu-btn--limpiar {
+  background: #eef1f0;
+  color: #45504b;
+}
+
+.Recu-btn--limpiar:hover:not(:disabled) {
+  background: #e2e7e4;
+}
+
+.Recu-btn--guardar {
+  background: #2F6B3E;
+  color: white;
+}
+
+.Recu-btn--guardar:hover:not(:disabled) {
+  background: #255833;
+}
+
+@media (max-width: 600px) {
+  .Recu-overlay {
+    padding: 8px;
+  }
+
+  .Recu-caja {
+    padding: 12px;
+  }
+
+  .Recu-imagen {
+    max-height: 50vh;
+  }
+
+  .Recu-acciones {
+    flex-direction: column-reverse;
+  }
+}

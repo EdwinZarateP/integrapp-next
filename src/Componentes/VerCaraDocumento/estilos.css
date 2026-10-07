@@ -127,6 +127,28 @@
   color: #8a94a0;
 }
 
+/* Recorte de la imagen en pantalla (Seguridad, /revision, 2026-10-07). */
+.VerCara-recortar {
+  flex-shrink: 0;
+  background: #eef1f0;
+  color: #45504b;
+  border: 1px solid #d5dcd8;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.VerCara-recortar:hover {
+  background: #e2e7e4;
+}
+
+.VerCara-recortar:active {
+  transform: scale(0.98);
+}
+
 @media (max-width: 600px) {
   .VerCara-overlay {
     padding: 8px;
