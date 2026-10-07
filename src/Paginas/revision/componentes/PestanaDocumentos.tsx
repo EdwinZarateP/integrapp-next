@@ -10,10 +10,20 @@ import { Vehiculo } from "../tipos";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+/* Fechas del backend: ISO naive UTC → hora Colombia. */
+const fechaLegible = (iso?: string): string => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso.endsWith('Z') ? iso : `${iso}Z`)
+      .toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'short', timeStyle: 'short' });
+  } catch { return iso; }
+};
+
 /* Documentos mostrados como tarjetas (las de Seguridad van aparte, abajo).
    La Hoja de Vida Física NO está aquí: tiene su propia tarjeta con botón de
    subida — la carga Seguridad (casos históricos con autorización en papel),
-   no el conductor. */
+   no el conductor. La Planilla de Seguridad Social TAMPOCO: se actualiza
+   mensualmente → tiene su bloque con HISTORIAL acumulativo más abajo. */
 const DOCUMENTOS_DISPLAY = [
   { key: "documentoIdentidadConductor", label: "Cédula Conductor", dosCaras: true },
   { key: "licencia", label: "Licencia Conducción", dosCaras: true },
@@ -24,7 +34,6 @@ const DOCUMENTOS_DISPLAY = [
   { key: "polizaResponsabilidad", label: "Póliza Resp." },
   { key: "condFoto", label: "Foto Conductor (App)" },
   { key: "fotoconductorseguridad", label: "Foto Conductor (Seguridad)" },
-  { key: "planillaEpsArl", label: "Planilla de Seguridad Social" },
   { key: "documentoIdentidadTenedor", label: "Cédula Tenedor", dosCaras: true },
   { key: "documentoIdentidadPropietario", label: "Cédula Propietario", dosCaras: true },
   { key: "documentoIdentidadRemolque", label: "Cédula Dueño Remolque", dosCaras: true },
@@ -49,6 +58,7 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
 
   const [docAbierto, setDocAbierto] = useState<DocAbierto | null>(null);
   const inputHV = useRef<HTMLInputElement | null>(null);
+  const inputPlanilla = useRef<HTMLInputElement | null>(null);
 
   /* Hoja de Vida Física: la sube SEGURIDAD desde acá (PDF o imagen firmada).
      No baja un aprobado a re-revisión (excepción backend) — es un adjunto de
@@ -72,6 +82,32 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
       alCambiar(`Hoja de Vida Física cargada en ${veh.placa}`);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo subir la hoja de vida.', 'error');
+    }
+  };
+
+  /* Planilla de Seguridad Social: se actualiza MENSUALMENTE → cada carga
+     ACUMULA en el historial (nada se reemplaza) y NO baja un aprobado a
+     re-revisión (excepción backend). La puede subir Seguridad desde acá o el
+     conductor desde su paso 3 — ambos acumulan igual. */
+  const subirPlanilla = async (archivo: File) => {
+    if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
+      Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la planilla.', 'warning');
+      return;
+    }
+    Swal.fire({ title: 'Subiendo Planilla…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const body = new FormData();
+      body.append('placa', veh.placa);
+      body.append('tipo', 'planillaEpsArl');
+      body.append('archivo', archivo);
+      const nombre = Cookies.get('seguridadNombre');
+      if (nombre) body.append('editado_por', nombre);
+      const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo subir la planilla.');
+      alCambiar(`Planilla de Seguridad Social actualizada en ${veh.placa}`);
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo subir la planilla.', 'error');
     }
   };
 
@@ -189,6 +225,114 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
           return null;
         })}
       </div>
+
+      {/* Planilla de Seguridad Social (2026-10-07): se actualiza MENSUALMENTE
+          → bloque propio con historial ACUMULATIVO (cada carga queda en el
+          array `documentosPlanillaSegSocial`, nada se reemplaza) y carga de
+          la nueva SIN bajar un aprobado a re-revisión (excepción backend). */}
+      <div className="rev-planilla">
+        <div className="rev-planilla-head">
+          <div className="rev-planilla-titulo">
+            <strong>🏥 Planilla de Seguridad Social</strong>
+            <span className="rev-planilla-sub">
+              Se actualiza mensualmente · cada carga queda en el historial y NO inhabilita el vehículo
+            </span>
+          </div>
+          <button type="button" className="rev-planilla-btn" onClick={() => inputPlanilla.current?.click()}>
+            <FaUpload /> Cargar nueva
+          </button>
+        </div>
+        <div className="rev-planilla-lista">
+          {(() => {
+            const historial: Array<{ ruta?: string; fecha?: string; nombre?: string }> =
+              Array.isArray(veh.documentosPlanillaSegSocial)
+                ? veh.documentosPlanillaSegSocial
+                : [];
+            // Históricos previos al array: se muestra la planilla del campo espejo.
+            const filas: Array<{ ruta?: string; fecha?: string; nombre?: string }> = historial.length
+              ? historial
+              : (veh.planillaEpsArl ? [{ ruta: veh.planillaEpsArl }] : []);
+            if (!filas.length) {
+              return <p className="rev-planilla-vacia">Sin planilla cargada todavía.</p>;
+            }
+            return filas.map((f, i) => (
+              <button
+                key={i}
+                type="button"
+                className="rev-planilla-item"
+                onClick={() => f.ruta && setDocAbierto({
+                  tipo: 'dosCaras', frente: f.ruta as string,
+                  etiqueta: 'Planilla de Seguridad Social', reverso: undefined,
+                })}
+              >
+                <span className="rev-planilla-fecha">{f.fecha ? fechaLegible(f.fecha) : 'Anterior al historial'}</span>
+                <span className="rev-planilla-nombre">{f.nombre || 'Planilla'}</span>
+                {i === 0 && historial.length > 0 && <span className="rev-planilla-chip">Última</span>}
+                <span className="rev-planilla-ver">Ver</span>
+              </button>
+            ));
+          })()}
+        </div>
+      </div>
+      <input
+        ref={inputPlanilla}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const archivo = e.target.files?.[0];
+          e.target.value = ''; // permitir re-elegir el mismo archivo
+          if (archivo) subirPlanilla(archivo);
+        }}
+      />
+
+      {/* Historial UNIVERSAL de documentos (2026-10-07): toda subida de
+          CUALQUIER documento (frente, reverso, reutilización) queda acá con
+          su ruta — nada se pierde ni se reemplaza; el campo del documento
+          siempre apunta a la última versión. Re-subir sigue bajando un
+          aprobado a re-revisión (decisión: solo planilla y HV física no). */}
+      {Array.isArray(veh.historialDocumentos) && veh.historialDocumentos.length > 0 && (
+        <>
+          <h4 className="titulo-seccion">🗂️ Historial de documentos</h4>
+          <p className="rev-aud-nota">
+            Cada carga queda registrada con su archivo propio (nada se reemplaza). El
+            campo del documento siempre muestra la última versión; aquí puedes abrir
+            cualquier versión anterior.
+          </p>
+          <div className="rev-tabla-wrap">
+            <table className="rev-est-tabla">
+              <thead>
+                <tr><th>Fecha</th><th>Documento</th><th>Archivo</th><th>Cargó</th><th></th></tr>
+              </thead>
+              <tbody>
+                {veh.historialDocumentos.map((h: any, i: number) => (
+                  <tr key={i}>
+                    <td className="rev-est-tabla-fecha">{fechaLegible(h.fecha)}</td>
+                    <td style={{ fontWeight: 600 }}>{h.etiqueta || h.tipo}</td>
+                    <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.nombre || '—'}
+                    </td>
+                    <td>{h.actor ? h.actor : <span className="rev-est-tabla-id">El titular</span>}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="rev-est-btn-tabla"
+                        onClick={() => setDocAbierto({
+                          tipo: 'dosCaras', frente: h.ruta as string,
+                          etiqueta: `${h.etiqueta || h.tipo} — ${fechaLegible(h.fecha)}`,
+                          reverso: undefined,
+                        })}
+                      >
+                        Ver
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Visores (en app, no window.open): dos caras con giro, fotos en carrusel. */}
       {docAbierto?.tipo === 'dosCaras' && docAbierto.frente && (

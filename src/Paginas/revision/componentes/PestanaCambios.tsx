@@ -254,6 +254,30 @@ const PestanaCambios: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
         </div>
       )}
 
+      {/* ✍️ Detalle del acto de FIRMA ELECTRÓNICA (sello + verificación). */}
+      <h4 className="titulo-seccion">✍️ Firma electrónica del conductor</h4>
+      <TarjetaFirmaElectronica veh={veh} />
+
+      {/* ⚖️ AUTORIZACIONES DE DATOS de todos los actores PERSONA del vehículo
+          (misma tarjeta de habeas data de la pestaña Estudios: primera/última
+          aceptación, canal, versión, IP/navegador + acciones de Seguridad). */}
+      <h4 className="titulo-seccion">⚖️ Autorizaciones de datos (habeas data)</h4>
+      {(() => {
+        const esNit = (v?: string) => String(v || '').toUpperCase().includes('NIT');
+        const cedulas = [
+          veh.condCedulaCiudadania,
+          !esNit(veh.propTipoDocumento) && veh.propDocumento,
+          !esNit(veh.tenedTipoDocumento) && veh.tenedDocumento,
+          !esNit(veh.RemolDuenoTipoDocumento) && veh.RemolDuenoDocumento,
+        ].filter(Boolean).map(String);
+        if (cedulas.length === 0) {
+          return <p className="rev-vacio">El vehículo no tiene actores persona registrados.</p>;
+        }
+        return <TarjetaHabeasData cedulas={cedulas} veh={veh} />;
+      })()}
+
+      {/* 🕵 Auditoría al FINAL (pedido 2026-10-07): es el registro más largo y
+          no debe empujar firma/autorizaciones hacia abajo. */}
       <h4 className="titulo-seccion">🕵 Auditoría del vehículo</h4>
       <p className="rev-aud-nota">
         Registro inmutable de cada acción: quién la hizo realmente (el conductor con su
@@ -284,28 +308,6 @@ const PestanaCambios: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
           </table>
         </div>
       )}
-
-      {/* ✍️ Detalle del acto de FIRMA ELECTRÓNICA (sello + verificación). */}
-      <h4 className="titulo-seccion">✍️ Firma electrónica del conductor</h4>
-      <TarjetaFirmaElectronica veh={veh} />
-
-      {/* ⚖️ AUTORIZACIONES DE DATOS de todos los actores PERSONA del vehículo
-          (misma tarjeta de habeas data de la pestaña Estudios: primera/última
-          aceptación, canal, versión, IP/navegador + acciones de Seguridad). */}
-      <h4 className="titulo-seccion">⚖️ Autorizaciones de datos (habeas data)</h4>
-      {(() => {
-        const esNit = (v?: string) => String(v || '').toUpperCase().includes('NIT');
-        const cedulas = [
-          veh.condCedulaCiudadania,
-          !esNit(veh.propTipoDocumento) && veh.propDocumento,
-          !esNit(veh.tenedTipoDocumento) && veh.tenedDocumento,
-          !esNit(veh.RemolDuenoTipoDocumento) && veh.RemolDuenoDocumento,
-        ].filter(Boolean).map(String);
-        if (cedulas.length === 0) {
-          return <p className="rev-vacio">El vehículo no tiene actores persona registrados.</p>;
-        }
-        return <TarjetaHabeasData cedulas={cedulas} veh={veh} />;
-      })()}
 
       {vacio && <p className="rev-vacio">Este vehículo no tiene historial de cambios.</p>}
     </div>

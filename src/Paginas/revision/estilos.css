@@ -504,6 +504,74 @@ body {
 .rev-doc-card--falta p { color: #c0392b; }
 .rev-doc-card--falta span { color: #c0392b; }
 
+/* ── Planilla de Seguridad Social: bloque con historial acumulativo (2026-10-07) ── */
+.rev-planilla {
+  margin-top: 14px;
+  background: #fbfcfd;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.rev-planilla-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rev-planilla-titulo { display: flex; flex-direction: column; gap: 2px; }
+.rev-planilla-titulo strong { font-size: 0.9rem; color: #26313d; }
+.rev-planilla-sub { font-size: 0.74rem; color: #7f8c8d; }
+
+.rev-planilla-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  background: #008794;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.rev-planilla-btn:hover { background: #006f7a; }
+
+.rev-planilla-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+
+.rev-planilla-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #e3e8ee;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: left;
+}
+.rev-planilla-item:hover { border-color: #b7d9dd; background: #f4fbfc; }
+
+.rev-planilla-fecha { color: #5a6472; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rev-planilla-nombre { color: #26313d; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rev-planilla-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #1e8449;
+  background: #eafaf1;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.rev-planilla-ver { color: #00a5b5; font-weight: 600; white-space: nowrap; }
+
+.rev-planilla-vacia { margin: 4px 0 0; color: #7f8c8d; font-size: 0.8rem; }
+
 .documento-card--fotos { border-color: #9fc3ab; background: #f0f7f1; }
 
 /* Timeline de inactivación */

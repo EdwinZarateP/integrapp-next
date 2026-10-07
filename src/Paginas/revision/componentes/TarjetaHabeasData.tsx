@@ -57,7 +57,16 @@ interface PersonaHabeas {
   declaraciones_aceptadas?: string[];
   politicas_pendientes?: boolean;
   token_pendiente?: string;
+  token_pendiente_correo?: string;
   aceptaciones: Aceptacion[];
+}
+
+/** Declaración de la política vigente (viene del endpoint habeas-data). */
+interface DeclaracionPolitica {
+  id: string;
+  titulo: string;
+  version?: number;
+  opcional?: boolean;
 }
 
 interface TarjetaHabeasDataProps {
@@ -76,7 +85,7 @@ interface TarjetaHabeasDataProps {
  * cubre todos sus roles en todos los vehículos.
  *
  * Sujetos SIN evidencia → acciones de Seguridad (2026-10-05):
- *  - «✉️ Enviar autorización»: link por correo (48 h) a la página pública
+ *  - «✉️ Enviar autorización»: link por correo (30 días) a la página pública
  *    /AutorizacionDatos donde la persona acepta las declaraciones.
  *  - «📄 Registrar firma en papel»: sube la autorización física firmada.
  */
@@ -87,6 +96,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
   );
   const clave = lista.join(',');
   const [personas, setPersonas] = useState<PersonaHabeas[] | null>(null);
+  const [declaracionesPolitica, setDeclaracionesPolitica] = useState<DeclaracionPolitica[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
@@ -103,6 +113,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
       if (!resp.ok) throw new Error('error');
       const data = await resp.json();
       setPersonas(data.personas || []);
+      setDeclaracionesPolitica(data.declaraciones_politica || []);
       setError(null);
     } catch {
       setError('No se pudo consultar la evidencia de autorización.');
@@ -130,6 +141,41 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
   /** Roles de ESTE vehículo que cubre la cédula (mismo actor = una autorización). */
   const rolesDe = (cedula: string): string[] =>
     ROLES_VEHICULO.filter(r => veh && soloDigitos(veh[r.campo]) === cedula).map(r => r.rol);
+
+  /** Declaraciones de la política vigente que a la persona le FALTAN (pedido
+   *  2026-10-07: deben verse en ROJO — en la práctica solo puede faltar la
+   *  opcional «Tratamiento de Datos Personales», las demás son gate del
+   *  backend). Una aceptación sin declaracion_id = política completa (v1
+   *  legado) y cubre todas. */
+  const faltantesDe = (p: PersonaHabeas): DeclaracionPolitica[] => {
+    if (!declaracionesPolitica.length || p.aceptaciones.length === 0) return [];
+    if (p.aceptaciones.some(a => !a.declaracion_id)) return [];
+    return declaracionesPolitica.filter(
+      d => !p.aceptaciones.some(a => a.declaracion_id === d.id));
+  };
+
+  /** Filas del detalle: una por registro de aceptación en el ORDEN de la
+   *  política, intercalando en ROJO las declaraciones sin aceptación. */
+  const filasDetalle = (p: PersonaHabeas): Array<{
+    acept?: Aceptacion; titulo: string; version?: number; falta?: boolean; opcional?: boolean;
+  }> => {
+    if (!declaracionesPolitica.length) {
+      return p.aceptaciones.map(a => ({ acept: a, titulo: a.declaracion_titulo || 'Política completa' }));
+    }
+    const filas: Array<{ acept?: Aceptacion; titulo: string; version?: number; falta?: boolean; opcional?: boolean }> = [];
+    declaracionesPolitica.forEach(d => {
+      const acepts = p.aceptaciones.filter(a => a.declaracion_id === d.id);
+      if (acepts.length) {
+        acepts.forEach(a => filas.push({ acept: a, titulo: d.titulo }));
+      } else {
+        filas.push({ titulo: d.titulo, version: d.version, falta: true, opcional: d.opcional });
+      }
+    });
+    // Aceptaciones legado sin declaracion_id (política completa v1).
+    p.aceptaciones.filter(a => !a.declaracion_id).forEach(a =>
+      filas.push({ acept: a, titulo: a.declaracion_titulo || 'Política completa' }));
+    return filas;
+  };
 
   const enviarAutorizacion = async (p: PersonaHabeas) => {
     const correo = (correosEdicion[p.cedula] ?? correoDe(p.cedula)).trim();
@@ -159,7 +205,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
         ? 'Ya había un enlace vigente — no se duplicó el correo.'
         : data.estado === 'ya_autorizado'
           ? 'La persona ya tenía autorización registrada.'
-          : `Correo enviado a ${correo} (enlace vigente 48 h).`;
+          : `Correo enviado a ${correo} (enlace vigente 30 días).`;
       Swal.fire({ title: 'Autorización', text: estado, icon: data.estado === 'enviado' ? 'success' : 'info', timer: 3200, showConfirmButton: false });
     } catch (e: any) {
       setError(e?.message || 'No se pudo enviar el correo.');
@@ -256,9 +302,18 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
 
                 {p.token_pendiente && (
                   <p style={{ margin: '4px 0 0', color: '#b9770e' }}>
-                    ✉️ Enlace enviado el {fechaLegible(p.token_pendiente)} — aún sin aceptar.
+                    ✉️ Enlace enviado{p.token_pendiente_correo ? <> a <strong>{p.token_pendiente_correo}</strong></> : ''}
+                    {' '}el {fechaLegible(p.token_pendiente)} — aún sin aceptar.
                   </p>
                 )}
+
+                {/* Declaración(es) de la política SIN aceptación → en ROJO
+                    (pedido 2026-10-07; solo puede faltar la opcional). */}
+                {faltantesDe(p).map(d => (
+                  <p key={d.id} style={{ margin: '4px 0 0', color: '#c0392b', fontWeight: 600 }}>
+                    ⚠️ Falta: {d.titulo}{d.version != null && ` (v${d.version})`} — no aceptada{d.opcional ? ' (única opcional)' : ''}.
+                  </p>
+                ))}
 
                 {(p.tiene_cuenta || p.aceptaciones.length > 0) && (
                   <p style={{ margin: '4px 0 0', color: '#5a6472' }}>
@@ -300,21 +355,29 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                           </tr>
                         </thead>
                         <tbody>
-                          {p.aceptaciones.map((a, i) => (
-                            <tr key={i} style={{ borderTop: '1px solid #edf1f5' }}>
-                              <td style={{ padding: '3px 6px', whiteSpace: 'nowrap' }}>{fechaLegible(a.aceptado_en)}</td>
-                              <td style={{ padding: '3px 6px' }}>
-                                {a.declaracion_titulo || 'Política completa'}
-                                {a.version != null && <span style={{ color: '#7f8c8d' }}> (v{a.version})</span>}
-                                {a.canal === 'papel' && (
+                          {filasDetalle(p).map((f, i) => (
+                            <tr key={i} style={{
+                              borderTop: '1px solid #edf1f5',
+                              background: f.falta ? '#fdecea' : undefined,
+                            }}>
+                              <td style={{ padding: '3px 6px', whiteSpace: 'nowrap' }}>
+                                {f.acept ? fechaLegible(f.acept.aceptado_en) : '—'}
+                              </td>
+                              <td style={{ padding: '3px 6px', color: f.falta ? '#c0392b' : undefined, fontWeight: f.falta ? 600 : undefined }}>
+                                {f.titulo}
+                                {f.acept?.version != null && <span style={{ color: '#7f8c8d' }}> (v{f.acept.version})</span>}
+                                {f.falta && <span style={{ color: '#c0392b' }}> — NO aceptada{f.opcional ? ' (única opcional)' : ''}</span>}
+                                {f.acept?.canal === 'papel' && (
                                   <span style={{ color: '#7f8c8d' }}>
-                                    {' '}{a.documento_ruta ? '· con documento' : ''}
-                                    {a.registrado_por ? ` · recibió: ${a.registrado_por}` : ''}
+                                    {' '}{f.acept.documento_ruta ? '· con documento' : ''}
+                                    {f.acept.registrado_por ? ` · recibió: ${f.acept.registrado_por}` : ''}
                                   </span>
                                 )}
                               </td>
-                              <td style={{ padding: '3px 6px' }}>{ETIQUETA_CANAL[a.canal || ''] || a.canal || '—'}</td>
-                              <td style={{ padding: '3px 6px' }} title={a.user_agent}>{a.ip || '—'}</td>
+                              <td style={{ padding: '3px 6px' }}>
+                                {f.acept ? (ETIQUETA_CANAL[f.acept.canal || ''] || f.acept.canal || '—') : '—'}
+                              </td>
+                              <td style={{ padding: '3px 6px' }} title={f.acept?.user_agent}>{f.acept?.ip || '—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -349,7 +412,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                         background: '#008794', color: '#fff', fontSize: '0.75rem',
                         cursor: 'pointer', fontWeight: 600,
                       }}
-                      title="Envía un enlace (48 h) para que la persona acepte las declaraciones"
+                      title="Envía un enlace (30 días) para que la persona acepte las declaraciones"
                     >
                       <FaEnvelope /> {p.token_pendiente ? 'Reenviar' : 'Enviar autorización'}
                     </button>

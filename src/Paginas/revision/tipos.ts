@@ -40,6 +40,17 @@ export interface Vehiculo {
   // por qué canal — conductor con su cuenta | Seguridad impersonando |
   // Seguridad directa.
   auditoriaVehiculo?: EntradaAuditoria[];
+  // Planillas de Seguridad Social (2026-10-07): se actualizan mensualmente →
+  // cada carga ACUMULA acá (tope 24); `planillaEpsArl` es el espejo de la
+  // última. Las rutas llegan firmadas.
+  documentosPlanillaSegSocial?: Array<{ ruta: string; fecha: string; nombre?: string }>;
+  // Historial UNIVERSAL de documentos: toda subida de cualquier documento
+  // (frente/reverso/reutilización) queda acá con su propio archivo; el campo
+  // del documento apunta a la última versión. Tope 200 en el backend.
+  historialDocumentos?: Array<{
+    tipo: string; etiqueta?: string; ruta: string; fecha: string;
+    nombre?: string; actor?: string; reverso?: boolean;
+  }>;
   [key: string]: any;
 }
 
