@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
-  FaExchangeAlt, FaBan, FaWallet, FaIdCard,
+  FaExchangeAlt, FaBan, FaWallet, FaIdCard, FaTruckMoving,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca' | 'estadovehiculos';
 
 interface Props {
   paginaActual: PaginaMC;
@@ -29,6 +29,7 @@ const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode
   { id: 'otroscostos',    label: 'Otros Costos',          ruta: '/OtrosCostos',          icono: <FaWallet /> },
   { id: 'historicooc',    label: 'Histórico Otros Costos', ruta: '/HistoricoOtrosCostos', icono: <FaHistory /> },
   { id: 'cuentasplaca',   label: 'Cuentas por Placa',      ruta: '/CuentasPlaca',         icono: <FaIdCard /> },
+  { id: 'estadovehiculos', label: 'Estado de Vehículos',   ruta: '/EstadoVehiculos',      icono: <FaTruckMoving /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
@@ -144,6 +145,10 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 }
                 // Cuentas por Placa: ADMIN, OPERATIVO y DESPACHADOR (catálogo regional)
                 if (item.id === 'cuentasplaca' && !['ADMIN', 'OPERATIVO', 'DESPACHADOR'].includes(perfil)) {
+                  return null;
+                }
+                // Estado de Vehículos: vista de solo lectura (OPERATIVO, CONTROL, COORDINADOR, ADMIN)
+                if (item.id === 'estadovehiculos' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
                   return null;
                 }
                 return (

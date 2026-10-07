@@ -646,25 +646,82 @@ body {
     padding-bottom: 3px;
 }
 
-/* --- Grid de datos --- */
-.datos-grid {
+/* --- Pestaña Datos: secciones en tarjeta + campo etiqueta-arriba (2026-10-07) --- */
+.rev-seccion {
+    background: #fff;
+    border: 1px solid #e4eaee;
+    border-radius: 10px;
+    padding: 14px 16px 16px;
+    margin: 0 0 14px;
+}
+
+.rev-seccion-titulo {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #006b77;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2f1f3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rev-campos {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 10px;
-    margin-bottom: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 10px 14px;
 }
 
-.datos-grid p {
-    background-color: #fafbfc;
-    padding: 7px 9px;
-    border-radius: 4px;
-    border: 1px solid #eee;
-    margin: 0;
-    font-size: 0.88rem;
+/* Bloque secundario dentro de una sección (bancarios, SOAT, dueño…). */
+.rev-campos--sub { margin-top: 10px; }
+
+.rev-campo {
+    background: #fafbfc;
+    border: 1px solid #edf1f4;
+    border-radius: 8px;
+    padding: 8px 11px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.rev-campo--ancho { grid-column: 1 / -1; }
+
+.rev-campo-label {
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: #7b8794;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.rev-campo-valor {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #1f2d3d;
     word-break: break-word;
+    white-space: pre-wrap;
 }
 
-.datos-grid--suave p { background-color: #f4f8f5; border-color: #e2ebe4; }
+.rev-campo-valor--vacio { color: #aab4bd; font-weight: 500; font-style: italic; }
+.rev-campo-valor--alerta { color: #c0392b; }
+
+/* Categorías de licencia como chips. */
+.rev-lic-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.rev-lic-chip {
+    background: #e4f0f2;
+    color: #006b77;
+    border: 1px solid #bfe0e5;
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
 
 /* --- Grid de documentos --- */
 .grid-documentos {

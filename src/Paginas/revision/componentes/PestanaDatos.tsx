@@ -63,6 +63,96 @@ const CAMPOS_TEXTO_REQUERIDOS = [
   { key: 'vehClaveSat', label: 'Clave Satelital' },
 ];
 
+/* ── Utilidades de presentación ── */
+
+/** Valor como string; vacíos/nulos → null (el campo pinta «—»). */
+const texto = (v: unknown): string | null =>
+  v === null || v === undefined || String(v).trim() === "" ? null : String(v);
+
+/** "YYYY-MM-DD" (o ISO datetime) → dd/mm/aaaa. Si no parsea, tal cual. */
+const fechaDDMMAAAA = (v?: string | null): string | null => {
+  const t = texto(v);
+  if (!t) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d = new Date(t);
+  if (!isNaN(d.getTime()))
+    return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
+  return t;
+};
+
+/** true si la fecha (dd/mm/aaaa-able) es anterior a hoy — vencida. */
+const vencida = (v?: string | null): boolean => {
+  const t = texto(v);
+  if (!t) return false;
+  const d = new Date(`${t.slice(0, 10)}T00:00:00Z`);
+  if (isNaN(d.getTime())) return false;
+  const hoy = new Date();
+  return d.getTime() < Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
+};
+
+/** "Ciudad · Departamento" (cualquiera de los dos puede faltar). */
+const residencia = (ciudad?: string, depto?: string): string | null =>
+  [texto(ciudad), texto(depto)].filter(Boolean).join(" · ") || null;
+
+/** "TIPO 123456789" para documentos de figura. */
+const documentoFigura = (tipo?: string, numero?: string): string | null =>
+  [texto(tipo), texto(numero)].filter(Boolean).join(" ") || null;
+
+const ETIQUETAS_ESTADO: Record<string, string> = {
+  registro_incompleto: 'Pendiente (registro incompleto)',
+  completado_revision: 'En revisión',
+  aprobado: 'Aprobado',
+  devuelto: 'Devuelto por Seguridad',
+  inactivo: 'Inactivo',
+  en_actualizacion: 'En actualización',
+  rechazado: 'Rechazado',
+};
+
+/* ── Presentación ── */
+
+/** Campo etiqueta-arriba: valor vacío → «—» tenue; alerta → rojo. */
+const Campo: React.FC<{
+  label: string;
+  valor?: React.ReactNode;
+  ancho?: boolean;
+  alerta?: boolean;
+}> = ({ label, valor, ancho, alerta }) => {
+  const vacio = valor === null || valor === undefined || valor === "";
+  return (
+    <div className={`rev-campo${ancho ? ' rev-campo--ancho' : ''}`}>
+      <span className="rev-campo-label">{label}</span>
+      <span className={`rev-campo-valor${vacio ? ' rev-campo-valor--vacio' : ''}${alerta && !vacio ? ' rev-campo-valor--alerta' : ''}`}>
+        {vacio ? '—' : valor}
+      </span>
+    </div>
+  );
+};
+
+/** Fecha de vencimiento formateada, con marca «vencida» si aplica. */
+const Vence: React.FC<{ fecha?: string | null; label?: string }> = ({ fecha, label = 'Vence' }) => {
+  const f = fechaDDMMAAAA(fecha);
+  const v = vencida(fecha);
+  return (
+    <Campo
+      label={label}
+      valor={f ? (v ? `${f} · VENCIDA` : f) : null}
+      alerta={v}
+    />
+  );
+};
+
+/** Categorías de licencia como chips (A1, C2…). */
+const ChipsCategorias: React.FC<{ lic?: string }> = ({ lic }) => {
+  const cats = (lic || '').split(',').map(c => c.trim()).filter(Boolean);
+  if (!cats.length) return null;
+  return (
+    <span className="rev-lic-chips">
+      {cats.map(c => <span key={c} className="rev-lic-chip">{c}</span>)}
+    </span>
+  );
+};
+
 const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
 
   const faltantesTexto = CAMPOS_TEXTO_REQUERIDOS.filter(req => {
@@ -106,223 +196,248 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
   };
 
   const esAprobadoOVigente = veh.estadoIntegra === "aprobado" || veh.estadoIntegra === "inactivo";
+  const estadoLegible = ETIQUETAS_ESTADO[veh.estadoIntegra] || veh.estadoIntegra;
 
   return (
     <div className="rev-detalle-scroll">
-      <div className="datos-grid">
-        <p><strong>Placa:</strong> {veh.placa}</p>
-        <p><strong>Estado:</strong> {veh.estadoIntegra}</p>
-        {(veh.idConductor || veh.invitacionConductor) && (
-          <p style={{ gridColumn: '1 / -1' }}>
-            <strong>Conductor vinculado:</strong>{" "}
-            {veh.idConductor
-              ? `✅ cuenta activa${veh.invitacionConductor?.correo ? ` (${veh.invitacionConductor.correo})` : ""}`
-              : `⏳ invitación ${veh.invitacionConductor?.estado || 'pendiente'} → ${veh.invitacionConductor?.correo || ""}`}
-          </p>
-        )}
 
-        {veh.estadoIntegra === 'registro_incompleto' && totalFaltantes > 0 && (
-            <button className="btn-info-faltante" onClick={mostrarInfoFaltante}>
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">📋 Resumen del vehículo</h4>
+        <div className="rev-campos">
+          <Campo label="Placa" valor={veh.placa} />
+          <Campo label="Estado" valor={estadoLegible} />
+          <Campo label="Estado desde" valor={fechaDDMMAAAA(veh.fechaEstado)} />
+          {(veh.idConductor || veh.invitacionConductor) && (
+            <Campo
+              label="Conductor vinculado"
+              ancho
+              valor={veh.idConductor
+                ? `✅ cuenta activa${veh.invitacionConductor?.correo ? ` (${veh.invitacionConductor.correo})` : ""}`
+                : `⏳ invitación ${veh.invitacionConductor?.estado || 'pendiente'} → ${veh.invitacionConductor?.correo || ""}`}
+            />
+          )}
+          {veh.estadoIntegra === 'registro_incompleto' && totalFaltantes > 0 && (
+            <div className="rev-campo rev-campo--ancho">
+              <button className="btn-info-faltante" onClick={mostrarInfoFaltante}>
                 <FaExclamationTriangle className="icon-alert" />
                 <span>Ver Información Faltante ({totalFaltantes})</span>
-            </button>
-        )}
-
-        {veh.observaciones && (
-            <p style={{
-              gridColumn: '1 / -1',
-              backgroundColor: esAprobadoOVigente ? '#d4edda' : '#fff3cd',
-              border: `1px solid ${esAprobadoOVigente ? '#c3e6cb' : '#ffeeba'}`,
-              color: esAprobadoOVigente ? '#155724' : '#856404',
-              padding: '8px 10px', borderRadius: 6,
-            }}>
-              <strong>{esAprobadoOVigente ? "✅ Observación de Aprobación:" : "⚠️ Últimas Observaciones:"}</strong> {veh.observaciones}
-            </p>
-        )}
-      </div>
-
-      <h4 className="titulo-seccion">👤 Datos del Conductor</h4>
-      <div className="datos-grid">
-        <p><strong>Nombre Completo:</strong> {veh.condNombres} {veh.condPrimerApellido} {veh.condSegundoApellido}</p>
-        <p><strong>Cédula:</strong> {veh.condCedulaCiudadania}</p>
-        <p><strong>Expedida En:</strong> {veh.condExpedidaEn}</p>
-        <p><strong>Dirección:</strong> {veh.condDireccion}</p>
-        <p><strong>Ciudad:</strong> {veh.condCiudad}</p>
-        <p><strong>Celular:</strong> {veh.condCelular}</p>
-        <p><strong>Correo:</strong> {veh.condCorreo}</p>
-        <p><strong>EPS:</strong> {veh.condEps}</p>
-        <p><strong>ARL:</strong> {veh.condArl}</p>
-        <p><strong>Grupo Sanguíneo:</strong> {veh.condGrupoSanguineo}</p>
-      </div>
-      <div className="datos-grid">
-        <p><strong>Licencia No:</strong> {veh.condNoLicencia}</p>
-        <p><strong>Vencimiento Licencia:</strong> {veh.condFechaVencimientoLic}</p>
-        <p><strong>Categorías Licencia:</strong> {(veh.condCategoriaLic || '').split(',').filter(Boolean).join(', ')}</p>
-      </div>
-
-      {(veh.condBanco || veh.condNumeroCuenta) && (
-        <div className="datos-grid datos-grid--suave">
-          <p><strong>Banco:</strong> {veh.condBanco}</p>
-          <p><strong>Tipo de Cuenta:</strong> {veh.condTipoCuenta}</p>
-          <p><strong>No. Cuenta:</strong> {veh.condNumeroCuenta}</p>
-        </div>
-      )}
-
-      <h5 className="titulo-subseccion">📞 Contacto Emergencia & Referencias</h5>
-      <div className="datos-grid">
-        <p><strong>Nombre Emergencia:</strong> {veh.condNombreEmergencia}</p>
-        <p><strong>Celular Emergencia:</strong> {veh.condCelularEmergencia}</p>
-        <p><strong>Parentesco:</strong> {veh.condParentescoEmergencia}</p>
-        <p><strong>Empresa Ref:</strong> {veh.condEmpresaRef}</p>
-        <p><strong>Celular Ref:</strong> {veh.condCelularRef}</p>
-        <p><strong>Ciudad Ref:</strong> {veh.condCiudadRef}</p>
-        <p><strong>Nro Viajes Ref:</strong> {veh.condNroViajesRef}</p>
-        <p><strong>Antigüedad Ref:</strong> {veh.condAntiguedadRef}</p>
-        <p><strong>Mercancía:</strong> {veh.condMercTransportada}</p>
-      </div>
-      {Array.isArray(veh.referenciasAdicionales) && veh.referenciasAdicionales.length > 0 && (
-        veh.referenciasAdicionales.map((ref: any, i: number) => (
-          <div key={`ref-adicional-${i}`} className="datos-grid datos-grid--suave">
-            <p><strong>Empresa Ref {i + 2}:</strong> {ref.empresa}</p>
-            <p><strong>Celular Ref {i + 2}:</strong> {ref.celular}</p>
-            <p><strong>Ciudad Ref {i + 2}:</strong>{' '}
-              {[ref.ciudad, ref.departamento].filter(Boolean).join(' / ')}</p>
-            <p><strong>Nro Viajes:</strong> {ref.nroViajes}</p>
-            <p><strong>Antigüedad:</strong> {ref.antiguedad}</p>
-            <p><strong>Mercancía:</strong> {ref.mercancia}</p>
-          </div>
-        ))
-      )}
-
-      <h4 className="titulo-seccion">🔑 Datos del Propietario</h4>
-      <div className="datos-grid">
-        <p><strong>Nombre:</strong> {veh.propNombre}</p>
-        <p><strong>Documento:</strong> {veh.propDocumento}</p>
-        <p><strong>Ciudad Exp:</strong> {veh.propCiudadExpDoc}</p>
-        <p><strong>Celular:</strong> {veh.propCelular}</p>
-        <p><strong>Correo:</strong> {veh.propCorreo}</p>
-        <p><strong>Dirección:</strong> {veh.propDireccion}</p>
-        <p><strong>Ciudad:</strong> {veh.propCiudad}</p>
-      </div>
-      {(veh.propBanco || veh.propNumeroCuenta) && (
-        <div className="datos-grid datos-grid--suave">
-          <p><strong>Banco:</strong> {veh.propBanco}</p>
-          <p><strong>Tipo de Cuenta:</strong> {veh.propTipoCuenta}</p>
-          <p><strong>No. Cuenta:</strong> {veh.propNumeroCuenta}</p>
-        </div>
-      )}
-      {(veh.propFechaInicioActividad || veh.propFechaExpedicionRut) && (
-        <div className="datos-grid datos-grid--suave">
-          <p><strong>Inicio de Actividad (RUT):</strong> {veh.propFechaInicioActividad}</p>
-          <p><strong>Fecha Expedición RUT:</strong> {veh.propFechaExpedicionRut}</p>
-        </div>
-      )}
-
-      <h4 className="titulo-seccion">🤝 Datos del Tenedor</h4>
-      <div className="datos-grid">
-        <p><strong>Nombre:</strong> {veh.tenedNombre}</p>
-        <p><strong>Documento:</strong> {veh.tenedDocumento}</p>
-        <p><strong>Ciudad Exp:</strong> {veh.tenedCiudadExpDoc}</p>
-        <p><strong>Celular:</strong> {veh.tenedCelular}</p>
-        <p><strong>Correo:</strong> {veh.tenedCorreo}</p>
-        <p><strong>Dirección:</strong> {veh.tenedDireccion}</p>
-        <p><strong>Ciudad:</strong> {veh.tenedCiudad}</p>
-      </div>
-      {(veh.tenedBanco || veh.tenedNumeroCuenta) && (
-        <div className="datos-grid datos-grid--suave">
-          <p><strong>Banco:</strong> {veh.tenedBanco}</p>
-          <p><strong>Tipo de Cuenta:</strong> {veh.tenedTipoCuenta}</p>
-          <p><strong>No. Cuenta:</strong> {veh.tenedNumeroCuenta}</p>
-        </div>
-      )}
-      {(veh.tenedFechaInicioActividad || veh.tenedFechaExpedicionRut) && (
-        <div className="datos-grid datos-grid--suave">
-          <p><strong>Inicio de Actividad (RUT):</strong> {veh.tenedFechaInicioActividad}</p>
-          <p><strong>Fecha Expedición RUT:</strong> {veh.tenedFechaExpedicionRut}</p>
-        </div>
-      )}
-
-      <h4 className="titulo-seccion">🚚 Datos del Vehículo</h4>
-      <div className="datos-grid">
-        <p><strong>Placa:</strong> {veh.placa}</p>
-        <p><strong>Marca:</strong> {veh.vehMarca}</p>
-        <p><strong>Línea:</strong> {veh.vehLinea}</p>
-        <p><strong>Modelo:</strong> {veh.vehModelo}</p>
-        {/* Capacidad de carga con semáforo de rango: verde si está entre
-            300–50.000 kg, rojo si está fuera o vacía (exigida al aprobar). */}
-        <p>
-          <strong>Capacidad de Carga:</strong>{' '}
-          {(() => {
-            const cap = parseInt(String(veh.vehCapacidadCarga ?? '').replace(/\D/g, ''), 10);
-            const ok = !isNaN(cap) && cap >= 300 && cap <= 50000;
-            return <span style={{ color: ok ? '#155724' : '#c0392b', fontWeight: ok ? 600 : 700 }}>
-              {isNaN(cap) ? 'No registrada' : `${cap.toLocaleString('es-CO')} kg`}{ok ? '' : ' (fuera de rango 300–50.000)'}
-            </span>;
-          })()}
-        </p>
-        {/* Año de repotenciación: solo aplica (y solo se diligencia en el
-            formulario) cuando el vehículo es repotenciado. */}
-        {veh.vehRepotenciado === 'Sí' && <p><strong>Año Repotenciación:</strong> {veh.vehAno}</p>}
-        <p><strong>Color:</strong> {veh.vehColor}</p>
-        <p><strong>Carrocería:</strong> {veh.vehTipoCarroceria}</p>
-        <p><strong>Repotenciado:</strong> {veh.vehRepotenciado}</p>
-      </div>
-
-      {(veh.vehNoLicTransito || veh.vehVin || veh.vehChasis || veh.vehMotor) && (
-        <div className="datos-grid datos-grid--suave">
-          <p><strong>Nº Licencia de Tránsito:</strong> {veh.vehNoLicTransito}</p>
-          <p><strong>Código Licencia (LT):</strong> {veh.vehCodigoLicTransito}</p>
-          <p><strong>Clase:</strong> {veh.vehClase}</p>
-          <p><strong>Servicio:</strong> {veh.vehServicio}</p>
-          <p><strong>Cilindraje:</strong> {veh.vehCilindraje ? `${veh.vehCilindraje} c.c.` : ''}</p>
-          <p><strong>Combustible:</strong> {veh.vehCombustible}</p>
-          <p><strong>Capacidad Pasajeros:</strong> {veh.vehCapPasajeros}</p>
-          <p><strong>Potencia:</strong> {veh.vehPotencia}</p>
-          <p><strong>VIN:</strong> {veh.vehVin}</p>
-          <p><strong>Nº Chasis:</strong> {veh.vehChasis}</p>
-          <p><strong>Nº Motor:</strong> {veh.vehMotor}</p>
-          <p><strong>Nº Puertas:</strong> {veh.vehPuertas}</p>
-          <p><strong>Fecha Matrícula:</strong> {veh.vehFechaMatricula}</p>
-          <p><strong>Organismo de Tránsito:</strong> {veh.vehOrganismoTransito}</p>
-          <p><strong>Blindaje:</strong> {veh.vehBlindaje}</p>
-          <p><strong>Limitación a la Propiedad:</strong> {veh.vehLimitacionProp}</p>
-        </div>
-      )}
-
-      {(veh.vehAseguradoraSoat || veh.vehVencimientoSoat) && (
-        <div className="datos-grid datos-grid--suave">
-          <p><strong>Aseguradora SOAT:</strong> {veh.vehAseguradoraSoat}</p>
-          <p><strong>Póliza SOAT:</strong> {veh.vehPolizaSoat}</p>
-          <p><strong>Vence SOAT:</strong> {veh.vehVencimientoSoat}</p>
-        </div>
-      )}
-
-      <div className="datos-grid datos-grid--suave">
-        <p><strong>Empresa Satélite:</strong> {veh.vehEmpresaSat}</p>
-        <p><strong>Usuario Satélite:</strong> {veh.vehUsuarioSat}</p>
-        <p><strong>Clave Satélite:</strong> {veh.vehClaveSat}</p>
-      </div>
-
-      {(veh.RemolPlaca || veh.tarjetaRemolque || veh.RemolDuenoDocumento) && (
-        <>
-          <h4 className="titulo-seccion">🚛 Datos del Remolque</h4>
-          <div className="datos-grid">
-            <p><strong>Placa Remolque:</strong> {veh.RemolPlaca}</p>
-            <p><strong>Modelo:</strong> {veh.RemolModelo}</p>
-            <p><strong>Clase:</strong> {veh.RemolClase}</p>
-            <p><strong>Carrocería:</strong> {veh.RemolTipoCarroceria}</p>
-            <p><strong>Alto:</strong> {veh.RemolAlto}</p>
-            <p><strong>Largo:</strong> {veh.RemolLargo}</p>
-            <p><strong>Ancho:</strong> {veh.RemolAncho}</p>
-          </div>
-          {veh.RemolDuenoDocumento && (
-            <div className="datos-grid datos-grid--suave">
-              <p><strong>Dueño:</strong> {veh.RemolDuenoNombre}</p>
-              <p><strong>Doc. Dueño:</strong> {veh.RemolDuenoTipoDocumento} {veh.RemolDuenoDocumento}</p>
-              <p><strong>Expedida en:</strong> {veh.RemolDuenoCiudadExpDoc}</p>
+              </button>
             </div>
           )}
-        </>
+          {veh.observaciones && (
+            <Campo
+              label={esAprobadoOVigente ? "✅ Observación de aprobación" : "⚠️ Últimas observaciones"}
+              ancho
+              valor={veh.observaciones}
+              alerta={!esAprobadoOVigente}
+            />
+          )}
+        </div>
+      </section>
+
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">👤 Datos del Conductor</h4>
+        <div className="rev-campos">
+          <Campo label="Nombre completo" ancho
+                 valor={[veh.condNombres, veh.condPrimerApellido, veh.condSegundoApellido].filter(Boolean).join(' ')} />
+          <Campo label="Cédula" valor={veh.condCedulaCiudadania} />
+          <Campo label="Fecha de nacimiento" valor={fechaDDMMAAAA(veh.condFechaNacimiento)} />
+          <Campo label="Cédula expedida en" valor={veh.condExpedidaEn} />
+          <Campo label="Fecha expedición cédula" valor={fechaDDMMAAAA(veh.condFechaExpedicion)} />
+          <Campo label="Residencia" valor={residencia(veh.condCiudad, veh.condDeptoCiudad)} />
+          <Campo label="Dirección" valor={veh.condDireccion} />
+          <Campo label="Celular" valor={veh.condCelular} />
+          <Campo label="Correo" valor={veh.condCorreo} />
+          <Campo label="EPS" valor={veh.condEps} />
+          <Campo label="ARL" valor={veh.condArl} />
+          <Campo label="Grupo sanguíneo (RH)" valor={veh.condGrupoSanguineo} />
+        </div>
+      </section>
+
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">🪪 Licencia de Conducción</h4>
+        <div className="rev-campos">
+          <Campo label="Número" valor={veh.condNoLicencia} />
+          <Campo label="Categorías" valor={<ChipsCategorias lic={veh.condCategoriaLic} />} />
+          <Vence fecha={veh.condFechaVencimientoLic} label="Vence licencia" />
+        </div>
+        {(veh.condBanco || veh.condNumeroCuenta) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Banco" valor={veh.condBanco} />
+            <Campo label="Tipo de cuenta" valor={veh.condTipoCuenta} />
+            <Campo label="No. cuenta" valor={veh.condNumeroCuenta} />
+          </div>
+        )}
+      </section>
+
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">📞 Emergencia</h4>
+        <div className="rev-campos">
+          <Campo label="Nombre" valor={veh.condNombreEmergencia} />
+          <Campo label="Celular" valor={veh.condCelularEmergencia} />
+          <Campo label="Parentesco" valor={veh.condParentescoEmergencia} />
+        </div>
+      </section>
+
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">🤝 Referencias laborales</h4>
+        <div className="rev-campos">
+          <Campo label="Empresa" valor={veh.condEmpresaRef} />
+          <Campo label="Celular" valor={veh.condCelularRef} />
+          <Campo label="Ciudad" valor={residencia(veh.condCiudadRef, veh.condDeptoCiudadRef)} />
+          <Campo label="Nro. viajes" valor={veh.condNroViajesRef} />
+          <Campo label="Antigüedad (años)" valor={veh.condAntiguedadRef} />
+          <Campo label="Mercancía transportada" valor={veh.condMercTransportada} />
+        </div>
+        {Array.isArray(veh.referenciasAdicionales) && veh.referenciasAdicionales.length > 0 && (
+          veh.referenciasAdicionales.map((ref: any, i: number) => (
+            <div key={`ref-adicional-${i}`} className="rev-campos rev-campos--sub">
+              <Campo label={`Empresa (ref ${i + 2})`} valor={ref.empresa} />
+              <Campo label={`Celular (ref ${i + 2})`} valor={ref.celular} />
+              <Campo label={`Ciudad (ref ${i + 2})`} valor={residencia(ref.ciudad, ref.departamento)} />
+              <Campo label="Nro. viajes" valor={ref.nroViajes} />
+              <Campo label="Antigüedad (años)" valor={ref.antiguedad} />
+              <Campo label="Mercancía" valor={ref.mercancia} />
+            </div>
+          ))
+        )}
+      </section>
+
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">🔑 Propietario</h4>
+        <div className="rev-campos">
+          <Campo label="Nombre / razón social" ancho valor={veh.propNombre} />
+          <Campo label="Documento" valor={documentoFigura(veh.propTipoDocumento, veh.propDocumento)} />
+          <Campo label="Expedida en" valor={veh.propCiudadExpDoc} />
+          <Campo label="Correo" valor={veh.propCorreo} />
+          <Campo label="Celular" valor={veh.propCelular} />
+          <Campo label="Dirección" valor={veh.propDireccion} />
+          <Campo label="Residencia" valor={residencia(veh.propCiudad, veh.propDeptoCiudad)} />
+        </div>
+        {/* Bloques históricos: el formulario ya no pide bancarios ni fechas de
+            RUT del propietario (2026-09-03), pero vehículos viejos los tienen. */}
+        {(veh.propBanco || veh.propNumeroCuenta) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Banco" valor={veh.propBanco} />
+            <Campo label="Tipo de cuenta" valor={veh.propTipoCuenta} />
+            <Campo label="No. cuenta" valor={veh.propNumeroCuenta} />
+          </div>
+        )}
+        {(veh.propFechaInicioActividad || veh.propFechaExpedicionRut) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Inicio de actividad (RUT)" valor={fechaDDMMAAAA(veh.propFechaInicioActividad)} />
+            <Campo label="Fecha expedición RUT" valor={fechaDDMMAAAA(veh.propFechaExpedicionRut)} />
+          </div>
+        )}
+      </section>
+
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">🤝 Tenedor</h4>
+        <div className="rev-campos">
+          <Campo label="Nombre / razón social" ancho valor={veh.tenedNombre} />
+          <Campo label="Documento" valor={documentoFigura(veh.tenedTipoDocumento, veh.tenedDocumento)} />
+          <Campo label="Expedida en" valor={veh.tenedCiudadExpDoc} />
+          <Campo label="Correo" valor={veh.tenedCorreo} />
+          <Campo label="Celular" valor={veh.tenedCelular} />
+          <Campo label="Dirección" valor={veh.tenedDireccion} />
+          <Campo label="Residencia" valor={residencia(veh.tenedCiudad, veh.tenedDeptoCiudad)} />
+        </div>
+        {(veh.tenedBanco || veh.tenedNumeroCuenta) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Banco" valor={veh.tenedBanco} />
+            <Campo label="Tipo de cuenta" valor={veh.tenedTipoCuenta} />
+            <Campo label="No. cuenta" valor={veh.tenedNumeroCuenta} />
+          </div>
+        )}
+        {(veh.tenedFechaInicioActividad || veh.tenedFechaExpedicionRut) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Inicio de actividad (RUT)" valor={fechaDDMMAAAA(veh.tenedFechaInicioActividad)} />
+            <Campo label="Fecha expedición RUT" valor={fechaDDMMAAAA(veh.tenedFechaExpedicionRut)} />
+          </div>
+        )}
+      </section>
+
+      <section className="rev-seccion">
+        <h4 className="rev-seccion-titulo">🚚 Datos del Vehículo</h4>
+        <div className="rev-campos">
+          <Campo label="Marca" valor={veh.vehMarca} />
+          <Campo label="Línea" valor={veh.vehLinea} />
+          <Campo label="Modelo" valor={veh.vehModelo} />
+          <Campo label="Color" valor={veh.vehColor} />
+          <Campo label="Carrocería" valor={veh.vehTipoCarroceria} />
+          <Campo label="Repotenciado" valor={veh.vehRepotenciado} />
+          {veh.vehRepotenciado === 'Sí' && <Campo label="Año repotenciación" valor={veh.vehAno} />}
+          {/* Capacidad de carga con semáforo de rango: verde si está entre
+              300–50.000 kg, rojo si está fuera o vacía (exigida al aprobar). */}
+          <Campo
+            label="Capacidad de carga"
+            valor={(() => {
+              const cap = parseInt(String(veh.vehCapacidadCarga ?? '').replace(/\D/g, ''), 10);
+              return isNaN(cap) ? null : `${cap.toLocaleString('es-CO')} kg`;
+            })()}
+            alerta={(() => {
+              const cap = parseInt(String(veh.vehCapacidadCarga ?? '').replace(/\D/g, ''), 10);
+              return isNaN(cap) || cap < 300 || cap > 50000;
+            })()}
+          />
+        </div>
+        {(veh.vehNoLicTransito || veh.vehVin || veh.vehChasis || veh.vehMotor) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Nº licencia de tránsito" valor={veh.vehNoLicTransito} />
+            <Campo label="Código licencia (LT)" valor={veh.vehCodigoLicTransito} />
+            <Campo label="Clase" valor={veh.vehClase} />
+            <Campo label="Servicio" valor={veh.vehServicio} />
+            <Campo label="Cilindraje" valor={texto(veh.vehCilindraje) ? `${veh.vehCilindraje} c.c.` : null} />
+            <Campo label="Combustible" valor={veh.vehCombustible} />
+            <Campo label="Capacidad pasajeros" valor={veh.vehCapPasajeros} />
+            <Campo label="Potencia" valor={veh.vehPotencia} />
+            <Campo label="VIN" valor={veh.vehVin} />
+            <Campo label="Nº chasis" valor={veh.vehChasis} />
+            <Campo label="Nº motor" valor={veh.vehMotor} />
+            <Campo label="Nº puertas" valor={veh.vehPuertas} />
+            <Campo label="Fecha matrícula" valor={fechaDDMMAAAA(veh.vehFechaMatricula)} />
+            <Campo label="Organismo de tránsito" valor={veh.vehOrganismoTransito} />
+            <Campo label="Blindaje" valor={veh.vehBlindaje} />
+            <Campo label="Limitación a la propiedad" valor={veh.vehLimitacionProp} />
+          </div>
+        )}
+        {(veh.vehAseguradoraSoat || veh.vehVencimientoSoat) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Aseguradora SOAT" valor={veh.vehAseguradoraSoat} />
+            <Campo label="Póliza SOAT" valor={veh.vehPolizaSoat} />
+            <Vence fecha={veh.vehVencimientoSoat} label="Vence SOAT" />
+          </div>
+        )}
+        {(veh.vehEmpresaSat || veh.vehUsuarioSat || veh.vehClaveSat) && (
+          <div className="rev-campos rev-campos--sub">
+            <Campo label="Empresa satelital" valor={veh.vehEmpresaSat} />
+            <Campo label="Usuario satelital" valor={veh.vehUsuarioSat} />
+            <Campo label="Clave satelital" valor={veh.vehClaveSat} />
+          </div>
+        )}
+      </section>
+
+      {(veh.RemolPlaca || veh.tarjetaRemolque || veh.RemolDuenoDocumento) && (
+        <section className="rev-seccion">
+          <h4 className="rev-seccion-titulo">🚛 Datos del Remolque</h4>
+          <div className="rev-campos">
+            <Campo label="Placa remolque" valor={veh.RemolPlaca} />
+            <Campo label="Modelo" valor={veh.RemolModelo} />
+            <Campo label="Clase/config" valor={veh.RemolClase} />
+            <Campo label="Carrocería" valor={veh.RemolTipoCarroceria} />
+            <Campo label="Alto (m)" valor={veh.RemolAlto} />
+            <Campo label="Largo (m)" valor={veh.RemolLargo} />
+            <Campo label="Ancho (m)" valor={veh.RemolAncho} />
+          </div>
+          {veh.RemolDuenoDocumento && (
+            <div className="rev-campos rev-campos--sub">
+              <Campo label="Dueño" valor={veh.RemolDuenoNombre} />
+              <Campo label="Doc. dueño" valor={documentoFigura(veh.RemolDuenoTipoDocumento, veh.RemolDuenoDocumento)} />
+              <Campo label="Expedida en" valor={veh.RemolDuenoCiudadExpDoc} />
+              <Campo label="Correo (autorización de datos)" valor={veh.RemolDuenoCorreo} />
+            </div>
+          )}
+        </section>
       )}
     </div>
   );
