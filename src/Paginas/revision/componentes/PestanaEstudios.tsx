@@ -134,6 +134,8 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
   const [documentos, setDocumentos] = useState<DocumentoEstudio[]>([]);
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
   const [subiendoDoc, setSubiendoDoc] = useState(false);
+  /** Progreso de la tanda multi-archivo: "Subiendo 2 de 3…". */
+  const [progresoSubida, setProgresoSubida] = useState<{ i: number; n: number } | null>(null);
   const [reintentando, setReintentando] = useState<string | null>(null);
   const vivoRef = useRef(true);
   const sondeandoRef = useRef(false);
@@ -270,21 +272,46 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
     }
   };
 
-  /** Carga de un PDF de estudio: ACUMULA en el historial del vehículo. */
-  const subirDocumento = async (archivo: File) => {
+  /** Carga de PDFs de estudio (2026-10-06: uno o VARIOS en la misma tanda):
+   *  suben secuencialmente y ACUMULAN en el historial del vehículo — nada
+   *  se reemplaza ni se borra. */
+  const subirDocumentos = async (archivos: File[]) => {
     setSubiendoDoc(true);
-    try {
-      const fd = new FormData();
-      fd.append('placa', veh.placa);
-      fd.append('archivo', archivo);
-      await axios.put(`${API_BASE}/vehiculos/subir-estudio-seguridad`, fd);
-      await cargar(); // la tabla gana la nueva fila con su fecha
-      Swal.fire({ title: 'Estudio cargado', text: 'El documento quedó en el historial del vehículo.', icon: 'success', timer: 2000, showConfirmButton: false });
-    } catch (err: any) {
-      Swal.fire('No se pudo cargar', err?.response?.data?.detail || 'Error al subir el archivo.', 'error');
-    } finally {
-      setSubiendoDoc(false);
-      if (inputDocRef.current) inputDocRef.current.value = '';
+    const fallidos: { nombre: string; motivo: string }[] = [];
+    for (let idx = 0; idx < archivos.length; idx++) {
+      setProgresoSubida({ i: idx + 1, n: archivos.length });
+      try {
+        const fd = new FormData();
+        fd.append('placa', veh.placa);
+        fd.append('archivo', archivos[idx]);
+        await axios.put(`${API_BASE}/vehiculos/subir-estudio-seguridad`, fd);
+      } catch (err: any) {
+        fallidos.push({
+          nombre: archivos[idx].name,
+          motivo: err?.response?.data?.detail || 'Error al subir el archivo.',
+        });
+      }
+    }
+    setProgresoSubida(null);
+    setSubiendoDoc(false);
+    if (inputDocRef.current) inputDocRef.current.value = '';
+    await cargar(); // la tabla gana las filas nuevas con su fecha
+    const exitosos = archivos.length - fallidos.length;
+    if (!fallidos.length) {
+      Swal.fire({
+        title: archivos.length === 1 ? 'Estudio cargado' : `${exitosos} estudios cargados`,
+        text: archivos.length === 1
+          ? 'El documento quedó en el historial del vehículo.'
+          : 'Todos los documentos quedaron en el historial del vehículo.',
+        icon: 'success', timer: 2200, showConfirmButton: false,
+      });
+    } else {
+      Swal.fire({
+        title: `${exitosos} de ${archivos.length} cargados`,
+        html: fallidos.map(f => `<b>${f.nombre}</b>: ${f.motivo}`).join('<br/>'),
+        icon: exitosos ? 'warning' : 'error',
+        confirmButtonColor: '#00a5b5',
+      });
     }
   };
 
@@ -295,7 +322,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
         <div className="rev-est-titulo">
           <strong>Estudio de seguridad del vehículo</strong>
           <span className="rev-est-id">
-            Consulta automática por cédulas de las figuras + placa · los PDF cargados y los reportes quedan en el historial
+            Consulta automática por cédulas de las figuras + placa · los PDF cargados y los reportes quedan en el historial (puedes seleccionar varios a la vez)
           </span>
         </div>
         <div className="rev-est-acciones">
@@ -307,16 +334,20 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
             <FaRedo /> Volver a consultar
           </button>
           <button className="rev-est-btn-pdf" onClick={() => inputDocRef.current?.click()} disabled={subiendoDoc}>
-            <FaUpload /> {subiendoDoc ? 'Subiendo…' : 'Cargar estudio (PDF)'}
+            <FaUpload />{' '}
+            {subiendoDoc
+              ? (progresoSubida ? `Subiendo ${progresoSubida.i} de ${progresoSubida.n}…` : 'Subiendo…')
+              : 'Cargar estudio (PDF)'}
           </button>
           <input
             ref={inputDocRef}
             type="file"
             accept="application/pdf,image/*"
+            multiple
             hidden
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) subirDocumento(f);
+              const archivos = Array.from(e.target.files ?? []);
+              if (archivos.length) subirDocumentos(archivos);
             }}
           />
         </div>

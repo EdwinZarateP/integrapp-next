@@ -31,6 +31,29 @@ interface AccionesVehiculoProps {
 const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) => {
 
   const aprobarVehiculo = async () => {
+    // 2026-10-06 (pedido del usuario): para aprobar debe existir AL MENOS un
+    // archivo PDF de estudio de seguridad (adjunto cargado por Seguridad o
+    // automático finalizado con reporte). El backend lo EXIGE también; esto
+    // es el aviso temprano con indicación de dónde cargarlo.
+    try {
+      const res = await axios.get(`${API_BASE}/vehiculos/estudios-seguridad/${veh.placa}`);
+      const conReporte = [...(res.data.estudios || []), ...(res.data.historico || [])]
+        .some((e: any) => e.estado === 'finalizado' && e.reporte_id);
+      const hayEstudio = (res.data.documentos || []).length > 0 || conReporte;
+      if (!hayEstudio) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Falta el estudio de seguridad',
+          html: `Para aprobar <b>${veh.placa}</b> debe haber al menos un archivo PDF de estudio de seguridad.<br/><br/>Cárgalo (puedes subir varios a la vez) o lanza la consulta automática desde la pestaña <b>Estudios</b>.`,
+          confirmButtonColor: '#e67e22',
+        });
+        return;
+      }
+    } catch {
+      // Si la verificación falla (conexión), continúa: el backend hace el
+      // mismo gate y su detalle llega en el Swal de error.
+    }
+
     // 2026-10-05 (orden del usuario): el modal de aprobar SOLO pide el
     // comentario — la foto del conductor (condFoto, paso 3) y el estudio de
     // seguridad (PDFs/estudios automáticos) ya viven en el vehículo y se
