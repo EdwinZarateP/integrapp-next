@@ -427,7 +427,7 @@ a.OC-adjItem:hover { background: #f0fdfa; border-color: #99f6e4; }
 
 .OC-costRow {
   display: grid;
-  grid-template-columns: 1.1fr 1.4fr 0.7fr auto;
+  grid-template-columns: 1fr 1.2fr 1.2fr 0.7fr auto;
   gap: 0.5rem;
   align-items: end;
   margin-bottom: 0.5rem;

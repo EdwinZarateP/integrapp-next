@@ -8,6 +8,7 @@ export interface CostoConcepto {
   tipo_costo: string;
   descripcion: string;
   valor: number;
+  proveedor?: string;  // por concepto; obligatorio en CARGUE/DESCARGUE
 }
 
 export interface DatosServicio {
@@ -161,6 +162,12 @@ export const getTiposCuenta = async (): Promise<string[]> => {
 
 export const getClientes = async (): Promise<string[]> => {
   const res = await axios.get<string[]>(`${BASE_URL}/clientes`);
+  return res.data;
+};
+
+// Proveedores del campo opcional del formulario (catálogo editable en Mongo)
+export const getProveedores = async (): Promise<string[]> => {
+  const res = await axios.get<string[]>(`${BASE_URL}/proveedores`);
   return res.data;
 };
 

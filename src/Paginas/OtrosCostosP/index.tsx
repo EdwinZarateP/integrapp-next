@@ -14,7 +14,7 @@ import {
   listarActivos, obtenerDetalleActivo, buscarPedidos, crearSolicitud, editarSolicitud,
   enviarAprobacion, aprobarSolicitud, devolverSolicitud, rechazarSolicitud,
   registrarPago, anularSolicitud, exportarExcel, marcarTramiteVulcano,
-  getTiposCosto, getBancos, getTiposCuenta, getClientes, obtenerMiAlcance,
+  getTiposCosto, getBancos, getTiposCuenta, getClientes, getProveedores, obtenerMiAlcance,
   exportarPago, importarPago, verificarManifiesto, listarPagables,
   type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado, type BancoCatalogo,
   type Adjunto,
@@ -33,6 +33,9 @@ const MAX_ADJUNTOS = 10;
 const MAX_ADJUNTO_MB = 10;
 const TIPOS_ADJUNTO = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
 const ACCEPT_ADJUNTOS = 'image/jpeg,image/jpg,image/png,application/pdf';
+
+// Tipos de costo que EXIGEN proveedor (cargues y descargues: siempre debe ir una opción).
+const TIPOS_COSTO_REQUIEREN_PROVEEDOR = ['CARGUE', 'DESCARGUE'];
 
 const formatTamano = (bytes: number): string => {
   const b = Number(bytes || 0);
@@ -138,7 +141,7 @@ const formVacio = (): FormState => ({
   pedido_encontrado: true,
   motivo_no_encontrado: '',
   datos_servicio: { cliente: '', centro_distribucion: '', fecha_servicio: '', piezas: 0, peso_real: 0, tipo_vehiculo: '', placa: '', municipio_destino: '', departamento_destino: '', transportador: '', manifiesto: '' },
-  costos: [{ tipo_costo: '', descripcion: '', valor: 0 }],
+  costos: [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '' }],
   datos_bancarios: { banco: '', tipo_cuenta: '', numero_cuenta: '', tipo_id_titular: 'CC', cedula_titular: '', nombre_titular: '' },
   conductor: { nombre: '', telefono: '' },
 });
@@ -158,6 +161,7 @@ const OtrosCostosP: React.FC = () => {
   const [bancos, setBancos] = useState<BancoCatalogo[]>([]);
   const [tiposCuenta, setTiposCuenta] = useState<string[]>([]);
   const [clientes, setClientes] = useState<string[]>([]);
+  const [proveedores, setProveedores] = useState<string[]>([]);
   // Alcance de aprobación por cliente del usuario (COORDINADOR/CONTROL)
   const [alcance, setAlcance] = useState<{ perfil: string; todos: boolean; clientes: string[] } | null>(null);
 
@@ -205,6 +209,7 @@ const OtrosCostosP: React.FC = () => {
     getBancos().then(setBancos).catch(() => {});
     getTiposCuenta().then(setTiposCuenta).catch(() => {});
     getClientes().then(setClientes).catch(() => {});
+    getProveedores().then(setProveedores).catch(() => {});
     // Alcance de aprobación por cliente (sólo informativo; el backend filtra y valida)
     obtenerMiAlcance(u).then(a => setAlcance((p === 'COORDINADOR' || p === 'CONTROL') ? a : null)).catch(() => {});
     cargarListado(u, p);
@@ -427,7 +432,7 @@ const OtrosCostosP: React.FC = () => {
       return { ...f, costos };
     });
   };
-  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', descripcion: '', valor: 0 }] }));
+  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', descripcion: '', valor: 0, proveedor: '' }] }));
   const removeCosto = (i: number) => setForm((f) => ({ ...f, costos: f.costos.length > 1 ? f.costos.filter((_, idx) => idx !== i) : f.costos }));
 
   // ── Abrir modales ──────────────────────────────────────────────────────────
@@ -460,7 +465,7 @@ const OtrosCostosP: React.FC = () => {
         pedido_encontrado: d.pedido_encontrado,
         motivo_no_encontrado: d.motivo_no_encontrado,
         datos_servicio: { ...d.datos_servicio, fecha_servicio: d.datos_servicio.fecha_servicio || '' },
-        costos: d.costos.length ? d.costos : [{ tipo_costo: '', descripcion: '', valor: 0 }],
+        costos: d.costos.length ? d.costos.map((c) => ({ ...c, proveedor: c.proveedor || '' })) : [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '' }],
         datos_bancarios: { ...d.datos_bancarios, tipo_id_titular: d.datos_bancarios?.tipo_id_titular || 'CC' },
         conductor: d.conductor,
       });
@@ -527,6 +532,9 @@ const OtrosCostosP: React.FC = () => {
       if (!c.tipo_costo) return 'Cada concepto debe tener tipo de costo.';
       if (!c.descripcion.trim()) return 'La descripción es obligatoria.';
       if (!(Number(c.valor) > 0)) return 'El valor de cada costo debe ser mayor que cero.';
+      if (TIPOS_COSTO_REQUIEREN_PROVEEDOR.includes((c.tipo_costo || '').trim().toUpperCase()) && !(c.proveedor || '').trim()) {
+        return `El proveedor es obligatorio en el concepto de ${c.tipo_costo} (cargues y descargues).`;
+      }
     }
     const totalCostos = form.costos.reduce((acc, c) => acc + (Number(c.valor) || 0), 0);
     if (totalCostos > LIMITE_VALOR_TOTAL) return `El valor total (${formatMoney(totalCostos)}) supera el máximo permitido (${formatMoney(LIMITE_VALOR_TOTAL)}).`;
@@ -1044,12 +1052,12 @@ const OtrosCostosP: React.FC = () => {
             <div className="OC-modalSection">Conceptos del costo</div>
             <div className="OC-tableContainer" style={{ boxShadow: 'none' }}>
               <table className="OC-table" style={{ minWidth: 0 }}>
-                <thead><tr><th>Tipo</th><th>Descripción</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
+                <thead><tr><th>Tipo</th><th>Descripción</th><th>Proveedor</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
                 <tbody>
                   {(detalle.costos || []).map((c, i) => (
-                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
+                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td>{c.proveedor || '-'}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
                   ))}
-                  <tr><td colSpan={2} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
+                  <tr><td colSpan={3} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1269,6 +1277,23 @@ const OtrosCostosP: React.FC = () => {
                     const v = e.target.value;
                     updateCosto(i, 'valor', v === '' ? '' : Math.min(Number(v), LIMITE_VALOR_TOTAL));
                   }} onWheel={(e) => e.currentTarget.blur()} />
+                </div>
+                <div className="OC-field">
+                  <label className="OC-label">
+                    {TIPOS_COSTO_REQUIEREN_PROVEEDOR.includes((c.tipo_costo || '').trim().toUpperCase()) ? 'Proveedor *' : 'Proveedor'}
+                  </label>
+                  <select
+                    className="OC-select"
+                    style={TIPOS_COSTO_REQUIEREN_PROVEEDOR.includes((c.tipo_costo || '').trim().toUpperCase()) && !(c.proveedor || '').trim() ? { borderColor: '#dc2626' } : undefined}
+                    value={c.proveedor || ''}
+                    onChange={(e) => updateCosto(i, 'proveedor', e.target.value.toUpperCase())}
+                  >
+                    <option value="">Seleccione...</option>
+                    {proveedores.map((p) => <option key={p} value={p}>{p}</option>)}
+                    {c.proveedor && !proveedores.includes(c.proveedor) && (
+                      <option value={c.proveedor}>{c.proveedor}</option>
+                    )}
+                  </select>
                 </div>
                 <button className="OC-btnAction" title="Quitar" style={{ background: '#dc2626', alignSelf: 'end' }} onClick={() => removeCosto(i)}><FaTrash /></button>
                 <div className="OC-field" style={{ gridColumn: '1 / -1' }}>
