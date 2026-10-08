@@ -2172,6 +2172,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     [formData['condNombres'], formData['condPrimerApellido'], formData['condSegundoApellido']]
       .filter(Boolean).join(' ').trim() || null;
 
+  // (2026-10-08) NO auto-invitación: si el correo del conductor es el de la
+  // PROPIA cuenta, invitarlo es imposible (el backend rechaza que la cuenta
+  // TENEDOR sea su propio conductor) y no tiene sentido: esa persona YA es el
+  // dueño de la ficha. Caso real: TFU961 (dueño=tenedor=propietario=conductor).
+  const esCorreoCuentaPropia = (correo: string) =>
+    !!correo && correo === (Cookies.get('conductorCorreo') || '').trim().toLowerCase();
+
   // Disparo automático: 900 ms después de que el correo queda bien escrito
   // (debounce) — solo si no hay conductor vinculado ni invitación pendiente
   // para ESE correo, y una única vez por correo digitado.
@@ -2185,6 +2192,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       return;
     }
     if (!correoValido
+        || esCorreoCuentaPropia(correo)
         || correoOfrecidoRef.current === correo
         || vinculacionConductor?.idConductor
         || (vinculacionConductor?.invitacion?.correo || '').toLowerCase() === correo) return;
@@ -2200,6 +2208,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     const correo = correoConductorForm();
     if (!correo.includes('@') || correo.length < 6) {
       Swal.fire('Falta el correo', 'Diligencia el <b>Correo Electrónico</b> del conductor en la sección Conductor para poder invitarlo.', 'warning');
+      return;
+    }
+    if (esCorreoCuentaPropia(correo)) {
+      Swal.fire({
+        title: 'Es tu propio correo',
+        html: 'Ese es el correo de <b>esta cuenta</b> (el dueño de la ficha), así que no puede invitarse como conductor.<br><br>'
+          + 'Si <b>tú</b> conduces este vehículo no hay nada que invitar: el dueño ya eres tú.<br>'
+          + 'Para que <b>otra persona</b> lo conduzca, diligencia <b>su</b> correo en la sección Conductor.',
+        icon: 'info',
+      });
       return;
     }
     setInvitacionPopup({ correo, celular: (formData['condCelular'] || '').trim() });
