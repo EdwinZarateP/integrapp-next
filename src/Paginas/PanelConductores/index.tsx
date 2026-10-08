@@ -717,7 +717,13 @@ const PanelConductoresVista: React.FC = () => {
   // ni re-suspende el Suspense — router.replace hacía parpadear el panel).
   useEffect(() => {
     if (!urlSincronizada.current) return; // No pisar la restauración inicial.
-    const params = new URLSearchParams();
+    // Se parte de los params ACTUALES y solo se reemplazan los que este panel
+    // gestiona: así parámetros ajenos (p. ej. ?nocache=1 para saltar caché del
+    // HTML en GoDaddy) sobreviven la re-escritura en vez de borrarse.
+    const params = new URLSearchParams(window.location.search);
+    params.delete('vista');
+    params.delete('paso');
+    params.delete('placa');
     if (!vistaModulos) {
       params.set('vista', 'flujo');
       params.set('paso', String(currentStep));
@@ -1178,7 +1184,11 @@ const PanelConductoresVista: React.FC = () => {
 
       } catch (error: any) {
           console.error(error);
-          // El backend detalla los documentos faltantes (validación server-side).
+          // El backend SIEMPRE envía un detail accionable (documentos faltantes,
+          // capacidad de carga, transición inválida…). Bug real QTZ352
+          // (2026-10-08): la capacidad '2.415' era rechazada por el gate y acá
+          // se mostraba un genérico que no decía nada — ahora el detail SIEMPRE
+          // se muestra; solo los documentos tienen formato de lista propio.
           const detalle = error?.message || "";
           if (detalle.startsWith("Faltan documentos")) {
               Swal.fire({
@@ -1187,6 +1197,8 @@ const PanelConductoresVista: React.FC = () => {
                   html: detalle.replace(/, /g, '<br>• ').replace(/^Faltan documentos obligatorios: /, '• '),
                   confirmButtonColor: '#e67e22',
               });
+          } else if (detalle) {
+              Swal.fire("No se pudo finalizar", detalle, "error");
           } else {
               Swal.fire("Error", "No se pudo finalizar el proceso. Intenta nuevamente.", "error");
           }

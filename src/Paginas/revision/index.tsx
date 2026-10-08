@@ -135,7 +135,13 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       window.history.replaceState(window.history.state, '', `${base}/estudios`);
       return;
     }
-    const params = new URLSearchParams();
+    // Se parte de los params ACTUALES y solo se reemplazan los que esta página
+    // gestiona: así parámetros ajenos (p. ej. ?nocache=1 para saltar caché del
+    // HTML en GoDaddy) sobreviven la re-escritura en vez de borrarse.
+    const params = new URLSearchParams(window.location.search);
+    params.delete("bandeja");
+    params.delete("placa");
+    params.delete("pestana");
     params.set("bandeja", pestanaActiva);
     if (seleccionado) {
       params.set("placa", seleccionado.placa);

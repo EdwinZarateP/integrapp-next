@@ -46,8 +46,12 @@ const RecortarDocumento: React.FC<RecortarDocumentoProps> = ({ placa, campo, eti
         const resp = await fetch(
           `${API_BASE}/vehiculos/documento-bruto/${encodeURIComponent(placa)}?campo=${encodeURIComponent(campo)}`,
         );
-        const data = await resp.json().catch(() => ({}));
-        if (!resp.ok) throw new Error(data.detail || 'No se pudo cargar el documento.');
+        // ⚠️ El body de un Response solo se puede leer UNA vez: primero el blob
+        // (la imagen) y el JSON únicamente cuando la respuesta fue un error.
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.detail || 'No se pudo cargar el documento.');
+        }
         const blob = await resp.blob();
         if (!blob.type.startsWith('image/')) {
           throw new Error('Este documento es un PDF: solo se pueden recortar imágenes.');
