@@ -107,14 +107,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   useEffect(() => {
     const placa = placaPendienteRef.current;
     if (!placa || seleccionado) return;
-    const todas = [...vehiculosRevision, ...vehiculosPendientes, ...vehiculosInactivos, ...vehiculosAprobados];
+    const todas = [...vehiculosRevision, ...vehiculosPendientes, ...vehiculosInactivos, ...vehiculosActualizacion, ...vehiculosRechazados, ...vehiculosAprobados];
     const veh = todas.find(v => v.placa?.toUpperCase() === placa);
     if (veh) {
       setSeleccionado(veh);
       placaPendienteRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehiculosRevision, vehiculosPendientes, vehiculosInactivos, vehiculosAprobados, seleccionado]);
+  }, [vehiculosRevision, vehiculosPendientes, vehiculosInactivos, vehiculosActualizacion, vehiculosRechazados, vehiculosAprobados, seleccionado]);
 
   // Espejo de la bandeja activa + placa seleccionada + pestaña del panel +
   // la VISTA en la URL (replaceState nativo: no ensucia el historial ni
@@ -243,7 +243,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   /* ---------------------------------------------------------------- */
 
   // Tras aprobar/devolver/inactivar/reactivar: recargar todo y re-seleccionar.
-  const alCambiar = async (_mensaje: string) => {
+  // `mantener` (recorte ✂️ — edición cosmética que NO cambia el vehículo de
+  // bandeja): el panel se reabre solo en la MISMA placa y pestaña cuando las
+  // bandejas refrescadas llegan (mecanismo de la placa pendiente de la URL).
+  const alCambiar = async (_mensaje: string, mantener = false) => {
+    if (mantener && seleccionado) {
+      placaPendienteRef.current = seleccionado.placa?.toUpperCase() || null;
+      pestanaInicialRef.current = pestanaPanel;
+    }
     setSeleccionado(null);
     await cargarBandejas(Cookies.get("seguridadId") || "");
     if (pestanaActiva === "aprobados") await fetchAprobados(busquedaAprobadosEnVuelo);

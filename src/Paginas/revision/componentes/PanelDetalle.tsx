@@ -26,7 +26,8 @@ const ETIQUETA_ESTADO: Record<string, { texto: string; clase: string }> = {
 interface PanelDetalleProps {
   veh: Vehiculo;
   onClose: () => void;
-  alCambiar: (mensaje: string) => void;
+  // `mantener=true` (recorte ✂️): recarga SIN cerrar el panel (misma placa/pestaña).
+  alCambiar: (mensaje: string, mantener?: boolean) => void;
   /** Pestaña inicial (restauración desde la URL: ?pestana=estudios). */
   pestanaInicial?: PestanaDetalle;
   /** Espeja la pestaña activa en la URL del index. */

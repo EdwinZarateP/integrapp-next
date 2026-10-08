@@ -56,7 +56,7 @@ interface DocAbierto {
   campoRecorte?: string;
 }
 
-const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) => void }> = ({ veh, alCambiar }) => {
+const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, mantener?: boolean) => void }> = ({ veh, alCambiar }) => {
   const almacenVariables = useContext(ContextoApp);
   if (!almacenVariables) throw new Error("Contexto no disponible");
   const { verDocumento, setVerDocumento } = almacenVariables;
@@ -426,7 +426,9 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string) 
           etiqueta={recorte.etiqueta}
           onGuardado={(mensaje) => {
             setDocAbierto(null); // la URL anterior ya no es la vigente
-            alCambiar(mensaje);
+            // mantener=true: el recorte NO cambia el vehículo de bandeja —
+            // el panel se reabre en la misma placa/pestaña tras el refresco.
+            alCambiar(mensaje, true);
           }}
           onClose={() => setRecorte(null)}
         />
