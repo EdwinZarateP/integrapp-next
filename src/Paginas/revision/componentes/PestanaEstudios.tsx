@@ -137,6 +137,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
   /** Progreso de la tanda multi-archivo: "Subiendo 2 de 3…". */
   const [progresoSubida, setProgresoSubida] = useState<{ i: number; n: number } | null>(null);
   const [reintentando, setReintentando] = useState<string | null>(null);
+  const [reintentandoEstudio, setReintentandoEstudio] = useState<string | null>(null);
   const vivoRef = useRef(true);
   const sondeandoRef = useRef(false);
   const inputDocRef = useRef<HTMLInputElement>(null);
@@ -250,6 +251,31 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
       Swal.fire({ title: 'Estudios en curso', text: 'Los resultados aparecen automáticamente en unos minutos.', icon: 'success', timer: 2500, showConfirmButton: false });
     } catch (err: any) {
       Swal.fire('No se pudieron disparar', err?.response?.data?.detail || 'Error de conexión con el servidor.', 'error');
+    }
+  };
+
+  /** Reintenta UNA consulta fallida (2026-10-09): relanza SOLO ese sujeto
+   *  ante el proveedor, sin tocar los demás estudios de la corrida (a
+   *  diferencia de «Volver a consultar», que re-consulta TODO con force). */
+  const reintentarConsulta = async (e: EstudioAuto) => {
+    setReintentandoEstudio(e.id);
+    try {
+      const fd = new FormData();
+      fd.append('estudio_id', e.id);
+      const { data } = await axios.post(
+        `${API_BASE}/vehiculos/estudios-seguridad/${veh.placa}/reintentar-estudio`,
+        fd, { timeout: 240000 });
+      await cargar();
+      iniciarSondeo();
+      if (data?.estudio?.estado === 'finalizado') {
+        Swal.fire({ title: 'Estudio recuperado', text: 'La consulta se reintentó y finalizó correctamente.', icon: 'success', timer: 2500, showConfirmButton: false });
+      } else {
+        Swal.fire('El estudio sigue fallando', data?.message || 'El proveedor volvió a rechazar la consulta — revisa el mensaje de la tarjeta.', 'error');
+      }
+    } catch (err: any) {
+      Swal.fire('No se pudo reintentar', err?.response?.data?.detail || 'Error de conexión con el servidor.', 'error');
+    } finally {
+      setReintentandoEstudio(null);
     }
   };
 
@@ -395,9 +421,22 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                 </div>
 
                 {e.estado === 'error' && (
-                  <p className="rev-est-error">
-                    {ERRORES_AMABLES[e.error || ''] || e.error || 'La consulta no pudo completarse.'}
-                  </p>
+                  <>
+                    <p className="rev-est-error">
+                      {ERRORES_AMABLES[e.error || ''] || e.error || 'La consulta no pudo completarse.'}
+                    </p>
+                    <div className="rev-est-acciones">
+                      <button
+                        className="rev-est-btn-fuentes"
+                        onClick={() => reintentarConsulta(e)}
+                        disabled={reintentandoEstudio === e.id}
+                        title="Relanza ante el proveedor SOLO esta consulta (los demás estudios no se tocan)"
+                      >
+                        <FaRedo className={reintentandoEstudio === e.id ? 'rev-est-girando' : ''} />
+                        {reintentandoEstudio === e.id ? 'Reintentando… puede tardar 1-3 min' : 'Reintentar esta consulta'}
+                      </button>
+                    </div>
+                  </>
                 )}
 
                 {e.estado === 'finalizado' && (

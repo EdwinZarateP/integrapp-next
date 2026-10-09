@@ -10,7 +10,7 @@ import logo from '@/Imagenes/albatros.png';
 import "./estilos.css";
 
 // Perfiles que pueden ver el portal de Flota Disponible (coincide con /FlotaDisponible).
-const PERFILES_FLOTA = ["ADMIN", "ANALISTA", "COORDINADOR", "CONTROL"];
+const PERFILES_FLOTA = ["ADMIN", "ANALISTA", "COORDINADOR", "CONTROL", "OPERATIVO"];
 
 const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: string; ruta: string }> = {
   KABI: {
