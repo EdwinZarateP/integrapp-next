@@ -137,15 +137,22 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     }
     // Se parte de los params ACTUALES y solo se reemplazan los que esta página
     // gestiona: así parámetros ajenos (p. ej. ?nocache=1 para saltar caché del
-    // HTML en GoDaddy) sobreviven la re-escritura en vez de borrarse.
+    // HTML en GoDaddy) sobreviven la re-escritura en vez de borrarse. Se usa
+    // set() SIN delete previo para que cada clave conserve su posición en la
+    // URL (delete+set re-agregaba la clave al final y "movía" el nocache al
+    // principio); delete() sólo para las que dejan de aplicar.
     const params = new URLSearchParams(window.location.search);
-    params.delete("bandeja");
-    params.delete("placa");
-    params.delete("pestana");
     params.set("bandeja", pestanaActiva);
     if (seleccionado) {
       params.set("placa", seleccionado.placa);
-      if (pestanaPanel && pestanaPanel !== 'datos') params.set("pestana", pestanaPanel);
+      if (pestanaPanel && pestanaPanel !== 'datos') {
+        params.set("pestana", pestanaPanel);
+      } else {
+        params.delete("pestana");
+      }
+    } else {
+      params.delete("placa");
+      params.delete("pestana");
     }
     window.history.replaceState(window.history.state, '', `${base}/?${params.toString()}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps

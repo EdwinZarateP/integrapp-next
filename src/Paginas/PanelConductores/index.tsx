@@ -719,15 +719,22 @@ const PanelConductoresVista: React.FC = () => {
     if (!urlSincronizada.current) return; // No pisar la restauración inicial.
     // Se parte de los params ACTUALES y solo se reemplazan los que este panel
     // gestiona: así parámetros ajenos (p. ej. ?nocache=1 para saltar caché del
-    // HTML en GoDaddy) sobreviven la re-escritura en vez de borrarse.
+    // HTML en GoDaddy) sobreviven la re-escritura en vez de borrarse. set() SIN
+    // delete previo conserva la posición de cada clave (delete+set la movía al
+    // final de la URL); delete() sólo para las que dejan de aplicar.
     const params = new URLSearchParams(window.location.search);
-    params.delete('vista');
-    params.delete('paso');
-    params.delete('placa');
     if (!vistaModulos) {
       params.set('vista', 'flujo');
       params.set('paso', String(currentStep));
-      if (selectedPlate) params.set('placa', selectedPlate);
+      if (selectedPlate) {
+        params.set('placa', selectedPlate);
+      } else {
+        params.delete('placa');
+      }
+    } else {
+      params.delete('vista');
+      params.delete('paso');
+      params.delete('placa');
     }
     const qs = params.toString();
     const ruta = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
