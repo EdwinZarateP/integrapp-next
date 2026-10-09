@@ -85,6 +85,8 @@ export interface EstudioAuto {
   /** Placa de la que se copió este estudio sin gastar consulta. */
   reutilizado_de?: string;
   error?: string;
+  /** Respuesta CRUDA del proveedor ante un fallo (diagnóstico a posteriori). */
+  error_proveedor?: string;
   iniciado_en?: string;
   finalizado_en?: string;
   [key: string]: any;

@@ -22,6 +22,19 @@ const ERRORES_AMABLES: Record<string, string> = {
     'La placa no es válida para la consulta de vehículo del proveedor (requiere exactamente 6 caracteres).',
   cedula_propietario_faltante:
     'Falta la cédula del propietario para consultar el vehículo.',
+  'TusDatos no entregó jobid':
+    'El proveedor no inició la consulta (fallo transitorio). Reintenta en unos minutos.',
+};
+
+/** Extrae el texto legible de la respuesta CRUDA del proveedor que quedó
+ *  persistida en error_proveedor (p. ej. "{'error': 'Los datos registrados
+ *  no corresponden…'}") — para estudios en error cuyo mensaje venía genérico
+ *  antes del fix del 2026-10-09. Solo si ese texto no está ya en `error`. */
+const detalleProveedor = (e: EstudioAuto): string => {
+  const crudo = e.error_proveedor || '';
+  const m = crudo.match(/['"]error['"]\s*:\s*['"]([^'"]+)['"]/);
+  const texto = m ? m[1].trim() : '';
+  return texto && !(e.error || '').includes(texto) ? texto : '';
 };
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -425,6 +438,11 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                     <p className="rev-est-error">
                       {ERRORES_AMABLES[e.error || ''] || e.error || 'La consulta no pudo completarse.'}
                     </p>
+                    {detalleProveedor(e) && (
+                      <p className="rev-est-error rev-est-error--detalle">
+                        {detalleProveedor(e)}
+                      </p>
+                    )}
                     <div className="rev-est-acciones">
                       <button
                         className="rev-est-btn-fuentes"

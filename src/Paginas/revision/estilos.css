@@ -1737,6 +1737,7 @@ body {
 }
 
 .rev-est-error { margin: 8px 0 0; font-size: 0.82rem; color: #c0392b; }
+.rev-est-error--detalle { margin-top: 2px; font-size: 0.78rem; color: #a93226; opacity: 0.85; }
 .rev-est-espera { margin: 8px 0 0; font-size: 0.8rem; color: #6b7684; }
 
 .rev-est-resumen {
