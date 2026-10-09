@@ -101,6 +101,8 @@ interface PlanillaResultado {
   estado?: 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO';
   aprobado_por?: string;  // Usuario que aprobó
   fecha_aprobacion?: string;  // Fecha de aprobación
+  // Observación opcional que deja quien aprueba (visible en trazabilidad)
+  observacion_aprobacion?: string;
   fecha_creacion?: string;  // Fecha de creación (para ordenar y mostrar en pantalla)
   fecha_preaprobado?: string;  // Fecha en que quedó PREAPROBADO (visible para todos)
   // Devolución a CREADO con motivo (rechazo de coordinador/control/admin para que el operativo corrija)
@@ -440,6 +442,7 @@ const SolicitudVehiculos: React.FC = () => {
               estado: p.estado || 'PREAPROBADO',
               aprobado_por: p.aprobado_por,
               fecha_aprobacion: p.fecha_aprobacion,
+              observacion_aprobacion: p.observacion_aprobacion,
               fecha_preaprobado: p.fecha_preaprobado ?? p.fecha_creacion,
               motivo_devolucion: p.motivo_devolucion,
               devuelto_por: p.devuelto_por,
@@ -1948,6 +1951,10 @@ const SolicitudVehiculos: React.FC = () => {
           <p><strong>Total solicitado:</strong> $${total.toLocaleString('es-CO')}</p>
           <p><strong>Diferencia:</strong> ${diferenciaTexto}</p>
           ${resultado.causal ? `<p><strong>Causal:</strong> ${resultado.causal}</p>` : ''}
+          <p style="margin-top: 0.75rem;"><strong>Observación (opcional):</strong></p>
+          <textarea id="obsAprobacion" rows="3" maxlength="500"
+            placeholder="Ej.: Sobrecosto autorizado por petición del cliente…"
+            style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>
         </div>
       `,
       icon: 'question',
@@ -1955,10 +1962,23 @@ const SolicitudVehiculos: React.FC = () => {
       confirmButtonColor: '#10b981',
       cancelButtonColor: '#6b7280',
       confirmButtonText: 'Sí, aprobar',
-      cancelButtonText: 'Cancelar'
+      cancelButtonText: 'Cancelar',
+      didOpen: () => {
+        // Enfocar el textarea para que se pueda escribir de inmediato
+        (Swal.getPopup()?.querySelector('#obsAprobacion') as HTMLTextAreaElement | null)?.focus();
+      },
+      preConfirm: () => {
+        const obs = (Swal.getPopup()?.querySelector('#obsAprobacion') as HTMLTextAreaElement | null)?.value || '';
+        if (obs.length > 500) {
+          Swal.showValidationMessage('La observación no puede superar 500 caracteres');
+          return false;
+        }
+        return obs.trim();
+      }
     });
 
     if (!result.isConfirmed) return;
+    const observacionAprobacion = (result.value as string) || '';
 
     try {
       // Actualizar estado local
@@ -1967,7 +1987,8 @@ const SolicitudVehiculos: React.FC = () => {
         ...resultado,
         estado: 'APROBADO',
         aprobado_por: usuario,
-        fecha_aprobacion: new Date().toISOString()
+        fecha_aprobacion: new Date().toISOString(),
+        observacion_aprobacion: observacionAprobacion || undefined
       };
       setResultados(nuevosResultados);
 
@@ -1985,7 +2006,8 @@ const SolicitudVehiculos: React.FC = () => {
         body: JSON.stringify({
           planilla: resultado.planilla,
           estado: 'APROBADO',
-          aprobado_por: usuario
+          aprobado_por: usuario,
+          observacion_aprobacion: observacionAprobacion || null
         })
       });
 
@@ -2883,16 +2905,29 @@ const SolicitudVehiculos: React.FC = () => {
 
       const result = await Swal.fire({
         title: '¿Aprobar Planillas Masivamente?',
-        html: `<div style="text-align: left; white-space: pre-wrap;">${mensajeConfirmacion}</div>`,
+        html: `<div style="text-align: left; white-space: pre-wrap;">${mensajeConfirmacion}</div>
+          <p style="text-align: left; margin-top: 0.75rem;"><strong>Observación (opcional, aplica a todas):</strong></p>
+          <textarea id="obsAprobacionMasiva" rows="3" maxlength="500"
+            placeholder="Ej.: Sobrecosto autorizado por petición del cliente…"
+            style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; resize: vertical; box-sizing: border-box;"></textarea>`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#16a34a',
         cancelButtonColor: '#6b7280',
         confirmButtonText: 'Sí, aprobar',
-        cancelButtonText: 'Cancelar'
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+          const obs = (Swal.getPopup()?.querySelector('#obsAprobacionMasiva') as HTMLTextAreaElement | null)?.value || '';
+          if (obs.length > 500) {
+            Swal.showValidationMessage('La observación no puede superar 500 caracteres');
+            return false;
+          }
+          return obs.trim();
+        }
       });
 
       if (!result.isConfirmed) return;
+      const observacionAprobacion = (result.value as string) || '';
 
       // Mostrar progreso
       Swal.fire({
@@ -2919,7 +2954,8 @@ const SolicitudVehiculos: React.FC = () => {
             body: JSON.stringify({
               planilla: resultado.planilla,
               estado: 'APROBADO',
-              aprobado_por: usuario
+              aprobado_por: usuario,
+              observacion_aprobacion: observacionAprobacion || null
             })
           });
 
@@ -2931,7 +2967,8 @@ const SolicitudVehiculos: React.FC = () => {
                 ...resultadosActualizados[index],
                 estado: 'APROBADO',
                 aprobado_por: usuario,
-                fecha_aprobacion: new Date().toISOString()
+                fecha_aprobacion: new Date().toISOString(),
+                observacion_aprobacion: observacionAprobacion || undefined
               };
             }
             aprobadas++;
@@ -4360,6 +4397,9 @@ const SolicitudVehiculos: React.FC = () => {
                 <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Aprobado por</strong><div>{nombrePersona(modalDetalle.resultado.aprobado_por_nombre || modalDetalle.resultado.aprobado_por)}</div></div>
                 <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha aprobación</strong><div>{modalDetalle.resultado.fecha_aprobacion ? formatearFechaColombia(modalDetalle.resultado.fecha_aprobacion) : '-'}</div></div>
                 <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Asignó Pedido Vulcano</strong><div>{nombrePersona(modalDetalle.resultado.usuario_pedido_vulcano_nombre || modalDetalle.resultado.usuario_pedido_vulcano)}</div></div>
+                {modalDetalle.resultado.observacion_aprobacion && (
+                  <div style={{ gridColumn: '1 / -1' }}><strong style={{ color: '#666', fontSize: '0.85rem' }}>Observación de aprobación</strong><div>{modalDetalle.resultado.observacion_aprobacion}</div></div>
+                )}
                 {modalDetalle.resultado.motivo_devolucion && (
                   <>
                     <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Devuelto por</strong><div>{nombrePersona(modalDetalle.resultado.devuelto_por_nombre || modalDetalle.resultado.devuelto_por)}</div></div>
@@ -4562,6 +4602,7 @@ const SolicitudVehiculos: React.FC = () => {
                       estado: nuevoEstado,
                       aprobado_por: undefined,  // Limpiar aprobador al editar
                       fecha_aprobacion: undefined,  // Limpiar fecha de aprobación
+                      observacion_aprobacion: undefined,  // La observación de aprobación queda obsoleta al editar
                       ruta: rutaEditada || rutaOriginal,  // Ruta (editada o mantenida)
                       tarifa_base: tarifaBaseCalc,
                       tarifa_calculada: tarifaTeorico,
