@@ -64,6 +64,11 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  // Bytes ya enviados pero response pendiente (2026-10-11): los documentos que
+  // el backend lee con IA (cédulas, licencia, SOAT…) pasan un rato largo en
+  // esta fase y el modal parecía congelado en «Subiendo…». Con esto se avisa
+  // que el archivo YA viajó y el servidor está procesando.
+  const [procesando, setProcesando] = useState(false);
   // Preparando archivos (2026-08-31): comprimir fotos de galería puede tardar
   // varios segundos en móvil; antes no había señal entre elegir el archivo y
   // ver «Subiendo…» — el modal parecía congelado.
@@ -269,6 +274,12 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     formData.append('placa', placa);
     if (editadoPor) formData.append('editado_por', editadoPor);
     if (fechaVencimiento) formData.append('fecha_vencimiento', fechaVencimiento);
+    // Planilla (2026-10-11): la fecha ya viene DIGITADA (obligatoria arriba) —
+    // no se espera la lectura IA del backend, que mantenía el request abierto
+    // 30-120 s con el modal «pensando» aunque el documento sí se guardaba.
+    if (tipoDoc === 'planillaEpsArl' && fechaVencimiento) {
+      formData.append('extraer', 'false');
+    }
 
     const lower = documentName.toLowerCase();
     const tipo = tiposMapping[lower] || lower.replace(/\s+/g, "_");
@@ -279,13 +290,20 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
 
     setUploading(true);
     setProgress(0);
+    setProcesando(false);
     try {
       const response = await axios.put<UploadResponse>(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        // Tope generoso (5 min): conexiones colgadas dejaban el modal en
+        // «Subiendo…» para siempre sin error alguno (2026-10-11).
+        timeout: 300000,
         onUploadProgress: (progressEvent) => {
           const pct = progressEvent.total
             ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
             : 0;
+          // Bytes completos = el archivo YA viajó; lo que sigue es procesamiento
+          // del servidor (lectura IA) — se refleja con otro mensaje.
+          if (pct >= 100) setProcesando(true);
           setProgress(Math.min(pct, 99));
         }
       });
@@ -326,15 +344,40 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             html: (lectura.avisos || []).map(a => `<div>${a}</div>`).join(''),
             confirmButtonColor: '#2c5f9e',
           });
+        } else {
+          // Aviso SIEMPRE (2026-10-11): sin lectura IA (ej. planilla, que ya
+          // trae la fecha digitada) la subida terminaba en SILENCIO — solo
+          // quedaba un texto pequeño y la gente creía que nunca terminó.
+          if (tipoDoc === 'planillaEpsArl' && fechaVencimiento) {
+            const [a, m, d] = fechaVencimiento.split('-');
+            Swal.fire({
+              icon: 'success',
+              title: '✓ Planilla cargada',
+              html: `La planilla quedó registrada.<br/>El vehículo queda habilitado hasta el <b>${d}/${m}/${a}</b>.`,
+              confirmButtonColor: '#27ae60',
+            });
+          } else {
+            Swal.fire({
+              icon: 'success',
+              title: '✓ Documento cargado',
+              text: `«${documentName}» se subió correctamente.`,
+              confirmButtonColor: '#27ae60',
+              timer: 4000,
+            });
+          }
         }
       } else {
         Swal.fire({ icon: 'error', title: 'Error', text: 'Error al subir el documento.' });
       }
     } catch (error: any) {
       console.error('Error de carga:', error);
-      Swal.fire({ icon: 'error', title: 'Error al subir', text: error?.message || 'No se pudo subir el documento.' });
+      const texto = error?.code === 'ECONNABORTED'
+        ? 'El servidor tardó demasiado respondiendo. Revisa en unos minutos si el documento quedó cargado antes de reintentar.'
+        : (error?.message || 'No se pudo subir el documento.');
+      Swal.fire({ icon: 'error', title: 'Error al subir', text: texto });
     } finally {
       setUploading(false);
+      setProcesando(false);
     }
   };
 
@@ -418,7 +461,11 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
         {(uploading || preparando) && (
           <div className="CargaDocumento-uploading-container">
             <p className="CargaDocumento-mensaje-subiendo">
-              {preparando && !uploading ? 'Preparando el archivo…' : 'Subiendo...'}
+              {preparando && !uploading
+                ? 'Preparando el archivo…'
+                : procesando
+                  ? 'Archivo recibido — procesando en el servidor, no cierres esta ventana…'
+                  : 'Subiendo...'}
             </p>
             <Lottie animationData={animationData} style={{ height: 200, width: '100%', margin: 'auto' }} />
           </div>
