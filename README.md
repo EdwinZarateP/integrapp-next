@@ -709,6 +709,10 @@ Catálogo regional de datos bancarios por placa (conductor, teléfono **obligato
 
 ## Actualizaciones Recientes (2026-09-23)
 
+### Otros Costos (`/OtrosCostos`) — campo «OC del proveedor» por concepto
+
+- Input **«OC del proveedor ({PROVEEDOR})»** en cada concepto del formulario «Nueva solicitud», que **sólo aparece cuando el concepto tiene Proveedor diligenciado** (opcional, mayúsculas, máx 50 car.). Viaja en `costos[].oc_proveedor` y se precarga al editar. Columna «OC Proveedor» en la tabla de conceptos del modal de detalle (`-` en docs viejos). También sale en el Excel del histórico (columna «OC Proveedor», cambio backend). **Archivos**: `Paginas/OtrosCostosP/index.tsx`, `Funciones/ApiPedidos/otrosCostos.tsx`.
+
 ### Histórico de Pedidos (`/HistoricoPedidos`) — trazabilidad del flujo en el modal de detalle
 
 El modal de detalle (clic en el consecutivo) mostraba datos, fletes y fechas, pero **nada de quién hizo qué**. Ahora incluye, **al final del formulario** (después de «Detalle de pedidos»):

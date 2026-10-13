@@ -9,6 +9,7 @@ export interface CostoConcepto {
   descripcion: string;
   valor: number;
   proveedor?: string;  // por concepto; obligatorio en CARGUE/DESCARGUE
+  oc_proveedor?: string;  // orden de compra del proveedor; opcional, sólo si hay proveedor
 }
 
 export interface DatosServicio {

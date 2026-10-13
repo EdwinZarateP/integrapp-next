@@ -141,7 +141,7 @@ const formVacio = (): FormState => ({
   pedido_encontrado: true,
   motivo_no_encontrado: '',
   datos_servicio: { cliente: '', centro_distribucion: '', fecha_servicio: '', piezas: 0, peso_real: 0, tipo_vehiculo: '', placa: '', municipio_destino: '', departamento_destino: '', transportador: '', manifiesto: '' },
-  costos: [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '' }],
+  costos: [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '' }],
   datos_bancarios: { banco: '', tipo_cuenta: '', numero_cuenta: '', tipo_id_titular: 'CC', cedula_titular: '', nombre_titular: '' },
   conductor: { nombre: '', telefono: '' },
 });
@@ -432,7 +432,7 @@ const OtrosCostosP: React.FC = () => {
       return { ...f, costos };
     });
   };
-  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', descripcion: '', valor: 0, proveedor: '' }] }));
+  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '' }] }));
   const removeCosto = (i: number) => setForm((f) => ({ ...f, costos: f.costos.length > 1 ? f.costos.filter((_, idx) => idx !== i) : f.costos }));
 
   // ── Abrir modales ──────────────────────────────────────────────────────────
@@ -465,7 +465,7 @@ const OtrosCostosP: React.FC = () => {
         pedido_encontrado: d.pedido_encontrado,
         motivo_no_encontrado: d.motivo_no_encontrado,
         datos_servicio: { ...d.datos_servicio, fecha_servicio: d.datos_servicio.fecha_servicio || '' },
-        costos: d.costos.length ? d.costos.map((c) => ({ ...c, proveedor: c.proveedor || '' })) : [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '' }],
+        costos: d.costos.length ? d.costos.map((c) => ({ ...c, proveedor: c.proveedor || '', oc_proveedor: c.oc_proveedor || '' })) : [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '' }],
         datos_bancarios: { ...d.datos_bancarios, tipo_id_titular: d.datos_bancarios?.tipo_id_titular || 'CC' },
         conductor: d.conductor,
       });
@@ -1052,10 +1052,10 @@ const OtrosCostosP: React.FC = () => {
             <div className="OC-modalSection">Conceptos del costo</div>
             <div className="OC-tableContainer" style={{ boxShadow: 'none' }}>
               <table className="OC-table" style={{ minWidth: 0 }}>
-                <thead><tr><th>Tipo</th><th>Descripción</th><th>Proveedor</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
+                <thead><tr><th>Tipo</th><th>Descripción</th><th>Proveedor</th><th>OC Proveedor</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
                 <tbody>
                   {(detalle.costos || []).map((c, i) => (
-                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td>{c.proveedor || '-'}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
+                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td>{c.proveedor || '-'}</td><td>{c.oc_proveedor || '-'}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
                   ))}
                   <tr><td colSpan={3} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
                 </tbody>
@@ -1296,6 +1296,18 @@ const OtrosCostosP: React.FC = () => {
                   </select>
                 </div>
                 <button className="OC-btnAction" title="Quitar" style={{ background: '#dc2626', alignSelf: 'end' }} onClick={() => removeCosto(i)}><FaTrash /></button>
+                {(c.proveedor || '').trim() && (
+                  <div className="OC-field" style={{ gridColumn: '1 / -1' }}>
+                    <label className="OC-label">OC del proveedor ({c.proveedor})</label>
+                    <input
+                      className="OC-input"
+                      placeholder="Orden de compra del proveedor (opcional)"
+                      maxLength={50}
+                      value={c.oc_proveedor || ''}
+                      onChange={(e) => updateCosto(i, 'oc_proveedor', e.target.value.toUpperCase())}
+                    />
+                  </div>
+                )}
                 <div className="OC-field" style={{ gridColumn: '1 / -1' }}>
                   <label className="OC-label">Descripción *</label>
                   <textarea className="OC-textarea" rows={2} value={c.descripcion} onChange={(e) => updateCosto(i, 'descripcion', e.target.value.toUpperCase())} />
