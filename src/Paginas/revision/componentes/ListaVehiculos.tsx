@@ -31,13 +31,30 @@ export const tiempoEsperando = (veh: Vehiculo): string => {
 
 interface ListaVehiculosProps {
   vehiculos: Vehiculo[];
+  /** Mientras carga la bandeja: filas de skeleton en vez del vacío. */
+  cargando?: boolean;
   seleccionadoId?: string | null;
   onSeleccionar: (veh: Vehiculo) => void;
   vacioTexto?: string;
 }
 
 /** Lista compacta de la bandeja: placa · conductor · tiempo esperando. */
-const ListaVehiculos: React.FC<ListaVehiculosProps> = ({ vehiculos, seleccionadoId, onSeleccionar, vacioTexto }) => {
+const ListaVehiculos: React.FC<ListaVehiculosProps> = ({ vehiculos, cargando, seleccionadoId, onSeleccionar, vacioTexto }) => {
+  if (cargando) {
+    return (
+      <div className="rev-lista" aria-busy="true" aria-label="Cargando vehículos">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="rev-fila rev-fila--skeleton">
+            <span className="rev-skel rev-skel--placa" />
+            <span className="rev-skel rev-skel--conductor" />
+            <span className="rev-skel rev-skel--avance" />
+            <span className="rev-skel rev-skel--tiempo" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (vehiculos.length === 0) {
     return <p className="rev-vacio">{vacioTexto || 'No hay vehículos en esta bandeja.'}</p>;
   }

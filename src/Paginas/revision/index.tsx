@@ -55,15 +55,28 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
 
   const [vista, setVista] = useState<Vista>(vistaInicial ?? 'bandejas');
 
-  const [vehiculosPendientes, setVehiculosPendientes] = useState<Vehiculo[]>([]);
-  const [vehiculosRevision, setVehiculosRevision] = useState<Vehiculo[]>([]);
-  const [vehiculosInactivos, setVehiculosInactivos] = useState<Vehiculo[]>([]);
-  const [vehiculosActualizacion, setVehiculosActualizacion] = useState<Vehiculo[]>([]);
-  // Rechazo DEFINITIVO (2026-10-05): candados, sin acciones de recuperación.
-  const [vehiculosRechazados, setVehiculosRechazados] = useState<Vehiculo[]>([]);
+  /* --- CARGA POR BANDEJA (2026-10-13) ----------------------------------
+     Antes el mount traía TODOS los vehículos en TODOS los estados (el
+     endpoint firmaba cada ruta de documento de cada uno) y el front los
+     repartía en 6 arrays para pintar contadores que ya no se muestran.
+     Ahora solo se pide la bandeja que se está viendo (`?bandeja=` en el
+     backend, que filtra por estadoIntegra) con una caché por bandeja para
+     no re-pedir al alternar dentro de la sesión. */
+  const [listaBandeja, setListaBandeja] = useState<Vehiculo[]>([]);
   const [vehiculosAprobados, setVehiculosAprobados] = useState<Vehiculo[]>([]);
+  // Total REAL de aprobados (count del backend, no el tope de 10 del listado)
+  // para el contador del título de la bandeja.
+  const [totalAprobados, setTotalAprobados] = useState<number | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const cacheBandejasRef = useRef<Partial<Record<PestanaBandeja, Vehiculo[]>>>({});
+  // Bandeja activa vista por el código async (respuesta tardía tras cambiar).
+  const pestanaActivaRef = useRef<PestanaBandeja>("revision");
 
-  const [pestanaActiva, setPestanaActiva] = useState<PestanaBandeja>("revision");
+  const [pestanaActiva, setPestanaActivaState] = useState<PestanaBandeja>("revision");
+  const setPestanaActiva = (p: PestanaBandeja) => {
+    pestanaActivaRef.current = p;
+    setPestanaActivaState(p);
+  };
   const [seleccionado, setSeleccionado] = useState<Vehiculo | null>(null);
 
   // Shell: drawer móvil + menú de usuario del topbar.
@@ -82,10 +95,15 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   const urlSincronizada = React.useRef(false);
   // Placa pendiente de restaurar desde la URL (espera a que cargue la bandeja).
   const placaPendienteRef = useRef<string | null>(null);
+  // ¿Había panel abierto en la escritura de URL anterior? (para decidir
+  // pushState al abrirlo vs replaceState el resto del tiempo).
+  const panelAbiertoPrevRef = useRef(false);
   // Pestaña del panel restaurada desde la URL (?pestana=estudios).
   const [pestanaPanel, setPestanaPanel] = useState<PestanaDetalle | null>(null);
   const pestanaInicialRef = useRef<PestanaDetalle | null>(null);
-  const primerPanelRef = useRef(true);
+  // La carga arranca SOLO tras restaurar la URL del mount (si la URL trae
+  // ?bandeja=aprobados no se dispara un fetch doble de «revision»).
+  const [listo, setListo] = useState(false);
 
   // Restaurar la bandeja, la placa seleccionada y la pestaña del panel.
   useEffect(() => {
@@ -100,21 +118,22 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       pestanaInicialRef.current = pestanaUrl;
       setPestanaPanel(pestanaUrl);
     }
+    setListo(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Al llegar la placa pendiente en alguna bandeja cargada → seleccionarla.
+  // Al llegar la placa pendiente en la bandeja cargada → seleccionarla.
   useEffect(() => {
     const placa = placaPendienteRef.current;
-    if (!placa || seleccionado) return;
-    const todas = [...vehiculosRevision, ...vehiculosPendientes, ...vehiculosInactivos, ...vehiculosActualizacion, ...vehiculosRechazados, ...vehiculosAprobados];
-    const veh = todas.find(v => v.placa?.toUpperCase() === placa);
+    if (!placa || seleccionado || cargando) return;
+    const fuente = pestanaActiva === "aprobados" ? vehiculosAprobados : listaBandeja;
+    const veh = fuente.find(v => v.placa?.toUpperCase() === placa);
     if (veh) {
       setSeleccionado(veh);
       placaPendienteRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehiculosRevision, vehiculosPendientes, vehiculosInactivos, vehiculosActualizacion, vehiculosRechazados, vehiculosAprobados, seleccionado]);
+  }, [listaBandeja, vehiculosAprobados, cargando, pestanaActiva, seleccionado]);
 
   // Espejo de la bandeja activa + placa seleccionada + pestaña del panel +
   // la VISTA en la URL (replaceState nativo: no ensucia el historial ni
@@ -129,10 +148,12 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       .replace(/\/estudios$/, ""); // módulo Estudios por antigüedad
     if (vista === 'alta') {
       window.history.replaceState(window.history.state, '', `${base}/alta`);
+      panelAbiertoPrevRef.current = false;
       return;
     }
     if (vista === 'estudios') {
       window.history.replaceState(window.history.state, '', `${base}/estudios`);
+      panelAbiertoPrevRef.current = false;
       return;
     }
     // Se parte de los params ACTUALES y solo se reemplazan los que esta página
@@ -154,9 +175,55 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       params.delete("placa");
       params.delete("pestana");
     }
-    window.history.replaceState(window.history.state, '', `${base}/?${params.toString()}`);
+    const destino = `${base}/?${params.toString()}`;
+    // BOTÓN ATRÁS (2026-10-13): al ABRIR el panel se apila una entrada de
+    // historial (pushState) para que atrás cierre el panel en vez de salir
+    // de la app. Si la URL ya traía la placa (entrada directa/F5 con
+    // ?placa=), la entrada actual se convierte en la lista SIN placa y el
+    // panel se apila encima. Todo lo demás sigue con replaceState (no
+    // ensucia el historial).
+    const abriendoPanel = !!seleccionado && !panelAbiertoPrevRef.current;
+    if (abriendoPanel) {
+      const placaActual = new URLSearchParams(window.location.search).get("placa");
+      if (placaActual && placaActual === seleccionado!.placa) {
+        const sinPanel = new URLSearchParams(window.location.search);
+        sinPanel.delete("placa");
+        sinPanel.delete("pestana");
+        window.history.replaceState(window.history.state, '', `${base}/?${sinPanel.toString()}`);
+      }
+      window.history.pushState(window.history.state, '', destino);
+    } else {
+      window.history.replaceState(window.history.state, '', destino);
+    }
+    panelAbiertoPrevRef.current = !!seleccionado;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista, pestanaActiva, seleccionado, pestanaPanel]);
+
+  // ATRÁS/ADELANTE del navegador: sincroniza el estado desde la URL (atrás
+  // con el panel abierto lo CIERRA; la bandeja de la URL se activa). Es
+  // solo lectura→estado: no pelea con el espejo de arriba (estado→URL).
+  useEffect(() => {
+    const alPopState = () => {
+      const path = window.location.pathname;
+      if (path.endsWith("/alta")) { setVista('alta'); return; }
+      if (path.endsWith("/estudios")) { setVista('estudios'); return; }
+      setVista(v => (v === 'alta' || v === 'estudios' ? 'bandejas' : v));
+      const params = new URLSearchParams(window.location.search);
+      const bandejaUrl = params.get("bandeja") as PestanaBandeja | null;
+      if (bandejaUrl && BANDEJAS_VALIDAS.includes(bandejaUrl) && bandejaUrl !== pestanaActivaRef.current) {
+        setPestanaActiva(bandejaUrl);
+      }
+      const placaUrl = params.get("placa");
+      if (placaUrl) {
+        placaPendienteRef.current = placaUrl.trim().toUpperCase();
+      } else {
+        setSeleccionado(s => (s ? null : s)); // atrás cierra el panel
+      }
+    };
+    window.addEventListener("popstate", alPopState);
+    return () => window.removeEventListener("popstate", alPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [busqueda, setBusqueda] = useState("");
   const [busquedaAprobadosEnVuelo, setBusquedaAprobadosEnVuelo] = useState("");
@@ -168,49 +235,70 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   /* ---------------------------------------------------------------- */
 
   useEffect(() => {
-    const idUsuario = Cookies.get("seguridadId");
-    if (!idUsuario) {
+    if (!Cookies.get("seguridadId")) {
       console.warn("Acceso denegado: Credenciales no encontradas.");
       router.push("/LoginUsuario");
-    } else {
-      cargarBandejas(idUsuario);
     }
   }, [router]);
 
-  const cargarBandejas = async (idUsuario: string) => {
+  /** Carga SOLO la bandeja pedida (el backend filtra por estadoIntegra con
+   * `?bandeja=`). Con caché por bandeja: re-visitar dentro de la sesión no
+   * re-pide; `forzar` la salta (tras aprobar/devolver/recortar). */
+  const cargarBandeja = async (idUsuario: string, bandeja: PestanaBandeja, forzar = false) => {
+    if (!forzar && cacheBandejasRef.current[bandeja]) {
+      setListaBandeja(cacheBandejasRef.current[bandeja]!);
+      setCargando(false);
+      return;
+    }
+    setCargando(true);
     try {
       const res = await axios.get<{ message: string; vehicles: Vehiculo[] }>(
         `${API_BASE}/vehiculos/obtener-vehiculos-incompletos`,
-        { params: { id_usuario: idUsuario } }
+        { params: { id_usuario: idUsuario, bandeja } }
       );
       const list = res.data.vehicles || [];
-      setVehiculosPendientes(list.filter(v => v.estadoIntegra === "registro_incompleto"));
-      setVehiculosRevision(list.filter(v => v.estadoIntegra === "completado_revision" || v.estadoIntegra === "en_revision"));
-      setVehiculosInactivos(list.filter(v => v.estadoIntegra === "inactivo"));
-      setVehiculosActualizacion(list.filter(v => v.estadoIntegra === "en_actualizacion"));
-      setVehiculosRechazados(list.filter(v => v.estadoIntegra === "rechazado"));
+      cacheBandejasRef.current[bandeja] = list;
+      // Aplicar solo si el usuario sigue en la misma bandeja (respuesta
+      // tardía tras cambiar de bandeja en medio del request).
+      if (pestanaActivaRef.current === bandeja) setListaBandeja(list);
     } catch (error) {
-      console.error("Error al cargar bandejas:", error);
+      console.error("Error al cargar la bandeja:", error);
+    } finally {
+      setCargando(false);
     }
   };
 
   const fetchAprobados = async (query: string) => {
+    setCargando(true);
     try {
-      const res = await axios.get<{ vehiculos: Vehiculo[] }>(
+      const res = await axios.get<{ vehiculos: Vehiculo[]; total?: number }>(
         `${API_BASE}/vehiculos/obtener-aprobados-paginados`,
         { params: { search: query, limit: 10 } }
       );
       setVehiculosAprobados(res.data.vehiculos || []);
+      setTotalAprobados(typeof res.data.total === "number" ? res.data.total : null);
     } catch (error) {
       console.error("Error buscando aprobados:", error);
+    } finally {
+      setCargando(false);
     }
   };
 
+  // Carga perezosa: solo la bandeja activa, tras restaurar la URL del mount.
+  useEffect(() => {
+    if (!listo || vista !== 'bandejas') return;
+    const idUsuario = Cookies.get("seguridadId");
+    if (!idUsuario) return;
+    if (pestanaActiva !== "aprobados") cargarBandeja(idUsuario, pestanaActiva);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo, vista, pestanaActiva]);
+
   // Aprobados se consulta al backend (paginado + búsqueda) al entrar a la pestaña.
   useEffect(() => {
-    if (pestanaActiva === "aprobados") fetchAprobados(busquedaAprobadosEnVuelo);
+    if (!listo || vista !== 'bandejas' || pestanaActiva !== "aprobados") return;
+    fetchAprobados(busquedaAprobadosEnVuelo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pestanaActiva, busquedaAprobadosEnVuelo]);
+  }, [listo, vista, pestanaActiva, busquedaAprobadosEnVuelo]);
 
   /* ---------------------------------------------------------------- */
   /* BÚSQUEDA Y PAGINACIÓN                                            */
@@ -225,15 +313,10 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     );
   };
 
-  const listaActiva = useMemo(() => {
-    if (pestanaActiva === "pendientes") return filtrarLocales(vehiculosPendientes);
-    if (pestanaActiva === "inactivos") return filtrarLocales(vehiculosInactivos);
-    if (pestanaActiva === "actualizacion") return filtrarLocales(vehiculosActualizacion);
-    if (pestanaActiva === "rechazados") return filtrarLocales(vehiculosRechazados);
-    if (pestanaActiva === "aprobados") return vehiculosAprobados;
-    return filtrarLocales(vehiculosRevision);
+  const listaActiva = useMemo(() => (
+    pestanaActiva === "aprobados" ? vehiculosAprobados : filtrarLocales(listaBandeja)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pestanaActiva, busqueda, vehiculosPendientes, vehiculosRevision, vehiculosInactivos, vehiculosActualizacion, vehiculosRechazados, vehiculosAprobados]);
+  ), [pestanaActiva, busqueda, listaBandeja, vehiculosAprobados]);
 
   // Paginación solo para "En revisión" (la bandeja más larga).
   const totalPages = pestanaActiva === "revision" ? Math.ceil(listaActiva.length / vehiclesPerPage) : 1;
@@ -259,20 +342,23 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       pestanaInicialRef.current = pestanaPanel;
     }
     setSeleccionado(null);
-    await cargarBandejas(Cookies.get("seguridadId") || "");
-    if (pestanaActiva === "aprobados") await fetchAprobados(busquedaAprobadosEnVuelo);
-  };
-
-  const contadores: Record<PestanaBandeja, number> = {
-    pendientes: vehiculosPendientes.length,
-    revision: vehiculosRevision.length,
-    aprobados: vehiculosAprobados.length,
-    inactivos: vehiculosInactivos.length,
-    actualizacion: vehiculosActualizacion.length,
-    rechazados: vehiculosRechazados.length,
+    // Un cambio de estado puede mover vehículos entre bandejas: la caché
+    // queda vieja → se limpia y se recarga SOLO la bandeja activa.
+    cacheBandejasRef.current = {};
+    if (pestanaActiva === "aprobados") {
+      await fetchAprobados(busquedaAprobadosEnVuelo);
+    } else {
+      await cargarBandeja(Cookies.get("seguridadId") || "", pestanaActiva, true);
+    }
   };
 
   const ejecutarBusquedaAprobados = () => setBusquedaAprobadosEnVuelo(busqueda.trim());
+
+  // Contador de la bandeja ACTIVA (vive junto al título del módulo, ya NO en
+  // la sidebar): total de la bandeja cargada, sin el filtro de búsqueda local.
+  const conteoBandeja = pestanaActiva === "aprobados"
+    ? (totalAprobados ?? vehiculosAprobados.length)
+    : listaBandeja.length;
 
   /* ---------------------------------------------------------------- */
   /* SESIÓN (mismo cierre de sesión del Barra anterior)               */
@@ -342,9 +428,6 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
           >
             {item.icono}
             <span>{item.etiqueta}</span>
-            {contadores[item.id] > 0 && (
-              <span className="revx-nav-contador">{contadores[item.id]}</span>
-            )}
           </button>
         ))}
         {/* Módulos separados de las bandejas (rutas propias, sin contador de
@@ -410,9 +493,6 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
             </span>
           </div>
           <div className="revx-topbar-derecha">
-            <span className="revx-pill" title="Vehículos esperando revisión">
-              En revisión: <strong>{contadores.revision}</strong>
-            </span>
             <div className="revx-avatar-zona" ref={menuUsuarioRef}>
               <button
                 className="revx-avatar-boton"
@@ -463,7 +543,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
           ) : (
           <>
           <div className="revx-encabezado">
-            <h1>Revisión de <span>vehículos</span></h1>
+            <div className="revx-encabezado-titulo">
+              <h1>Revisión de <span>vehículos</span></h1>
+              {!cargando && (
+                <span className="revx-conteo" title={`Vehículos en ${ETIQUETA_BANDEJA[pestanaActiva]}`}>
+                  {conteoBandeja} {conteoBandeja === 1 ? 'vehículo' : 'vehículos'}
+                </span>
+              )}
+            </div>
             <p>Hoja de vida, documentos y estudios de seguridad de la flota En Ruta.</p>
           </div>
 
@@ -508,6 +595,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
 
             <ListaVehiculos
               vehiculos={paginaActual}
+              cargando={cargando}
               seleccionadoId={seleccionado?._id}
               onSeleccionar={(v) => {
                 // Selección manual: el panel abre en Datos (la pestaña de la
