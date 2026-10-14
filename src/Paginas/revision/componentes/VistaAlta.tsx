@@ -5,8 +5,8 @@ import Swal from "sweetalert2";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import {
-  FaCheckCircle, FaCopy, FaExternalLinkAlt, FaKey, FaLink, FaPlus,
-  FaSearch, FaTimes, FaTruck, FaUserPlus,
+  FaCheckCircle, FaCopy, FaEnvelopeOpenText, FaExternalLinkAlt, FaKey,
+  FaLink, FaPaperPlane, FaPlus, FaSearch, FaTimes, FaTruck, FaUserPlus,
 } from "react-icons/fa";
 import PhoneField from "@/Componentes/PhoneField";
 import { abrirPanelComoConductor } from "./impersonacion";
@@ -46,6 +46,18 @@ interface ResultadoBusqueda {
   alta_por_seguridad: boolean;
   politicas_pendientes: boolean;
   placas_propias: number;
+}
+
+/** Cuenta con correo registrado pero SIN ninguna placa inscrita (2026-10-13). */
+interface CuentaSinVehiculo {
+  id: string;
+  nombre: string;
+  correo: string;
+  perfil: string;
+  celular: string;
+  correo_verificado: boolean;
+  alta_por_seguridad: boolean;
+  creado: string | null;
 }
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
@@ -123,6 +135,54 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
   };
 
   useEffect(() => { cargarCuentas(); }, []);
+
+  // ── Cuentas sin vehículo: se registraron con su correo pero no han
+  //    inscrito ninguna placa (2026-10-13). ──
+  const [sinVehiculo, setSinVehiculo] = useState<CuentaSinVehiculo[]>([]);
+  const [cargandoSinVehiculo, setCargandoSinVehiculo] = useState(true);
+  const [enviandoCorreo, setEnviandoCorreo] = useState<string | null>(null);
+
+  const cargarSinVehiculo = async () => {
+    try {
+      const res = await axios.get<{ cuentas: CuentaSinVehiculo[] }>(
+        `${API_BASE}/conductores/sin-vehiculo`);
+      setSinVehiculo(res.data.cuentas || []);
+    } catch { setSinVehiculo([]); }
+    finally { setCargandoSinVehiculo(false); }
+  };
+
+  useEffect(() => { cargarSinVehiculo(); }, []);
+
+  /** Reenvía el CORREO DE VERIFICACIÓN a una cuenta sin verificar: el
+   *  backend regenera el enlace (el anterior, aunque haya expirado, muere). */
+  const reenviarVerificacion = async (c: CuentaSinVehiculo) => {
+    setEnviandoCorreo(c.id);
+    try {
+      const res = await axios.post<{ mensaje: string }>(
+        `${API_BASE}/conductores/${c.id}/reenviar-verificacion`);
+      Swal.fire("Enlace reenviado", res.data.mensaje, "success");
+    } catch (err: any) {
+      Swal.fire("No se pudo reenviar", err?.response?.data?.detail || "Error de conexión.", "error");
+    } finally { setEnviandoCorreo(null); }
+  };
+
+  /** Recordatorio a una cuenta VERIFICADA que aún no inscribe su vehículo. */
+  const enviarRecordatorio = async (c: CuentaSinVehiculo) => {
+    setEnviandoCorreo(c.id);
+    try {
+      const res = await axios.post<{ mensaje: string }>(
+        `${API_BASE}/conductores/${c.id}/recordatorio-vehiculo`);
+      Swal.fire("Recordatorio enviado", res.data.mensaje, "success");
+    } catch (err: any) {
+      Swal.fire("No se pudo enviar", err?.response?.data?.detail || "Error de conexión.", "error");
+    } finally { setEnviandoCorreo(null); }
+  };
+
+  const fechaCorta = (iso: string | null) => {
+    if (!iso) return "—";
+    const f = new Date(iso);
+    return isNaN(f.getTime()) ? "—" : f.toLocaleDateString("es-CO");
+  };
 
   // ── Paso 1: la placa se CREA al validar (borrador sin responsable). ──
   const consultarPlaca = async () => {
@@ -638,6 +698,76 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
                     <button className="revx-alta-btn-copiar" onClick={() => regenerarClave(c)}>
                       <FaKey /> Nueva clave
                     </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {/* ── Cuentas sin vehículo: registradas con correo, sin placa inscrita ── */}
+      <section className="revx-tarjeta revx-alta-card">
+        <div className="revx-alta-cab">
+          <h2>📭 Cuentas sin vehículo</h2>
+          {!cargandoSinVehiculo && sinVehiculo.length > 0 && (() => {
+            const pend = sinVehiculo.filter(c => !c.correo_verificado).length;
+            return (
+              <span className="rev-chip rev-chip--revision">
+                {pend} sin verificar · {sinVehiculo.length - pend} verificadas
+              </span>
+            );
+          })()}
+        </div>
+        <p className="revx-alta-nota">
+          Personas que <b>se registraron con su correo</b> pero todavía no han
+          inscrito <b>ninguna placa</b>. A las que no han verificado su correo
+          puedes <b>reenviarles el enlace</b> (se genera uno nuevo); a las
+          verificadas que no vuelven, un <b>recordatorio</b> para que registren
+          su vehículo.
+        </p>
+        {cargandoSinVehiculo ? (
+          <p className="revx-alta-nota">Cargando…</p>
+        ) : sinVehiculo.length === 0 ? (
+          <p className="revx-alta-nota">Todas las cuentas registradas ya tienen vehículo inscrito. ✓</p>
+        ) : (
+          <table className="rev-est-tabla revx-alta-tabla">
+            <thead>
+              <tr>
+                <th>Conductor</th>
+                <th>Usuario (correo)</th>
+                <th>Perfil</th>
+                <th>Celular</th>
+                <th>Verificación</th>
+                <th>Registro</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sinVehiculo.map(c => (
+                <tr key={c.id}>
+                  <td>{(c.nombre || "").trim() ? c.nombre : <span className="revx-alta-mut">Sin nombre aún</span>}</td>
+                  <td>{c.correo}</td>
+                  <td>{c.perfil === "TENEDOR" ? "Tenedor" : "Conductor"}</td>
+                  <td>{c.celular || "—"}</td>
+                  <td>
+                    {c.correo_verificado
+                      ? <span className="rev-est-sem rev-est-sem--limpio">✓ Verificado</span>
+                      : <span className="rev-est-sem rev-est-sem--alto">⏳ Sin verificar</span>}
+                  </td>
+                  <td>{fechaCorta(c.creado)}</td>
+                  <td>
+                    {c.correo_verificado ? (
+                      <button className="revx-alta-btn-copiar"
+                        onClick={() => enviarRecordatorio(c)} disabled={enviandoCorreo === c.id}>
+                        <FaPaperPlane /> {enviandoCorreo === c.id ? "Enviando…" : "Enviar recordatorio"}
+                      </button>
+                    ) : (
+                      <button className="revx-alta-btn-copiar"
+                        onClick={() => reenviarVerificacion(c)} disabled={enviandoCorreo === c.id}>
+                        <FaEnvelopeOpenText /> {enviandoCorreo === c.id ? "Enviando…" : "Reenviar verificación"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
