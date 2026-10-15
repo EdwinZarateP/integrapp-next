@@ -388,11 +388,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
    * sessionStorage (2026-10-14) cubre además los REMONTAJES de la página:
    * al volver del Modo Seguridad con atrás, el panel de la placa restaurada
    * abre al instante en vez de esperar el fetch del backend. */
-  const cargarBandeja = async (idUsuario: string, bandeja: PestanaBandeja, forzar = false) => {
+  // Devuelve la lista FRESCA (2026-10-15): alCambiar(mantener) re-selecciona
+  // de aquí el vehículo actualizado — antes re-seleccionaba el objeto VIEJO
+  // de la lista aún no refrescada y adoptar/recortar no se veían hasta F5.
+  const cargarBandeja = async (idUsuario: string, bandeja: PestanaBandeja, forzar = false): Promise<Vehiculo[]> => {
     if (!forzar && cacheBandejasRef.current[bandeja]) {
       setListaBandeja(cacheBandejasRef.current[bandeja]!);
       setCargando(false);
-      return;
+      return cacheBandejasRef.current[bandeja]!;
     }
     if (!forzar) {
       const deSesion = leerCacheBandejasSesion()[bandeja];
@@ -400,7 +403,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
         cacheBandejasRef.current[bandeja] = deSesion.vehicles;
         setListaBandeja(deSesion.vehicles);
         setCargando(false);
-        return;
+        return deSesion.vehicles;
       }
     }
     setCargando(true);
@@ -415,24 +418,29 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       // Aplicar solo si el usuario sigue en la misma bandeja (respuesta
       // tardía tras cambiar de bandeja en medio del request).
       if (pestanaActivaRef.current === bandeja) setListaBandeja(list);
+      return list;
     } catch (error) {
       console.error("Error al cargar la bandeja:", error);
+      return [];
     } finally {
       setCargando(false);
     }
   };
 
-  const fetchAprobados = async (query: string) => {
+  const fetchAprobados = async (query: string): Promise<Vehiculo[]> => {
     setCargando(true);
     try {
       const res = await axios.get<{ vehiculos: Vehiculo[]; total?: number }>(
         `${API_BASE}/vehiculos/obtener-aprobados-paginados`,
         { params: { search: query, limit: 10 } }
       );
-      setVehiculosAprobados(res.data.vehiculos || []);
+      const list = res.data.vehiculos || [];
+      setVehiculosAprobados(list);
       setTotalAprobados(typeof res.data.total === "number" ? res.data.total : null);
+      return list;
     } catch (error) {
       console.error("Error buscando aprobados:", error);
+      return [];
     } finally {
       setCargando(false);
     }
@@ -472,13 +480,25 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [pestanaActiva, busqueda, listaBandeja, vehiculosAprobados]);
 
+  // PADRINO (2026-10-15): placas adoptadas por el padrino logueado (★) y el
+  // filtro «Solo mis placas» de las bandejas.
+  const [soloMisPlacas, setSoloMisPlacas] = useState(false);
+  const idPadrino = Cookies.get("seguridadId") || "";
+  const esMiPlaca = (v: Vehiculo) => Boolean(idPadrino)
+    && (Array.isArray(v.padrinos) ? v.padrinos : []).some((p: any) => p?.id === idPadrino);
+  const misPlacas = useMemo(() => listaActiva.filter(esMiPlaca),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [listaActiva, idPadrino]);
+  const listaVisible = soloMisPlacas ? misPlacas : listaActiva;
+
   // Paginación solo para "En revisión" (la bandeja más larga).
-  const totalPages = pestanaActiva === "revision" ? Math.ceil(listaActiva.length / vehiclesPerPage) : 1;
+  const totalPages = pestanaActiva === "revision" ? Math.ceil(listaVisible.length / vehiclesPerPage) : 1;
   const paginaActual = useMemo(() => {
-    if (pestanaActiva !== "revision") return listaActiva;
+    if (pestanaActiva !== "revision") return listaVisible;
     const inicio = (currentPage - 1) * vehiclesPerPage;
-    return listaActiva.slice(inicio, inicio + vehiclesPerPage);
-  }, [listaActiva, currentPage, pestanaActiva, vehiclesPerPage]);
+    return listaVisible.slice(inicio, inicio + vehiclesPerPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listaVisible, currentPage, pestanaActiva, vehiclesPerPage]);
 
   useEffect(() => { setCurrentPage(1); }, [pestanaActiva, busqueda, busquedaAprobadosEnVuelo]);
 
@@ -487,12 +507,21 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   /* ---------------------------------------------------------------- */
 
   // Tras aprobar/devolver/inactivar/reactivar: recargar todo y re-seleccionar.
-  // `mantener` (recorte ✂️ — edición cosmética que NO cambia el vehículo de
-  // bandeja): el panel se reabre solo en la MISMA placa y pestaña cuando las
-  // bandejas refrescadas llegan (mecanismo de la placa pendiente de la URL).
+  // `mantener` (recorte ✂️, adopción de placa, documento adicional — cambios
+  // que NO mueven el vehículo de bandeja): el panel se REABRE solo en la
+  // misma placa y pestaña, seleccionando el objeto FRESCO de la bandeja
+  // recién cargada. (2026-10-15 fix: antes se sembraba la placa pendiente y
+  // el efecto de selección ganaba la carrera contra el fetch — re-seleccionaba
+  // el objeto VIEJO de la lista aún sin refrescar y adoptar/recortar no se
+  // veían hasta recargar la página a mano.)
   const alCambiar = async (_mensaje: string, mantener = false) => {
-    if (mantener && seleccionado) {
-      placaPendienteRef.current = seleccionado.placa?.toUpperCase() || null;
+    // (2026-10-15) Cerrar cualquier Swal de carga pendiente: varias subidas
+    // (HV/planilla/adicional/adopción) muestran «Subiendo…» con
+    // allowOutsideClick:false y lo dejaban abierto para siempre encima del
+    // panel que este refresh reabre — parecía un loop eterno.
+    Swal.close();
+    const placaMantener = mantener ? seleccionado?.placa?.toUpperCase() || null : null;
+    if (mantener) {
       pestanaInicialRef.current = pestanaPanel;
       reaperturaMantenerRef.current = true;
     }
@@ -502,10 +531,20 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     // la bandeja activa.
     cacheBandejasRef.current = {};
     limpiarCacheBandejasSesion();
-    if (pestanaActiva === "aprobados") {
-      await fetchAprobados(busquedaAprobadosEnVuelo);
-    } else {
-      await cargarBandeja(Cookies.get("seguridadId") || "", pestanaActiva, true);
+    const frescos = pestanaActiva === "aprobados"
+      ? await fetchAprobados(busquedaAprobadosEnVuelo)
+      : await cargarBandeja(Cookies.get("seguridadId") || "", pestanaActiva, true);
+    // Re-apertura con el objeto FRESCO (por si el cambio movió de bandeja, se
+    // busca en la lista nueva; si no está, el mecanismo de placa pendiente la
+    // busca en otras bandejas con la consulta individual).
+    if (placaMantener) {
+      const v = (frescos || []).find(x => x.placa?.toUpperCase() === placaMantener);
+      if (v) {
+        setSeleccionado(v);
+      } else {
+        placaPendienteRef.current = placaMantener;
+        setTickPopstate(t => t + 1);
+      }
     }
   };
 
@@ -725,6 +764,19 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
                   {conteoBandeja} {conteoBandeja === 1 ? 'vehículo' : 'vehículos'}
                 </span>
               )}
+              {/* PADRINO (2026-10-15): filtro «Solo mis placas» — las que adoptó
+                  (★) y de las que recibe avisos. */}
+              {esPadrino() && (
+                <button
+                  type="button"
+                  className={`revx-toggle-mias ${soloMisPlacas ? 'revx-toggle-mias--activo' : ''}`}
+                  aria-pressed={soloMisPlacas}
+                  onClick={() => setSoloMisPlacas(v => !v)}
+                  title="Ver solo las placas que adoptaste (recibes sus avisos)"
+                >
+                  ★ Solo mis placas ({misPlacas.length})
+                </button>
+              )}
             </div>
             <p>Hoja de vida, documentos y estudios de seguridad de la flota En Ruta.</p>
           </div>
@@ -771,6 +823,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
             <ListaVehiculos
               vehiculos={paginaActual}
               cargando={cargando}
+              padrinoId={esPadrino() ? idPadrino : undefined}
               seleccionadoId={seleccionado?._id}
               onSeleccionar={(v) => {
                 // Selección manual: el panel abre en Datos (la pestaña de la

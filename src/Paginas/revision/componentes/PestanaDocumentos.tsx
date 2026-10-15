@@ -329,6 +329,7 @@ const PestanaDocumentos: React.FC<{
       const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo subir la hoja de vida.');
+      Swal.fire({ icon: 'success', title: 'Hoja de vida cargada', timer: 1600, showConfirmButton: false });
       alCambiar(`Hoja de Vida Física cargada en ${veh.placa}`);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo subir la hoja de vida.', 'error');
@@ -391,6 +392,12 @@ const PestanaDocumentos: React.FC<{
         if (!resp.ok) throw new Error(data.detail || 'No se pudo subir la planilla.');
         subidos += 1;
       }
+      Swal.fire({
+        icon: 'success',
+        title: 'Planilla cargada',
+        html: `Subimos <b>${subidos}</b> archivo${subidos === 1 ? '' : 's'} de la planilla.`,
+        timer: 1800, showConfirmButton: false,
+      });
       alCambiar(`Planilla de Seguridad Social actualizada en ${veh.placa} (${subidos} archivo${subidos === 1 ? '' : 's'})`);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo subir la planilla.', 'error');
@@ -435,6 +442,7 @@ const PestanaDocumentos: React.FC<{
       const resp = await fetch(`${API_BASE}/vehiculos/subir-documento-adicional`, { method: 'PUT', body });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo adjuntar el documento.');
+      Swal.fire({ icon: 'success', title: `Documento adicional «${res.value.trim()}» cargado`, timer: 1800, showConfirmButton: false });
       alCambiar(`Documento adicional «${res.value.trim()}» cargado en ${veh.placa}`, true);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo adjuntar el documento.', 'error');

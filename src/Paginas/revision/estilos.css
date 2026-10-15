@@ -356,9 +356,24 @@ body {
   letter-spacing: 0.03em;
 }
 
+/* Conductor AL LADO de la placa (2026-10-15, pedido del usuario), en letra
+   más pequeña — grande y chica pantalla. Si no cabe, se trunca con elipsis. */
+.rev-panel-titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .rev-panel-conductor {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: #d4eef1;
+  min-width: 0;
+  max-width: 32vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rev-panel-chips {
@@ -387,12 +402,12 @@ body {
 .rev-panel-volver:hover { background: rgba(255, 255, 255, 0.25); }
 
 /* «Abrir panel del conductor» (Modo Seguridad desde las bandejas): píldora
-   violeta (color de impersonación del módulo) sobre el header teal. */
+   NEGRA (2026-10-15, pedido del usuario — antes violeta) sobre el header teal. */
 .rev-panel-impersonar {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #8e44ad;
+  background: #0f1928;
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
@@ -405,7 +420,7 @@ body {
   transition: background 0.15s ease;
 }
 
-.rev-panel-impersonar:hover { background: #7d3c98; }
+.rev-panel-impersonar:hover { background: #29435c; }
 
 /* Chips de estado */
 .rev-chip {
@@ -2697,4 +2712,115 @@ body {
   .rev-docresumen { flex-direction: column; align-items: flex-start; }
   .rev-visor { width: 100vw; }
   .rev-visor-nombre { font-size: 0.88rem; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ADOPCIÓN DE PLACAS POR PADRINOS (2026-10-15): botón compacto en el header
+   del panel + filtro «Solo mis placas» en las bandejas + ★ en las filas.
+   ════════════════════════════════════════════════════════════════════════ */
+/* Botón discreto junto a los chips del header: contorno tenue; la estrella
+   se rellena en dorado suave solo cuando ya es padrino. */
+.rev-adopcion-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #d4eef1;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.rev-adopcion-mini svg { font-size: 0.8rem; opacity: 0.85; }
+.rev-adopcion-mini:hover { background: rgba(255, 255, 255, 0.2); }
+.rev-adopcion-mini:disabled { opacity: 0.55; cursor: default; }
+
+.rev-adopcion-mini--ok svg { color: #f4c542; opacity: 1; }
+.rev-adopcion-mini--ok { color: #f8e9c8; }
+
+.rev-adopcion-mini:focus-visible {
+  outline: 3px solid #00a5b5;
+  outline-offset: 2px;
+}
+
+/* Toggle «★ Solo mis placas» junto al contador de la bandeja (padrino). */
+.revx-toggle-mias {
+  border: 1px solid #d9b96a;
+  background: #fffdf5;
+  color: #8a6d1a;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.revx-toggle-mias:hover { background: #fdf6e3; }
+
+.revx-toggle-mias--activo {
+  background: #e6a23c;
+  border-color: #e6a23c;
+  color: #fff;
+}
+
+.revx-toggle-mias:focus-visible {
+  outline: 3px solid #00a5b5;
+  outline-offset: 2px;
+}
+
+/* ★ en la placa adoptada de la fila de la bandeja. */
+.rev-fila-padrino {
+  color: #e6a23c;
+  margin-left: 4px;
+  font-size: 0.85rem;
+}
+
+/* ── HEADER del panel en pantallas pequeñas (2026-10-15): minimalista —
+   fila 1: ⬅ + placa + conductor; fila 2: chips y acciones como ÍCONOS
+   compactos (los textos se ocultan, quedan en el title/tooltip). ── */
+@media (max-width: 768px) {
+  .rev-panel-header {
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  /* Atrás: solo la flecha, circular. */
+  .rev-panel-volver {
+    padding: 8px 10px;
+    border-radius: 50%;
+  }
+
+  .rev-panel-volver-texto { display: none; }
+
+  /* La placa manda: más grande; el conductor queda al lado (base) y se
+     trunca un poco más para no competir en ancho. */
+  .rev-panel-titulo {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .rev-panel-titulo h3 { font-size: 1.3rem; }
+
+  .rev-panel-conductor { max-width: 44vw; font-size: 0.68rem; }
+
+  /* Chips y acciones: fila propia a todo el ancho, sin empujar el título. */
+  .rev-panel-chips {
+    margin-left: 0;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .rev-panel-impersonar { padding: 6px 9px; }
+  .rev-panel-impersonar-texto { display: none; }
+  .rev-adopcion-mini { padding: 4px 10px; }
+  .rev-chip { font-size: 0.68rem; }
 }

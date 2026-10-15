@@ -36,10 +36,12 @@ interface ListaVehiculosProps {
   seleccionadoId?: string | null;
   onSeleccionar: (veh: Vehiculo) => void;
   vacioTexto?: string;
+  /** (2026-10-15) Id del padrino logueado: marca ★ las placas que adoptó. */
+  padrinoId?: string;
 }
 
 /** Lista compacta de la bandeja: placa · conductor · tiempo esperando. */
-const ListaVehiculos: React.FC<ListaVehiculosProps> = ({ vehiculos, cargando, seleccionadoId, onSeleccionar, vacioTexto }) => {
+const ListaVehiculos: React.FC<ListaVehiculosProps> = ({ vehiculos, cargando, seleccionadoId, onSeleccionar, vacioTexto, padrinoId }) => {
   if (cargando) {
     return (
       <div className="rev-lista" aria-busy="true" aria-label="Cargando vehículos">
@@ -66,14 +68,17 @@ const ListaVehiculos: React.FC<ListaVehiculosProps> = ({ vehiculos, cargando, se
         // Avance de documentación (misma semántica del gate del backend).
         const pct = avanceDocumentosVehiculo(veh);
         const clasePct = pct >= 90 ? 'rev-avance--alto' : pct >= 70 ? 'rev-avance--medio' : 'rev-avance--bajo';
+        // Placa adoptada por el padrino logueado (2026-10-15).
+        const esMia = Boolean(padrinoId) && (Array.isArray(veh.padrinos) ? veh.padrinos : [])
+          .some((p: any) => p?.id === padrinoId);
         return (
           <button
             key={veh._id}
             className={`rev-fila ${seleccionadoId === veh._id ? 'rev-fila--activa' : ''}`}
             onClick={() => onSeleccionar(veh)}
-            title={`Documentación: ${pct}%`}
+            title={esMia ? `Tu placa adoptada · Documentación: ${pct}%` : `Documentación: ${pct}%`}
           >
-            <span className="rev-fila-placa">{veh.placa}</span>
+            <span className="rev-fila-placa">{veh.placa}{esMia && <span className="rev-fila-padrino" title="Placa que adoptaste (recibes sus avisos)">★</span>}</span>
             <span className="rev-fila-conductor">
               {veh.condNombres || 'SIN NOMBRE'} {veh.condPrimerApellido || ''}
               {reRevison && <span className="rev-chip rev-chip--rerevision rev-chip--mini">🔄</span>}
