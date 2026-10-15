@@ -1170,8 +1170,17 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     }
     if (value !== "") {
         if (name === 'vehModelo' && parseInt(value) > ANIO_MODELO_MAX) return;
-        // El año de repotenciación: nunca futuro ni anterior a 2010.
-        if (name === 'vehAno' && (parseInt(value) > ANIO_ACTUAL || parseInt(value) < 2010)) return;
+        // Año de repotenciación: año de 4 dígitos, nunca futuro ni anterior
+        // a 2010. Solo se juzga el valor COMPLETO (4 dígitos) — los prefijos
+        // de 1-3 dígitos no se juzgan, si no no se podría digitar «2015»
+        // (el «2» inicial ya sería menor que 2010 y rechazaba cada tecla).
+        if (name === 'vehAno') {
+            if (value.length > 4) return;
+            if (value.length === 4) {
+                const anio = parseInt(value, 10);
+                if (isNaN(anio) || anio < 2010 || anio > ANIO_ACTUAL) return;
+            }
+        }
         if (name === 'condAntiguedadRef' && parseInt(value) > 30) return;
         // Placa del remolque: máximo 10 caracteres (pedido del usuario
         // 2026-10-06; se rechaza la tecla que sobra).
