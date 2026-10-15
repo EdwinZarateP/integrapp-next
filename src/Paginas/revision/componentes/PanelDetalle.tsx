@@ -96,7 +96,18 @@ const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar, pe
         </div>
         <div className="rev-panel-chips">
           <span className={`rev-chip ${estado.clase}`}>{estado.texto}</span>
-          {esReRevison && <span className="rev-chip rev-chip--rerevision">🔄 Re-revisión</span>}
+          {/* «Re-revisión» = un vehículo APROBADO fue editado (por el conductor
+              o Seguridad) y volvió a revisión: sus cambios están en la pestaña
+              «Cambios» (historialCambios). Es informativo del historial, no un
+              estado del vehículo. */}
+          {esReRevison && (
+            <span
+              className="rev-chip rev-chip--rerevision"
+              title="Un vehículo aprobado fue editado y volvió a revisión: los cambios están en la pestaña «Cambios»."
+            >
+              🔄 Re-revisión
+            </span>
+          )}
           {puedeImpersonar && (
             <button
               className="rev-panel-impersonar"
@@ -122,7 +133,14 @@ const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar, pe
       </div>
 
       <div className="rev-panel-cuerpo">
-        {pestana === 'datos' && <PestanaDatos veh={veh} alCambiar={alCambiar} esPadrino={esPadrino} />}
+        {pestana === 'datos' && (
+          <PestanaDatos
+            veh={veh}
+            alCambiar={alCambiar}
+            esPadrino={esPadrino}
+            onIrAPestana={(p) => { setPestana(p); onCambiarPestana?.(p); }}
+          />
+        )}
         {pestana === 'documentos' && <PestanaDocumentos veh={veh} alCambiar={alCambiar} esPadrino={esPadrino} />}
         {pestana === 'estudios' && <PestanaEstudios veh={veh} />}
         {pestana === 'cambios' && <PestanaCambios veh={veh} />}

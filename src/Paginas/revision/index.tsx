@@ -775,6 +775,12 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
               onSeleccionar={(v) => {
                 // Selección manual: el panel abre en Datos (la pestaña de la
                 // URL aplica solo a la restauración tras recargar).
+                // (2026-10-15) Cancelar TAMBIÉN la restauración pendiente de la
+                // URL y su fetch individual: si quedaban vivas, la respuesta
+                // tardía de la placa vieja SOBRESCRIBÍA la selección manual y
+                // el panel/la URL quedaban mostrando placas distintas.
+                placaPendienteRef.current = null;
+                buscandoVehiculoRef.current = null;
                 pestanaInicialRef.current = null;
                 setPestanaPanel(null);
                 setSeleccionado(v);
@@ -799,7 +805,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       {seleccionado && (
         <PanelDetalle
           veh={seleccionado}
-          onClose={() => setSeleccionado(null)}
+          onClose={() => {
+            // (2026-10-15) Cerrar el panel también cancela una restauración
+            // pendiente: sin esto, el fetch individual de la placa de la URL
+            // re-abría el panel que el usuario acaba de cerrar.
+            placaPendienteRef.current = null;
+            buscandoVehiculoRef.current = null;
+            setSeleccionado(null);
+          }}
           alCambiar={alCambiar}
           pestanaInicial={pestanaInicialRef.current ?? undefined}
           onCambiarPestana={setPestanaPanel}

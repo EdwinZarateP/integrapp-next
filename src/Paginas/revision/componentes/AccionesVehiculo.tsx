@@ -112,12 +112,14 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
 
   const rechazarVehiculo = async () => {
     const { value: observaciones } = await Swal.fire({
-      title: `Devolver a Registro Incompleto ${veh.placa}`,
+      title: `Solicitar correcciones a ${veh.placa}`,
+      html: 'El vehículo vuelve al conductor (<b>Pendiente</b>) con estas observaciones para que las corrija:',
       input: 'textarea',
-      inputPlaceholder: 'Ingrese las observaciones...',
+      inputPlaceholder: 'Qué debe corregir el conductor (obligatorio)...',
       showCancelButton: true,
-      confirmButtonText: 'Devolver',
+      confirmButtonText: 'Solicitar correcciones',
       confirmButtonColor: '#e74c3c',
+      cancelButtonText: 'Cancelar',
       preConfirm: (t) => t || Swal.showValidationMessage('Requerido')
     });
 
@@ -137,10 +139,10 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
       const tenedor = veh.tenedor || veh.idUsuario;
       axios.post(`${API_BASE}/revision/enviar-observaciones?tenedor=${tenedor}`, { observaciones }).catch(console.warn);
 
-      Swal.fire("Devuelto", "Vehículo devuelto exitosamente.", "success");
+      Swal.fire("Correcciones solicitadas", `El vehículo ${veh.placa} volvió al conductor con tus observaciones.`, "success");
       alCambiar(`Vehículo ${veh.placa} devuelto`);
     } catch {
-      Swal.fire("Error", "Error al procesar devolución.", "error");
+      Swal.fire("Error", "Error al procesar la solicitud de correcciones.", "error");
     }
   };
 
@@ -287,10 +289,16 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
     const res = await Swal.fire({
       icon: 'question',
       title: `Cancelar actualización de ${veh.placa}`,
-      html: 'El vehículo vuelve a <b>aprobado</b> sin pasar por revisión<br/>(como si la solicitud no hubiera existido).',
+      html: `Qué se cancela: la <b>solicitud de actualización</b> enviada al conductor.
+             El vehículo vuelve a <b>Aprobado</b> y reaparece en la bolsa de
+             disponibilidad, sin pasar por re-revisión.<br/><br/>
+             <small>Los datos y documentos que el conductor <b>ya guardó</b> durante la
+             actualización <b>se conservan</b> — no se revierten. Si quieres revisar esos
+             cambios antes de habilitarlo, usa las pestañas «Datos» y «Cambios» en vez
+             de cancelar.</small>`,
       showCancelButton: true,
       confirmButtonText: 'Cancelar actualización',
-      confirmButtonColor: '#28a745',
+      confirmButtonColor: '#5d6d7e',
       cancelButtonText: 'Volver',
     });
     if (!res.isConfirmed) return;
@@ -348,13 +356,16 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
     <div className="rev-acciones">
       {estado === "completado_revision" && (
         <>
-          <button className="rev-btn rev-btn--aprobar" onClick={aprobarVehiculo}>
+          {/* Acción PRINCIPAL (2026-10-15): Aprobar destaca sobre las demás. */}
+          <button className="rev-btn rev-btn--aprobar rev-btn--principal" onClick={aprobarVehiculo}>
             <FaCheckCircle /> Aprobar
           </button>
-          <button className="rev-btn rev-btn--devolver" onClick={rechazarVehiculo}>
-            <FaTimesCircle /> Devolver
+          <button className="rev-btn rev-btn--devolver" onClick={rechazarVehiculo} title="El vehículo vuelve al conductor con observaciones para que las corrija">
+            <FaTimesCircle /> Solicitar correcciones
           </button>
-          <button className="rev-btn rev-btn--rechazar" onClick={rechazarDefinitivo}>
+          {/* Rechazo definitivo: destructiva SECUNDARIA (contorno) — menos
+              protagonista que Aprobar/Corregir pero claramente peligrosa. */}
+          <button className="rev-btn rev-btn--rechazar rev-btn--peligro" onClick={rechazarDefinitivo} title="Rechazo definitivo: el vehículo queda bloqueado y sin camino de vuelta">
             <FaBan /> Rechazar
           </button>
         </>
@@ -370,7 +381,10 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
         </>
       )}
       {estado === "en_actualizacion" && (
-        <button className="rev-btn rev-btn--reactivar" onClick={cancelarActualizacion}>
+        /* (2026-10-15) Acción SECUNDARIA (contorno neutro): deshace la
+           solicitud sin revisar los cambios — no debe competir en peso visual
+           con las acciones de avance. */
+        <button className="rev-btn rev-btn--secundario" onClick={cancelarActualizacion}>
           <FaUndo /> Cancelar actualización
         </button>
       )}

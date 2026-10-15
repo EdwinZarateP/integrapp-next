@@ -5,6 +5,8 @@ export interface BaseUsuario {
   regional: string;
   celular?: string;
   perfil: string;
+  // Perfiles adicionales (2026-10-15): p. ej. OPERATIVO que también es Padrino.
+  perfiles_adicionales?: string[];
   usuario: string;
   clave: string;
   clientes?: string[];
@@ -29,6 +31,8 @@ export interface LoginRespuesta {
     nombre?: string;
     correo?: string;
     perfil: string;
+    // Perfiles adicionales (2026-10-15): p. ej. OPERATIVO que también es Padrino.
+    perfiles_adicionales?: string[];
     regional: string;
     clientes: string[];
   };

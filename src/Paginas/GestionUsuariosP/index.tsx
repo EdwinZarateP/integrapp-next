@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter,
 } from 'react-icons/fa';
-import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarClientesAprobacion, actualizarPerfilUsuario, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarClientesAprobacion, actualizarPerfilUsuario, actualizarPerfilesAdicionales, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
 import { getClientes } from '@/Funciones/ApiPedidos/otrosCostos';
 import { listarEmpresasCobro } from '@/Funciones/ApiPedidos/seguridadCobro';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
@@ -191,6 +191,25 @@ const GestionUsuariosP: React.FC = () => {
     try {
       await actualizarPerfilUsuario(usuario.id, nuevoPerfil);
       setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, perfil: nuevoPerfil } : u));
+    } catch {
+      setUsuarios(prev => [...prev]);
+    } finally {
+      setGuardandoPerfil(null);
+    }
+  };
+
+  // (2026-10-15) Perfil ADICIONAL PADRINO: el usuario conserva su perfil
+  // principal y GANA la entrada al portal de Seguridad en modo simplificado.
+  // Solo aplica a perfiles que no sean SEGURIDAD/ADMIN/PADRINO (redundante).
+  const togglePadrinoAdicional = async (usuario: BaseUsuario) => {
+    if (!usuario.id) return;
+    const tiene = (usuario.perfiles_adicionales || []).map(p => p.toUpperCase()).includes('PADRINO');
+    const nuevos = tiene ? [] : ['PADRINO'];
+    setGuardandoPerfil(usuario.id); // reutiliza el estado de "guardando perfil"
+    try {
+      const res = await actualizarPerfilesAdicionales(usuario.id, nuevos);
+      setUsuarios(prev => prev.map(u => u.id === usuario.id
+        ? { ...u, perfiles_adicionales: res.perfiles_adicionales } : u));
     } catch {
       setUsuarios(prev => [...prev]);
     } finally {
@@ -432,6 +451,19 @@ const GestionUsuariosP: React.FC = () => {
                           >
                             {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
+                          {/* (2026-10-15) Perfil ADICIONAL: operativo/analista/…
+                              que TAMBIÉN es Padrino (portal Seguridad simplificado). */}
+                          {activo && !['SEGURIDAD', 'ADMIN', 'PADRINO'].includes(u.perfil) && (
+                            <label className="GU-padrino-adicional" title="Agrega el portal de Seguridad en modo Padrino: puede entrar a /revision a cargar documentos y datos de las placas, sin autorizar nada. Su perfil principal no cambia.">
+                              <input
+                                type="checkbox"
+                                checked={(u.perfiles_adicionales || []).map(p => p.toUpperCase()).includes('PADRINO')}
+                                disabled={guardandoPerfil === u.id}
+                                onChange={() => togglePadrinoAdicional(u)}
+                              />
+                              <span>+ Padrino</span>
+                            </label>
+                          )}
                         </td>
                         <td>{u.regional}</td>
                         {CLIENTES_DISPONIBLES.map(c => (
@@ -584,6 +616,20 @@ const GestionUsuariosP: React.FC = () => {
                     value={form.perfil} onChange={e => setForm(f => ({ ...f, perfil: e.target.value }))}>
                     {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
+                  {/* (2026-10-15) Perfil adicional: crear ya con acceso Padrino. */}
+                  {!['SEGURIDAD', 'ADMIN', 'PADRINO', 'CLIENTE_FMC', 'CLIENTE_ESTUDIOS'].includes(form.perfil) && (
+                    <label className="GU-padrino-adicional" title="Podrá entrar además al portal de Seguridad en modo Padrino (cargar documentos y datos, sin autorizar nada).">
+                      <input
+                        type="checkbox"
+                        checked={(form.perfiles_adicionales || []).includes('PADRINO')}
+                        onChange={e => setForm(f => ({
+                          ...f,
+                          perfiles_adicionales: e.target.checked ? ['PADRINO'] : [],
+                        }))}
+                      />
+                      <span>+ Padrino (portal Seguridad simplificado)</span>
+                    </label>
+                  )}
                 </div>
                 {form.perfil !== 'CLIENTE_FMC' && (
                 <div className="GU-formGrupo">

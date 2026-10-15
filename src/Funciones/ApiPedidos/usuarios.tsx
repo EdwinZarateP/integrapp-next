@@ -63,6 +63,19 @@ export const actualizarPerfilUsuario = async (
   return res.data;
 };
 
+// Perfiles adicionales (2026-10-15): p. ej. OPERATIVO que también es Padrino
+// (portal de Seguridad en modo simplificado). El perfil principal no cambia.
+export const actualizarPerfilesAdicionales = async (
+  id: string,
+  perfiles_adicionales: string[]
+): Promise<{ mensaje: string; perfiles_adicionales: string[] }> => {
+  const res = await axios.patch<{ mensaje: string; perfiles_adicionales: string[] }>(
+    `${BASE_URL}/${id}/perfiles-adicionales`,
+    { perfiles_adicionales }
+  );
+  return res.data;
+};
+
 // Actualizar datos básicos (nombre, correo, regional, celular, clave opcional, usuario opcional)
 export const actualizarDatosUsuario = async (
   id: string,

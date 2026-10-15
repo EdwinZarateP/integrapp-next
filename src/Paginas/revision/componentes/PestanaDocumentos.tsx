@@ -1,97 +1,319 @@
 'use client';
-import React, { useContext, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Cookies from "js-cookie";
 import Swal from "sweetalert2";
-import { FaUpload } from "react-icons/fa";
-import { ContextoApp } from "@/Contexto/index";
-import VerCaraDocumento from "@/Componentes/VerCaraDocumento";
-import VerDocumento from "@/Componentes/VerDocumento";
-import RecortarDocumento from "@/Componentes/RecortarDocumento";
-import { pdfTieneClave, MENSAJE_PDF_CON_CLAVE } from "@/Funciones/pdfProtegido";
+import {
+  FaBan, FaCamera, FaCheckCircle, FaExclamationTriangle, FaFileAlt, FaFileContract,
+  FaFileSignature, FaIdCard, FaPaperclip, FaShieldAlt, FaTimesCircle, FaTrailer,
+  FaTruck, FaUpload, FaUserCheck, FaUniversity, FaUser, FaUserFriends, FaUserTie, FaWrench, FaFolderOpen,
+} from "react-icons/fa";
 import { Vehiculo } from "../tipos";
+import RecortarDocumento from "@/Componentes/RecortarDocumento";
+import VisorDocumentos, { ItemVisor } from "./VisorDocumentos";
+import { calcularFigurasIguales } from "@/Funciones/documentConstants";
+import { pdfTieneClave, MENSAJE_PDF_CON_CLAVE } from "@/Funciones/pdfProtegido";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-/* Fechas del backend: ISO naive UTC → hora Colombia. */
 const fechaLegible = (iso?: string): string => {
-  if (!iso) return '—';
+  if (!iso) return "—";
   try {
-    return new Date(iso.endsWith('Z') ? iso : `${iso}Z`)
-      .toLocaleString('es-CO', { timeZone: 'America/Bogota', dateStyle: 'short', timeStyle: 'short' });
-  } catch { return iso; }
+    const d = new Date(iso);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  } catch {
+    return String(iso);
+  }
 };
 
-/* Documentos mostrados como tarjetas (las de Seguridad van aparte, abajo).
-   La Hoja de Vida Física NO está aquí: tiene su propia tarjeta con botón de
-   subida — la carga Seguridad (casos históricos con autorización en papel),
-   no el conductor. La Planilla de Seguridad Social TAMPOCO: se actualiza
-   mensualmente → tiene su bloque con HISTORIAL acumulativo más abajo. */
-const DOCUMENTOS_DISPLAY = [
-  { key: "documentoIdentidadConductor", label: "Cédula Conductor", dosCaras: true },
-  { key: "licencia", label: "Licencia Conducción", dosCaras: true },
-  { key: "tarjetaPropiedad", label: "Tarjeta Propiedad", dosCaras: true },
-  { key: "soat", label: "SOAT" },
-  { key: "revisionTecnomecanica", label: "Tecnomecánica" },
-  { key: "tarjetaRemolque", label: "Tarjeta Remolque" },
-  { key: "polizaResponsabilidad", label: "Póliza Resp." },
-  { key: "condFoto", label: "Foto Conductor (App)" },
-  { key: "fotoconductorseguridad", label: "Foto Conductor (Seguridad)" },
-  { key: "documentoIdentidadTenedor", label: "Cédula Tenedor", dosCaras: true },
-  { key: "documentoIdentidadPropietario", label: "Cédula Propietario", dosCaras: true },
-  { key: "documentoIdentidadRemolque", label: "Cédula Dueño Remolque", dosCaras: true },
-  { key: "rutTenedor", label: "RUT Tenedor" },
-  { key: "rutPropietario", label: "RUT Propietario (empresa)" },
-  // (2026-10-15) Collage COMPLETO: estos documentos podían estar cargados (se
-  // veían en el historial) pero no tenían tarjeta arriba.
-  { key: "documentoAcreditacionTenedor", label: "Acreditación Tenedor" },
-  { key: "propCertificacionBancaria", label: "Cert. Bancaria Propietario" },
-  { key: "condCertificacionBancaria", label: "Cert. Bancaria Cond." },
-  { key: "tenedCertificacionBancaria", label: "Cert. Bancaria Tened." },
-  // SEGUNDO CONDUCTOR (2026-10-14): sus tarjetas SOLO aparecen cuando el
-  // slot 2 está vinculado (filtro en el render).
-  { key: "documentoIdentidadConductor2", label: "Cédula Conductor 2", dosCaras: true, soloConductor2: true },
-  { key: "licencia2", label: "Licencia Cond. 2", dosCaras: true, soloConductor2: true },
-  { key: "cond2Foto", label: "Foto Conductor 2 (App)", soloConductor2: true },
-  { key: "cond2CertificacionBancaria", label: "Cert. Bancaria Cond. 2", soloConductor2: true },
+/* ════════════════════════════════════════════════════════════════════════
+   REGLAS DE NEGOCIO (espejo fiel del backend vehiculos.py — no inventar):
+   - Un documento está lleno si su campo tiene URL/array no vacío (_doc_lleno).
+   - Figuras iguales (prop=cond, tened=prop): deduplican requisitos.
+   - Empresa (NIT): la cédula de la figura no se exige (la cubre el RUT).
+   - Vehículo nuevo (modelo ≥ año−1): tecnomecánica exenta.
+   - Acreditación como tenedor: no se exige si tenedor = propietario.
+   - Tarjeta de remolque: obligatoria solo con remolque declarado.
+   - 4 fotos por ángulo obligatorias; planilla con fecha de vencimiento.
+   ════════════════════════════════════════════════════════════════════════ */
+const docLleno = (v: any, campo: string): boolean => {
+  const valor = v?.[campo];
+  if (Array.isArray(valor)) return valor.filter((u: any) => u && String(u).trim()).length > 0;
+  const s = String(valor ?? "").trim();
+  return Boolean(s) && s !== "null" && s !== "undefined";
+};
+
+const esEmpresa = (v: any, campoTipo: string): boolean =>
+  String(v?.[campoTipo] || "").toUpperCase().includes("NIT");
+
+const CAMPOS_REMOLQUE = [
+  "RemolPlaca", "RemolModelo", "RemolClase", "RemolTipoCarroceria",
+  "RemolAlto", "RemolLargo", "RemolAncho",
+  "RemolDuenoNombre", "RemolDuenoDocumento", "RemolDuenoCorreo",
 ];
 
-interface DocAbierto {
-  tipo: 'dosCaras' | 'galeria';
+const tieneRemolque = (v: any): boolean => CAMPOS_REMOLQUE.some((c) => {
+  const s = String(v?.[c] || "").trim();
+  return Boolean(s) && s !== "null" && s !== "undefined";
+});
+
+const exentoTecnomecanica = (v: any): boolean => {
+  const modelo = String(v?.vehModelo || "").replace(/\D/g, "").slice(0, 4);
+  if (modelo.length !== 4) return false;
+  const anio = Number(modelo);
+  return Number.isFinite(anio) && anio >= new Date().getFullYear() - 1;
+};
+
+/* ── Catálogo de la pestaña: cada fila = un requisito/requisito opcional ── */
+type GrupoId = "conductor" | "conductor2" | "vehiculo" | "tenedor" | "propietario" | "otros";
+type EstadoFila = "disponible" | "incompleto" | "faltante" | "noaplica";
+
+interface FilaDoc {
+  key: string;
+  etiqueta: string;
+  grupo: GrupoId;
+  obligatorio: boolean;
+  dosCaras: boolean;
   frente?: string;
   reverso?: string;
-  urls?: string[];
-  etiqueta: string;
-  /** Campo Mongo del documento ACTUAL (base, sin Reverso): habilita el
-   *  botón ✂️ Recortar de Seguridad en el visor. Sin él (firma, historial,
-   *  planilla, fotos) no se ofrece el recorte. */
+  /** Row "No aplica" con su motivo (no cuenta como faltante). */
+  noAplica?: string;
+  /** Nota corta bajo el nombre (p. ej. «La sube Seguridad»). */
+  nota?: string;
+  /** Campo base para ✂️ Recortar (imágenes; undefined = no se recorta). */
   campoRecorte?: string;
 }
+
+const ETIQUETA_GRUPO: Record<GrupoId, string> = {
+  conductor: "Conductor",
+  conductor2: "Conductor 2",
+  vehiculo: "Vehículo",
+  tenedor: "Tenedor",
+  propietario: "Propietario",
+  otros: "Otros documentos",
+};
+
+/* Ícono consistente por tipo de documento (sin emojis). */
+const iconoDe = (key: string): React.ReactNode => {
+  if (key.startsWith("documentoIdentidad")) return <FaIdCard aria-hidden="true" />;
+  if (key.startsWith("licencia")) return <FaFileAlt aria-hidden="true" />;
+  if (key.includes("CertificacionBancaria")) return <FaUniversity aria-hidden="true" />;
+  if (key === "tarjetaPropiedad") return <FaFileContract aria-hidden="true" />;
+  if (key === "soat") return <FaShieldAlt aria-hidden="true" />;
+  if (key === "revisionTecnomecanica") return <FaWrench aria-hidden="true" />;
+  if (key === "tarjetaRemolque") return <FaTrailer aria-hidden="true" />;
+  if (key.startsWith("foto_")) return <FaCamera aria-hidden="true" />;
+  if (key.startsWith("cond2Foto")) return <FaCamera aria-hidden="true" />;
+  if (key === "condFoto" || key === "fotoconductorseguridad") return <FaUserCheck aria-hidden="true" />;
+  if (key.startsWith("rut")) return <FaFileAlt aria-hidden="true" />;
+  if (key === "documentoAcreditacionTenedor") return <FaFileAlt aria-hidden="true" />;
+  if (key.startsWith("firma")) return <FaFileSignature aria-hidden="true" />;
+  if (key === "hojaVidaFisica") return <FaFileAlt aria-hidden="true" />;
+  if (key.startsWith("adicional")) return <FaPaperclip aria-hidden="true" />;
+  return <FaFileAlt aria-hidden="true" />;
+};
+
+const ICONO_GRUPO: Record<GrupoId, React.ReactNode> = {
+  conductor: <FaUserTie />,
+  conductor2: <FaUserFriends />,
+  vehiculo: <FaTruck />,
+  tenedor: <FaUser />,
+  propietario: <FaUserTie />,
+  otros: <FaFolderOpen />,
+};
+
+const estadoDe = (f: FilaDoc): EstadoFila => {
+  if (f.noAplica) return "noaplica";
+  if (f.frente) return f.dosCaras && !f.reverso ? "incompleto" : "disponible";
+  return "faltante";
+};
 
 const PestanaDocumentos: React.FC<{
   veh: Vehiculo;
   alCambiar: (mensaje: string, mantener?: boolean) => void;
   esPadrino?: boolean;
 }> = ({ veh, alCambiar, esPadrino = false }) => {
-  const almacenVariables = useContext(ContextoApp);
-  if (!almacenVariables) throw new Error("Contexto no disponible");
-  const { verDocumento, setVerDocumento } = almacenVariables;
-
-  const [docAbierto, setDocAbierto] = useState<DocAbierto | null>(null);
+  const [docAbierto, setDocAbierto] = useState<{ items: ItemVisor[]; indice: number; cara: "frente" | "reverso" } | null>(null);
   /* Recorte en curso (Seguridad): campo exacto (frente o reverso) + etiqueta. */
   const [recorte, setRecorte] = useState<{ campo: string; etiqueta: string } | null>(null);
+  /* Filtro del resumen: todos | faltantes. */
+  const [filtro, setFiltro] = useState<"todos" | "faltantes">("todos");
+  /* Historial de planillas colapsado (2026-10-15: primero la vigente). */
+  const [verHistorialPlanillas, setVerHistorialPlanillas] = useState(false);
   const inputHV = useRef<HTMLInputElement | null>(null);
   const inputPlanilla = useRef<HTMLInputElement | null>(null);
   const inputAdicional = useRef<HTMLInputElement | null>(null);
 
-  /* Hoja de Vida Física: la sube SEGURIDAD desde acá (PDF o imagen firmada).
-     No baja un aprobado a re-revisión (excepción backend) — es un adjunto de
-     archivo histórico, no un dato del conductor. */
+  /* ── Construcción de filas con las reglas del backend ─────────────────── */
+  const { filas, notasGrupo } = useMemo(() => {
+    const v = veh as any;
+    const figuras = calcularFigurasIguales(v);
+    const propEmpresa = esEmpresa(v, "propTipoDocumento");
+    const tenedEmpresa = esEmpresa(v, "tenedTipoDocumento");
+    const conRemolque = tieneRemolque(v);
+    const notas: Partial<Record<GrupoId, string[]>> = {};
+    const nota = (g: GrupoId, t: string) => { (notas[g] ||= []).push(t); };
+
+    if (figuras.propIgualCond) nota("propietario", "El propietario es el mismo conductor: comparten documentos de identidad.");
+    if (figuras.tenedIgualProp) nota("tenedor", "El tenedor es el mismo propietario: comparten documentos de identidad.");
+    if (propEmpresa) nota("propietario", "Propietario empresa (NIT): acredita identidad con el RUT.");
+    if (tenedEmpresa) nota("tenedor", "Tenedor empresa (NIT): acredita identidad con el RUT.");
+    if (exentoTecnomecanica(v)) nota("vehiculo", "Vehículo nuevo (menos de 2 años): exento de tecnomecánica.");
+
+    const f: FilaDoc[] = [];
+    const add = (x: FilaDoc) => f.push(x);
+
+    /* CONDUCTOR */
+    add({ key: "documentoIdentidadConductor", etiqueta: "Cédula del conductor", grupo: "conductor", obligatorio: true, dosCaras: true, frente: v.documentoIdentidadConductor, reverso: v.documentoIdentidadConductorReverso, campoRecorte: "documentoIdentidadConductor" });
+    add({ key: "licencia", etiqueta: "Licencia de conducción", grupo: "conductor", obligatorio: true, dosCaras: true, frente: v.licencia, reverso: v.licenciaReverso, campoRecorte: "licencia" });
+    add({ key: "condFoto", etiqueta: "Foto del conductor", grupo: "conductor", obligatorio: true, dosCaras: false, frente: v.condFoto, nota: "Tomada desde la app del conductor" });
+    add({ key: "condCertificacionBancaria", etiqueta: "Certificación bancaria del conductor", grupo: "conductor", obligatorio: true, dosCaras: false, frente: v.condCertificacionBancaria });
+    // Opcionales del conductor: solo si existen (no son requisito).
+    if (docLleno(v, "fotoconductorseguridad")) {
+      add({ key: "fotoconductorseguridad", etiqueta: "Foto del conductor (Seguridad)", grupo: "conductor", obligatorio: false, dosCaras: false, frente: v.fotoconductorseguridad, nota: "Tomada por Seguridad", campoRecorte: "fotoconductorseguridad" });
+    }
+    if (docLleno(v, "firmaUrl")) {
+      add({ key: "firmaUrl", etiqueta: "Firma del conductor", grupo: "conductor", obligatorio: false, dosCaras: false, frente: v.firmaUrl, nota: "Firma electrónica del paso 3" });
+    }
+
+    /* CONDUCTOR 2 (solo si está vinculado) */
+    if (v.idConductor2) {
+      add({ key: "documentoIdentidadConductor2", etiqueta: "Cédula del conductor 2", grupo: "conductor2", obligatorio: true, dosCaras: true, frente: v.documentoIdentidadConductor2, reverso: v.documentoIdentidadConductor2Reverso, campoRecorte: "documentoIdentidadConductor2" });
+      add({ key: "licencia2", etiqueta: "Licencia del conductor 2", grupo: "conductor2", obligatorio: true, dosCaras: true, frente: v.licencia2, reverso: v.licencia2Reverso, campoRecorte: "licencia2" });
+      add({ key: "cond2Foto", etiqueta: "Foto del conductor 2", grupo: "conductor2", obligatorio: true, dosCaras: false, frente: v.cond2Foto });
+      add({ key: "cond2CertificacionBancaria", etiqueta: "Certificación bancaria del conductor 2", grupo: "conductor2", obligatorio: true, dosCaras: false, frente: v.cond2CertificacionBancaria });
+      if (docLleno(v, "firmaUrl2")) {
+        add({ key: "firmaUrl2", etiqueta: "Firma del conductor 2", grupo: "conductor2", obligatorio: false, dosCaras: false, frente: v.firmaUrl2 });
+      }
+    }
+
+    /* VEHÍCULO */
+    add({ key: "tarjetaPropiedad", etiqueta: "Tarjeta de propiedad", grupo: "vehiculo", obligatorio: true, dosCaras: true, frente: v.tarjetaPropiedad, reverso: v.tarjetaPropiedadReverso, campoRecorte: "tarjetaPropiedad" });
+    add({ key: "soat", etiqueta: "SOAT", grupo: "vehiculo", obligatorio: true, dosCaras: false, frente: v.soat, campoRecorte: "soat" });
+    add(exentoTecnomecanica(v)
+      ? { key: "revisionTecnomecanica", etiqueta: "Revisión tecnomecánica", grupo: "vehiculo", obligatorio: false, dosCaras: false, noAplica: "Vehículo nuevo (menos de 2 años)" }
+      : { key: "revisionTecnomecanica", etiqueta: "Revisión tecnomecánica", grupo: "vehiculo", obligatorio: true, dosCaras: false, frente: v.revisionTecnomecanica, campoRecorte: "revisionTecnomecanica" });
+    // Remolque: obligatorio si hay remolque declarado; opcional-informativo si
+    // el archivo existe sin declaración; sin nada → no se muestra.
+    if (conRemolque || docLleno(v, "tarjetaRemolque")) {
+      add({ key: "tarjetaRemolque", etiqueta: "Tarjeta del remolque", grupo: "vehiculo", obligatorio: conRemolque, dosCaras: false, frente: v.tarjetaRemolque, nota: conRemolque ? undefined : "Sin remolque declarado", campoRecorte: "tarjetaRemolque" });
+    }
+    // 4 ángulos exigidos (2026-10-14).
+    const angulos: Array<[string, string]> = [
+      ["frontal", "Foto frontal del vehículo"],
+      ["lateral_izq", "Foto lateral izquierda"],
+      ["lateral_der", "Foto lateral derecha"],
+      ["posterior", "Foto posterior del vehículo"],
+    ];
+    const mapaAngulos = new Map<string, string>(
+      ((v.fotosVehiculo || []) as any[])
+        .map((a) => [a?.tipo, String(a?.ruta || "").trim()] as [string, string])
+        .filter(([, r]) => r));
+    angulos.forEach(([tipo, etiqueta]) => {
+      add({ key: `foto_${tipo}`, etiqueta, grupo: "vehiculo", obligatorio: true, dosCaras: false, frente: mapaAngulos.get(tipo) });
+    });
+
+    /* TENEDOR */
+    // Cédula: deduplicada si tenedor = propietario/conductor; No aplica si empresa.
+    if (!figuras.tenedIgualProp) {
+      add(tenedEmpresa
+        ? { key: "documentoIdentidadTenedor", etiqueta: "Cédula del tenedor", grupo: "tenedor", obligatorio: true, dosCaras: true, noAplica: "Tenedor empresa: acredita con el RUT" }
+        : { key: "documentoIdentidadTenedor", etiqueta: "Cédula del tenedor", grupo: "tenedor", obligatorio: true, dosCaras: true, frente: v.documentoIdentidadTenedor, reverso: v.documentoIdentidadTenedorReverso, campoRecorte: "documentoIdentidadTenedor" });
+    }
+    add({ key: "tenedCertificacionBancaria", etiqueta: "Certificación bancaria del tenedor", grupo: "tenedor", obligatorio: true, dosCaras: false, frente: v.tenedCertificacionBancaria, nota: "Para pago de saldos" });
+    add(figuras.tenedIgualProp
+      ? { key: "documentoAcreditacionTenedor", etiqueta: "Acreditación como tenedor", grupo: "tenedor", obligatorio: true, dosCaras: false, noAplica: "Tenedor = propietario: la tarjeta de propiedad lo acredita" }
+      : { key: "documentoAcreditacionTenedor", etiqueta: "Acreditación como tenedor", grupo: "tenedor", obligatorio: true, dosCaras: false, frente: v.documentoAcreditacionTenedor, campoRecorte: "documentoAcreditacionTenedor" });
+    add({ key: "rutTenedor", etiqueta: "RUT del tenedor", grupo: "tenedor", obligatorio: true, dosCaras: false, frente: v.rutTenedor, campoRecorte: "rutTenedor" });
+
+    /* PROPIETARIO */
+    if (!figuras.propIgualCond) {
+      add(propEmpresa
+        ? { key: "documentoIdentidadPropietario", etiqueta: "Cédula del propietario", grupo: "propietario", obligatorio: true, dosCaras: true, noAplica: "Propietario empresa: acredita con el RUT" }
+        : { key: "documentoIdentidadPropietario", etiqueta: "Cédula del propietario", grupo: "propietario", obligatorio: true, dosCaras: true, frente: v.documentoIdentidadPropietario, reverso: v.documentoIdentidadPropietarioReverso, campoRecorte: "documentoIdentidadPropietario" });
+    }
+    // RUT del propietario: obligatorio si empresa; informativo si ya existe.
+    if (propEmpresa || docLleno(v, "rutPropietario")) {
+      add({ key: "rutPropietario", etiqueta: "RUT del propietario (empresa)", grupo: "propietario", obligatorio: propEmpresa, dosCaras: false, frente: v.rutPropietario, campoRecorte: "rutPropietario" });
+    }
+    // Histórico (dejó de pedirse 2026-08-31): solo si existe el archivo.
+    if (docLleno(v, "propCertificacionBancaria")) {
+      add({ key: "propCertificacionBancaria", etiqueta: "Certificación bancaria del propietario", grupo: "propietario", obligatorio: false, dosCaras: false, frente: v.propCertificacionBancaria, nota: "Histórico (ya no se pide)" });
+    }
+
+    /* OTROS */
+    add(docLleno(v, "hojaVidaFisica")
+      ? { key: "hojaVidaFisica", etiqueta: "Hoja de vida física", grupo: "otros", obligatorio: false, dosCaras: false, frente: v.hojaVidaFisica, campoRecorte: "hojaVidaFisica" }
+      : { key: "hojaVidaFisica", etiqueta: "Hoja de vida física", grupo: "otros", obligatorio: false, dosCaras: false, nota: "Opcional — la sube Seguridad (casos históricos en papel)" });
+    (Array.isArray(v.documentosAdicionales) ? v.documentosAdicionales : [])
+      .filter((d: any) => d?.ruta && String(d.ruta).trim())
+      .forEach((d: any, i: number) => {
+        add({
+          key: `adicional_${i}`,
+          etiqueta: String(d.nombre || "Documento adicional"),
+          grupo: "otros",
+          obligatorio: false,
+          dosCaras: false,
+          frente: d.ruta,
+          nota: d.actor ? `Cargado por ${d.actor}${d.fecha ? ` · ${fechaLegible(d.fecha)}` : ""}` : undefined,
+        });
+      });
+
+    return { filas: f, notasGrupo: notas };
+    // El vehículo se re-fetchea al cambiar (alCambiar cierra el panel o lo
+    // reabre con datos frescos): sin dependencias extra.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [veh]);
+
+  /* ── Resumen y filtros ────────────────────────────────────────────────── */
+  const conteos = useMemo(() => {
+    let disponibles = 0, faltantes = 0, noAplican = 0;
+    filas.forEach((f) => {
+      const e = estadoDe(f);
+      if (e === "disponible") disponibles += 1;
+      else if (e === "noaplica") noAplican += 1;
+      else faltantes += 1; // faltante + incompleto (falta reverso)
+    });
+    return { disponibles, faltantes, noAplican };
+  }, [filas]);
+
+  const filasVisibles = filtro === "todos"
+    ? filas
+    : filas.filter((f) => ["faltante", "incompleto"].includes(estadoDe(f)));
+
+  const gruposVisibles = (["conductor", "conductor2", "vehiculo", "tenedor", "propietario", "otros"] as GrupoId[])
+    .map((g) => ({ g, filas: filasVisibles.filter((f) => f.grupo === g) }))
+    .filter(({ g, filas: fl }) => fl.length > 0 || (notasGrupo[g]?.length && filtro === "todos"));
+
+  /* ── Visor: lista plana de archivos disponibles, en orden de grupos ────── */
+  const abrirVisor = (fila: FilaDoc, cara: "frente" | "reverso" = "frente") => {
+    const disponibles = filas.filter((f) => f.frente);
+    const indice = Math.max(disponibles.findIndex((f) => f.key === fila.key), 0);
+    setDocAbierto({ items: disponibles.map(mapaItemVisor), indice, cara });
+  };
+
+  const abrirGaleriaAdicionales = () => {
+    const rutasAngulo = new Set(
+      (veh.fotosVehiculo || []).map((a: any) => String(a?.ruta || "").trim()).filter(Boolean));
+    const extras = (Array.isArray(veh.fotos) ? veh.fotos : [])
+      .map((u: any) => String(u || "").trim())
+      .filter((u) => u && u !== "null" && u !== "undefined" && !rutasAngulo.has(u));
+    setDocAbierto({
+      items: extras.map((u, i) => ({
+        etiqueta: `Foto adicional ${i + 1} de ${extras.length}`,
+        dueno: "Vehículo",
+        frente: u,
+      })),
+      indice: 0,
+      cara: "frente",
+    });
+  };
+
+  /* ── Subidas (Se­guridad/Admin) — flujos intactos ───────────────────────── */
   const subirHojaVida = async (archivo: File) => {
     if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
       Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la hoja de vida firmada.', 'warning');
       return;
     }
-    // PDF con clave (2026-10-15): no se sube — nadie podría abrirlo después.
     if (await pdfTieneClave(archivo)) {
       Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: MENSAJE_PDF_CON_CLAVE, confirmButtonColor: '#d33' });
       return;
@@ -113,15 +335,6 @@ const PestanaDocumentos: React.FC<{
     }
   };
 
-  /* Planilla de Seguridad Social: se actualiza MENSUALMENTE → cada carga
-     ACUMULA en el historial (nada se reemplaza) y NO baja un aprobado a
-     re-revisión (excepción backend). La puede subir Seguridad desde acá o el
-     conductor desde su paso 3 — ambos acumulan igual.
-     La FECHA DE VENCIMIENTO es obligatoria (2026-10-07): con ella el vehículo
-     queda INHABILITADO de la bolsa al vencerse.
-     VARIOS ARCHIVOS (2026-10-15): la EPS y la ARL suelen venir separadas — se
-     suben JUNTAS (máx. 3) con UNA fecha de vencimiento para la tanda; cada
-     archivo queda como fila propia del historial. */
   const subirPlanilla = async (archivosEntrada: File[]) => {
     const archivos = archivosEntrada.slice(0, 3);
     if (archivosEntrada.length > 3) {
@@ -132,14 +345,11 @@ const PestanaDocumentos: React.FC<{
         Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la planilla.', 'warning');
         return;
       }
-      // PDF con clave (2026-10-15): no se sube — nadie podría abrirlo después.
       if (await pdfTieneClave(archivo)) {
         Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: `<b>${archivo.name}</b>: ${MENSAJE_PDF_CON_CLAVE}`, confirmButtonColor: '#d33' });
         return;
       }
     }
-    // Fecha de vencimiento (por si la IA no la lee): obligatoria, vigente y
-    // máximo 31 días desde hoy — misma regla del backend. UNA por tanda.
     const isoLocal = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const hoy = isoLocal(new Date());
@@ -148,7 +358,7 @@ const PestanaDocumentos: React.FC<{
     const resFecha = await Swal.fire({
       icon: 'info',
       title: 'Fecha de vencimiento de la planilla',
-      html: `${archivos.length > 1 ? `Vas a subir <b>${archivos.length} archivos</b> (EPS/ARL): todos comparten esta fecha.<br/>` : ''}¿Hasta qué fecha está <b>vigente</b> esta planilla?<br/><small>Aparece en el documento — máximo 31 días desde hoy. Vencida esa fecha, el vehículo queda inhabilitado hasta que suban una planilla nueva.</small>`,
+      html: `${archivos.length > 1 ? `Vas a subir <b>${archivos.length} archivos</b> (EPS/ARL): todos comparten esta fecha.<br/>` : ''}¿Hasta qué fecha está <b>vigente</b> esta planilla?<br/><small>Máximo 31 días desde hoy. Vencida esa fecha, el vehículo queda inhabilitado hasta que suban una planilla nueva.</small>`,
       input: 'date',
       inputAttributes: { min: hoy, max: topeIso },
       showCancelButton: true,
@@ -187,27 +397,6 @@ const PestanaDocumentos: React.FC<{
     }
   };
 
-  const abrirDosCaras = (frente: string | undefined, campoBase: string, etiqueta: string) => {
-    if (!frente) return;
-    setDocAbierto({
-      tipo: 'dosCaras',
-      frente,
-      reverso: veh[`${campoBase}Reverso`] as string | undefined,
-      etiqueta,
-      campoRecorte: campoBase,
-    });
-  };
-
-  const cerrar = () => {
-    setDocAbierto(null);
-    setVerDocumento(false);
-  };
-
-  /* Documento ADICIONAL con nombre libre (2026-10-15): Seguridad/Admin
-     adjuntan cualquier otro documento (contrato, certificado…) con una
-     etiqueta que ellos digitan. Acumula en `documentosAdicionales`; NO baja
-     un aprobado a re-revisión. PADRINO: solo ver (el backend también lo
-     rechaza). */
   const subirAdicional = async (archivo: File) => {
     if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
       Swal.fire('Archivo no válido', 'Sube una imagen o un PDF.', 'warning');
@@ -246,263 +435,289 @@ const PestanaDocumentos: React.FC<{
       const resp = await fetch(`${API_BASE}/vehiculos/subir-documento-adicional`, { method: 'PUT', body });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo adjuntar el documento.');
-      // mantener=true: es un adjunto — el panel se reabre en la misma
-      // placa/pestaña tras el refresco, sin cambiar el vehículo de bandeja.
       alCambiar(`Documento adicional «${res.value.trim()}» cargado en ${veh.placa}`, true);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo adjuntar el documento.', 'error');
     }
   };
 
-  const fotos = Array.isArray(veh.fotos)
-    ? veh.fotos.filter((u: any) => u && String(u).trim())
-    : [];
+  /* ── Planilla: vigente + historial colapsado ──────────────────────────── */
+  const historialPlanillas: Array<{ ruta?: string; fecha?: string; nombre?: string; vence?: string }> =
+    Array.isArray(veh.documentosPlanillaSegSocial) ? veh.documentosPlanillaSegSocial : [];
+  const filasPlanilla: Array<{ ruta?: string; fecha?: string; nombre?: string; vence?: string }> = historialPlanillas.length
+    ? historialPlanillas
+    : (veh.planillaEpsArl ? [{ ruta: veh.planillaEpsArl as string }] : []);
+  const vigente = filasPlanilla[0];
+  const anteriores = filasPlanilla.slice(1);
+  const vencePlanilla = typeof veh.planillaVencimiento === "string" ? veh.planillaVencimiento.slice(0, 10) : "";
+  const planillaVencida = vencePlanilla && vencePlanilla < new Date().toISOString().slice(0, 10);
 
-  /* Fotos del vehículo POR ÁNGULO (2026-10-14): los 4 exigidos con su
-     etiqueta; las que no son de ángulo quedan como «adicionales». */
-  const angulosFoto: { tipo: string; etiqueta: string; ruta: string }[] = [
-    { tipo: 'frontal', etiqueta: 'Frontal', ruta: '' },
-    { tipo: 'lateral_izq', etiqueta: 'Lateral Izquierda', ruta: '' },
-    { tipo: 'lateral_der', etiqueta: 'Lateral Derecha', ruta: '' },
-    { tipo: 'posterior', etiqueta: 'Posterior', ruta: '' },
-  ].map((a) => {
-    const entrada = (veh.fotosVehiculo || []).find((f: any) => f?.tipo === a.tipo);
-    return { ...a, ruta: entrada ? String(entrada.ruta || '') : '' };
-  });
-  const rutasAngulos = new Set(angulosFoto.map((a) => a.ruta).filter(Boolean));
-  const fotosAdicionales = fotos.filter((u: string) => !rutasAngulos.has(u));
+  const fotos = Array.isArray(veh.fotos)
+    ? veh.fotos.filter((u: any) => u && String(u).trim()) : [];
+  const rutasAnguloSet = new Set(
+    (veh.fotosVehiculo || []).map((a: any) => String(a?.ruta || "").trim()).filter(Boolean));
+  const fotosAdicionales = fotos.filter((u: string) => !rutasAnguloSet.has(u));
 
   return (
     <div className="rev-detalle-scroll">
-      {/* Foto del conductor tomada por Seguridad (el estudio de seguridad
-          vive en la pestaña Estudios). */}
-      {veh.fotoconductorseguridad && (
-        <div className="rev-docs-seguridad">
-          <div
-            className="rev-doc-card rev-doc-card--seguridad"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.fotoconductorseguridad, etiqueta: 'Foto del Conductor (Seguridad)', reverso: undefined, campoRecorte: 'fotoconductorseguridad' })}
-          >
-            <p>📷 Foto Conductor (Seguridad)</p>
-            <span>Ver</span>
-          </div>
+      {/* ── RESUMEN: cantidades + filtro ─────────────────────────────────── */}
+      <div className="rev-docresumen" role="group" aria-label="Resumen de documentos">
+        <div className="rev-docresumen-cifras">
+          <span className="rev-docresumen-cifra rev-docresumen-cifra--ok">
+            <FaCheckCircle aria-hidden="true" /> {conteos.disponibles} disponibles
+          </span>
+          <span className={`rev-docresumen-cifra ${conteos.faltantes ? "rev-docresumen-cifra--mal" : "rev-docresumen-cifra--ok"}`}>
+            {conteos.faltantes
+              ? <><FaExclamationTriangle aria-hidden="true" /> {conteos.faltantes} por completar</>
+              : <><FaCheckCircle aria-hidden="true" /> 0 por completar</>}
+          </span>
+          {conteos.noAplican > 0 && (
+            <span className="rev-docresumen-cifra rev-docresumen-cifra--na">
+              <FaBan aria-hidden="true" /> {conteos.noAplican} no aplican
+            </span>
+          )}
         </div>
+        <div className="rev-docresumen-filtros" aria-label="Filtro de documentos">
+          <button
+            type="button"
+            aria-pressed={filtro === "todos"}
+            className={`rev-docfiltro ${filtro === "todos" ? "rev-docfiltro--activo" : ""}`}
+            onClick={() => setFiltro("todos")}
+          >
+            Todos ({filas.length})
+          </button>
+          <button
+            type="button"
+            aria-pressed={filtro === "faltantes"}
+            className={`rev-docfiltro ${filtro === "faltantes" ? "rev-docfiltro--activo" : ""}`}
+            onClick={() => setFiltro("faltantes")}
+          >
+            Faltantes ({conteos.faltantes})
+          </button>
+        </div>
+      </div>
+
+      {/* ── GRUPOS DE DOCUMENTOS ─────────────────────────────────────────── */}
+      {gruposVisibles.length === 0 && (
+        <p className="rev-docgrupo-vacio">No hay documentos por completar: ¡todo al día!</p>
+      )}
+      {gruposVisibles.map(({ g, filas: fl }) => (
+        <section key={g} className="rev-docgrupo" aria-label={ETIQUETA_GRUPO[g]}>
+          <header className="rev-docgrupo-head">
+            <span className="rev-docgrupo-titulo">{ICONO_GRUPO[g]} {ETIQUETA_GRUPO[g]}</span>
+            {(notasGrupo[g] || []).map((n, i) => (
+              <span key={i} className="rev-docgrupo-nota">{n}</span>
+            ))}
+          </header>
+          <div className="rev-docfilas">
+            {fl.map((f) => {
+              const est = estadoDe(f);
+              return (
+                <div
+                  key={f.key}
+                  className={`rev-docfila rev-docfila--${est}`}
+                  aria-label={`${f.etiqueta}: ${
+                    est === "disponible" ? "disponible" :
+                    est === "incompleto" ? "falta el reverso" :
+                    est === "noaplica" ? "no aplica" : "faltante"}`}
+                >
+                  <div className="rev-docfila-info">
+                    <span className="rev-docfila-nombre">{iconoDe(f.key)} {f.etiqueta}</span>
+                    {f.nota && <span className="rev-docfila-nota">{f.nota}</span>}
+                  </div>
+                  <span className={`rev-docfila-estado rev-docfila-estado--${est}`}>
+                    {est === "disponible" && <><FaCheckCircle aria-hidden="true" /> Disponible</>}
+                    {est === "incompleto" && <><FaExclamationTriangle aria-hidden="true" /> Falta reverso</>}
+                    {est === "faltante" && <><FaTimesCircle aria-hidden="true" /> {f.obligatorio ? "Falta (obligatorio)" : "Falta (opcional)"}</>}
+                    {est === "noaplica" && <><FaBan aria-hidden="true" /> No aplica</>}
+                  </span>
+                  <div className="rev-docfila-acciones">
+                    {f.noAplica ? (
+                      <span className="rev-docfila-motivo">{f.noAplica}</span>
+                    ) : (
+                      <>
+                        {f.frente && (
+                          <button
+                            type="button"
+                            className="rev-docfila-btn"
+                            onClick={() => abrirVisor(f, "frente")}
+                            title={`Ver el frente de ${f.etiqueta}`}
+                          >
+                            {f.dosCaras ? "Ver frente" : "Ver"}
+                          </button>
+                        )}
+                        {f.dosCaras && f.reverso && (
+                          <button
+                            type="button"
+                            className="rev-docfila-btn"
+                            onClick={() => abrirVisor(f, "reverso")}
+                            title={`Ver el reverso de ${f.etiqueta}`}
+                          >
+                            Ver reverso
+                          </button>
+                        )}
+                        {/* HV física sin archivo: la sube Seguridad (no el padrino). */}
+                        {f.key === "hojaVidaFisica" && !f.frente && !esPadrino && (
+                          <button
+                            type="button"
+                            className="rev-docfila-btn rev-docfila-btn--cargar"
+                            onClick={() => inputHV.current?.click()}
+                            title="Subir la hoja de vida firmada (solo la carga Seguridad)"
+                          >
+                            <FaUpload /> Cargar
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      {/* Fotos adicionales (no son requisito): entrada al carrusel. */}
+      {fotosAdicionales.length > 0 && (
+        <section className="rev-docgrupo" aria-label="Fotos adicionales">
+          <header className="rev-docgrupo-head">
+            <span className="rev-docgrupo-titulo"><FaCamera /> Fotos adicionales del vehículo</span>
+          </header>
+          <div className="rev-docfilas">
+            <div className="rev-docfila rev-docfila--disponible">
+              <div className="rev-docfila-info">
+                <span className="rev-docfila-nombre">{fotosAdicionales.length} foto(s) adicionales</span>
+                <span className="rev-docfila-nota">No sustituyen los 4 ángulos exigidos</span>
+              </div>
+              <span className="rev-docfila-estado rev-docfila-estado--disponible">
+                <FaCheckCircle aria-hidden="true" /> Disponibles
+              </span>
+              <div className="rev-docfila-acciones">
+                <button type="button" className="rev-docfila-btn" onClick={abrirGaleriaAdicionales}>
+                  Ver galería
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
-      <div className="grid-documentos">
-        {veh.firmaUrl && (
-          <div
-            className="documento-card"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.firmaUrl, etiqueta: 'Firma del Conductor', reverso: undefined })}
-          >
-            <p>✍️ Firma Conductor</p>
-            <span className="text-xs text-blue-600">Ver</span>
-          </div>
-        )}
-
-        {/* Firma del SEGUNDO conductor (2026-10-15): estaba invisible aunque
-            existiera — solo aparece con el slot 2 vinculado. */}
-        {veh.idConductor2 && typeof veh.firmaUrl2 === 'string' && veh.firmaUrl2 && (
-          <div
-            className="documento-card"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.firmaUrl2 as string, etiqueta: 'Firma del Conductor 2', reverso: undefined })}
-          >
-            <p>✍️ Firma Conductor 2</p>
-            <span className="text-xs text-blue-600">Ver</span>
-          </div>
-        )}
-
-        {/* ÁNGULOS de foto del vehículo (2026-10-14): una tarjeta por ángulo
-            con su etiqueta — la faltante se ve en rojo para pedirle al
-            conductor la toma que falta. */}
-        {angulosFoto.map((a) => a.ruta ? (
-          <div
-            key={a.tipo}
-            className="documento-card"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: a.ruta, etiqueta: `Foto ${a.etiqueta} del Vehículo`, reverso: undefined })}
-          >
-            <p>📸 Foto {a.etiqueta}</p>
-            <span className="text-xs text-blue-600">Ver</span>
-          </div>
-        ) : (
-          <div key={a.tipo} className="documento-card documento-card--falta" title="El conductor aún no sube este ángulo">
-            <p>📸 Foto {a.etiqueta}</p>
-            <span className="text-xs text-red-500">Falta</span>
-          </div>
-        ))}
-
-        {fotosAdicionales.length > 0 && (
-          <div
-            className="documento-card documento-card--fotos"
-            onClick={() => {
-              setDocAbierto({ tipo: 'galeria', urls: fotosAdicionales, etiqueta: 'Fotos adicionales del vehículo' });
-              setVerDocumento(true);
-            }}
-          >
-            <p>📸 Fotos Adicionales ({fotosAdicionales.length})</p>
-            <span className="text-xs text-blue-600">Ver</span>
-          </div>
-        )}
-
-        {/* Hoja de Vida FÍSICA: documento que sube Seguridad (autorización en
-            papel de los casos históricos) — el conductor ya no la ve en su
-            paso 3. Sin archivo → botón de carga directo. PADRINO: solo ver. */}
-        {veh.hojaVidaFisica ? (
-          <div
-            className="documento-card"
-            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.hojaVidaFisica as string, etiqueta: 'Hoja de Vida Física', reverso: undefined, campoRecorte: 'hojaVidaFisica' })}
-          >
-            <p className="font-medium">📄 Hoja de Vida Física</p>
-            <span className="text-xs text-blue-600">Ver</span>
-          </div>
-        ) : !esPadrino && (
-          <div
-            className="documento-card"
-            onClick={() => inputHV.current?.click()}
-            title="Subir la hoja de vida firmada (solo la carga Seguridad)"
-          >
-            <p className="font-medium"><FaUpload /> Hoja de Vida Física</p>
-            <span className="text-xs text-blue-600">Cargar</span>
-          </div>
-        )}
-        <input
-          ref={inputHV}
-          type="file"
-          accept="image/*,application/pdf"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const archivo = e.target.files?.[0];
-            e.target.value = ''; // permitir re-elegir el mismo archivo
-            if (archivo) subirHojaVida(archivo);
-          }}
-        />
-
-        {DOCUMENTOS_DISPLAY
-          .filter(doc => !doc.soloConductor2 || veh.idConductor2)
-          .map((doc) => {
-          const url = veh[doc.key] as string | undefined;
-
-          if (doc.dosCaras && url && typeof url === 'string') {
-            return (
-              <div key={doc.key} className="documento-card" onClick={() => abrirDosCaras(url, doc.key, doc.label)}>
-                <p className="font-medium">{doc.label}</p>
-                <span className="text-xs text-blue-600">{veh[`${doc.key}Reverso`] ? 'Frente/Reverso' : 'Ver'}</span>
-              </div>
-            );
-          }
-          if (url && typeof url === 'string') {
-            return (
-              <div key={doc.key} className="documento-card" onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: url, etiqueta: doc.label, reverso: undefined, campoRecorte: doc.key })}>
-                <p className="font-medium">{doc.label}</p>
-                <span className="text-xs text-blue-600">Ver</span>
-              </div>
-            );
-          }
-          return null;
-        })}
-
-        {/* DOCUMENTOS ADICIONALES (2026-10-15): adjuntos con nombre libre que
-            Seguridad/Admin carga desde acá (contratos, certificados, etc.).
-            PADRINO los ve pero no puede cargar más. */}
-        {(Array.isArray(veh.documentosAdicionales) ? veh.documentosAdicionales : [])
-          .filter((d: any) => d?.ruta && String(d.ruta).trim())
-          .map((d: any, i: number) => (
-            <div
-              key={`${d.ruta}-${i}`}
-              className="documento-card"
-              title={d.actor ? `Cargado por ${d.actor}${d.fecha ? ` · ${fechaLegible(d.fecha)}` : ''}` : undefined}
-              onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: d.ruta as string, etiqueta: d.nombre || 'Documento adicional', reverso: undefined })}
-            >
-              <p className="font-medium">📎 {d.nombre || 'Documento adicional'}</p>
-              <span className="text-xs text-blue-600">Ver</span>
-            </div>
-          ))}
-        {!esPadrino && (
-          <div
-            className="documento-card"
+      {/* Documentos adicionales: botón DESTACADO (turquesa, borde discontinuo)
+          — es la única acción de SUBIDA de esta pestaña para Seguridad. */}
+      {!esPadrino && (
+        <div className="rev-docadicionales-acciones">
+          <button
+            type="button"
+            className="rev-docbtn-adicional"
             onClick={() => inputAdicional.current?.click()}
             title="Adjuntar cualquier otro documento con un nombre propio (solo Seguridad)"
           >
-            <p className="font-medium"><FaUpload /> Documento adicional</p>
-            <span className="text-xs text-blue-600">Adjuntar</span>
-          </div>
-        )}
-        <input
-          ref={inputAdicional}
-          type="file"
-          accept="image/*,application/pdf"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const archivo = e.target.files?.[0];
-            e.target.value = ''; // permitir re-elegir el mismo archivo
-            if (archivo) subirAdicional(archivo);
-          }}
-        />
-      </div>
+            <FaPaperclip /> Adjuntar documento adicional
+          </button>
+        </div>
+      )}
+      <input
+        ref={inputHV}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const archivo = e.target.files?.[0];
+          e.target.value = '';
+          if (archivo) subirHojaVida(archivo);
+        }}
+      />
+      <input
+        ref={inputAdicional}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const archivo = e.target.files?.[0];
+          e.target.value = '';
+          if (archivo) subirAdicional(archivo);
+        }}
+      />
 
-      {/* Planilla de Seguridad Social (2026-10-07): se actualiza MENSUALMENTE
-          → bloque propio con historial ACUMULATIVO (cada carga queda en el
-          array `documentosPlanillaSegSocial`, nada se reemplaza) y carga de
-          la nueva SIN bajar un aprobado a re-revisión (excepción backend). */}
+      {/* ── PLANILLA DE SEGURIDAD SOCIAL: vigente + historial colapsado ──── */}
       <div className="rev-planilla">
         <div className="rev-planilla-head">
           <div className="rev-planilla-titulo">
-            <strong>🏥 Planilla de Seguridad Social</strong>
-            <span className="rev-planilla-sub">
-              Se actualiza mensualmente · cada carga queda en el historial y NO inhabilita el vehículo ·
-              puedes subir EPS y ARL juntas (archivos separados, hasta 3)
-            </span>
-            {typeof veh.planillaVencimiento === 'string' && veh.planillaVencimiento && (() => {
-              // Vence dd/mm/aaaa + VENCIDA en rojo (misma convención de la
-              // pestaña Datos para licencia/SOAT).
-              const [a, m, d] = veh.planillaVencimiento.slice(0, 10).split('-');
-              const vencida = veh.planillaVencimiento.slice(0, 10) < new Date().toISOString().slice(0, 10);
-              return (
-                <span className={`rev-planilla-vence${vencida ? ' rev-planilla-vence--vencida' : ''}`}>
-                  Vence: {`${d}/${m}/${a}`}{vencida ? ' · VENCIDA — vehículo inhabilitado' : ''}
+            <strong><FaFileAlt aria-hidden="true" /> Planilla de Seguridad Social</strong>
+            {vigente ? (
+              vencePlanilla ? (
+                <span className={`rev-planilla-vence${planillaVencida ? " rev-planilla-vence--vencida" : ""}`}>
+                  Vence: {vencePlanilla.split("-").reverse().join("/")}{planillaVencida ? " · VENCIDA — vehículo inhabilitado" : ""}
                 </span>
-              );
-            })()}
+              ) : (
+                <span className="rev-planilla-sub">Sin fecha de vencimiento registrada</span>
+              )
+            ) : (
+              <span className="rev-planilla-sub">Sin planilla cargada todavía</span>
+            )}
           </div>
-          <button type="button" className="rev-planilla-btn" onClick={() => inputPlanilla.current?.click()}
-                  style={esPadrino ? { display: 'none' } : undefined}>
-            <FaUpload /> Cargar nueva
-          </button>
+          {!esPadrino && (
+            <button type="button" className="rev-planilla-btn" onClick={() => inputPlanilla.current?.click()}>
+              <FaUpload /> Cargar nueva
+            </button>
+          )}
         </div>
-        <div className="rev-planilla-lista">
-          {(() => {
-            const historial: Array<{ ruta?: string; fecha?: string; nombre?: string; vence?: string }> =
-              Array.isArray(veh.documentosPlanillaSegSocial)
-                ? veh.documentosPlanillaSegSocial
-                : [];
-            // Históricos previos al array: se muestra la planilla del campo espejo.
-            const filas: Array<{ ruta?: string; fecha?: string; nombre?: string; vence?: string }> = historial.length
-              ? historial
-              : (veh.planillaEpsArl ? [{ ruta: veh.planillaEpsArl }] : []);
-            if (!filas.length) {
-              return <p className="rev-planilla-vacia">Sin planilla cargada todavía.</p>;
-            }
-            return filas.map((f, i) => {
-              const vence = (f.vence || '').slice(0, 10);
-              return (
+        {vigente && (
+          <div className="rev-planilla-lista">
+            <button
+              type="button"
+              className="rev-planilla-item rev-planilla-item--vigente"
+              onClick={() => setDocAbierto({
+                items: [{ etiqueta: "Planilla de Seguridad Social (vigente)", dueno: "Vehículo", frente: vigente.ruta }],
+                indice: 0,
+                cara: "frente",
+              })}
+            >
+              <span className="rev-planilla-chip">Vigente</span>
+              <span className="rev-planilla-fecha">{vigente.fecha ? fechaLegible(vigente.fecha) : "—"}</span>
+              <span className="rev-planilla-nombre">{vigente.nombre || "Planilla"}</span>
+              {vigente.vence && (
+                <span className="rev-planilla-vence-mini">
+                  Vence {String(vigente.vence).slice(0, 10).split("-").reverse().join("/")}
+                </span>
+              )}
+              <span className="rev-planilla-ver">Ver</span>
+            </button>
+            {anteriores.length > 0 && (
+              <>
                 <button
-                  key={i}
                   type="button"
-                  className="rev-planilla-item"
-                  onClick={() => f.ruta && setDocAbierto({
-                    tipo: 'dosCaras', frente: f.ruta as string,
-                    etiqueta: 'Planilla de Seguridad Social', reverso: undefined,
-                  })}
+                  className="rev-planilla-toggle"
+                  onClick={() => setVerHistorialPlanillas(v => !v)}
+                  aria-expanded={verHistorialPlanillas}
                 >
-                  <span className="rev-planilla-fecha">{f.fecha ? fechaLegible(f.fecha) : 'Anterior al historial'}</span>
-                  <span className="rev-planilla-nombre">{f.nombre || 'Planilla'}</span>
-                  {vence && <span className="rev-planilla-vence-mini">Vence {vence.split('-').reverse().join('/')}</span>}
-                  {i === 0 && historial.length > 0 && <span className="rev-planilla-chip">Última</span>}
-                  <span className="rev-planilla-ver">Ver</span>
+                  {verHistorialPlanillas ? "Ocultar historial" : `Ver historial (${anteriores.length})`}
                 </button>
-              );
-            });
-          })()}
-        </div>
+                {verHistorialPlanillas && anteriores.map((p, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="rev-planilla-item"
+                    onClick={() => p.ruta && setDocAbierto({
+                      items: [{ etiqueta: "Planilla de Seguridad Social (historial)", dueno: "Vehículo", frente: p.ruta }],
+                      indice: 0,
+                      cara: "frente",
+                    })}
+                  >
+                    <span className="rev-planilla-fecha">{p.fecha ? fechaLegible(p.fecha) : "Anterior al historial"}</span>
+                    <span className="rev-planilla-nombre">{p.nombre || "Planilla"}</span>
+                    {p.vence && (
+                      <span className="rev-planilla-vence-mini">
+                        Venció {String(p.vence).slice(0, 10).split("-").reverse().join("/")}
+                      </span>
+                    )}
+                    <span className="rev-planilla-ver">Ver</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
       <input
         ref={inputPlanilla}
@@ -512,36 +727,31 @@ const PestanaDocumentos: React.FC<{
         style={{ display: 'none' }}
         onChange={(e) => {
           const archivos = Array.from(e.target.files || []);
-          e.target.value = ''; // permitir re-elegir el mismo archivo
+          e.target.value = '';
           if (archivos.length) subirPlanilla(archivos);
         }}
       />
 
-      {/* Historial UNIVERSAL de documentos (2026-10-07): toda subida de
-          CUALQUIER documento (frente, reverso, reutilización) queda acá con
-          su ruta — nada se pierde ni se reemplaza; el campo del documento
-          siempre apunta a la última versión. Re-subir sigue bajando un
-          aprobado a re-revisión (decisión: solo planilla y HV física no). */}
+      {/* ── HISTORIAL UNIVERSAL DE DOCUMENTOS (sin cambios de reglas) ────── */}
       {Array.isArray(veh.historialDocumentos) && veh.historialDocumentos.length > 0 && (
         <>
-          <h4 className="titulo-seccion">🗂️ Historial de documentos</h4>
+          <h4 className="titulo-seccion"><FaFolderOpen aria-hidden="true" /> Historial de documentos</h4>
           <p className="rev-aud-nota">
-            Cada carga queda registrada con su archivo propio (nada se reemplaza). El
-            campo del documento siempre muestra la última versión; aquí puedes abrir
-            cualquier versión anterior.
+            Cada carga queda registrada con su archivo propio (nada se reemplaza); aquí
+            puedes abrir cualquier versión anterior.
           </p>
           <div className="rev-tabla-wrap">
             <table className="rev-est-tabla">
               <thead>
-                <tr><th>Fecha</th><th>Documento</th><th>Archivo</th><th>Cargó</th><th></th></tr>
+                <tr><th scope="col">Fecha</th><th scope="col">Documento</th><th scope="col">Archivo</th><th scope="col">Cargó</th><th scope="col" aria-label="Abrir"></th></tr>
               </thead>
               <tbody>
                 {veh.historialDocumentos.map((h: any, i: number) => (
                   <tr key={i}>
                     <td className="rev-est-tabla-fecha">{fechaLegible(h.fecha)}</td>
                     <td style={{ fontWeight: 600 }}>{h.etiqueta || h.tipo}</td>
-                    <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {h.nombre || '—'}
+                    <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {h.nombre || "—"}
                     </td>
                     <td>{h.actor ? h.actor : <span className="rev-est-tabla-id">El titular</span>}</td>
                     <td>
@@ -549,9 +759,9 @@ const PestanaDocumentos: React.FC<{
                         type="button"
                         className="rev-est-btn-tabla"
                         onClick={() => setDocAbierto({
-                          tipo: 'dosCaras', frente: h.ruta as string,
-                          etiqueta: `${h.etiqueta || h.tipo} — ${fechaLegible(h.fecha)}`,
-                          reverso: undefined,
+                          items: [{ etiqueta: `${h.etiqueta || h.tipo} — ${fechaLegible(h.fecha)}`, dueno: "Vehículo", frente: h.ruta }],
+                          indice: 0,
+                          cara: "frente",
                         })}
                       >
                         Ver
@@ -565,34 +775,18 @@ const PestanaDocumentos: React.FC<{
         </>
       )}
 
-      {/* Visores (en app, no window.open): dos caras con giro, fotos en carrusel.
-          El recorte ✂️ solo se ofrece en el documento ACTUAL (campoRecorte):
-          firma (hash), historial, planilla y fotos no se recortan. */}
-      {docAbierto?.tipo === 'dosCaras' && docAbierto.frente && (() => {
-        const campoBase = docAbierto.campoRecorte;
-        return (
-          <VerCaraDocumento
-            frenteUrl={docAbierto.frente}
-            reversoUrl={docAbierto.reverso}
-            etiqueta={docAbierto.etiqueta}
-            unaCara={!docAbierto.reverso}
-            onClose={cerrar}
-            onRecortar={campoBase && !esPadrino ? (cara) => {
-              setRecorte({
-                campo: cara === 'reverso' ? `${campoBase}Reverso` : campoBase,
-                etiqueta: `${docAbierto.etiqueta}${docAbierto.reverso ? (cara === 'reverso' ? ' · reverso' : ' · frente') : ''}`,
-              });
-            } : undefined}
-          />
-        );
-      })()}
-      {docAbierto?.tipo === 'galeria' && verDocumento && (
-        <VerDocumento
-          urls={docAbierto.urls || []}
-          placa={veh.placa}
-          soloLectura
-          onClose={cerrar}
-          onDeleteSuccess={() => undefined}
+      {/* ── VISOR LATERAL (escritorio) / PANTALLA COMPLETA (móvil) ───────── */}
+      {docAbierto && docAbierto.items.length > 0 && (
+        <VisorDocumentos
+          items={docAbierto.items}
+          indice={docAbierto.indice}
+          caraInicial={docAbierto.cara}
+          onCambiarIndice={(i) => setDocAbierto(d => (d ? { ...d, indice: i, cara: "frente" } : d))}
+          onClose={() => setDocAbierto(null)}
+          onRecortar={esPadrino ? undefined : (campo, etiqueta) => {
+            setDocAbierto(null); // la URL anterior ya no es la vigente tras recortar
+            setRecorte({ campo, etiqueta });
+          }}
         />
       )}
 
@@ -604,9 +798,7 @@ const PestanaDocumentos: React.FC<{
           campo={recorte.campo}
           etiqueta={recorte.etiqueta}
           onGuardado={(mensaje) => {
-            setDocAbierto(null); // la URL anterior ya no es la vigente
-            // mantener=true: el recorte NO cambia el vehículo de bandeja —
-            // el panel se reabre en la misma placa/pestaña tras el refresco.
+            setDocAbierto(null);
             alCambiar(mensaje, true);
           }}
           onClose={() => setRecorte(null)}
@@ -615,5 +807,14 @@ const PestanaDocumentos: React.FC<{
     </div>
   );
 };
+
+/** Fila → item del visor (etiqueta completa + dueño del grupo). */
+const mapaItemVisor = (f: FilaDoc): ItemVisor => ({
+  etiqueta: f.etiqueta,
+  dueno: ETIQUETA_GRUPO[f.grupo],
+  frente: f.frente,
+  reverso: f.reverso,
+  campoRecorte: f.campoRecorte,
+});
 
 export default PestanaDocumentos;

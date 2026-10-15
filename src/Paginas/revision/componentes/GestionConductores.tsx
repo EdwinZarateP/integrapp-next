@@ -154,16 +154,28 @@ const GestionConductores: React.FC<Props> = ({ veh, alCambiar }) => {
 
   const FilaSlot: React.FC<{ slot: number; titulo: string }> = ({ slot, titulo }) => {
     const s = slot === 2 ? slot2 : slot1;
+    /* (2026-10-15) Persona registrada EN LA FICHA (datos diligenciados por el
+       tenedor/Seguridad) ≠ conductor VINCULADO (cuenta propia con idConductor)
+       ≠ invitación PENDIENTE. Los tres conceptos se distinguen aquí: por eso
+       podía verse «Sin conductor» junto a los datos de una persona — sus
+       datos estaban en la ficha pero sin cuenta vinculada. */
+    const fichaNombre = slot === 2
+      ? [veh.cond2Nombres, veh.cond2PrimerApellido, veh.cond2SegundoApellido].filter(Boolean).join(" ")
+      : [veh.condNombres, veh.condPrimerApellido, veh.condSegundoApellido].filter(Boolean).join(" ");
+    const fichaCedula = slot === 2 ? veh.cond2CedulaCiudadania : veh.condCedulaCiudadania;
+    const enFicha = !s.ocupado && Boolean(fichaNombre || fichaCedula);
     return (
       <div className="rev-gc-fila">
         <div className="rev-gc-info">
           <span className="rev-gc-titulo">{titulo}</span>
           <span className="rev-gc-estado">
             {s.ocupado
-              ? `✅ Vinculado${s.correo ? ` — ${s.correo}` : ""}`
+              ? `✅ Cuenta vinculada${s.correo ? ` — ${s.correo}` : ""}`
               : s.pendiente
-                ? `⏳ Invitación pendiente → ${s.correo || ""}`
-                : "— Sin conductor —"}
+                ? `⏳ Invitación pendiente → ${s.correo || ""}${enFicha ? ` (ficha: ${fichaNombre})` : ""}`
+                : enFicha
+                  ? `👤 En la ficha: ${fichaNombre}${fichaCedula ? ` (${fichaCedula})` : ""} — sin cuenta vinculada: invítalo para que tenga acceso propio`
+                  : "Sin conductor (ni datos en la ficha ni cuenta)"}
           </span>
         </div>
         <div className="rev-gc-acciones">
@@ -192,6 +204,14 @@ const GestionConductores: React.FC<Props> = ({ veh, alCambiar }) => {
     );
   };
 
+  /* Segundo conductor compacto (2026-10-15): mientras no haya nada (ni cuenta
+     ni invitación ni datos), se muestra como una acción desplegable — no como
+     una fila permanente «Sin conductor». El flujo de invitación/activación no
+     cambia. */
+  const [slot2Abierto, setSlot2Abierto] = React.useState(false);
+  const mostrarSlot2 = slot2.ocupado || slot2.pendiente
+    || Boolean(veh.cond2Nombres || veh.cond2CedulaCiudadania) || slot2Abierto;
+
   return (
     <section className="rev-seccion">
       <h4 className="rev-seccion-titulo">👥 Conductores de la placa</h4>
@@ -200,7 +220,13 @@ const GestionConductores: React.FC<Props> = ({ veh, alCambiar }) => {
         firma y estudios propios). Toda invitación envía un correo de activación al conductor.
       </p>
       <FilaSlot slot={1} titulo="Conductor principal" />
-      <FilaSlot slot={2} titulo="Segundo conductor (opcional)" />
+      {mostrarSlot2 ? (
+        <FilaSlot slot={2} titulo="Segundo conductor (opcional)" />
+      ) : (
+        <button type="button" className="rev-gc-agregar2" onClick={() => setSlot2Abierto(true)}>
+          <FaUserPlus /> Agregar segundo conductor
+        </button>
+      )}
     </section>
   );
 };

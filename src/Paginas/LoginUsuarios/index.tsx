@@ -76,7 +76,7 @@ const LoginUsuario: React.FC = () => {
   const [mensajeError, setMensajeError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [paso, setPaso] = useState<1 | 2>(1);
-  const [datosUsuario, setDatosUsuario] = useState<{ id: string; usuario: string; nombre?: string; correo?: string; perfil: string; regional: string; clientes: string[] } | null>(null);
+  const [datosUsuario, setDatosUsuario] = useState<{ id: string; usuario: string; nombre?: string; correo?: string; perfil: string; perfiles_adicionales?: string[]; regional: string; clientes: string[] } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -166,7 +166,13 @@ const LoginUsuario: React.FC = () => {
       const extras = ["INDICADORES"];
       if (PERFILES_FLOTA.includes(perfilUpper)) extras.push("FLOTA");
       if (["ADMIN", "ADMINISTRADOR"].includes(perfilUpper)) extras.push("SICETAC");
-      if (PERFILES_SEGURIDAD.includes(perfilUpper)) extras.push("SEGURIDAD");
+      // (2026-10-15) Perfil ADICIONAL PADRINO: un usuario con otro perfil
+      // principal (p. ej. OPERATIVO) también ve el portal de Seguridad — al
+      // entrar va en modo Padrino (cookie seguridadPerfil=PADRINO). Su
+      // aterrizaje y portales principales NO cambian.
+      const esPadrinoAdicional = !["ADMIN", "SEGURIDAD"].includes(perfilUpper)
+        && (res.usuario.perfiles_adicionales || []).map(p => p.toUpperCase()).includes("PADRINO");
+      if (PERFILES_SEGURIDAD.includes(perfilUpper) || esPadrinoAdicional) extras.push("SEGURIDAD");
       if (PERFILES_ADMIN_SEGURIDAD.includes(perfilUpper)) extras.push("ADMIN_SEGURIDAD");
 
       // Reordenar según el orden canónico del selector (Flota después de Medical Care).
@@ -195,9 +201,15 @@ const LoginUsuario: React.FC = () => {
     if (clienteKey === "SEGURIDAD") {
       document.cookie = `clientePedidosCookie=SEGURIDAD; path=/; ${expires}`;
       if (datosUsuario) {
+        // (2026-10-15) Perfil ADICIONAL: quien NO es Seguridad/Admin entra al
+        // portal en modo PADRINO (vista simplificada + guards), venga o no de
+        // un perfil principal PADRINO.
+        const perfilSeguridad = ["ADMIN", "SEGURIDAD"].includes((datosUsuario.perfil || "").toUpperCase())
+          ? datosUsuario.perfil
+          : "PADRINO";
         document.cookie = `seguridadId=${datosUsuario.id}; path=/; ${expires}`;
         document.cookie = `seguridadNombre=${encodeURIComponent(datosUsuario.nombre || datosUsuario.usuario)}; path=/; ${expires}`;
-        document.cookie = `seguridadPerfil=${datosUsuario.perfil}; path=/; ${expires}`;
+        document.cookie = `seguridadPerfil=${perfilSeguridad}; path=/; ${expires}`;
         if (datosUsuario.correo) {
           document.cookie = `seguridadCorreo=${encodeURIComponent(datosUsuario.correo)}; path=/; ${expires}`;
         }

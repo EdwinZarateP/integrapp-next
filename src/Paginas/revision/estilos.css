@@ -513,6 +513,262 @@ body {
 /* Rechazo DEFINITIVO: rojo oscuro, se distingue del «Devolver» correctivo. */
 .rev-btn--rechazar { background: #90222b; }
 
+/* (2026-10-15) Aprobar = acción PRINCIPAL: más grande y con sombra propia. */
+.rev-btn--principal {
+  font-size: 1rem;
+  padding: 12px 26px;
+  box-shadow: 0 3px 12px rgba(39, 174, 96, 0.45);
+}
+
+/* (2026-10-15) Destructiva SECUNDARIA: contorno rojo oscuro (menos
+   protagonista que Aprobar/Corregir, pero inequívocamente peligrosa). */
+.rev-btn--peligro {
+  background: transparent;
+  border: 2px solid #90222b;
+  color: #90222b;
+}
+
+.rev-btn--peligro:hover { background: #fbe9ea; filter: none; }
+
+/* (2026-10-15) Acción neutra secundaria (p. ej. «Cancelar actualización»). */
+.rev-btn--secundario {
+  background: transparent;
+  border: 2px solid #7f8c8d;
+  color: #5d6d7e;
+}
+
+.rev-btn--secundario:hover { background: #eef1f2; filter: none; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PESTAÑA DATOS — rediseño 2026-10-15: trámite vs operativo, alertas,
+   navegación por secciones, campos limpios, banco enmascarado, diff Antes.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Fila de estado: trámite + operativo + fecha (la placa vive en la cabecera). */
+.rev-datos-estado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.rev-datos-desde { font-size: 0.75rem; color: #7b8794; }
+
+/* Alertas (observaciones / faltantes): fondo y borde reservados para ellas. */
+.rev-alerta {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-radius: 10px;
+  border: 1px solid;
+  padding: 12px 14px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.rev-alerta > svg { font-size: 1.1rem; margin-top: 2px; }
+.rev-alerta strong { font-size: 0.85rem; }
+.rev-alerta p { margin: 2px 0 0; font-size: 0.82rem; color: #4a5560; }
+
+.rev-alerta--error { background: #fdf2f3; border-color: #f0c4c8; color: #c0392b; }
+.rev-alerta--warn { background: #fdf7ea; border-color: #f2e0b6; color: #9a6b12; }
+.rev-alerta--ok { background: #f0f7f1; border-color: #cfe6d4; color: #1e8449; }
+
+.rev-alerta-acciones {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-items: center;
+}
+
+.rev-alerta-btn {
+  border: none;
+  background: #c0392b;
+  color: white;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rev-alerta-btn:hover { background: #a93226; }
+
+.rev-alerta-btn--sec {
+  background: transparent;
+  border: 1px solid #d9a7a3;
+  color: #a93226;
+}
+
+.rev-alerta-btn--sec:hover { background: #fbe9e7; }
+
+/* Navegación por secciones: pegajosa dentro del scroll principal. Fondo
+   OPACO (antes semitransparente: el texto que subía se veía detrás/encima). */
+.rev-datos-nav {
+  position: sticky;
+  top: -6px; /* cubre también el padding superior del scroll (4px) + holgura */
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  background: #fff;
+  padding: 8px 2px 9px;
+  margin-top: 10px;
+  border-bottom: 1px solid #e4eaee;
+  box-shadow: 0 2px 6px rgba(15, 25, 40, 0.06);
+  scrollbar-width: thin;
+}
+
+.rev-datos-nav-btn {
+  border: 1px solid #cfe0e4;
+  background: #fff;
+  color: #006f7a;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.rev-datos-nav-btn:hover { background: #e8f7f9; }
+
+.rev-datos-nav-btn--activa {
+  background: #00a5b5;
+  border-color: #00a5b5;
+  color: #fff;
+}
+
+/* El scroll de la sección ancla no queda oculto tras la barra pegajosa. */
+.rev-seccion { scroll-margin-top: 58px; }
+
+/* Subtítulos internos (Identificación / Contacto / Licencia / Banco…). */
+.rev-subtitulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #5d6d7e;
+  margin: 14px 0 6px;
+  letter-spacing: 0.03em;
+}
+
+.rev-subtitulo:first-of-type { margin-top: 4px; }
+.rev-subtitulo svg { color: #008794; }
+
+/* Campo LIMPIO (2026-10-15): etiqueta y valor sobre fondo plano — bordes y
+   fondos quedan para secciones y alertas. */
+.rev-campo {
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  gap: 2px;
+}
+
+.rev-campo-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6a7683;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.rev-campo-valor {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+
+/* Valor anterior (diff de actualización): tachado y tenue bajo el dato. */
+.rev-campo--cambiado { padding-left: 8px; border-left: 3px solid #e6a23c; }
+
+.rev-campo-antes {
+  font-size: 0.72rem;
+  color: #9aa5ae;
+  text-decoration: line-through;
+  overflow-wrap: anywhere;
+}
+
+/* Cuenta bancaria enmascarada + acciones. */
+.rev-banco {
+  background: #f7fafb;
+  border: 1px solid #e3ecf0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.rev-campo-valor--cuenta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.rev-cuenta-btn {
+  border: 1px solid #bfe0e4;
+  background: #fff;
+  color: #006f7a;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+
+.rev-cuenta-btn:hover { background: #e6f6f8; }
+
+/* Rol compartido: referencia en vez de repetir la información personal. */
+.rev-rol-compartido {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f0f8f9;
+  border: 1px dashed #9fd4da;
+  color: #0f5c66;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.rev-rol-compartido svg { margin-top: 3px; color: #008794; }
+
+/* «Agregar segundo conductor» (acción compacta desplegable). */
+.rev-gc-agregar2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px dashed #00a5b5;
+  background: #f0fafc;
+  color: #006f7a;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rev-gc-agregar2:hover { background: #ddf4f8; }
+
+/* Accesibilidad: foco visible en la pestaña Datos. */
+.rev-datos-nav-btn:focus-visible,
+.rev-alerta-btn:focus-visible,
+.rev-cuenta-btn:focus-visible,
+.rev-gc-agregar2:focus-visible,
+.rev-gc-btn:focus-visible {
+  outline: 3px solid #00a5b5;
+  outline-offset: 2px;
+}
+
 .rev-panel-hv {
   display: flex;
   align-items: center;
@@ -2004,3 +2260,427 @@ body {
 .rev-est-vacio-icono { font-size: 2rem; color: #c9d2da; }
 .rev-est-vacio p { margin: 0; font-weight: 600; color: #45504b; }
 .rev-est-vacio small { max-width: 420px; line-height: 1.5; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PESTAÑA DOCUMENTOS — rediseño 2026-10-15: resumen + filtros, grupos por
+   figura, filas compactas con estado y acciones, visor lateral. Paleta
+   turquesa IntegrApp (#00a5b5 / #006f7a / #008794).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Resumen compacto ── */
+.rev-docresumen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #f2fafb;
+  border: 1px solid #cfe8eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 10px;
+}
+
+.rev-docresumen-cifras {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.rev-docresumen-cifra {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.rev-docresumen-cifra--ok { color: #1e8449; }
+.rev-docresumen-cifra--mal { color: #c0392b; }
+.rev-docresumen-cifra--na { color: #6a756f; font-weight: 600; }
+
+.rev-docresumen-filtros { display: flex; gap: 6px; }
+
+.rev-docfiltro {
+  border: 1px solid #bfe0e4;
+  background: #fff;
+  color: #006f7a;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.rev-docfiltro:hover { background: #e8f7f9; }
+.rev-docfiltro--activo { background: #00a5b5; border-color: #00a5b5; color: #fff; }
+
+/* ── Grupos por figura ── */
+.rev-docgrupo {
+  margin-top: 14px;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rev-docgrupo-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #f7fafb;
+  border-bottom: 1px solid #e3e8ee;
+  padding: 8px 14px;
+}
+
+.rev-docgrupo-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #006f7a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rev-docgrupo-nota {
+  font-size: 0.72rem;
+  color: #5a6a70;
+  background: #eef4f5;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.rev-docgrupo-vacio {
+  margin-top: 14px;
+  text-align: center;
+  color: #1e8449;
+  font-weight: 700;
+  padding: 18px;
+}
+
+/* ── Filas compactas ── */
+.rev-docfilas { display: flex; flex-direction: column; }
+
+.rev-docfila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #eef1f4;
+  background: #fff;
+  flex-wrap: wrap;
+}
+
+.rev-docfila:last-child { border-bottom: none; }
+.rev-docfila:hover { background: #fafcfd; }
+
+/* Estados con color + texto + ícono (nunca solo color). */
+.rev-docfila--disponible { border-left: 4px solid #27ae60; }
+.rev-docfila--incompleto { border-left: 4px solid #e67e22; background: #fefaf4; }
+.rev-docfila--faltante { border-left: 4px solid #c0392b; background: #fdf4f3; }
+.rev-docfila--noaplica { border-left: 4px solid #b7c2c9; background: #f8fafb; }
+
+.rev-docfila-info {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rev-docfila-nombre {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #24303e;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rev-docfila-nombre svg { color: #008794; flex-shrink: 0; }
+
+.rev-docfila-nota {
+  font-size: 0.72rem;
+  color: #7c8a92;
+  padding-left: 26px;
+}
+
+.rev-docfila-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rev-docfila-estado--disponible { color: #1e8449; }
+.rev-docfila-estado--incompleto { color: #b9770e; }
+.rev-docfila-estado--faltante { color: #c0392b; }
+.rev-docfila-estado--noaplica { color: #6a756f; }
+
+.rev-docfila-motivo { font-size: 0.74rem; color: #6a756f; font-style: italic; }
+
+.rev-docfila-acciones {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rev-docfila-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #9fd4da;
+  background: #fff;
+  color: #006f7a;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.rev-docfila-btn:hover { background: #e6f6f8; }
+
+.rev-docfila-btn--cargar { border-color: #27ae60; color: #1e8449; }
+.rev-docfila-btn--cargar:hover { background: #eaf7ef; }
+
+/* ── Botón de documentos adicionales: DESTACADO (turquesa, discontinuo) ── */
+.rev-docadicionales-acciones { margin-top: 12px; }
+
+.rev-docbtn-adicional {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  border: 2px dashed #00a5b5;
+  background: #e9f9fb;
+  color: #006f7a;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.rev-docbtn-adicional:hover { background: #d3f2f6; border-color: #006f7a; }
+
+/* ── Planilla: item vigente + toggle de historial ── */
+.rev-planilla-item--vigente { border-color: #9fd4da; background: #f4fbfc; }
+.rev-planilla-toggle {
+  border: none;
+  background: transparent;
+  color: #008794;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  padding: 4px 2px;
+  align-self: flex-start;
+  text-decoration: underline;
+}
+
+.rev-planilla-toggle:hover { color: #006f7a; }
+
+/* ── Visor lateral de documentos ── */
+.rev-visor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 25, 30, 0.5);
+  z-index: 1050; /* sobre el panel (1000), debajo de Swal (1060) */
+}
+
+.rev-visor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(760px, 100vw);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+  animation: rev-visor-entra 0.18s ease;
+}
+
+@keyframes rev-visor-entra {
+  from { transform: translateX(24px); opacity: 0.4; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.rev-visor-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #006f7a;
+  color: white;
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.rev-visor-tit { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.rev-visor-dueno { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #b8e2e7; }
+.rev-visor-nombre {
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.rev-visor-contador {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #d4eef1;
+  white-space: nowrap;
+}
+
+.rev-visor-cerrar {
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rev-visor-cerrar:hover { background: rgba(255, 255, 255, 0.3); }
+
+.rev-visor-cuerpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f6f7;
+  padding: 12px;
+}
+
+.rev-visor-imagen {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.rev-visor-pdf {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.rev-visor-cargando {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 111, 122, 0.92);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 14px;
+  pointer-events: none;
+}
+
+.rev-visor-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #5a6472;
+  font-size: 0.9rem;
+}
+
+.rev-visor-error a {
+  color: #008794;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rev-visor-pie {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 1px solid #e3e8ee;
+  background: #fafbfa;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.rev-visor-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #bfe0e4;
+  background: #fff;
+  color: #006f7a;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rev-visor-nav:hover:not(:disabled) { background: #e6f6f8; }
+.rev-visor-nav:disabled { opacity: 0.4; cursor: default; }
+
+.rev-visor-abrir {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #008794;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 7px 10px;
+  border-radius: 8px;
+}
+
+.rev-visor-abrir:hover { background: #e6f6f8; }
+
+/* ── Accesibilidad: foco visible en la pestaña ── */
+.rev-docfila-btn:focus-visible,
+.rev-docfiltro:focus-visible,
+.rev-docbtn-adicional:focus-visible,
+.rev-visor-nav:focus-visible,
+.rev-visor-cerrar:focus-visible,
+.rev-planilla-toggle:focus-visible,
+.rev-planilla-btn:focus-visible {
+  outline: 3px solid #00a5b5;
+  outline-offset: 2px;
+}
+
+/* ── Responsive: filas y visor en móvil ── */
+@media (max-width: 640px) {
+  .rev-docfila { gap: 8px; padding: 8px 10px; }
+  .rev-docfila-info { flex-basis: 100%; }
+  .rev-docfila-nota { padding-left: 0; }
+  .rev-docfila-acciones { width: 100%; justify-content: flex-start; }
+  .rev-docresumen { flex-direction: column; align-items: flex-start; }
+  .rev-visor { width: 100vw; }
+  .rev-visor-nombre { font-size: 0.88rem; }
+}
