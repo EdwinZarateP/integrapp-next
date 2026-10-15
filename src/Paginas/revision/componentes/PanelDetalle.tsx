@@ -32,6 +32,9 @@ interface PanelDetalleProps {
   pestanaInicial?: PestanaDetalle;
   /** Espeja la pestaña activa en la URL del index. */
   onCambiarPestana?: (pestana: PestanaDetalle) => void;
+  /** PADRINO (2026-10-14): vista simplificada — sin acciones de estado, sin
+   *  gestión de conductores, sin subidas/recorte (solo lectura + impersonar). */
+  esPadrino?: boolean;
 }
 
 /**
@@ -41,7 +44,7 @@ interface PanelDetalleProps {
  * fullscreen. Se REMONTA con cada vehículo (render condicional) → la
  * `pestanaInicial` aplica en cada apertura.
  */
-const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar, pestanaInicial, onCambiarPestana }) => {
+const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar, pestanaInicial, onCambiarPestana, esPadrino = false }) => {
   const [pestana, setPestana] = useState<PestanaDetalle>(pestanaInicial ?? 'datos');
   const router = useRouter();
 
@@ -119,14 +122,16 @@ const PanelDetalle: React.FC<PanelDetalleProps> = ({ veh, onClose, alCambiar, pe
       </div>
 
       <div className="rev-panel-cuerpo">
-        {pestana === 'datos' && <PestanaDatos veh={veh} />}
-        {pestana === 'documentos' && <PestanaDocumentos veh={veh} alCambiar={alCambiar} />}
+        {pestana === 'datos' && <PestanaDatos veh={veh} alCambiar={alCambiar} esPadrino={esPadrino} />}
+        {pestana === 'documentos' && <PestanaDocumentos veh={veh} alCambiar={alCambiar} esPadrino={esPadrino} />}
         {pestana === 'estudios' && <PestanaEstudios veh={veh} />}
         {pestana === 'cambios' && <PestanaCambios veh={veh} />}
       </div>
 
       <div className="rev-panel-footer">
-        <AccionesVehiculo veh={veh} alCambiar={alCambiar} />
+        {/* PADRINO: sin acciones de estado — solo consulta y, si quiere cargar
+            documentos, entra al panel del conductor (impersonación). */}
+        {!esPadrino && <AccionesVehiculo veh={veh} alCambiar={alCambiar} />}
         {puedeHV && (
           <div className="rev-panel-hv" title="Descargar hoja de vida en PDF">
             <FaFilePdf className="rev-panel-hv-icon" />

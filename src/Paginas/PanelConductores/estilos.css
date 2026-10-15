@@ -889,6 +889,38 @@ select:focus-visible {
 }
 .doc-item-row--falta .doc-name { color: #8d3a4a; }
 
+/* ── Fotos del vehículo POR ÁNGULO (2026-10-14) ──────────────────────────
+   Cada ángulo (frontal / lateral izq / lateral der / posterior) muestra un
+   DIBUJO DE EJEMPLO de la toma esperada debajo de la fila; con la foto ya
+   cargada, su miniatura reemplaza el ejemplo. */
+.doc-item-row--foto { flex-wrap: wrap; }
+.pv-foto-ejemplo {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px dashed #c9d6e2;
+  border-radius: 10px;
+}
+.pv-foto-ejemplo svg { flex: 0 0 auto; }
+.pv-foto-ejemplo img {
+  flex: 0 0 auto;
+  width: 150px;
+  height: 105px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #d5dee7;
+}
+.pv-foto-ejemplo-nota {
+  font-size: 0.8rem;
+  color: #5d6d7e;
+  line-height: 1.4;
+}
+.pv-foto-ejemplo-nota strong { color: #34495e; }
+
 .doc-name {
     display: flex; align-items: center; gap: 8px;
     font-size: 0.9rem; color: #555; font-weight: 500;

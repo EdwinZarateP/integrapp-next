@@ -57,8 +57,11 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
   },
 };
 
-// Perfiles que pueden ver el portal de Seguridad (/revision).
-const PERFILES_SEGURIDAD = ["ADMIN", "SEGURIDAD"];
+// Perfiles que pueden ver el portal de Seguridad (/revision). PADRINO
+// (2026-10-14): entra al mismo portal en modo simplificado (solo lectura +
+// impersonar para cargar documentos) — /revision lo distingue por la cookie
+// `seguridadPerfil` que se setea al elegir el portal.
+const PERFILES_SEGURIDAD = ["ADMIN", "SEGURIDAD", "PADRINO"];
 
 // Perfiles que pueden administrar el cobro de Estudios de Seguridad (/AdminSeguridad).
 const PERFILES_ADMIN_SEGURIDAD = ["ADMIN"];

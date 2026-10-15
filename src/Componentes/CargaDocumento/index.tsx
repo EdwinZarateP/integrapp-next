@@ -37,6 +37,10 @@ interface CargaDocumentoProps {
   /** Solo CÁMARA, sin «Elegir Archivo» (foto del conductor: se toma en vivo,
    *  no se admite archivo de galería — pedido del usuario 2026-10-06). */
   soloCamara?: boolean;
+  /** ÁNGULO de la foto del vehículo (2026-10-14): frontal | lateral_izq |
+   * lateral_der | posterior — viaja como foto_tipo a subir-fotos (una foto
+   * por ángulo; re-subirla la reemplaza). */
+  fotoTipo?: string;
   onClose: () => void;
   onUploadSuccess?: (result: string | string[], urlReverso?: string) => void;
 }
@@ -59,6 +63,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
   cantidadActual,
   soloPdf,
   soloCamara,
+  fotoTipo,
   onClose,
   onUploadSuccess,
 }) => {
@@ -235,7 +240,18 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     await handleUpload([archivo]);
   };
 
-  const handleUpload = async (files: File[], reverso?: File) => {
+  const handleUpload = async (filesInput: File[], reverso?: File) => {
+    // Ángulo de foto del vehículo (2026-10-14): UNA foto por ángulo — si
+    // llegan varias, se toma la primera.
+    let files = filesInput;
+    if (fotoTipo && files.length > 1) {
+      files = [files[0]];
+      Swal.fire({
+        icon: 'info', title: 'Una foto por ángulo',
+        text: 'Solo se subió la primera: este ángulo lleva UNA foto (puedes reemplazarla con «Cambiar»).',
+        timer: 3500, showConfirmButton: false,
+      });
+    }
     // Planilla de Seguridad Social (2026-10-07): la fecha de VENCIMIENTO es
     // OBLIGATORIA — se pide al subir (por si la IA no la lee), no puede estar
     // vencida ni superar 31 días desde hoy. Sin ella no se sube nada.
@@ -268,10 +284,14 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
       fechaVencimiento = res.value as string;
     }
     const formData = new FormData();
-    const key = documentName === "Fotos" ? 'archivos' : 'archivo';
+    // Fotos del vehículo (la sección «Fotos» y los 4 ÁNGULOS de 2026-10-14)
+    // van por el campo `archivos` (lista) de subir-fotos.
+    const esFoto = !!fotoTipo || documentName === "Fotos";
+    const key = esFoto ? 'archivos' : 'archivo';
     files.forEach(file => formData.append(key, file));
     if (reverso) formData.append('reverso', reverso);
     formData.append('placa', placa);
+    if (fotoTipo) formData.append('foto_tipo', fotoTipo);
     if (editadoPor) formData.append('editado_por', editadoPor);
     if (fechaVencimiento) formData.append('fecha_vencimiento', fechaVencimiento);
     // Planilla (2026-10-11): la fecha ya viene DIGITADA (obligatoria arriba) —

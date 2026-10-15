@@ -13,7 +13,7 @@ import sys
 import time
 from playwright.sync_api import sync_playwright
 
-BASE = "http://localhost:3000/integrapp"
+BASE = __import__("os").environ.get("VERIFICAR_BASE", "http://localhost:3000/integrapp")
 VEHICULOS = [
     {"_id": "v1", "placa": "SZK344", "estadoIntegra": "completado_revision",
      "idUsuario": "u1", "condNombres": "JUAN", "condPrimerApellido": "PEREZ",

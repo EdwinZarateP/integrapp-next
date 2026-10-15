@@ -20,7 +20,7 @@ const fechaLegible = (iso?: string): string => {
    Consulta GET /vehiculos/verificar-firma/{placa} (recalcula el hash de los
    datos actuales y lo compara con el sellado): el DETALLE del acto de firma
    (quién, cuándo, IP, navegador, hashes) que antes solo vivía en el endpoint. */
-const TarjetaFirmaElectronica: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
+const TarjetaFirmaElectronica: React.FC<{ veh: Vehiculo; slot?: 1 | 2 }> = ({ veh, slot = 1 }) => {
   const [estado, setEstado] = useState<'cargando' | 'sin_firma' | 'lista' | 'error'>('cargando');
   const [evidencia, setEvidencia] = useState<any>(null);
   const [coincide, setCoincide] = useState<boolean>(false);
@@ -30,7 +30,7 @@ const TarjetaFirmaElectronica: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
     let vivo = true;
     (async () => {
       try {
-        const resp = await fetch(`${API_BASE}/vehiculos/verificar-firma/${veh.placa}`);
+        const resp = await fetch(`${API_BASE}/vehiculos/verificar-firma/${veh.placa}?slot=${slot}`);
         if (!vivo) return;
         if (resp.status === 404) { setEstado('sin_firma'); return; }
         if (!resp.ok) throw new Error('firma');
@@ -43,10 +43,11 @@ const TarjetaFirmaElectronica: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
       }
     })();
     return () => { vivo = false; };
-  }, [veh.placa]);
+  }, [veh.placa, slot]);
 
   if (estado === 'cargando') return <p className="rev-vacio">Consultando la firma…</p>;
-  if (estado === 'sin_firma') return <p className="rev-vacio">Este vehículo no tiene firma electrónica registrada.</p>;
+  if (estado === 'sin_firma')
+    return <p className="rev-vacio">{slot === 2 ? 'El segundo conductor no tiene firma electrónica registrada.' : 'Este vehículo no tiene firma electrónica registrada.'}</p>;
   if (estado === 'error') return <p className="rev-vacio">No se pudo consultar la firma (inténtalo de nuevo).</p>;
 
   const hashCorto = (h?: string) => (h ? `${h.slice(0, 16)}…` : '—');
@@ -104,16 +105,21 @@ const ETIQUETAS_ACCION: Record<string, string> = {
   foto_eliminada: '🗑️ Foto eliminada',
   firma_subida: '✍️ Firma subida',
   firma_sellada: '✍️ Firma electrónica sellada',
+  conductor_vinculado: '👥 Conductor vinculado',
+  conductor_desvinculado: '👥 Conductor desvinculado',
+  invitacion_conductor_enviada: '✉️ Invitación de conductor enviada',
   estudio_seguridad_cargado: '🛡️ Estudio de seguridad cargado',
   foto_seguridad_cargada: '🛡️ Foto de conductor cargada',
   estado_rechazado: '🚫 Vehículo RECHAZADO',
   responsable_asignado: '🔗 Responsable asignado',
+  estudios_consultados: '🔎 Estudios de seguridad consultados',
 };
 
 const ETIQUETAS_VIA: Record<string, { texto: string, clase: string }> = {
   conductor: { texto: 'Conductor', clase: 'rev-aud-via--conductor' },
   impersonacion: { texto: 'Seguridad (como el conductor)', clase: 'rev-aud-via--impersonacion' },
   seguridad: { texto: 'Seguridad', clase: 'rev-aud-via--seguridad' },
+  sistema: { texto: 'Automático (sistema)', clase: '' },
 };
 
 /** true si el valor parece una URL/ruta de documento (para el diff legible). */
@@ -254,9 +260,16 @@ const PestanaCambios: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
         </div>
       )}
 
-      {/* ✍️ Detalle del acto de FIRMA ELECTRÓNICA (sello + verificación). */}
+      {/* ✍️ Detalle del acto de FIRMA ELECTRÓNICA (sello + verificación).
+          Con segundo conductor (2026-10-14) hay DOS firmas independientes. */}
       <h4 className="titulo-seccion">✍️ Firma electrónica del conductor</h4>
       <TarjetaFirmaElectronica veh={veh} />
+      {veh.idConductor2 && (
+        <>
+          <h4 className="titulo-seccion">✍️ Firma electrónica del conductor 2</h4>
+          <TarjetaFirmaElectronica veh={veh} slot={2} />
+        </>
+      )}
 
       {/* ⚖️ AUTORIZACIONES DE DATOS de todos los actores PERSONA del vehículo
           (misma tarjeta de habeas data de la pestaña Estudios: primera/última

@@ -5,6 +5,7 @@ import municipios from "@/Componentes/Municipios/municipios.json";
 import Swal from 'sweetalert2';
 import Lottie from 'lottie-react';
 import animationData from "@/Imagenes/AnimationPuntos.json";
+import { esImpersonacionPadrino } from "@/Paginas/revision/componentes/impersonacion";
 import { calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
 import { comprimirImagen } from '@/Funciones/comprimirImagen';
 import VerCaraDocumento from '@/Componentes/VerCaraDocumento';
@@ -312,6 +313,13 @@ const GRUPOS_AVANCE: Array<{ etiqueta: string; titulos: string[]; extra?: string
     titulos: ['Información del Conductor', 'En Caso de Emergencia Avisar a', 'Referencias Laborales'],
     extra: ['condCategoriaLic'],
   },
+  // SEGUNDO CONDUCTOR (2026-10-14): grupo condicional — solo aparece cuando
+  // el slot 2 está vinculado/invitado o el tenedor lo despliega (ver abajo).
+  {
+    etiqueta: 'Conductor 2',
+    titulos: ['Información del Conductor 2', 'Emergencia del Conductor 2', 'Referencias Laborales del Conductor 2'],
+    extra: ['cond2CategoriaLic'],
+  },
   // Tenedor antes que propietario: mismo orden que las secciones del formulario.
   { etiqueta: 'Tenedor', titulos: ['Datos del Tenedor'] },
   { etiqueta: 'Propietario', titulos: ['Datos del propietario'] },
@@ -590,6 +598,16 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
   },
 };
 
+// SEGUNDO CONDUCTOR (2026-10-14): los mismos mapeos del conductor 1
+// re-encauzados a SUS campos (condX → cond2X) — la cédula/licencia/cert.
+// bancario del 2º autollenan «Información del Conductor 2».
+const aCamposConductor2 = (salida: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(Object.entries(salida).map(([k, v]) =>
+    k.startsWith('cond') && !k.startsWith('cond2') ? [`cond2${k.slice(4)}`, v] : [k, v]));
+MAPEOS_IA.cedula_cond2 = (d) => aCamposConductor2(MAPEOS_IA.cedula(d));
+MAPEOS_IA.licencia_cond2 = (d) => aCamposConductor2(MAPEOS_IA.licencia(d));
+MAPEOS_IA.certificado_bancario_cond2 = (d) => aCamposConductor2(MAPEOS_IA.certificado_bancario_cond(d));
+
 // Traducción: tipo de SUBIDA (clave con que el backend guarda lecturasIA)
 // → clave de MAPEOS_IA (para autollenar el formulario al montar).
 const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
@@ -597,6 +615,11 @@ const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
   documentoIdentidadPropietario: 'cedula_propietario',
   documentoIdentidadTenedor: 'cedula_tenedor',
   documentoIdentidadRemolque: 'cedula_remolque',
+  // SEGUNDO CONDUCTOR (2026-10-14): lecturas guardadas al subir sus docs
+  // en el paso 3 se aplican a los campos cond2* al montar el paso 2.
+  documentoIdentidadConductor2: 'cedula_cond2',
+  licencia2: 'licencia_cond2',
+  cond2CertificacionBancaria: 'certificado_bancario_cond2',
   rutTenedor: 'rut_tenedor',
   rutPropietario: 'rut_propietario',
   condCertificacionBancaria: 'certificado_bancario_cond',
@@ -624,6 +647,10 @@ const LECTURA_IA_A_TIPO_SUBIDA: Record<string, string> = {
   certificado_bancario_cond: 'condCertificacionBancaria',
   certificado_bancario_tened: 'tenedCertificacionBancaria',
   certificado_bancario_prop: 'propCertificacionBancaria',
+  // SEGUNDO CONDUCTOR (2026-10-14).
+  cedula_cond2: 'documentoIdentidadConductor2',
+  licencia_cond2: 'licencia2',
+  certificado_bancario_cond2: 'cond2CertificacionBancaria',
 };
 
 // Límites de subida (espejo de CargaDocumento).
@@ -643,7 +670,7 @@ const cederFrame = () => new Promise<void>(r =>
 // ciudad, correo, celular, fechas, NIT). Ambos aportan; nunca pisan lo manual.
 // soloPdf: documentos que SOLO se aceptan como PDF y sin cámara (el RUT se
 // descarga de la DIAN, no se fotografía — una foto lo deja ilegible para la IA).
-const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string; soloPdf?: boolean }> = [
+const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string; soloPdf?: boolean; soloConductor2?: boolean }> = [
   { tipo: 'cedula', esquema: 'cedula', etiqueta: '🪪 Cédula del conductor' },
   { tipo: 'licencia', esquema: 'licencia', etiqueta: '🎫 Licencia de conducción' },
   { tipo: 'tarjeta_propiedad', esquema: 'tarjeta_propiedad', etiqueta: '📄 Tarjeta de propiedad' },
@@ -660,6 +687,11 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
   { tipo: 'certificado_bancario_tened', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario tenedor' },
   // (2026-08-31) Sin «Cert. bancario propietario»: ese documento dejó de
   // pedirse por completo (orden del usuario).
+  // SEGUNDO CONDUCTOR (2026-10-14): sus botones solo aparecen cuando la
+  // sección del 2º está visible (vinculado/invitado o desplegada).
+  { tipo: 'cedula_cond2', esquema: 'cedula', etiqueta: '🪪 Cédula del conductor 2', soloConductor2: true },
+  { tipo: 'licencia_cond2', esquema: 'licencia', etiqueta: '🎫 Licencia del conductor 2', soloConductor2: true },
+  { tipo: 'certificado_bancario_cond2', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario conductor 2', soloConductor2: true },
 ];
 
 /* «Es la misma persona» GENERALIZADO (2026-10-01): la cédula puede copiarse
@@ -826,18 +858,35 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     idConductor?: any;
     invitacion?: { correo?: string; estado?: string } | null;
   }>({});
+  // SEGUNDO CONDUCTOR (2026-10-14): vinculación del slot 2 (opcional) y
+  // despliegue manual de su sección de datos («＋ Agregar segundo conductor»).
+  const [vinculacionConductor2, setVinculacionConductor2] = useState<{
+    idConductor2?: any;
+    invitacion?: { correo?: string; estado?: string } | null;
+  }>({});
+  const [mostrarConductor2, setMostrarConductor2] = useState(false);
+  const cond2Visible = Boolean(
+    vinculacionConductor2?.idConductor2
+    || (vinculacionConductor2?.invitacion?.correo || '').trim()
+    || mostrarConductor2,
+  );
   // Popup de invitación (2026-10-02): al diligenciar el correo del conductor
   // en sesión TENEDOR, se ofrece invitarlo de una vez pidiendo su WhatsApp
   // (PhoneField, +57 default). `correoOfrecidoRef` evita repetir el popup por
   // el mismo correo (re-renders/autoguardado) y salta los correos que llegan
   // CARGADOS del vehículo — solo dispara con lo digitado en la sesión.
-  const [invitacionPopup, setInvitacionPopup] = useState<{ correo: string; celular: string } | null>(null);
+  const [invitacionPopup, setInvitacionPopup] = useState<{ correo: string; celular: string; slot: 1 | 2 } | null>(null);
   const [enviandoInvitacion, setEnviandoInvitacion] = useState(false);
   const correoOfrecidoRef = useRef<string | null>(null);
+  // Ídem para el correo del conductor 2 (2026-10-14).
+  const correoOfrecido2Ref = useRef<string | null>(null);
   // ¿La sesión es del TENEDOR dueño de la ficha? (también aplica cuando
   // Seguridad impersona al tenedor desde el alta).
   const idTenedorSesion = Cookies.get('conductorId') || '';
   const esSesionTenedor = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase() === 'TENEDOR';
+  // PADRINO (2026-10-14): impersonación de un Padrino — puede editar datos y
+  // subir documentos, pero NO gestionar conductores (cajas/popups ocultos).
+  const esPadrinoImp = esImpersonacionPadrino();
 
   // --- Lectura de documentos con IA (cédula, RUT, bancario, licencia, etc.) ---
   const [leyendoCedula, setLeyendoCedula] = useState(false);
@@ -914,7 +963,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
   const remolqueEsEmpresa = String(formData['RemolDuenoTipoDocumento'] || '').toUpperCase().includes('NIT');
 
   const requiredFields = [
-    'condPrimerApellido', 'condSegundoApellido', 'condNombres', 'condCedulaCiudadania', 'condExpedidaEn', 'condDireccion',
+    // El SEGUNDO APELLIDO del conductor es OPCIONAL (2026-10-14, pedido del
+    // usuario: no todos tienen dos apellidos) — fuera de la lista: sin *,
+    // no cuenta en el avance y no bloquea «Continuar». Las demás figuras
+    // usan un campo único «Nombre/Razón», así que solo aplica al conductor.
+    'condPrimerApellido', 'condNombres', 'condCedulaCiudadania', 'condExpedidaEn', 'condDireccion',
     'condCiudad', 'condCelular', 'condCorreo', 'condEps', 'condArl', 'condNoLicencia', 'condFechaVencimientoLic', 'condCategoriaLic',
     'condGrupoSanguineo', 'condNombreEmergencia', 'condCelularEmergencia', 'condParentescoEmergencia', 'condEmpresaRef', 'condCelularRef',
     'condCiudadRef', 'condNroViajesRef', 'condAntiguedadRef', 'condMercTransportada',
@@ -936,6 +989,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     // antes solo avisaba el conteo pero «Continuar» no restringía). El dueño
     // sigue siendo opcional (solo su correo si se diligencia, regla de arriba).
     ...(tieneRemolque ? REMOL_FIELDS_VEHICULO : []),
+    // SEGUNDO CONDUCTOR (2026-10-14): sus datos son obligatorios SOLO cuando
+    // el slot 2 está VINCULADO (idConductor2) — el 2º es opcional y un
+    // vehículo con un solo conductor no debe exigir nada de él. Mismos campos
+    // del conductor 1 (el segundo apellido también es opcional aquí).
+    ...(vinculacionConductor2?.idConductor2 ? [
+      'cond2PrimerApellido', 'cond2Nombres', 'cond2CedulaCiudadania', 'cond2ExpedidaEn', 'cond2Direccion',
+      'cond2Ciudad', 'cond2Celular', 'cond2Correo', 'cond2Eps', 'cond2Arl', 'cond2NoLicencia', 'cond2FechaVencimientoLic', 'cond2CategoriaLic',
+      'cond2GrupoSanguineo', 'cond2NombreEmergencia', 'cond2CelularEmergencia', 'cond2ParentescoEmergencia', 'cond2EmpresaRef', 'cond2CelularRef',
+      'cond2CiudadRef', 'cond2NroViajesRef', 'cond2AntiguedadRef', 'cond2MercTransportada',
+    ] : []),
   ];
 
   const calcularAvance = () => {
@@ -996,6 +1059,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           const departamentosCalculados: Record<string, string> = {};
           const cityToDeptoMap: Record<string, string> = {
             'condCiudad': 'condDeptoCiudad', 'condCiudadRef': 'condDeptoCiudadRef',
+            'cond2Ciudad': 'cond2DeptoCiudad', 'cond2CiudadRef': 'cond2DeptoCiudadRef',
             'propCiudadExpDoc': 'propDeptoExpedida', 'propCiudad': 'propDeptoCiudad', 'tenedCiudadExpDoc': 'tenedDeptoExpedida',
             'tenedCiudad': 'tenedDeptoCiudad'
           };
@@ -1025,6 +1089,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
             idConductor: loadedData.idConductor || null,
             invitacion: loadedData.invitacionConductor || null,
           });
+          // Segundo conductor (2026-10-14): su sección de datos aparece sola
+          // cuando hay vinculación o invitación del slot 2.
+          setVinculacionConductor2({
+            idConductor2: loadedData.idConductor2 || null,
+            invitacion: loadedData.invitacionConductor2 || null,
+          });
+          if (loadedData.idConductor2 || (loadedData.invitacionConductor2 || {}).correo) {
+            setMostrarConductor2(true);
+          }
 
           // Datos extraídos por IA al subir documentos (paso 3): autollenar los
           // campos aún vacíos con la misma regla de no pisar lo escrito a mano.
@@ -1066,6 +1139,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (set.has(cat)) set.delete(cat); else set.add(cat);
     const ordenadas = categoriasLicencia.filter(c => set.has(c));
     setFormData(prev => ({ ...prev, condCategoriaLic: ordenadas.join(',') }));
+  };
+
+  // Ídem para el SEGUNDO conductor (2026-10-14): cond2CategoriaLic.
+  const toggleCategoriaLic2 = (cat: string) => {
+    const actuales = (formData['cond2CategoriaLic'] || '').split(',').map(s => s.trim()).filter(Boolean);
+    const set = new Set(actuales);
+    if (set.has(cat)) set.delete(cat); else set.add(cat);
+    const ordenadas = categoriasLicencia.filter(c => set.has(c));
+    setFormData(prev => ({ ...prev, cond2CategoriaLic: ordenadas.join(',') }));
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -1159,7 +1241,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (!mapear) return;
     // Reverso OBLIGATORIO para TODOS los docs de dos caras (cédulas, licencia
     // y tarjeta de propiedad — siempre frente y reverso, sin excepciones).
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
       Swal.fire({
         icon: 'warning',
         title: 'Falta el reverso',
@@ -1186,7 +1268,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       // Documentos de DOS caras (cédulas de conductor/propietario/tenedor,
       // licencia, tarjeta de propiedad): leer frente+reverso con IA y subir
       // el frente como documento oficial.
-      const esDosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(tipoLectura);
+      const esDosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(tipoLectura);
 
       if (esDosCaras) {
         // 1) Lectura con IA (frente + reverso opcional).
@@ -1195,7 +1277,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           body.append('tipo', esquema);
           archivos.forEach((f, i) => body.append(i === 0 ? 'anverso' : 'reverso', f));
           if (placa) body.append('placa_vehiculo', placa);
-          if (formData['condCedulaCiudadania']) body.append('cedula_conductor', formData['condCedulaCiudadania']);
+          // SEGUNDO CONDUCTOR: sus documentos se validan contra SU cédula.
+          const cedulaContexto = ['cedula_cond2', 'licencia_cond2'].includes(tipoLectura)
+            ? formData['cond2CedulaCiudadania']
+            : formData['condCedulaCiudadania'];
+          if (cedulaContexto) body.append('cedula_conductor', cedulaContexto);
           const resp = await fetch(`${API_BASE}/vehiculos/extraer-datos-documento`, { method: 'POST', body });
           const data = await resp.json().catch(() => ({}));
           // 409 = la IA determinó que NO es el documento esperado: no se guarda nada.
@@ -1361,7 +1447,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     // Documentos de DOS caras OBLIGATORIAS (todas las cédulas, licencia y
     // tarjeta de propiedad — 2026-08-27, orden del usuario: siempre reverso):
     // tras el frente se pide el reverso inmediatamente, sin poder saltarlo.
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo)) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(opcion.tipo)) {
       setLeyendoCedula(false); // El Swal del reverso manda; no dejar el overlay pegado.
       Swal.fire({
         icon: 'info',
@@ -1674,7 +1760,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (!tipo) return;
     const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipo);
     if (!opcion) return;
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(tipo)) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(tipo)) {
       Swal.fire({
         icon: 'info',
         title: 'Ahora el REVERSO',
@@ -2022,6 +2108,57 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         { label: 'Merc. Transportada', name: 'condMercTransportada' },
       ],
     },
+    // ── SEGUNDO CONDUCTOR (2026-10-14): espejo del bloque del conductor 1,
+    //    SOLO cuando el slot 2 está vinculado/invitado o desplegado. Sus
+    //    campos son obligatorios únicamente al estar VINCULADO (ver
+    //    requiredFields). El segundo apellido es opcional (misma regla). ──
+    ...(cond2Visible ? [
+      {
+        title: 'Información del Conductor 2',
+        fields: [
+          { label: 'Primer Apellido', name: 'cond2PrimerApellido' },
+          { label: 'Segundo Apellido (opcional)', name: 'cond2SegundoApellido' },
+          { label: 'Nombres', name: 'cond2Nombres' },
+          { label: 'Cédula de Ciudadanía', name: 'cond2CedulaCiudadania' },
+          { label: 'Fecha de Nacimiento', name: 'cond2FechaNacimiento', type: 'date' },
+          { label: 'Expedida en (Ciudad)', name: 'cond2ExpedidaEn' },
+          { label: 'Fecha de Expedición Cédula', name: 'cond2FechaExpedicion', type: 'date' },
+          { label: 'Departamento (Residencia)', name: 'cond2DeptoCiudad', options: departamentosUnicos },
+          { label: 'Ciudad (Residencia)', name: 'cond2Ciudad', options: getCiudadesPorDepto(formData['cond2DeptoCiudad']), requiereDepto: 'cond2DeptoCiudad' },
+          { label: 'Dirección (Residencia)', name: 'cond2Direccion' },
+          { label: 'Celular', name: 'cond2Celular', type: 'text' },
+          { label: 'Correo Electrónico', name: 'cond2Correo', type: 'email' },
+          { label: 'EPS', name: 'cond2Eps', options: epsColombia, conOtra: true },
+          { label: 'ARL', name: 'cond2Arl', options: arlColombia, conOtra: true },
+          { label: 'No. Licencia', name: 'cond2NoLicencia', type: 'number' },
+          { label: 'Fecha de Vencimiento', name: 'cond2FechaVencimientoLic', type: 'date' },
+          { label: 'Grupo Sanguíneo RH', name: 'cond2GrupoSanguineo', options: gruposSanguineos },
+          { label: 'Banco', name: 'cond2Banco', options: bancosColombia },
+          { label: 'Tipo de Cuenta', name: 'cond2TipoCuenta', options: tiposCuenta },
+          { label: 'No. de Cuenta', name: 'cond2NumeroCuenta', type: 'text', inputProps: { inputMode: 'numeric' as const } },
+        ],
+      },
+      {
+        title: 'Emergencia del Conductor 2',
+        fields: [
+          { label: 'Nombre', name: 'cond2NombreEmergencia' },
+          { label: 'Celular', name: 'cond2CelularEmergencia', type: 'text' },
+          { label: 'Parentesco', name: 'cond2ParentescoEmergencia', options: parentescos },
+        ],
+      },
+      {
+        title: 'Referencias Laborales del Conductor 2',
+        fields: [
+          { label: 'Empresa', name: 'cond2EmpresaRef' },
+          { label: 'Celular', name: 'cond2CelularRef', type: 'text' },
+          { label: 'Departamento', name: 'cond2DeptoCiudadRef', options: departamentosUnicos },
+          { label: 'Ciudad', name: 'cond2CiudadRef', options: getCiudadesPorDepto(formData['cond2DeptoCiudadRef']), requiereDepto: 'cond2DeptoCiudadRef' },
+          { label: 'Nro. Viajes', name: 'cond2NroViajesRef', type: 'number' },
+          { label: 'Años Antigüedad', name: 'cond2AntiguedadRef', type: 'number', inputProps: { min: 0, max: 30 } },
+          { label: 'Merc. Transportada', name: 'cond2MercTransportada' },
+        ],
+      },
+    ] : []),
     {
       title: 'Datos del Tenedor',
       fields: [
@@ -2141,7 +2278,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
 
   // Etiqueta legible de un campo (para el Swal de campos faltantes).
   const etiquetaDeCampo = (name: string): string => {
-    if (name === 'condCategoriaLic') return 'Categorías de la licencia';
+    if (name === 'condCategoriaLic' || name === 'cond2CategoriaLic') return 'Categorías de la licencia';
     for (const sec of sections) {
       const f = sec.fields.find(fld => fld.name === name);
       if (f) return f.label;
@@ -2150,8 +2287,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
   };
 
   // Avance individual por figura: % de campos OBLIGATORIOS llenos del grupo
-  // (misma regla que el avance global, para que los 4 sumen el total).
-  const avancesPorGrupo = GRUPOS_AVANCE.map(grupo => {
+  // (misma regla que el avance global, para que los 4 sumen el total). El
+  // grupo «Conductor 2» solo aparece cuando su sección está visible.
+  const avancesPorGrupo = GRUPOS_AVANCE
+    .filter(grupo => grupo.etiqueta !== 'Conductor 2' || cond2Visible)
+    .map(grupo => {
     const campos = [
       ...(grupo.extra || []),
       ...sections
@@ -2183,7 +2323,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
   // (debounce) — solo si no hay conductor vinculado ni invitación pendiente
   // para ESE correo, y una única vez por correo digitado.
   useEffect(() => {
-    if (!esSesionTenedor || soloLectura) return;
+    if (!esSesionTenedor || soloLectura || esPadrinoImp) return;
     const correo = (formData['condCorreo'] || '').trim().toLowerCase();
     const correoValido = correo.includes('@') && correo.length >= 6;
     // Primer registro del ref (correo cargado del vehículo): no ofrecer.
@@ -2198,11 +2338,36 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         || (vinculacionConductor?.invitacion?.correo || '').toLowerCase() === correo) return;
     const t = setTimeout(() => {
       correoOfrecidoRef.current = correo;
-      setInvitacionPopup({ correo, celular: (formData['condCelular'] || '').trim() });
+      setInvitacionPopup({ correo, celular: (formData['condCelular'] || '').trim(), slot: 1 });
     }, 900);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData['condCorreo'], esSesionTenedor, soloLectura, vinculacionConductor]);
+
+  // SEGUNDO CONDUCTOR (2026-10-14): mismo disparo automático del popup para
+  // el correo del conductor 2 (solo tenedor, slot 1 ocupado, slot 2 libre).
+  useEffect(() => {
+    if (!esSesionTenedor || soloLectura || esPadrinoImp || !cond2Visible) return;
+    if (!vinculacionConductor?.idConductor && !(vinculacionConductor?.invitacion?.correo || '').trim()) return;
+    const correo = (formData['cond2Correo'] || '').trim().toLowerCase();
+    const correoValido = correo.includes('@') && correo.length >= 6;
+    if (correoOfrecido2Ref.current === null) {
+      correoOfrecido2Ref.current = correo;
+      return;
+    }
+    if (!correoValido
+        || correo === correoConductorForm()
+        || esCorreoCuentaPropia(correo)
+        || correoOfrecido2Ref.current === correo
+        || vinculacionConductor2?.idConductor2
+        || (vinculacionConductor2?.invitacion?.correo || '').toLowerCase() === correo) return;
+    const t = setTimeout(() => {
+      correoOfrecido2Ref.current = correo;
+      setInvitacionPopup({ correo, celular: (formData['cond2Celular'] || '').trim(), slot: 2 });
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData['cond2Correo'], esSesionTenedor, soloLectura, vinculacionConductor, vinculacionConductor2, cond2Visible]);
 
   const abrirPopupInvitacion = () => {
     const correo = correoConductorForm();
@@ -2220,7 +2385,22 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       });
       return;
     }
-    setInvitacionPopup({ correo, celular: (formData['condCelular'] || '').trim() });
+    setInvitacionPopup({ correo, celular: (formData['condCelular'] || '').trim(), slot: 1 });
+  };
+
+  // SEGUNDO CONDUCTOR (2026-10-14): popup de invitación del slot 2 — usa el
+  // correo/celular de SU sección del formulario.
+  const abrirPopupInvitacion2 = () => {
+    const correo = (formData['cond2Correo'] || '').trim().toLowerCase();
+    if (!correo.includes('@') || correo.length < 6) {
+      Swal.fire('Falta el correo', 'Diligencia el <b>Correo Electrónico</b> del conductor 2 en su sección para poder invitarlo.', 'warning');
+      return;
+    }
+    if (correo === correoConductorForm()) {
+      Swal.fire('Correo repetido', 'Ese ya es el correo del conductor PRINCIPAL de esta placa.', 'warning');
+      return;
+    }
+    setInvitacionPopup({ correo, celular: (formData['cond2Celular'] || '').trim(), slot: 2 });
   };
 
   const celularInvitacionValido = () => {
@@ -2230,7 +2410,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
 
   const enviarInvitacionDesdePopup = async () => {
     if (!invitacionPopup || !celularInvitacionValido()) return;
-    const { correo, celular } = invitacionPopup;
+    const { correo, celular, slot } = invitacionPopup;
+    const esSlot2 = slot === 2;
     setEnviandoInvitacion(true);
     try {
       const resp = await fetch(`${API_BASE}/conductores/invitar-conductor`, {
@@ -2240,13 +2421,27 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           id_tenedor: idTenedorSesion,
           placa,
           correo_conductor: correo,
-          nombre_conductor: nombreConductorForm(),
+          nombre_conductor: esSlot2
+            ? ([formData['cond2Nombres'], formData['cond2PrimerApellido']].filter(Boolean).join(' ').trim() || null)
+            : nombreConductorForm(),
           celular_conductor: celular,
+          slot,
+          // Seguridad impersonando al tenedor: la invitación queda auditada a
+          // SU nombre (via=seguridad), no «como el tenedor».
+          ...(actorImpersonacion ? { solicitante: actorImpersonacion } : {}),
         }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo enviar la invitación.');
-      setVinculacionConductor({ idConductor: null, invitacion: { correo, estado: 'pendiente' } });
+      if (data.estado === 'vinculado') {
+        if (esSlot2) setVinculacionConductor2({ idConductor2: 'vinculado', invitacion: { correo, estado: 'aceptada' } });
+        else setVinculacionConductor({ idConductor: 'vinculado', invitacion: { correo, estado: 'aceptada' } });
+      } else if (esSlot2) {
+        setVinculacionConductor2({ idConductor2: null, invitacion: { correo, estado: 'pendiente' } });
+        setMostrarConductor2(true);
+      } else {
+        setVinculacionConductor({ idConductor: null, invitacion: { correo, estado: 'pendiente' } });
+      }
       setInvitacionPopup(null);
       Swal.fire({
         icon: 'success',
@@ -2261,12 +2456,15 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     }
   };
 
-  const reenviarInvitacionFicha = async () => {
+  const reenviarInvitacionFicha = async (slot: 1 | 2 = 1) => {
     try {
       const resp = await fetch(`${API_BASE}/conductores/reenviar-invitacion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_tenedor: idTenedorSesion, placa }),
+        body: JSON.stringify({
+          id_tenedor: idTenedorSesion, placa, slot,
+          ...(actorImpersonacion ? { solicitante: actorImpersonacion } : {}),
+        }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo reenviar.');
@@ -2276,12 +2474,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     }
   };
 
-  const quitarConductorFicha = async () => {
+  const quitarConductorFicha = async (slot: 1 | 2 = 1) => {
+    const vinculado = slot === 2 ? vinculacionConductor2?.idConductor2 : vinculacionConductor?.idConductor;
     const res = await Swal.fire({
       icon: 'question',
-      title: `Quitar conductor de ${placa}`,
-      text: vinculacionConductor?.idConductor
-        ? 'El conductor dejará de ver este vehículo en su panel. Puedes invitar a otro después.'
+      title: `Quitar ${slot === 2 ? 'al conductor 2' : 'al conductor'} de ${placa}`,
+      html: vinculado
+        ? 'El conductor dejará de ver este vehículo en su panel. Puedes invitar a otro después.<br/><br/><small>Si el vehículo está <b>aprobado</b> pasará a re-revisión.</small>'
         : 'Se cancela la invitación pendiente. Puedes invitar a otro después.',
       showCancelButton: true,
       confirmButtonText: 'Quitar',
@@ -2293,11 +2492,19 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       const resp = await fetch(`${API_BASE}/conductores/desvincular-conductor`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_tenedor: idTenedorSesion, placa }),
+        body: JSON.stringify({
+          id_tenedor: idTenedorSesion, placa, slot,
+          ...(actorImpersonacion ? { solicitante: actorImpersonacion } : {}),
+        }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo desvincular.');
-      setVinculacionConductor({});
+      if (slot === 2) {
+        setVinculacionConductor2({});
+        setMostrarConductor2(false);
+      } else {
+        setVinculacionConductor({});
+      }
       Swal.fire({ icon: 'success', title: 'Listo', timer: 1500, showConfirmButton: false });
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo desvincular.', 'error');
@@ -2348,8 +2555,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       {/* ── Vinculación del conductor invitado (solo TENEDOR dueño de la ficha).
           La invitación se hace con LOS DATOS DE ESTE FORMULARIO (2026-10-01):
           correo y nombre de la sección Conductor — ya no hay un botón afuera
-          con un modal que pedía digitarlos de nuevo. ── */}
-      {esSesionTenedor && (
+          con un modal que pedía digitarlos de nuevo. PADRINO: fuera. ── */}
+      {esSesionTenedor && !esPadrinoImp && (
         <div className="Datos-vinculacion">
           {vinculacionConductor?.idConductor ? (
             <>
@@ -2360,7 +2567,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
               </div>
               {!soloLectura && (
                 <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--peligro"
-                  onClick={quitarConductorFicha}>
+                  onClick={() => quitarConductorFicha(1)}>
                   ✖ Quitar
                 </button>
               )}
@@ -2374,11 +2581,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
               {!soloLectura && (
                 <>
                   <button type="button" className="Datos-vinculacion-btn"
-                    onClick={reenviarInvitacionFicha}>
+                    onClick={() => reenviarInvitacionFicha(1)}>
                     ✉️ Reenviar
                   </button>
                   <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--peligro"
-                    onClick={quitarConductorFicha}>
+                    onClick={() => quitarConductorFicha(1)}>
                     ✖ Quitar
                   </button>
                 </>
@@ -2406,6 +2613,70 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         </div>
       )}
 
+      {/* ── SEGUNDO CONDUCTOR (2026-10-14): caja de vinculación del slot 2 —
+          opcional, solo tenedor y con el conductor principal ya resuelto.
+          PADRINO impersonando: fuera. ── */}
+      {esSesionTenedor && !soloLectura && !esPadrinoImp
+        && (vinculacionConductor?.idConductor || (vinculacionConductor?.invitacion?.correo || '').trim()) && (
+        <div className="Datos-vinculacion">
+          {vinculacionConductor2?.idConductor2 ? (
+            <>
+              <div className="Datos-vinculacion-estado Datos-vinculacion-estado--ok">
+                ✅ Conductor 2 vinculado
+                {vinculacionConductor2.invitacion?.correo
+                  ? <> — <b>{vinculacionConductor2.invitacion.correo}</b></> : null}
+              </div>
+              <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--peligro"
+                onClick={() => quitarConductorFicha(2)}>
+                ✖ Quitar
+              </button>
+            </>
+          ) : (vinculacionConductor2?.invitacion?.correo || '').trim() ? (
+            <>
+              <div className="Datos-vinculacion-estado Datos-vinculacion-estado--pendiente">
+                ⏳ Invitación conductor 2 {(vinculacionConductor2.invitacion || {}).estado || 'pendiente'} →{' '}
+                <b>{(vinculacionConductor2.invitacion || {}).correo}</b>
+              </div>
+              <button type="button" className="Datos-vinculacion-btn"
+                onClick={() => reenviarInvitacionFicha(2)}>
+                ✉️ Reenviar
+              </button>
+              <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--peligro"
+                onClick={() => quitarConductorFicha(2)}>
+                ✖ Quitar
+              </button>
+            </>
+          ) : cond2Visible ? (
+            <>
+              <div className="Datos-vinculacion-estado">
+                👥 <b>Segundo conductor (opcional)</b>: diligencia su <b>Correo
+                Electrónico</b> en la sección «Información del Conductor 2» para
+                invitarlo.
+              </div>
+              <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--primario"
+                onClick={abrirPopupInvitacion2}
+                disabled={!(formData['cond2Correo'] || '').includes('@')}
+                title={!(formData['cond2Correo'] || '').includes('@')
+                  ? 'Diligencia primero el Correo Electrónico del conductor 2'
+                  : `Enviar la invitación a ${(formData['cond2Correo'] || '').trim()}`}>
+                ✉️ Invitar conductor 2
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="Datos-vinculacion-estado">
+                👥 ¿Este vehículo lo conduce también una <b>segunda persona</b>?
+                Es opcional — tendrá su propia hoja de vida, documentos y firma.
+              </div>
+              <button type="button" className="Datos-vinculacion-btn Datos-vinculacion-btn--primario"
+                onClick={() => setMostrarConductor2(true)}>
+                ＋ Agregar segundo conductor
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* --- LECTURA DE DOCUMENTOS CON IA (guarda el documento Y autollena) ---
           Oculta en modo consulta: no se pueden subir documentos. */}
       {!soloLectura && (
@@ -2421,13 +2692,16 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           {/* La cédula del dueño del remolque NO vive aquí (2026-10-06, pedido
               del usuario): se muestra DENTRO de la sección «Datos del Remolque
               (Opcional)», donde tiene sentido — solo cuando hay remolque. */}
-          {OPCIONES_LECTURA_IA.filter(opcion => opcion.tipo !== 'cedula_remolque').map(opcion => {
+          {OPCIONES_LECTURA_IA
+            .filter(opcion => opcion.tipo !== 'cedula_remolque'
+              && (!opcion.soloConductor2 || cond2Visible))
+            .map(opcion => {
             const tipoSubida = opcion.tipo === 'cedula'
               ? 'documentoIdentidadConductor'
               : LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
             // TODAS las cédulas + licencia + tarjeta: dos caras OBLIGATORIAS
             // (el ✓ exige frente y reverso).
-            const dosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'licencia', 'tarjeta_propiedad'].includes(opcion.tipo);
+            const dosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(opcion.tipo);
             // Dos caras obligatorias: el ✓ solo con FRENTE y REVERSO subidos.
             const listo = Boolean(
               tipoSubida && docsSubidos[tipoSubida]
@@ -2518,6 +2792,40 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
                             type="checkbox"
                             checked={catsActivas.includes(cat)}
                             onChange={() => toggleCategoriaLic(cat)}
+                            disabled={soloLectura}
+                          />
+                          {cat}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+            {/* Categorías de licencia del SEGUNDO conductor (2026-10-14):
+                mismas chips sobre cond2CategoriaLic. */}
+            {title === "Información del Conductor 2" && vinculacionConductor2?.idConductor2 && (
+              (() => {
+                const catsActivas = (formData['cond2CategoriaLic'] || '').split(',').map(s => s.trim()).filter(Boolean);
+                const catsError = camposError.includes('cond2CategoriaLic');
+                return (
+                  <div
+                    className={`Datos-categorias-lic ${catsError ? 'Datos-categorias-lic--error' : ''}`}
+                    data-campo="cond2CategoriaLic"
+                  >
+                    <label className="Datos-categorias-lic-label">
+                      Categorías de la licencia del conductor 2 <span style={{ color: '#e74c3c' }}>*</span>
+                    </label>
+                    <div className="Datos-categorias-lic-chips">
+                      {categoriasLicencia.map(cat => (
+                        <label
+                          key={cat}
+                          className={`Datos-categoria-chip ${catsActivas.includes(cat) ? 'Datos-categoria-chip--activo' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={catsActivas.includes(cat)}
+                            onChange={() => toggleCategoriaLic2(cat)}
                             disabled={soloLectura}
                           />
                           {cat}
@@ -2727,12 +3035,17 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       {invitacionPopup && (
         <div className="Datos-invPop-overlay" onClick={() => !enviandoInvitacion && setInvitacionPopup(null)}>
           <div className="Datos-invPop-caja" onClick={(e) => e.stopPropagation()}>
-            <div className="Datos-invPop-titulo">✉️ ¿Invitar a este conductor?</div>
+            <div className="Datos-invPop-titulo">
+              ✉️ ¿Invitar a {invitacionPopup.slot === 2 ? 'este conductor 2' : 'este conductor'}?
+            </div>
             <p className="Datos-invPop-texto">
               Enviaremos la invitación a <b>{invitacionPopup.correo}</b>
-              {nombreConductorForm() ? <> (<b>{nombreConductorForm()}</b>)</> : null}.
+              {invitacionPopup.slot === 2
+                ? (formData['cond2Nombres'] ? <> (<b>{formData['cond2Nombres']}</b>)</> : null)
+                : (nombreConductorForm() ? <> (<b>{nombreConductorForm()}</b>)</> : null)}.
               Él elegirá su propia clave, aceptará las declaraciones de vinculación
-              y quedará vinculado a la placa <b>{placa}</b>.
+              y quedará vinculado a la placa <b>{placa}</b>
+              {invitacionPopup.slot === 2 ? ' como segundo conductor' : ''}.
             </p>
             <PhoneField
               label="Celular (WhatsApp) del conductor"

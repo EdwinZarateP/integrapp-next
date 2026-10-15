@@ -13,6 +13,12 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     "Revisión Tecnomecánica": `${API_BASE_URL}/subir-documento`,
     "Tarjeta de Remolque": `${API_BASE_URL}/subir-documento`,
     "Fotos": `${API_BASE_URL}/subir-fotos`,
+    // Ángulos de foto del vehículo (2026-10-14): el mismo endpoint con
+    // foto_tipo en el body (una foto por ángulo, re-subirla la reemplaza).
+    "Foto Frontal": `${API_BASE_URL}/subir-fotos`,
+    "Foto Lateral Izquierda": `${API_BASE_URL}/subir-fotos`,
+    "Foto Lateral Derecha": `${API_BASE_URL}/subir-fotos`,
+    "Foto Posterior": `${API_BASE_URL}/subir-fotos`,
     "Póliza de responsabilidad civil": `${API_BASE_URL}/subir-documento`,
     "Documento de Identidad del Conductor": `${API_BASE_URL}/subir-documento`,
     "Documento de Identidad del Propietario": `${API_BASE_URL}/subir-documento`,
@@ -34,7 +40,14 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     // (2026-09-28) «RUT Propietario» VUELVE a pedirse SOLO cuando el
     // propietario es una empresa (NIT): reemplaza su cédula.
     "RUT Propietario": `${API_BASE_URL}/subir-documento`,
-    "Hoja de Vida Física": `${API_BASE_URL}/subir-documento`
+    "Hoja de Vida Física": `${API_BASE_URL}/subir-documento`,
+    // SEGUNDO CONDUCTOR (2026-10-14): sus documentos propios — se piden SOLO
+    // cuando el slot 2 está vinculado (ver construirSecciones/paso 3).
+    "Documento de Identidad del Conductor 2": `${API_BASE_URL}/subir-documento`,
+    "Licencia de Conducción Conductor 2": `${API_BASE_URL}/subir-documento`,
+    "Licencia de Conducción Conductor 2 (Reverso)": `${API_BASE_URL}/subir-documento`,
+    "Foto Conductor 2": `${API_BASE_URL}/subir-documento`,
+    "Certificación Bancaria Conductor 2": `${API_BASE_URL}/subir-documento`
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 
@@ -47,6 +60,12 @@ export const tiposMapping: Record<string, string> = Object.fromEntries(
     "Revisión Tecnomecánica": "revisionTecnomecanica",
     "Tarjeta de Remolque": "tarjetaRemolque",
     "Fotos": "fotos",
+    // Ángulos (2026-10-14): mapean a "fotos" para que el flujo de ELIMINAR
+    // del paso 3 (rama eliminar-foto) los trate igual que las fotos.
+    "Foto Frontal": "fotos",
+    "Foto Lateral Izquierda": "fotos",
+    "Foto Lateral Derecha": "fotos",
+    "Foto Posterior": "fotos",
     "Póliza de responsabilidad civil": "polizaResponsabilidad",
     "Documento de Identidad del Conductor": "documentoIdentidadConductor",
     "Documento de Identidad del Propietario": "documentoIdentidadPropietario",
@@ -62,7 +81,14 @@ export const tiposMapping: Record<string, string> = Object.fromEntries(
     "Documento que lo acredite como Tenedor": "documentoAcreditacionTenedor",
     "RUT Tenedor": "rutTenedor",
     "RUT Propietario": "rutPropietario",
-    "Hoja de Vida Física": "hojaVidaFisica"
+    "Hoja de Vida Física": "hojaVidaFisica",
+    // SEGUNDO CONDUCTOR (2026-10-14): campo por campo (el reverso de su
+    // cédula sube con el parámetro `reverso` del frente, igual que el slot 1).
+    "Documento de Identidad del Conductor 2": "documentoIdentidadConductor2",
+    "Licencia de Conducción Conductor 2": "licencia2",
+    "Licencia de Conducción Conductor 2 (Reverso)": "licencia2Reverso",
+    "Foto Conductor 2": "cond2Foto",
+    "Certificación Bancaria Conductor 2": "cond2CertificacionBancaria"
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 

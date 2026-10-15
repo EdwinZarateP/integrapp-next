@@ -7,12 +7,14 @@ import Swal from "sweetalert2";
 import {
   FaSearch, FaTimes, FaBars, FaChevronDown, FaHome, FaSignOutAlt,
   FaHourglassHalf, FaClipboardList, FaCheckCircle, FaBan, FaFileExcel, FaSyncAlt, FaUserPlus,
-  FaHistory, FaTimesCircle,
+  FaHistory, FaTimesCircle, FaChartBar,
 } from "react-icons/fa";
 import ListaVehiculos from "./componentes/ListaVehiculos";
 import PanelDetalle from "./componentes/PanelDetalle";
+import { esPadrino } from "./componentes/impersonacion";
 import VistaAlta from "./componentes/VistaAlta";
 import VistaEstudiosAntiguedad from "./componentes/VistaEstudiosAntiguedad";
+import VistaIndicadores from "./componentes/VistaIndicadores";
 import { Vehiculo, PestanaBandeja, PestanaDetalle } from "./tipos";
 import logoIntegrApp from "@/Imagenes/albatros.png";
 import "./estilos.css";
@@ -30,7 +32,65 @@ const ETIQUETA_BANDEJA: Record<PestanaBandeja, string> = {
   rechazados: "Rechazados",
 };
 
-type Vista = 'bandejas' | 'alta' | 'estudios';
+type Vista = 'bandejas' | 'alta' | 'estudios' | 'indicadores';
+
+/** ¿Ya hubo un popstate en ESTE documento? Vive a nivel de módulo para
+ *  sobrevivir al remontaje de la página (al volver de /PanelConductores el
+ *  componente se desmonta y se vuelve a montar). Distingue una restauración
+ *  por atrás/adelante del navegador (la entrada de historial YA es la del
+ *  panel → no re-apilar) de un F5/link directo (sí apilar, fix 2026-10-13:
+ *  atrás cierra el panel sin salir de la app).
+ *  El listener es de MÓDULO (no del componente): el popstate del «atrás»
+ *  llega cuando esta página está desmontada, así que el effect de abajo no
+ *  puede verlo — solo sincroniza estado cuando la página está viva. */
+let POPSTATE_VISTO = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("popstate", () => { POPSTATE_VISTO = true; }, true);
+}
+
+/* --- Caché de bandejas en sessionStorage (2026-10-14) -------------------
+   La caché en memoria (`cacheBandejasRef`) muere con el remontaje: al volver
+   del Modo Seguridad había que re-consultar el backend ANTES de poder abrir
+   el panel de la placa restaurada («un rato» viendo la lista). sessionStorage
+   extiende la misma caché a los remontajes de la pestaña, con TTL corto (las
+   URLs firmadas v4 viven 60 min; 5 min acota también datos viejos — las
+   mutaciones limpian con `limpiarCacheBandejasSesion`). Best-effort: si la
+   cuota no da (cada vehículo trae ~20 URLs firmadas), degrada a fetch. */
+const CLAVE_CACHE_BANDEJAS = 'revxCacheBandejas';
+const TTL_CACHE_BANDEJAS_MS = 5 * 60 * 1000;
+
+type EntradaCacheBandeja = { ts: number; vehicles: Vehiculo[] };
+type CacheBandejasSesion = Partial<Record<PestanaBandeja, EntradaCacheBandeja>>;
+
+const leerCacheBandejasSesion = (): CacheBandejasSesion => {
+  try {
+    const crudo = sessionStorage.getItem(CLAVE_CACHE_BANDEJAS);
+    if (!crudo) return {};
+    const datos = JSON.parse(crudo) as CacheBandejasSesion;
+    const vivos: CacheBandejasSesion = {};
+    (Object.keys(datos) as PestanaBandeja[]).forEach((bandeja) => {
+      const entrada = datos[bandeja];
+      if (entrada && Date.now() - entrada.ts < TTL_CACHE_BANDEJAS_MS) {
+        vivos[bandeja] = entrada;
+      }
+    });
+    return vivos;
+  } catch {
+    return {}; // sessionStorage bloqueado o JSON corrupto: sin caché
+  }
+};
+
+const guardarBandejaSesion = (bandeja: PestanaBandeja, vehicles: Vehiculo[]) => {
+  try {
+    const datos = leerCacheBandejasSesion();
+    datos[bandeja] = { ts: Date.now(), vehicles };
+    sessionStorage.setItem(CLAVE_CACHE_BANDEJAS, JSON.stringify(datos));
+  } catch { /* cuota llena: best-effort, no rompe la carga */ }
+};
+
+const limpiarCacheBandejasSesion = () => {
+  try { sessionStorage.removeItem(CLAVE_CACHE_BANDEJAS); } catch { /* noop */ }
+};
 
 interface RevisionVehiculosProps {
   /** Vista inicial: las rutas estáticas /revision/alta y /revision/estudios
@@ -55,6 +115,25 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
 
   const [vista, setVista] = useState<Vista>(vistaInicial ?? 'bandejas');
 
+  /* --- Query params leídos EN EL PRIMER RENDER ------------------------
+     La restauración de bandeja/placa/pestaña vivía en un effect, pero el
+     ESPEJO de URL corría en el mismo commit con el estado DEFAULT y pisaba
+     la URL antes de que la restauración comitara; con StrictMode el
+     restaurador re-leía la URL YA destruida y la sobrescribía con los
+     defaults (bug real 2026-10-14: atrás desde el Modo Seguridad aterrizaba
+     en ?bandeja=revision en vez de la bandeja real con su panel abierto).
+     Inicializar el estado DESDE la URL elimina la carrera: el primer render
+     ya trae los valores correctos y el espejo es idempotente. (La página es
+     dynamic ssr:false → window siempre existe). */
+  const PARAMS_MOUNT = typeof window === "undefined"
+    ? new URLSearchParams()
+    : new URLSearchParams(window.location.search);
+  const BANDEJA_MOUNT = PARAMS_MOUNT.get("bandeja") as PestanaBandeja | null;
+  const PLACA_MOUNT = PARAMS_MOUNT.get("placa");
+  const PESTANA_MOUNT = PLACA_MOUNT
+    ? PARAMS_MOUNT.get("pestana") as PestanaDetalle | null
+    : null;
+
   /* --- CARGA POR BANDEJA (2026-10-13) ----------------------------------
      Antes el mount traía TODOS los vehículos en TODOS los estados (el
      endpoint firmaba cada ruta de documento de cada uno) y el front los
@@ -70,9 +149,10 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   const [cargando, setCargando] = useState(true);
   const cacheBandejasRef = useRef<Partial<Record<PestanaBandeja, Vehiculo[]>>>({});
   // Bandeja activa vista por el código async (respuesta tardía tras cambiar).
-  const pestanaActivaRef = useRef<PestanaBandeja>("revision");
+  const pestanaActivaRef = useRef<PestanaBandeja>(
+    BANDEJA_MOUNT && BANDEJAS_VALIDAS.includes(BANDEJA_MOUNT) ? BANDEJA_MOUNT : "revision");
 
-  const [pestanaActiva, setPestanaActivaState] = useState<PestanaBandeja>("revision");
+  const [pestanaActiva, setPestanaActivaState] = useState<PestanaBandeja>(pestanaActivaRef.current);
   const setPestanaActiva = (p: PestanaBandeja) => {
     pestanaActivaRef.current = p;
     setPestanaActivaState(p);
@@ -92,48 +172,75 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
      después del build (404). Escritura con history.replaceState NATIVO
      (no router.replace): la navegación del App Router re-suspende el
      <Suspense> del page.tsx y la bandeja parpadea al cambiar de pestaña. */
-  const urlSincronizada = React.useRef(false);
-  // Placa pendiente de restaurar desde la URL (espera a que cargue la bandeja).
-  const placaPendienteRef = useRef<string | null>(null);
+  // Placa pendiente de seleccionar cuando la bandeja cargue (desde la URL).
+  const placaPendienteRef = useRef<string | null>(
+    PLACA_MOUNT ? PLACA_MOUNT.trim().toUpperCase() : null);
   // ¿Había panel abierto en la escritura de URL anterior? (para decidir
   // pushState al abrirlo vs replaceState el resto del tiempo).
   const panelAbiertoPrevRef = useRef(false);
+  // Reapertura del panel tras el recorte ✂️ (`alCambiar(mantener=true)`):
+  // la entrada de historial YA es la del panel — re-seleccionar no debe
+  // apilar otra (misma lógica que la restauración por atrás/adelante).
+  const reaperturaMantenerRef = useRef(false);
   // Pestaña del panel restaurada desde la URL (?pestana=estudios).
-  const [pestanaPanel, setPestanaPanel] = useState<PestanaDetalle | null>(null);
-  const pestanaInicialRef = useRef<PestanaDetalle | null>(null);
-  // La carga arranca SOLO tras restaurar la URL del mount (si la URL trae
-  // ?bandeja=aprobados no se dispara un fetch doble de «revision»).
-  const [listo, setListo] = useState(false);
+  const [pestanaPanel, setPestanaPanel] = useState<PestanaDetalle | null>(PESTANA_MOUNT);
+  const pestanaInicialRef = useRef<PestanaDetalle | null>(PESTANA_MOUNT);
 
-  // Restaurar la bandeja, la placa seleccionada y la pestaña del panel.
-  useEffect(() => {
-    urlSincronizada.current = true;
-    const params = new URLSearchParams(window.location.search);
-    const bandejaUrl = params.get("bandeja") as PestanaBandeja | null;
-    if (bandejaUrl && BANDEJAS_VALIDAS.includes(bandejaUrl)) setPestanaActiva(bandejaUrl);
-    const placaUrl = params.get("placa");
-    if (placaUrl) placaPendienteRef.current = placaUrl.trim().toUpperCase();
-    const pestanaUrl = params.get("pestana") as PestanaDetalle | null;
-    if (placaUrl && pestanaUrl) {
-      pestanaInicialRef.current = pestanaUrl;
-      setPestanaPanel(pestanaUrl);
-    }
-    setListo(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Al llegar la placa pendiente en la bandeja cargada → seleccionarla.
+  // Al llegar la placa pendiente → seleccionarla. `tickPopstate` re-dispara
+  // el efecto cuando un ADELANTE del navegador siembra la placa pendiente
+  // sin que cambie ningún otro estado (bug preexistente: el ref muta pero el
+  // efecto no volvía a correr y el panel nunca reabría).
+  const [tickPopstate, setTickPopstate] = useState(0);
+  // Fetch individual en vuelo por placa (que no se dispare en cada render).
+  const buscandoVehiculoRef = useRef<string | null>(null);
   useEffect(() => {
     const placa = placaPendienteRef.current;
-    if (!placa || seleccionado || cargando) return;
+    if (!placa || seleccionado) return;
     const fuente = pestanaActiva === "aprobados" ? vehiculosAprobados : listaBandeja;
     const veh = fuente.find(v => v.placa?.toUpperCase() === placa);
     if (veh) {
       setSeleccionado(veh);
       placaPendienteRef.current = null;
+      return;
     }
+    // La bandeja terminó y la consulta individual ya se intentó sin éxito:
+    // la placa no existe en ninguna parte (link viejo compartido) →
+    // soltarla para que el espejo limpie la URL.
+    if (!cargando && !buscandoVehiculoRef.current) {
+      placaPendienteRef.current = null;
+      return;
+    }
+    if (buscandoVehiculoRef.current) return; // consulta individual en vuelo
+    // (2026-10-14, ronda 2) La placa no está a mano: la bandeja aún carga o
+    // no está en el extracto local (p. ej. Aprobados paginado, tope 10).
+    // Pedir SOLO este vehículo (param ?placa= del backend) y abrir el panel
+    // apenas llegue: restaurar un panel NO debe esperar la bandeja completa
+    // — cada vehículo firma TODAS sus rutas de documento y con la flota
+    // creciendo traer todas las placas era lo que se sentía lento (reporte
+    // del usuario). La bandeja sigue cargando en background para la lista
+    // que queda detrás del panel.
+    buscandoVehiculoRef.current = placa;
+    axios.get<{ vehicles: Vehiculo[] }>(
+      `${API_BASE}/vehiculos/obtener-vehiculos-incompletos`,
+      { params: { id_usuario: Cookies.get("seguridadId"), placa } }
+    ).then(res => {
+      if (placaPendienteRef.current !== placa) return; // llegó tarde o cambió
+      // Por placa (defensa: la respuesta podría no traer la pedida).
+      const v = (res.data.vehicles || []).find(x => x.placa?.toUpperCase() === placa);
+      if (v) {
+        placaPendienteRef.current = null;
+        setSeleccionado(v);
+      } else {
+        // No vino: rehabilitar el mecanismo — si la bandeja (más lenta) aún
+        // trae la placa, que la seleccione; si nada la trae, se suelta arriba.
+        buscandoVehiculoRef.current = null;
+        setTickPopstate(t => t + 1);
+      }
+    }).catch(() => {
+      if (buscandoVehiculoRef.current === placa) buscandoVehiculoRef.current = null;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listaBandeja, vehiculosAprobados, cargando, pestanaActiva, seleccionado]);
+  }, [listaBandeja, vehiculosAprobados, cargando, pestanaActiva, seleccionado, tickPopstate]);
 
   // Espejo de la bandeja activa + placa seleccionada + pestaña del panel +
   // la VISTA en la URL (replaceState nativo: no ensucia el historial ni
@@ -141,11 +248,11 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   // La base se NORMALIZA (fuera barras finales y el sufijo /alta): sin esto,
   // alternar vistas con la barra final del routing acumulaba "///" en la URL.
   useEffect(() => {
-    if (!urlSincronizada.current) return; // No pisar la restauración inicial.
     const base = window.location.pathname
       .replace(/\/+$/, "")      // barras finales (trailingSlash del export)
       .replace(/\/alta$/, "")   // sufijo del módulo
-      .replace(/\/estudios$/, ""); // módulo Estudios por antigüedad
+      .replace(/\/estudios$/, "") // módulo Estudios por antigüedad
+      .replace(/\/indicadores$/, ""); // módulo Indicadores
     if (vista === 'alta') {
       window.history.replaceState(window.history.state, '', `${base}/alta`);
       panelAbiertoPrevRef.current = false;
@@ -153,6 +260,11 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     }
     if (vista === 'estudios') {
       window.history.replaceState(window.history.state, '', `${base}/estudios`);
+      panelAbiertoPrevRef.current = false;
+      return;
+    }
+    if (vista === 'indicadores') {
+      window.history.replaceState(window.history.state, '', `${base}/indicadores`);
       panelAbiertoPrevRef.current = false;
       return;
     }
@@ -171,6 +283,15 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       } else {
         params.delete("pestana");
       }
+    } else if (placaPendienteRef.current
+        && (params.get("placa") || "").toUpperCase() === placaPendienteRef.current) {
+      // RESTAURACIÓN EN CURSO (2026-10-14): la placa de la URL aún no se ha
+      // seleccionado porque la bandeja está cargando. Borrarla aquí era el
+      // parpadeo que veía el usuario al volver del Modo Seguridad (la URL
+      // caía a ?bandeja=… sin placa y luego "volvía" a aparecer). La URL ya
+      // es correcta — solo se reescribe la bandeja. (Si la placa no resulta
+      // en esta bandeja, queda en la URL y al cambiar a la bandeja correcta
+      // el panel se abre igual.)
     } else {
       params.delete("placa");
       params.delete("pestana");
@@ -182,9 +303,23 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     // ?placa=), la entrada actual se convierte en la lista SIN placa y el
     // panel se apila encima. Todo lo demás sigue con replaceState (no
     // ensucia el historial).
+    // EXCEPCIÓN (2026-10-14): si la URL YA trae la placa y esta selección
+    // viene de una restauración — atrás/adelante del navegador
+    // (POPSTATE_VISTO) o la reapertura del recorte ✂️
+    // (reaperturaMantenerRef) — la entrada ACTUAL de historial ya ES la del
+    // panel: re-apilar sumaba una entrada fantasma por cada round-trip Modo
+    // Seguridad → atrás. (La marca NO puede vivir en history.state: el App
+    // Router lo sobrescribe con el suyo en cada navegación.) F5/link directo
+    // (documento recién cargado: flags limpios) conservan el convert+push.
     const abriendoPanel = !!seleccionado && !panelAbiertoPrevRef.current;
     if (abriendoPanel) {
       const placaActual = new URLSearchParams(window.location.search).get("placa");
+      if (placaActual && placaActual === seleccionado!.placa
+          && (POPSTATE_VISTO || reaperturaMantenerRef.current)) {
+        panelAbiertoPrevRef.current = true;
+        reaperturaMantenerRef.current = false;
+        return;
+      }
       if (placaActual && placaActual === seleccionado!.placa) {
         const sinPanel = new URLSearchParams(window.location.search);
         sinPanel.delete("placa");
@@ -207,7 +342,8 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       const path = window.location.pathname;
       if (path.endsWith("/alta")) { setVista('alta'); return; }
       if (path.endsWith("/estudios")) { setVista('estudios'); return; }
-      setVista(v => (v === 'alta' || v === 'estudios' ? 'bandejas' : v));
+      if (path.endsWith("/indicadores")) { setVista('indicadores'); return; }
+      setVista(v => (v === 'alta' || v === 'estudios' || v === 'indicadores' ? 'bandejas' : v));
       const params = new URLSearchParams(window.location.search);
       const bandejaUrl = params.get("bandeja") as PestanaBandeja | null;
       if (bandejaUrl && BANDEJAS_VALIDAS.includes(bandejaUrl) && bandejaUrl !== pestanaActivaRef.current) {
@@ -216,8 +352,13 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       const placaUrl = params.get("placa");
       if (placaUrl) {
         placaPendienteRef.current = placaUrl.trim().toUpperCase();
+        setTickPopstate(t => t + 1); // re-disparar el efecto de selección
       } else {
         setSeleccionado(s => (s ? null : s)); // atrás cierra el panel
+        // Sin placa en la URL no hay restauración pendiente: cancelarla
+        // (si quedara viva, un fetch individual tardío re-abriría el panel
+        // que el usuario acaba de cerrar con el atrás).
+        placaPendienteRef.current = null;
       }
     };
     window.addEventListener("popstate", alPopState);
@@ -243,12 +384,24 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
 
   /** Carga SOLO la bandeja pedida (el backend filtra por estadoIntegra con
    * `?bandeja=`). Con caché por bandeja: re-visitar dentro de la sesión no
-   * re-pide; `forzar` la salta (tras aprobar/devolver/recortar). */
+   * re-pide; `forzar` la salta (tras aprobar/devolver/recortar). La caché de
+   * sessionStorage (2026-10-14) cubre además los REMONTAJES de la página:
+   * al volver del Modo Seguridad con atrás, el panel de la placa restaurada
+   * abre al instante en vez de esperar el fetch del backend. */
   const cargarBandeja = async (idUsuario: string, bandeja: PestanaBandeja, forzar = false) => {
     if (!forzar && cacheBandejasRef.current[bandeja]) {
       setListaBandeja(cacheBandejasRef.current[bandeja]!);
       setCargando(false);
       return;
+    }
+    if (!forzar) {
+      const deSesion = leerCacheBandejasSesion()[bandeja];
+      if (deSesion) {
+        cacheBandejasRef.current[bandeja] = deSesion.vehicles;
+        setListaBandeja(deSesion.vehicles);
+        setCargando(false);
+        return;
+      }
     }
     setCargando(true);
     try {
@@ -258,6 +411,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
       );
       const list = res.data.vehicles || [];
       cacheBandejasRef.current[bandeja] = list;
+      guardarBandejaSesion(bandeja, list);
       // Aplicar solo si el usuario sigue en la misma bandeja (respuesta
       // tardía tras cambiar de bandeja en medio del request).
       if (pestanaActivaRef.current === bandeja) setListaBandeja(list);
@@ -284,21 +438,21 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     }
   };
 
-  // Carga perezosa: solo la bandeja activa, tras restaurar la URL del mount.
+  // Carga perezosa: solo la bandeja activa (la URL ya se leyó en el 1er render).
   useEffect(() => {
-    if (!listo || vista !== 'bandejas') return;
+    if (vista !== 'bandejas') return;
     const idUsuario = Cookies.get("seguridadId");
     if (!idUsuario) return;
     if (pestanaActiva !== "aprobados") cargarBandeja(idUsuario, pestanaActiva);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listo, vista, pestanaActiva]);
+  }, [vista, pestanaActiva]);
 
   // Aprobados se consulta al backend (paginado + búsqueda) al entrar a la pestaña.
   useEffect(() => {
-    if (!listo || vista !== 'bandejas' || pestanaActiva !== "aprobados") return;
+    if (vista !== 'bandejas' || pestanaActiva !== "aprobados") return;
     fetchAprobados(busquedaAprobadosEnVuelo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listo, vista, pestanaActiva, busquedaAprobadosEnVuelo]);
+  }, [vista, pestanaActiva, busquedaAprobadosEnVuelo]);
 
   /* ---------------------------------------------------------------- */
   /* BÚSQUEDA Y PAGINACIÓN                                            */
@@ -340,11 +494,14 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     if (mantener && seleccionado) {
       placaPendienteRef.current = seleccionado.placa?.toUpperCase() || null;
       pestanaInicialRef.current = pestanaPanel;
+      reaperturaMantenerRef.current = true;
     }
     setSeleccionado(null);
     // Un cambio de estado puede mover vehículos entre bandejas: la caché
-    // queda vieja → se limpia y se recarga SOLO la bandeja activa.
+    // queda vieja → se limpia (memoria Y sessionStorage) y se recarga SOLO
+    // la bandeja activa.
     cacheBandejasRef.current = {};
+    limpiarCacheBandejasSesion();
     if (pestanaActiva === "aprobados") {
       await fetchAprobados(busquedaAprobadosEnVuelo);
     } else {
@@ -411,7 +568,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
         <img src={logoIntegrApp.src} alt="IntegrApp" className="revx-logo" />
         <div className="revx-logo-texto">
           <span>Integr<span>App</span></span>
-          <small>Seguridad · Revisión</small>
+          <small>{esPadrino() ? "Padrino · Documentos" : "Seguridad · Revisión"}</small>
         </div>
       </div>
       <nav className="revx-sidebar-nav">
@@ -448,13 +605,21 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
           <FaHistory />
           <span>Estudios por antigüedad</span>
         </button>
+        <button
+          className={`revx-nav-item ${vista === 'indicadores' ? "revx-nav-activo" : ""}`}
+          onClick={() => { setVista('indicadores'); setMenuLateralAbierto(false); }}
+          title="Placas registradas por día y en qué estado están"
+        >
+          <FaChartBar />
+          <span>Indicadores</span>
+        </button>
       </nav>
       <div className="revx-sidebar-pie">
         <div className="revx-sidebar-usuario">
           <div className="revx-avatar">{iniciales}</div>
           <div className="revx-sidebar-usuario-datos">
             <strong>{nombreUsuario}</strong>
-            <small>Seguridad</small>
+            <small>{esPadrino() ? "Padrino" : "Seguridad"}</small>
           </div>
         </div>
       </div>
@@ -489,6 +654,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
             <span className="revx-miga-actual">
               {vista === 'alta' ? 'Revisión de vehículos · Alta de vehículo'
                 : vista === 'estudios' ? 'Revisión de vehículos · Estudios por antigüedad'
+                : vista === 'indicadores' ? 'Revisión de vehículos · Indicadores'
                                 : `Revisión de vehículos · ${ETIQUETA_BANDEJA[pestanaActiva]}`}
             </span>
           </div>
@@ -507,7 +673,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
                 <div className="revx-avatar-menu">
                   <div className="revx-avatar-menu-cab">
                     <strong>{nombreUsuario}</strong>
-                    <small>Perfil Seguridad</small>
+                    <small>{esPadrino() ? "Perfil Padrino" : "Perfil Seguridad"}</small>
                   </div>
                   <button className="revx-avatar-item" onClick={() => { setMenuUsuarioAbierto(false); router.push("/"); }}>
                     <FaHome /> Volver al inicio
@@ -539,6 +705,15 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
                    reciente — la actualización de cada placa la decides tú, ya no es automática.</p>
               </div>
               <VistaEstudiosAntiguedad onVolver={() => { setVista('bandejas'); setPestanaActiva('revision'); }} />
+            </>
+          ) : vista === 'indicadores' ? (
+            <>
+              <div className="revx-encabezado">
+                <h1>Indicadores de <span>registro</span></h1>
+                <p>Placas registradas por día y en qué estado están hoy — para ver de un vistazo
+                   cómo va quedando la flota en cada fase del proceso.</p>
+              </div>
+              <VistaIndicadores onVolver={() => { setVista('bandejas'); setPestanaActiva('revision'); }} />
             </>
           ) : (
           <>
@@ -628,6 +803,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
           alCambiar={alCambiar}
           pestanaInicial={pestanaInicialRef.current ?? undefined}
           onCambiarPestana={setPestanaPanel}
+          esPadrino={esPadrino()}
         />
       )}
     </div>

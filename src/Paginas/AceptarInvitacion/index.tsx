@@ -34,6 +34,10 @@ const AceptarInvitacion: React.FC = () => {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const placa = searchParams.get('placa')?.toUpperCase() || '';
+  // SEGUNDO CONDUCTOR (2026-10-14): los links de invitación del slot 2 traen
+  // &slot=2 (el backend también lo deriva por correo si no viene).
+  const slotParam = searchParams.get('slot');
+  const slot = slotParam === '2' ? 2 : 1;
   const router = useRouter();
 
   const [estado, setEstado] = useState<Estado>('verificando');
@@ -129,6 +133,7 @@ const AceptarInvitacion: React.FC = () => {
         body: JSON.stringify({
           token,
           placa,
+          slot,
           clave: clave.trim(),
           version_politica: politica.version,
           acepta: true,
@@ -188,6 +193,7 @@ const AceptarInvitacion: React.FC = () => {
               <h2 className="VC-titulo">Activa tu cuenta de conductor</h2>
               <p className="VC-subtitulo">
                 Te invitaron a operar{placa ? <> el vehículo de placa <strong>{placa}</strong></> : ' un vehículo'}
+                {slot === 2 ? <> como <strong>segundo conductor</strong></> : null}
                 {correo ? <> con el correo <strong>{correo}</strong></> : null}. Elige tu
                 contraseña para activarla.
               </p>

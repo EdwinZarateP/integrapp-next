@@ -29,6 +29,12 @@ export interface Vehiculo {
   // Vinculación tenedor → conductor invitado.
   idConductor?: string | null;
   invitacionConductor?: { correo: string; estado: string } | null;
+  // SEGUNDO CONDUCTOR (2026-10-14): slot 2 opcional con HV completa
+  // (cond2* + documentos propios + firma propia firmaUrl2/firmaEvidencia2).
+  idConductor2?: string | null;
+  invitacionConductor2?: { correo: string; estado: string } | null;
+  firmaUrl2?: string | null;
+  firmaEvidencia2?: any;
   // Estudios de seguridad automáticos (TusDatos) disparados al pasar a
   // completado_revision: uno por cédula única (roles combinados) + placa.
   estudiosSeguridadAuto?: EstudioAuto[];
@@ -40,6 +46,12 @@ export interface Vehiculo {
   // por qué canal — conductor con su cuenta | Seguridad impersonando |
   // Seguridad directa.
   auditoriaVehiculo?: EntradaAuditoria[];
+  // Fotos del vehículo POR ÁNGULO (2026-10-14): los 4 exigidos — frontal,
+  // lateral izquierda/derecha y posterior. `fotos` sigue siendo el espejo
+  // plano de todas. Las rutas llegan firmadas.
+  fotosVehiculo?: Array<{ tipo: string; ruta: string; fecha?: string }>;
+  // Espejo plano de TODAS las fotos del vehículo (ángulos + adicionales).
+  fotos?: string[];
   // Planillas de Seguridad Social (2026-10-07): se actualizan mensualmente →
   // cada carga ACUMULA acá (tope 24); `planillaEpsArl` es el espejo de la
   // última. Las rutas llegan firmadas.

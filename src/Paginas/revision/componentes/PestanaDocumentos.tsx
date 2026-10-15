@@ -42,6 +42,12 @@ const DOCUMENTOS_DISPLAY = [
   { key: "rutPropietario", label: "RUT Propietario (empresa)" },
   { key: "condCertificacionBancaria", label: "Cert. Bancaria Cond." },
   { key: "tenedCertificacionBancaria", label: "Cert. Bancaria Tened." },
+  // SEGUNDO CONDUCTOR (2026-10-14): sus tarjetas SOLO aparecen cuando el
+  // slot 2 está vinculado (filtro en el render).
+  { key: "documentoIdentidadConductor2", label: "Cédula Conductor 2", dosCaras: true, soloConductor2: true },
+  { key: "licencia2", label: "Licencia Cond. 2", dosCaras: true, soloConductor2: true },
+  { key: "cond2Foto", label: "Foto Conductor 2 (App)", soloConductor2: true },
+  { key: "cond2CertificacionBancaria", label: "Cert. Bancaria Cond. 2", soloConductor2: true },
 ];
 
 interface DocAbierto {
@@ -56,7 +62,11 @@ interface DocAbierto {
   campoRecorte?: string;
 }
 
-const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, mantener?: boolean) => void }> = ({ veh, alCambiar }) => {
+const PestanaDocumentos: React.FC<{
+  veh: Vehiculo;
+  alCambiar: (mensaje: string, mantener?: boolean) => void;
+  esPadrino?: boolean;
+}> = ({ veh, alCambiar, esPadrino = false }) => {
   const almacenVariables = useContext(ContextoApp);
   if (!almacenVariables) throw new Error("Contexto no disponible");
   const { verDocumento, setVerDocumento } = almacenVariables;
@@ -167,6 +177,20 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, 
     ? veh.fotos.filter((u: any) => u && String(u).trim())
     : [];
 
+  /* Fotos del vehículo POR ÁNGULO (2026-10-14): los 4 exigidos con su
+     etiqueta; las que no son de ángulo quedan como «adicionales». */
+  const angulosFoto: { tipo: string; etiqueta: string; ruta: string }[] = [
+    { tipo: 'frontal', etiqueta: 'Frontal', ruta: '' },
+    { tipo: 'lateral_izq', etiqueta: 'Lateral Izquierda', ruta: '' },
+    { tipo: 'lateral_der', etiqueta: 'Lateral Derecha', ruta: '' },
+    { tipo: 'posterior', etiqueta: 'Posterior', ruta: '' },
+  ].map((a) => {
+    const entrada = (veh.fotosVehiculo || []).find((f: any) => f?.tipo === a.tipo);
+    return { ...a, ruta: entrada ? String(entrada.ruta || '') : '' };
+  });
+  const rutasAngulos = new Set(angulosFoto.map((a) => a.ruta).filter(Boolean));
+  const fotosAdicionales = fotos.filter((u: string) => !rutasAngulos.has(u));
+
   return (
     <div className="rev-detalle-scroll">
       {/* Foto del conductor tomada por Seguridad (el estudio de seguridad
@@ -194,22 +218,41 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, 
           </div>
         )}
 
-        {fotos.length > 0 && (
+        {/* ÁNGULOS de foto del vehículo (2026-10-14): una tarjeta por ángulo
+            con su etiqueta — la faltante se ve en rojo para pedirle al
+            conductor la toma que falta. */}
+        {angulosFoto.map((a) => a.ruta ? (
+          <div
+            key={a.tipo}
+            className="documento-card"
+            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: a.ruta, etiqueta: `Foto ${a.etiqueta} del Vehículo`, reverso: undefined })}
+          >
+            <p>📸 Foto {a.etiqueta}</p>
+            <span className="text-xs text-blue-600">Ver</span>
+          </div>
+        ) : (
+          <div key={a.tipo} className="documento-card documento-card--falta" title="El conductor aún no sube este ángulo">
+            <p>📸 Foto {a.etiqueta}</p>
+            <span className="text-xs text-red-500">Falta</span>
+          </div>
+        ))}
+
+        {fotosAdicionales.length > 0 && (
           <div
             className="documento-card documento-card--fotos"
             onClick={() => {
-              setDocAbierto({ tipo: 'galeria', urls: fotos, etiqueta: 'Fotos del vehículo' });
+              setDocAbierto({ tipo: 'galeria', urls: fotosAdicionales, etiqueta: 'Fotos adicionales del vehículo' });
               setVerDocumento(true);
             }}
           >
-            <p>📸 Fotos del Vehículo ({fotos.length})</p>
+            <p>📸 Fotos Adicionales ({fotosAdicionales.length})</p>
             <span className="text-xs text-blue-600">Ver</span>
           </div>
         )}
 
         {/* Hoja de Vida FÍSICA: documento que sube Seguridad (autorización en
             papel de los casos históricos) — el conductor ya no la ve en su
-            paso 3. Sin archivo → botón de carga directo. */}
+            paso 3. Sin archivo → botón de carga directo. PADRINO: solo ver. */}
         {veh.hojaVidaFisica ? (
           <div
             className="documento-card"
@@ -218,7 +261,7 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, 
             <p className="font-medium">📄 Hoja de Vida Física</p>
             <span className="text-xs text-blue-600">Ver</span>
           </div>
-        ) : (
+        ) : !esPadrino && (
           <div
             className="documento-card"
             onClick={() => inputHV.current?.click()}
@@ -240,7 +283,9 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, 
           }}
         />
 
-        {DOCUMENTOS_DISPLAY.map((doc) => {
+        {DOCUMENTOS_DISPLAY
+          .filter(doc => !doc.soloConductor2 || veh.idConductor2)
+          .map((doc) => {
           const url = veh[doc.key] as string | undefined;
 
           if (doc.dosCaras && url && typeof url === 'string') {
@@ -286,7 +331,8 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, 
               );
             })()}
           </div>
-          <button type="button" className="rev-planilla-btn" onClick={() => inputPlanilla.current?.click()}>
+          <button type="button" className="rev-planilla-btn" onClick={() => inputPlanilla.current?.click()}
+                  style={esPadrino ? { display: 'none' } : undefined}>
             <FaUpload /> Cargar nueva
           </button>
         </div>
@@ -398,7 +444,7 @@ const PestanaDocumentos: React.FC<{ veh: Vehiculo; alCambiar: (mensaje: string, 
             etiqueta={docAbierto.etiqueta}
             unaCara={!docAbierto.reverso}
             onClose={cerrar}
-            onRecortar={campoBase ? (cara) => {
+            onRecortar={campoBase && !esPadrino ? (cara) => {
               setRecorte({
                 campo: cara === 'reverso' ? `${campoBase}Reverso` : campoBase,
                 etiqueta: `${docAbierto.etiqueta}${docAbierto.reverso ? (cara === 'reverso' ? ' · reverso' : ' · frente') : ''}`,

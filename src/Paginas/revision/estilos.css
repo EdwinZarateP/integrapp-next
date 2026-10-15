@@ -638,6 +638,9 @@ body {
 .rev-planilla-vacia { margin: 4px 0 0; color: #7f8c8d; font-size: 0.8rem; }
 
 .documento-card--fotos { border-color: #9fc3ab; background: #f0f7f1; }
+/* Ángulo de foto del vehículo FALTANTE (2026-10-14): tarjeta atenuada en
+   rojo suave — Seguridad ve de un vistazo qué toma le falta al conductor. */
+.documento-card--falta { border-color: #f0c4c8; background: #fdf2f3; opacity: 0.85; }
 
 /* Timeline de inactivación */
 .rev-inactivo-vigente {
@@ -732,6 +735,93 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* --- Gestión de conductores por Seguridad (2026-10-14): dos slots --- */
+.rev-gc-nota {
+    font-size: 0.74rem;
+    color: #6b7c85;
+    margin: 0 0 10px;
+}
+
+.rev-gc-fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px solid #e4eaee;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #fafcfd;
+}
+
+.rev-gc-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 200px;
+}
+
+.rev-gc-titulo {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0f1928;
+}
+
+.rev-gc-estado {
+    font-size: 0.76rem;
+    color: #48606c;
+}
+
+.rev-gc-acciones {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.rev-gc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #c9d6dc;
+    background: #fff;
+    color: #0f1928;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.rev-gc-btn:hover {
+    background: #eef4f6;
+}
+
+.rev-gc-btn--primario {
+    background: #0f1928;
+    border-color: #0f1928;
+    color: #fff;
+}
+
+.rev-gc-btn--primario:hover {
+    background: #29435c;
+}
+
+.rev-gc-btn--reemplazar {
+    border-color: #b9791f;
+    color: #96601a;
+}
+
+.rev-gc-btn--peligro {
+    border-color: #d39a97;
+    color: #b03a2e;
+}
+
+.rev-gc-btn--peligro:hover {
+    background: #fdf0ef;
 }
 
 .rev-campos {

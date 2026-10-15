@@ -19,6 +19,20 @@ interface Navegador { push: (url: string) => void }
 export const nombreSeguridad = () => Cookies.get("seguridadNombre") || "Seguridad";
 
 /**
+ * PADRINO (2026-10-14): perfil tipo Seguridad que impersona placas SOLO para
+ * cargar documentos y datos — sin autorizar estados ni gestionar conductores.
+ * La cookie `seguridadPerfil` se setea al elegir el portal en el login y NO
+ * se borra al impersonar (las cookies seguridad* viven toda la sesión), así
+ * que sirve tanto en /revision como dentro del panel del conductor.
+ */
+export const perfilSeguridad = () => (Cookies.get("seguridadPerfil") || "").toUpperCase();
+export const esPadrino = () => perfilSeguridad() === "PADRINO";
+
+/** Impersonación hecha por un PADRINO (para restringir acciones en el panel). */
+export const esImpersonacionPadrino = () =>
+  esPadrino() && Boolean((Cookies.get("conductorImpersonadoPor") || "").trim());
+
+/**
  * Monta la sesión del conductor impersonado (cookies conductor*) y navega a
  * su panel. El Swal de carga se cierra ANTES de navegar: la navegación de
  * Next es client-side (no desmonta el overlay, que vive fuera de React) y

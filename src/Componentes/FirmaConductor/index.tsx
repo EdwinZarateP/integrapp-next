@@ -27,6 +27,9 @@ interface FirmaConductorProps {
   firmaEvidenciaInicial?: { firmado_en: string; version: number } | null;
   /** Avisa al padre que ya hay firma registrada (gate de «Finalizar»). */
   onFirmaRegistrada?: () => void;
+  /** SEGUNDO CONDUCTOR (2026-10-14): slot de la firma — 1 (principal,
+   *  default) o 2 (firma del segundo conductor sobre SUS datos). */
+  slot?: 1 | 2;
 }
 
 /* Firma electrónica del conductor con evidencia sellada — vive en el PASO 3
@@ -42,6 +45,7 @@ const FirmaConductor: React.FC<FirmaConductorProps> = ({
   firmaUrlInicial,
   firmaEvidenciaInicial,
   onFirmaRegistrada,
+  slot = 1,
 }) => {
   const actorImpersonacion = (impersonadoPor || '').trim() || undefined;
 
@@ -103,6 +107,7 @@ const FirmaConductor: React.FC<FirmaConductorProps> = ({
     const body = new FormData();
     body.append('archivo', fileFirma);
     body.append('placa', placa);
+    body.append('slot', String(slot));
     if (idUsuario) body.append('id_usuario', idUsuario);
     if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
     else if (actorImpersonacion) body.append('editado_por', actorImpersonacion);
@@ -142,7 +147,7 @@ const FirmaConductor: React.FC<FirmaConductorProps> = ({
 
   return (
     <div className="FirmaConductor-card">
-      <h4>✍️ Firma del Conductor</h4>
+      <h4>{slot === 2 ? '✍️ Firma del Conductor 2' : '✍️ Firma del Conductor'}</h4>
       {actorImpersonacion && (
         <div className="FirmaConductor-nota-impersonacion">
           🕵 <strong>Modo Seguridad:</strong> la firma electrónica es un acto personal del

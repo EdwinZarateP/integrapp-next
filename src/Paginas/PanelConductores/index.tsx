@@ -11,10 +11,12 @@ import {
 import logo from "@/Imagenes/albatros.png";
 import Datos from '@/Componentes/Datos';
 import CargaDocumento from '@/Componentes/CargaDocumento';
+import EjemploFotoVehiculo, { esAnguloFoto, AnguloFotoVehiculo } from '@/Componentes/EjemploFotoVehiculo';
 import FirmaConductor from '@/Componentes/FirmaConductor';
 import VerDocumento from '@/Componentes/VerDocumento';
 import AceptacionPoliticasSesion from '@/Componentes/AceptacionPoliticasSesion';
 import { ContextoApp } from "@/Contexto/index";
+import { esImpersonacionPadrino } from "@/Paginas/revision/componentes/impersonacion";
 import { obtenerVehiculoPorPlaca } from '@/Funciones/ObtenerInfoPlaca';
 import { endpoints, tiposMapping, FAMILIAS_FIGURA, calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
 import "./estilos.css";
@@ -40,6 +42,10 @@ interface DocumentoItem {
   opcional?: boolean;
   /** Nota corta bajo el nombre (ej. regla de cantidad de fotos). */
   hint?: string;
+  /** ÁNGULO de foto del vehículo (2026-10-14): frontal | lateral_izq |
+   * lateral_der | posterior — item alimentado por `fotosVehiculo`, con su
+   * dibujo de ejemplo y subida de UNA foto que reemplaza la anterior. */
+  fotoTipo?: AnguloFotoVehiculo;
   /** Doc de dos caras (licencia/tarjeta) con frente pero SIN reverso. */
   faltaReverso?: boolean;
   /** Sugerencia de reutilización (2026-10-01): el correo o el documento de la
@@ -136,7 +142,14 @@ const initialSecciones: SeccionDocumentos[] = [
       items: [
         { nombre: "Tarjeta de Propiedad", progreso: 0 },
         { nombre: "soat", progreso: 0 },
-        { nombre: "Fotos", progreso: 0, hint: "Mínimo 1 · máximo 10 fotos" },
+        // Fotos del vehículo POR ÁNGULO (2026-10-14, pedido del usuario): los
+        // 4 son obligatorios y cada uno muestra un dibujo de ejemplo de la
+        // toma esperada. «Fotos» queda como las ADICIONALES (opcional).
+        { nombre: "Foto Frontal", progreso: 0, fotoTipo: 'frontal', hint: 'El vehículo de frente, completo' },
+        { nombre: "Foto Lateral Izquierda", progreso: 0, fotoTipo: 'lateral_izq', hint: 'El costado izquierdo, completo' },
+        { nombre: "Foto Lateral Derecha", progreso: 0, fotoTipo: 'lateral_der', hint: 'El costado derecho, completo' },
+        { nombre: "Foto Posterior", progreso: 0, fotoTipo: 'posterior', hint: 'La parte de atrás, completa' },
+        { nombre: "Fotos", progreso: 0, opcional: true, hint: "Adicionales — hasta 10 fotos en total" },
         { nombre: "Revisión Tecnomecánica", progreso: 0 },
         { nombre: "Tarjeta de Remolque", progreso: 0, opcional: true },
         { nombre: "Póliza de Responsabilidad Civil", progreso: 0, opcional: true },
@@ -200,6 +213,21 @@ const getOverallDocumentProgress = (secciones: SeccionDocumentos[]) => {
    Reutilizada por el flujo de edición (selectedPlate) y por el modal "Ver mis datos". */
 const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => {
   const limpias: SeccionDocumentos[] = JSON.parse(JSON.stringify(initialSecciones));
+  // SEGUNDO CONDUCTOR (2026-10-14): sus documentos SOLO se piden cuando el
+  // slot 2 está vinculado (espejo de DOCUMENTOS_REQUERIDOS_CONDUCTOR2 del
+  // backend). El reverso de su cédula/licencia sube con el flujo de dos caras
+  // (campo + 'Reverso').
+  if (vehiculo?.idConductor2) {
+    limpias.push({
+      subtitulo: '5. Documentos del Conductor 2',
+      items: [
+        { nombre: 'Documento de Identidad del Conductor 2', progreso: 0 },
+        { nombre: 'Licencia de Conducción Conductor 2', progreso: 0 },
+        { nombre: 'Foto Conductor 2', progreso: 0 },
+        { nombre: 'Certificación Bancaria Conductor 2', progreso: 0 },
+      ],
+    });
+  }
   // Tenedor = propietario: la tarjeta de propiedad ya lo acredita → el
   // «Documento que lo acredite como Tenedor» deja de ser obligatorio
   // (espejo de _documentos_faltantes del backend).
@@ -270,14 +298,27 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       if (field === 'revisionTecnomecanica' && exentoTecno) {
         hintFinal = 'Opcional: vehículo nuevo (modelo de menos de 2 años)';
       }
+      // ÁNGULOS de foto (2026-10-14): viven en `fotosVehiculo`, no en un
+      // campo plano — una entrada por ángulo, la foto actual es su ruta.
+      if (item.fotoTipo) {
+        const entrada = (vehiculo.fotosVehiculo || []).find(
+          (f: any) => f?.tipo === item.fotoTipo && String(f?.ruta || '').trim(),
+        );
+        return {
+          ...item,
+          progreso: entrada ? 100 : 0,
+          url: entrada ? entrada.ruta : undefined,
+          hint: entrada ? 'Tómala de nuevo si salió borrosa' : item.hint,
+        };
+      }
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
       // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
       // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.
-      const esDosCaras = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad'].includes(field);
+      const esDosCaras = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad', 'documentoIdentidadConductor2', 'licencia2'].includes(field);
       const reversoUrl = esDosCaras && vehiculo[`${field}Reverso`] ? vehiculo[`${field}Reverso`] : undefined;
       // TODAS las cédulas + licencia + tarjeta exigen reverso (2026-08-27):
       // si hay frente pero no reverso, se marca para que el conductor lo complete.
-      const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad'].includes(field);
+      const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad', 'documentoIdentidadConductor2', 'licencia2'].includes(field);
       // «Cubierto por» (gemelos por dígitos) tiene precedencia sobre la
       // sugerencia de reutilización (correo/dígitos + doc del conductor).
       const cubiertoPor = figuraQueCubre(field, vehiculo);
@@ -545,61 +586,65 @@ const BarraConductor: React.FC = () => {
   );
 };
 
-/* --- Bloque de conductor vinculado (visible solo para TENEDOR). La INVITACIÓN
-       se hace desde el paso 2 con los datos del formulario (2026-10-01): aquí
-       solo se ve el estado y se administra (reenviar/quitar). --- */
+/* --- Bloque de conductores vinculados (visible solo para TENEDOR). La
+       INVITACIÓN se hace desde el paso 2 con los datos del formulario
+       (2026-10-01): aquí solo se ve el estado y se administra
+       (reenviar/quitar). Con segundo conductor (2026-10-14) hay UNA FILA POR
+       SLOT (principal y opcional). --- */
 const TenedorConductorInfo: React.FC<{
   veh: any;
-  onReenviar: (placa: string) => void;
-  onQuitar: (placa: string) => void;
-}> = ({ veh, onReenviar, onQuitar }) => {
-  const estado = (() => {
-    if (veh.idConductor) {
-      return { texto: `✅ ${veh.invitacionConductor?.correo || 'conductor activo'}`, color: '#155724' };
-    }
-    const inv = veh.invitacionConductor;
-    if (inv?.correo) {
-      return { texto: `⏳ invitación ${inv.estado || 'pendiente'} → ${inv.correo}`, color: '#856404' };
-    }
-    // Sin invitación: se invita desde «Datos básicos» con el correo del formulario.
-    return { texto: '— sin conductor (invítalo en Datos básicos) —', color: '#6c757d' };
-  })();
+  onReenviar: (placa: string, slot?: number) => void;
+  onQuitar: (placa: string, slot?: number) => void;
+  /** PADRINO impersonando: muestra el estado pero SIN botones de gestión. */
+  ocultarAcciones?: boolean;
+}> = ({ veh, onReenviar, onQuitar, ocultarAcciones = false }) => {
+  const slots: Array<{ n: number; titulo: string }> = [
+    { n: 1, titulo: 'Cond.' },
+  ];
+  if (veh.idConductor2 || veh.invitacionConductor2?.correo) slots.push({ n: 2, titulo: 'Cond. 2' });
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
-      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: estado.color }}>
-        {estado.texto}
-      </span>
-      {!veh.idConductor && veh.invitacionConductor?.correo && (
-        <>
-          <button
-            className="btn-ver-mis-datos"
-            style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-            onClick={() => onReenviar(veh.placa)}
-            title="Reenviar el correo de invitación"
-          >
-            ✉️ Reenviar
-          </button>
-          <button
-            className="btn-ver-mis-datos"
-            style={{ padding: '2px 8px', fontSize: '0.72rem', borderColor: '#c0392b', color: '#c0392b' }}
-            onClick={() => onQuitar(veh.placa)}
-            title="Cancelar la invitación pendiente"
-          >
-            ✖ Quitar
-          </button>
-        </>
-      )}
-      {veh.idConductor && (
-        <button
-          className="btn-ver-mis-datos"
-          style={{ padding: '2px 8px', fontSize: '0.72rem', borderColor: '#c0392b', color: '#c0392b' }}
-          onClick={() => onQuitar(veh.placa)}
-          title="Desvincular al conductor de esta placa"
-        >
-          ✖ Quitar
-        </button>
-      )}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: '6px', flexWrap: 'wrap' }}>
+      {slots.map(({ n, titulo }) => {
+        const idCampo = n === 2 ? 'idConductor2' : 'idConductor';
+        const inv = n === 2 ? veh.invitacionConductor2 : veh.invitacionConductor;
+        const id = veh[idCampo];
+        const estado = id
+          ? { texto: `✅ ${titulo}: ${inv?.correo || 'conductor activo'}`, color: '#155724' }
+          : inv?.correo
+            ? { texto: `⏳ ${titulo}: invitación ${inv.estado || 'pendiente'} → ${inv.correo}`, color: '#856404' }
+            : n === 2
+              ? null
+              : { texto: '— sin conductor (invítalo en Datos básicos) —', color: '#6c757d' };
+        if (!estado) return null; // Slot 2 vacío: no se muestra.
+        return (
+          <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: estado.color }}>
+              {estado.texto}
+            </span>
+            {!id && inv?.correo && !ocultarAcciones && (
+              <button
+                className="btn-ver-mis-datos"
+                style={{ padding: '2px 8px', fontSize: '0.72rem' }}
+                onClick={() => onReenviar(veh.placa, n)}
+                title="Reenviar el correo de invitación"
+              >
+                ✉️ Reenviar
+              </button>
+            )}
+            {(id || inv?.correo) && !ocultarAcciones && (
+              <button
+                className="btn-ver-mis-datos"
+                style={{ padding: '2px 8px', fontSize: '0.72rem', borderColor: '#c0392b', color: '#c0392b' }}
+                onClick={() => onQuitar(veh.placa, n)}
+                title="Desvincular/cancelar a este conductor"
+              >
+                ✖ Quitar
+              </button>
+            )}
+          </span>
+        );
+      })}
     </span>
   );
 };
@@ -629,10 +674,6 @@ const PanelConductoresVista: React.FC = () => {
   if (!almacenVariables) throw new Error("Contexto no disponible");
   const { verDocumento, setVerDocumento } = almacenVariables;
 
-  const [currentStep, setCurrentStep] = useState<number>(1);
-  // Vista hub de módulos (pantalla inicial): «Crear vehículo» / «Ofrecer mi disponibilidad».
-  const [vistaModulos, setVistaModulos] = useState<boolean>(true);
-
   /* --- ESTADO EN LA URL (query params) ----------------------------------
      El export es estático (GoDaddy): segmentos dinámicos como /datos-basicos/
      MVX48E serían 404 para placas desconocidas al build. En su lugar:
@@ -641,24 +682,21 @@ const PanelConductoresVista: React.FC = () => {
      La escritura usa history.replaceState NATIVO (no router.replace): una
      navegación del App Router re-suspende el <Suspense> del page.tsx y el
      panel parpadea (se nota mucho en móvil). El estado nativo no notifica a
-     Next → cero re-render; al montar se lee window.location.search. */
-  const urlSincronizada = React.useRef(false);
+     Next → cero re-render. La LECTURA se hace EN EL PRIMER RENDER (no en un
+     effect): el espejo corría en el mismo commit con el estado DEFAULT y
+     pisaba la URL antes de que la restauración comitara — con StrictMode el
+     restaurador re-leía la URL YA destruida y se perdía paso/placa (misma
+     carrera que /revision, bug real 2026-10-14). La página es dynamic
+     ssr:false → window siempre existe. */
+  const PARAMS_MOUNT = typeof window === 'undefined'
+    ? new URLSearchParams()
+    : new URLSearchParams(window.location.search);
+  const PASO_MOUNT = parseInt(PARAMS_MOUNT.get('paso') || '', 10);
+  const FLUJO_MOUNT = PARAMS_MOUNT.get('vista') === 'flujo' && [1, 2, 3, 4].includes(PASO_MOUNT);
 
-  // Restaurar vista/paso/placa desde la URL al montar (evita perder el paso
-  // al recargar — antes un F5 devolvía al hub).
-  useEffect(() => {
-    if (urlSincronizada.current) return;
-    urlSincronizada.current = true;
-    const paramsUrl = new URLSearchParams(window.location.search);
-    const pasoUrl = parseInt(paramsUrl.get('paso') || '', 10);
-    const placaUrl = (paramsUrl.get('placa') || '').trim().toUpperCase();
-    if (paramsUrl.get('vista') === 'flujo' && [1, 2, 3, 4].includes(pasoUrl)) {
-      if (placaUrl) { setSelectedPlate(placaUrl); setEditarAprobadoActivo(false); }
-      setVistaModulos(false);
-      setCurrentStep(pasoUrl);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [currentStep, setCurrentStep] = useState<number>(FLUJO_MOUNT ? PASO_MOUNT : 1);
+  // Vista hub de módulos (pantalla inicial): «Crear vehículo» / «Ofrecer mi disponibilidad».
+  const [vistaModulos, setVistaModulos] = useState<boolean>(!FLUJO_MOUNT);
 
   const [vehicles, setVehicles] = useState<string[]>([]);
   const [vehiculosPendientes, setVehiculosPendientes] = useState<any[]>([]);
@@ -681,6 +719,10 @@ const PanelConductoresVista: React.FC = () => {
   // el popup «Modo Seguridad» al entrar y viaja como editado_por en TODAS las
   // mutaciones → la bitácora del vehículo queda con el actor real.
   const impersonadoPor = (Cookies.get('conductorImpersonadoPor') || '').trim() || undefined;
+  // PADRINO (2026-10-14): la impersonación la hizo un Padrino — puede subir
+  // documentos y editar datos, pero NO finalizar, eliminar ni gestionar
+  // conductores/placas (eso queda para Seguridad o el titular).
+  const esPadrinoImp = esImpersonacionPadrino();
 
   // Aviso de impersonación: popup informativo UNA sola vez al entrar (por
   // sesión del navegador y por conductor) — el aviso fijo arriba se veía feo.
@@ -711,12 +753,12 @@ const PanelConductoresVista: React.FC = () => {
 
   const [secciones, setSecciones] = useState<SeccionDocumentos[]>(() => JSON.parse(JSON.stringify(initialSecciones)));
 
-  const [selectedPlate, setSelectedPlate] = useState<string | null>(null);
+  const [selectedPlate, setSelectedPlate] = useState<string | null>(
+    FLUJO_MOUNT ? ((PARAMS_MOUNT.get('placa') || '').trim().toUpperCase() || null) : null);
 
   // Espejo del estado en la URL (replaceState nativo: no ensucia el historial
   // ni re-suspende el Suspense — router.replace hacía parpadear el panel).
   useEffect(() => {
-    if (!urlSincronizada.current) return; // No pisar la restauración inicial.
     // Se parte de los params ACTUALES y solo se reemplazan los que este panel
     // gestiona: así parámetros ajenos (p. ej. ?nocache=1 para saltar caché del
     // HTML en GoDaddy) sobreviven la re-escritura en vez de borrarse. set() SIN
@@ -960,12 +1002,12 @@ const PanelConductoresVista: React.FC = () => {
   /* --- Invitación de conductor (solo TENEDOR): la invitación NUEVA se hace
          desde el paso 2 con los datos del formulario (2026-10-01); aquí solo
          quedan reenvío y desvinculación sobre invitaciones existentes. --- */
-  const reenviarInvitacion = async (placa: string) => {
+  const reenviarInvitacion = async (placa: string, slot: number = 1) => {
     try {
       const resp = await fetch(`${API_BASE}/conductores/reenviar-invitacion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_tenedor: idUsuario, placa }),
+        body: JSON.stringify({ id_tenedor: idUsuario, placa, slot }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo reenviar.');
@@ -975,11 +1017,11 @@ const PanelConductoresVista: React.FC = () => {
     }
   };
 
-  const desvincularConductor = async (placa: string) => {
+  const desvincularConductor = async (placa: string, slot: number = 1) => {
     const res = await Swal.fire({
       icon: 'question',
-      title: `Quitar conductor de ${placa}`,
-      text: 'El conductor dejará de ver este vehículo en su panel. Puedes invitar a otro después.',
+      title: `Quitar ${slot === 2 ? 'al conductor 2' : 'al conductor'} de ${placa}`,
+      html: 'El conductor dejará de ver este vehículo en su panel. Puedes invitar a otro después.<br/><br/><small>Si el vehículo está <b>aprobado</b> pasará a re-revisión.</small>',
       showCancelButton: true,
       confirmButtonText: 'Quitar',
       confirmButtonColor: '#c0392b',
@@ -990,11 +1032,11 @@ const PanelConductoresVista: React.FC = () => {
       const resp = await fetch(`${API_BASE}/conductores/desvincular-conductor`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_tenedor: idUsuario, placa }),
+        body: JSON.stringify({ id_tenedor: idUsuario, placa, slot }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo desvincular.');
-      Swal.fire({ icon: 'success', title: 'Conductor quitado', timer: 1500, showConfirmButton: false });
+      Swal.fire({ icon: 'success', title: data.mensaje || 'Conductor quitado', timer: 1500, showConfirmButton: false });
       await fetchVehiculosUsuario();
     } catch (error: any) {
       Swal.fire('Error', error.message, 'error');
@@ -1024,7 +1066,12 @@ const PanelConductoresVista: React.FC = () => {
 
   const handleOpenDoc = (sIdx: number, iIdx: number, name: string) => {
     const endpoint = endpoints[normalizeKey(name)];
-    if(endpoint) setSelectedDocumento({ sectionIndex: sIdx, itemIndex: iIdx, documentName: name, endpoint });
+    if(endpoint) setSelectedDocumento({
+      sectionIndex: sIdx, itemIndex: iIdx, documentName: name, endpoint,
+      // Ángulo de foto del vehículo (2026-10-14): viaja a subir-fotos como
+      // foto_tipo (una foto por ángulo, re-subirla la reemplaza).
+      fotoTipo: secciones[sIdx]?.items[iIdx]?.fotoTipo,
+    });
     else Swal.fire("Error", "Configuración de documento no encontrada", "error");
   };
 
@@ -1350,8 +1397,15 @@ const PanelConductoresVista: React.FC = () => {
               </div>
               <div className="panel-creacion">
                 {/* REGISTRAR VEHÍCULO NUEVO — el CONDUCTOR solo puede tener UN
-                    vehículo propio; el TENEDOR registra cuantas placas quiera. */}
-                {esTenedor || vehiculosPropios.length === 0 ? (
+                    vehículo propio; el TENEDOR registra cuantas placas quiera.
+                    PADRINO impersonando: no crea placas (eso lo hace Seguridad
+                    en /revision/alta o el titular). */}
+                {esPadrinoImp ? (
+                <div className="pv-registro-maximo">
+                  🧑‍🔧 Estás como <strong>Padrino</strong>: puedes cargar documentos y
+                  diligenciar datos de las placas existentes, pero no registrar placas nuevas.
+                </div>
+                ) : esTenedor || vehiculosPropios.length === 0 ? (
                 <div className="pv-registro">
                   <label className="pv-registro-label" htmlFor="pv-placa-input">Placa del vehículo</label>
                   <div className="input-group-crear">
@@ -1413,6 +1467,7 @@ const PanelConductoresVista: React.FC = () => {
                                                 veh={veh}
                                                 onReenviar={reenviarInvitacion}
                                                 onQuitar={desvincularConductor}
+                                                ocultarAcciones={esPadrinoImp}
                                             />
                                         )}
                                         <div className="pv-acciones">
@@ -1473,6 +1528,7 @@ const PanelConductoresVista: React.FC = () => {
                                         veh={veh}
                                         onReenviar={reenviarInvitacion}
                                         onQuitar={desvincularConductor}
+                                        ocultarAcciones={esPadrinoImp}
                                       />
                                     )}
                                     <div className="pv-acciones">
@@ -1599,6 +1655,7 @@ const PanelConductoresVista: React.FC = () => {
                                         veh={veh}
                                         onReenviar={reenviarInvitacion}
                                         onQuitar={desvincularConductor}
+                                        ocultarAcciones={esPadrinoImp}
                                       />
                                     )}
                                 </div>
@@ -1694,13 +1751,31 @@ const PanelConductoresVista: React.FC = () => {
                                           /* Obligatorio faltante → fondo rosadito clarito
                                              (pedido del usuario 2026-10-06): resalta lo
                                              que falta sin tocar los cargados/opcionales. */
-                                          className={`doc-item-row ${!item.opcional && item.progreso < 100 ? 'doc-item-row--falta' : ''}`}
+                                          className={`doc-item-row ${!item.opcional && item.progreso < 100 ? 'doc-item-row--falta' : ''} ${item.fotoTipo ? 'doc-item-row--foto' : ''}`}
                                         >
                                             <span className="doc-name">
                                                 {item.progreso === 100 && <FaCheckCircle className="text-success"/>} {item.nombre}
                                                 {item.opcional && <span className="doc-tag-opcional">opcional</span>}
                                                 {item.hint && <span className={`doc-hint ${item.faltaReverso ? 'doc-hint--alerta' : ''}`}>{item.hint}</span>}
                                             </span>
+                                            {/* DIBUJO DE EJEMPLO del ángulo (2026-10-14, pedido
+                                                del usuario): con la foto cargada se muestra su
+                                                miniatura en lugar del ejemplo. */}
+                                            {item.fotoTipo && (
+                                              <div className="pv-foto-ejemplo">
+                                                {item.progreso === 100 && item.url ? (
+                                                  <img src={Array.isArray(item.url) ? item.url[0] : item.url} alt={`Foto ${item.nombre}`} />
+                                                ) : (
+                                                  <EjemploFotoVehiculo tipo={item.fotoTipo} />
+                                                )}
+                                                <span className="pv-foto-ejemplo-nota">
+                                                  <strong>Ejemplo de la toma</strong><br/>
+                                                  {item.progreso === 100
+                                                    ? 'Esta es tu foto del ángulo. Si salió borrosa o incompleta, «Cambiar» la reemplaza.'
+                                                    : 'Párate donde indica la flecha y toma la foto así: el vehículo completo en cuadro.'}
+                                                </span>
+                                              </div>
+                                            )}
                                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                                 {item.cubiertoPor && item.progreso < 100 ? (
                                                     <>
@@ -1763,6 +1838,16 @@ const PanelConductoresVista: React.FC = () => {
                                                                 ＋ Reverso
                                                             </button>
                                                         )}
+                                                        {/* ÁNGULO de foto cargado: reemplazar la foto. */}
+                                                        {!modoLectura && item.fotoTipo && (
+                                                            <button
+                                                                className="btn-doc-action upload"
+                                                                onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                                title="Reemplazar la foto de este ángulo"
+                                                            >
+                                                                Cambiar
+                                                            </button>
+                                                        )}
                                                         {/* Fotos: siempre se pueden añadir MÁS (hasta 10). */}
                                                         {!modoLectura && normalizeKey(item.nombre) === 'fotos' && (
                                                             Array.isArray(item.url) ? item.url.length < 10 : true
@@ -1786,7 +1871,8 @@ const PanelConductoresVista: React.FC = () => {
                                                         >
                                                             <FaEye /> Ver
                                                         </button>
-                                                        {!modoLectura && (
+                                                        {/* PADRINO: cargar/reemplazar sí, ELIMINAR no. */}
+                                                        {!modoLectura && !esPadrinoImp && (
                                                             <button
                                                                 className="btn-doc-action delete"
                                                                 title="Eliminar documento"
@@ -1805,19 +1891,41 @@ const PanelConductoresVista: React.FC = () => {
                         </div>
                     ))}
                     {/* FIRMA: último ítem del paso 3 (2026-10-01, orden del
-                        usuario — antes vivía al final del formulario Datos). */}
+                        usuario — antes vivía al final del formulario Datos).
+                        Con segundo conductor (2026-10-14) cada conductor firma
+                        SU slot: el que entra aquí es el del usuario logueado. */}
                     <FirmaConductor
-                      key={selectedPlate}
+                      key={`${selectedPlate}-${vehiculoActual?.idConductor2 && idUsuario === vehiculoActual.idConductor2 ? 's2' : 's1'}`}
                       placa={selectedPlate}
                       idUsuario={idUsuario}
                       editarAprobado={editarAprobadoActivo}
                       impersonadoPor={impersonadoPor}
                       soloLectura={modoLectura}
-                      firmaUrlInicial={vehiculoActual?.firmaUrl}
-                      firmaEvidenciaInicial={vehiculoActual?.firmaEvidencia}
+                      slot={vehiculoActual?.idConductor2 && idUsuario === vehiculoActual.idConductor2 ? 2 : 1}
+                      firmaUrlInicial={
+                        vehiculoActual?.idConductor2 && idUsuario === vehiculoActual.idConductor2
+                          ? vehiculoActual?.firmaUrl2
+                          : vehiculoActual?.firmaUrl}
+                      firmaEvidenciaInicial={
+                        vehiculoActual?.idConductor2 && idUsuario === vehiculoActual.idConductor2
+                          ? vehiculoActual?.firmaEvidencia2
+                          : vehiculoActual?.firmaEvidencia}
                       onFirmaRegistrada={() => setFirmaRegistrada(true)}
                     />
-                    {!modoLectura && (
+                    {/* Firma del 2º conductor visible en consulta para el
+                        tenedor/Seguridad (el 2º la firma con SU cuenta). */}
+                    {vehiculoActual?.idConductor2 && idUsuario !== vehiculoActual.idConductor2 && (
+                      <FirmaConductor
+                        key={`${selectedPlate}-s2-consulta`}
+                        placa={selectedPlate}
+                        soloLectura
+                        slot={2}
+                        firmaUrlInicial={vehiculoActual?.firmaUrl2}
+                        firmaEvidenciaInicial={vehiculoActual?.firmaEvidencia2}
+                      />
+                    )}
+                    {/* PADRINO: no finaliza — enviar a revisión es de Seguridad. */}
+                    {!modoLectura && !esPadrinoImp && (
                       <button className="btn-finalizar" onClick={handleFinalizar}>Finalizar Registro</button>
                     )}
                 </div>
@@ -1894,6 +2002,8 @@ const PanelConductoresVista: React.FC = () => {
           /* Foto del conductor: SOLO cámara (se toma en vivo, sin archivo de
              galería — pedido del usuario 2026-10-06). */
           soloCamara={normalizeKey(selectedDocumento.documentName) === 'foto conductor'}
+          /* Ángulo de foto del vehículo (2026-10-14): foto_tipo al backend. */
+          fotoTipo={selectedDocumento.fotoTipo}
           cantidadActual={(() => {
             if (normalizeKey(selectedDocumento.documentName) !== 'fotos') return undefined;
             const it = secciones[selectedDocumento.sectionIndex]?.items[selectedDocumento.itemIndex];

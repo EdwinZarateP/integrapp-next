@@ -10,6 +10,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 const ETIQUETA_ROL: Record<string, string> = {
   conductor: 'Conductor',
+  conductor2: 'Conductor 2',
   propietario: 'Propietario',
   tenedor: 'Tenedor',
   dueño_remolque: 'Dueño remolque',

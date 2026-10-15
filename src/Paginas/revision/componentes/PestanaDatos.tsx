@@ -3,6 +3,7 @@ import React from "react";
 import Swal from "sweetalert2";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Vehiculo } from "../tipos";
+import GestionConductores from "./GestionConductores";
 
 /* Requisitos para el aviso de faltantes (mismos del diseño anterior). */
 const DOCUMENTOS_REQUERIDOS = [
@@ -153,7 +154,11 @@ const ChipsCategorias: React.FC<{ lic?: string }> = ({ lic }) => {
   );
 };
 
-const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
+const PestanaDatos: React.FC<{
+  veh: Vehiculo;
+  alCambiar: (mensaje: string, mantener?: boolean) => void;
+  esPadrino?: boolean;
+}> = ({ veh, alCambiar, esPadrino = false }) => {
 
   const faltantesTexto = CAMPOS_TEXTO_REQUERIDOS.filter(req => {
       const val = veh[req.key];
@@ -207,14 +212,29 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
           <Campo label="Placa" valor={veh.placa} />
           <Campo label="Estado" valor={estadoLegible} />
           <Campo label="Estado desde" valor={fechaDDMMAAAA(veh.fechaEstado)} />
-          {(veh.idConductor || veh.invitacionConductor) && (
-            <Campo
-              label="Conductor vinculado"
-              ancho
-              valor={veh.idConductor
-                ? `✅ cuenta activa${veh.invitacionConductor?.correo ? ` (${veh.invitacionConductor.correo})` : ""}`
-                : `⏳ invitación ${veh.invitacionConductor?.estado || 'pendiente'} → ${veh.invitacionConductor?.correo || ""}`}
-            />
+          {/* PADRINO (sin gestión de conductores): estado de los dos slots en
+              solo lectura dentro del resumen. */}
+          {esPadrino && (veh.idConductor || veh.invitacionConductor || veh.idConductor2 || veh.invitacionConductor2) && (
+            <>
+              {(veh.idConductor || veh.invitacionConductor) && (
+                <Campo
+                  label="Conductor vinculado"
+                  ancho
+                  valor={veh.idConductor
+                    ? `✅ cuenta activa${veh.invitacionConductor?.correo ? ` (${veh.invitacionConductor.correo})` : ""}`
+                    : `⏳ invitación ${veh.invitacionConductor?.estado || 'pendiente'} → ${veh.invitacionConductor?.correo || ""}`}
+                />
+              )}
+              {(veh.idConductor2 || veh.invitacionConductor2) && (
+                <Campo
+                  label="Conductor 2 vinculado"
+                  ancho
+                  valor={veh.idConductor2
+                    ? `✅ cuenta activa${veh.invitacionConductor2?.correo ? ` (${veh.invitacionConductor2.correo})` : ""}`
+                    : `⏳ invitación ${veh.invitacionConductor2?.estado || 'pendiente'} → ${veh.invitacionConductor2?.correo || ""}`}
+                />
+              )}
+            </>
           )}
           {veh.estadoIntegra === 'registro_incompleto' && totalFaltantes > 0 && (
             <div className="rev-campo rev-campo--ancho">
@@ -234,6 +254,11 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
           )}
         </div>
       </section>
+
+      {/* Gestión de conductores por Seguridad (2026-10-14): invitar /
+          reemplazar / quitar para los dos slots, con correo al nuevo.
+          PADRINO no gestiona conductores — solo ve el estado en el Resumen. */}
+      {!esPadrino && <GestionConductores veh={veh} alCambiar={alCambiar} />}
 
       <section className="rev-seccion">
         <h4 className="rev-seccion-titulo">👤 Datos del Conductor</h4>
@@ -302,6 +327,41 @@ const PestanaDatos: React.FC<{ veh: Vehiculo }> = ({ veh }) => {
           ))
         )}
       </section>
+
+      {(veh.idConductor2 || veh.cond2Nombres || veh.cond2CedulaCiudadania) && (
+        <section className="rev-seccion">
+          <h4 className="rev-seccion-titulo">🧑‍✈️ Datos del Conductor 2</h4>
+          <div className="rev-campos">
+            <Campo label="Nombre completo" ancho
+                   valor={[veh.cond2Nombres, veh.cond2PrimerApellido, veh.cond2SegundoApellido].filter(Boolean).join(' ')} />
+            <Campo label="Cédula" valor={veh.cond2CedulaCiudadania} />
+            <Campo label="Fecha de nacimiento" valor={fechaDDMMAAAA(veh.cond2FechaNacimiento)} />
+            <Campo label="Cédula expedida en" valor={veh.cond2ExpedidaEn} />
+            <Campo label="Fecha expedición cédula" valor={fechaDDMMAAAA(veh.cond2FechaExpedicion)} />
+            <Campo label="Residencia" valor={residencia(veh.cond2Ciudad, veh.cond2DeptoCiudad)} />
+            <Campo label="Dirección" valor={veh.cond2Direccion} />
+            <Campo label="Celular" valor={veh.cond2Celular} />
+            <Campo label="Correo" valor={veh.cond2Correo} />
+            <Campo label="EPS" valor={veh.cond2Eps} />
+            <Campo label="ARL" valor={veh.cond2Arl} />
+            <Campo label="Grupo sanguíneo (RH)" valor={veh.cond2GrupoSanguineo} />
+            <Campo label="No. licencia" valor={veh.cond2NoLicencia} />
+            <Campo label="Categorías" valor={<ChipsCategorias lic={veh.cond2CategoriaLic} />} />
+            <Vence fecha={veh.cond2FechaVencimientoLic} label="Vence licencia" />
+            <Campo label="Banco" valor={veh.cond2Banco} />
+            <Campo label="Tipo de cuenta" valor={veh.cond2TipoCuenta} />
+            <Campo label="No. cuenta" valor={veh.cond2NumeroCuenta} />
+            <Campo label="Nombre emergencia" valor={veh.cond2NombreEmergencia} />
+            <Campo label="Celular emergencia" valor={veh.cond2CelularEmergencia} />
+            <Campo label="Parentesco" valor={veh.cond2ParentescoEmergencia} />
+            <Campo label="Empresa referencia" valor={veh.cond2EmpresaRef} />
+            <Campo label="Celular referencia" valor={veh.cond2CelularRef} />
+            <Campo label="Nro. viajes ref" valor={veh.cond2NroViajesRef} />
+            <Campo label="Antigüedad ref (años)" valor={veh.cond2AntiguedadRef} />
+            <Campo label="Mercancía transportada" valor={veh.cond2MercTransportada} />
+          </div>
+        </section>
+      )}
 
       <section className="rev-seccion">
         <h4 className="rev-seccion-titulo">🔑 Propietario</h4>

@@ -6,9 +6,13 @@
 # 3. Ese ítem limpia las cookies de conductor y regresa a /revision.
 # API mockeada por route interception (no necesita backend).
 import json
+import io
 import re
 import sys
 from playwright.sync_api import sync_playwright
+
+# Prints con emoji (perfil «🕵 Seguridad») revientan en consolas cp1252.
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 BASE = "http://localhost:3000/integrapp"
 CUENTA_ID = "507f1f77bcf86cd799439012"
@@ -44,7 +48,7 @@ with sync_playwright() as p:
                       body=json.dumps(LOGIN_COMO))
 
     page.route("**/conductores/login-como/**", mock_login_como)
-    page.route("**/vehiculos/obtener-vehiculos-incompletos",
+    page.route("**/vehiculos/obtener-vehiculos-incompletos*",
                lambda r: r.fulfill(status=200, content_type="application/json",
                                    body=json.dumps({"message": "ok", "vehicles": [VEHICULO]})))
     page.route("**/vehiculos/obtener-aprobados-paginados*",
@@ -52,10 +56,10 @@ with sync_playwright() as p:
                                    body=json.dumps({"message": "ok", "vehicles": []})))
 
     page.goto(f"{BASE}/revision/?bandeja=pendientes", wait_until="networkidle")
-    # En dev, StrictMode re-monta los efectos y el espejo de URL revierte la
-    # bandeja restaurada (en prod no pasa): entramos a Pendientes con click.
+    # (La bandeja restaurada por URL ya no necesita click: la carrera del
+    # espejo de URL con StrictMode se arregló 2026-10-14 leyendo el query en
+    # el PRIMER RENDER.)
     page.wait_for_selector(".revx-nav-item", timeout=15000)
-    page.click(".revx-nav-item:has-text('Pendientes')")
     # Abrir el panel de detalle de la placa.
     page.wait_for_selector("text=WOO453", timeout=15000)
     page.click("text=WOO453")

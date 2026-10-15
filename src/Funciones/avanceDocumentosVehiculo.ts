@@ -13,8 +13,28 @@ const REQUERIDOS_BASE: string[] = [
   'documentoIdentidadTenedor', 'documentoIdentidadTenedorReverso',
   'licencia', 'licenciaReverso', 'planillaEpsArl', 'condFoto',
   'condCertificacionBancaria', 'tenedCertificacionBancaria',
-  'documentoAcreditacionTenedor', 'rutTenedor', 'fotos',
+  'documentoAcreditacionTenedor', 'rutTenedor',
+  // Fotos del vehículo POR ÁNGULO (2026-10-14): los 4 exigidos viven en
+  // `fotosVehiculo` (los "campos" foto_frontal… no existen en el doc — se
+  // resuelven con la lista ANGULOS_FOTO de abajo).
+  'foto_frontal', 'foto_lateral_izq', 'foto_lateral_der', 'foto_posterior',
 ];
+
+// Ángulos de foto exigidos (espejo de ANGULOS_FOTO_VEHICULO del backend).
+const ANGULOS_FOTO: Record<string, string> = {
+  foto_frontal: 'frontal',
+  foto_lateral_izq: 'lateral_izq',
+  foto_lateral_der: 'lateral_der',
+  foto_posterior: 'posterior',
+};
+
+/** ¿El ángulo de foto ya está cargado en `fotosVehiculo`? */
+const anguloFotoLleno = (veh: any, campo: string): boolean => {
+  const tipo = ANGULOS_FOTO[campo];
+  return (veh?.fotosVehiculo || []).some(
+    (f: any) => f?.tipo === tipo && String(f?.ruta || '').trim(),
+  );
+};
 
 // Espejo de CAMPOS_REMOLQUE del backend.
 const CAMPOS_REMOLQUE: string[] = [
@@ -63,10 +83,17 @@ export const avanceDocumentosVehiculo = (veh: any): number => {
   if (propEmpresa) requeridos.push('rutPropietario');
   // Remolque declarado: la tarjeta de remolque es obligatoria.
   if (tieneRemolque(veh)) requeridos.push('tarjetaRemolque');
+  // SEGUNDO CONDUCTOR (2026-10-14): sus 6 documentos SOLO si está vinculado
+  // (espejo de DOCUMENTOS_REQUERIDOS_CONDUCTOR2 del backend; sin gemelos).
+  if (veh.idConductor2) requeridos.push(
+    'documentoIdentidadConductor2', 'documentoIdentidadConductor2Reverso',
+    'licencia2', 'licencia2Reverso', 'cond2Foto', 'cond2CertificacionBancaria',
+  );
 
   if (requeridos.length === 0) return 0;
   const llenos = requeridos.filter(
-    (c) => docLleno(veh[c]) || gemelosDocumento(c, figuras).some((g) => docLleno(veh[g])),
+    (c) => anguloFotoLleno(veh, c)
+      || docLleno(veh[c]) || gemelosDocumento(c, figuras).some((g) => docLleno(veh[g])),
   );
   return Math.round((llenos.length / requeridos.length) * 100);
 };
