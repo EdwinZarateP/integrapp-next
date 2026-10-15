@@ -3,7 +3,7 @@ import React from "react";
 import Cookies from "js-cookie";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { FaCheckCircle, FaTimesCircle, FaBan, FaUndo, FaSyncAlt } from "react-icons/fa";
+import { FaCheckCircle, FaTimesCircle, FaBan, FaUndo, FaSyncAlt, FaIdCard } from "react-icons/fa";
 import { Vehiculo } from "../tipos";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -350,6 +350,82 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
     }
   };
 
+  /**
+   * CORREGIR PLACA (2026-10-15, pedido del usuario): un vehículo registrado con
+   * la placa mal digitada era imposible de corregir. Disponible en CUALQUIER
+   * estado (decisión: un typo no cambia el vehículo — no baja a re-revisión y
+   * queda en auditoría). El backend re-etiqueta firmas/check-ins/asignaciones,
+   * sella la placa del momento de firmar y deja `placaAnterior` para que los
+   * links de invitación ya enviados sigan resolviendo.
+   */
+  const corregirPlaca = async () => {
+    const { value: placaNueva } = await Swal.fire({
+      title: `Corregir placa de ${veh.placa}`,
+      html: `Escribe la placa <b>correcta</b> de este vehículo. Datos, documentos,
+             firmas e historial se conservan intactos: solo cambia la placa
+             (la corrección queda en auditoría).`,
+      input: 'text',
+      inputValue: veh.placa,
+      inputPlaceholder: 'ABC123',
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      confirmButtonColor: '#00a5b5',
+      cancelButtonText: 'Cancelar',
+      preConfirm: (v: string) => {
+        const limpia = (v || '').trim().toUpperCase();
+        if (!limpia) {
+          Swal.showValidationMessage('Escribe la placa correcta');
+          return false;
+        }
+        if (!/^[A-Z0-9]{1,7}$/.test(limpia)) {
+          Swal.showValidationMessage('Placa inválida: 1 a 7 caracteres alfanuméricos, sin espacios');
+          return false;
+        }
+        if (limpia === veh.placa) {
+          Swal.showValidationMessage('La placa es igual a la actual');
+          return false;
+        }
+        return limpia;
+      },
+    });
+    if (!placaNueva) return;
+
+    const res = await Swal.fire({
+      icon: 'warning',
+      title: 'Confirmar la corrección',
+      html: `La placa del vehículo cambiará de
+             <b style="text-decoration: line-through; color:#999;">${veh.placa}</b>
+             → <b style="color:#00a5b5;">${placaNueva}</b>.<br/><br/>
+             <small>El vehículo NO pierde su estado ni pasa por re-revisión. El
+             conductor será avisado del cambio.</small>`,
+      showCancelButton: true,
+      confirmButtonText: `Corregir a ${placaNueva}`,
+      confirmButtonColor: '#e67e22',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!res.isConfirmed) return;
+
+    try {
+      Swal.fire({ title: 'Corrigiendo placa...', didOpen: () => Swal.showLoading() });
+      const formData = new FormData();
+      formData.append("placa", veh.placa);
+      formData.append("placa_nueva", placaNueva);
+      marcarSeguridad(formData);
+      const { data } = await axios.put(`${API_BASE}/vehiculos/corregir-placa`, formData);
+      const avisoInvitacion = data?.invitacion_pendiente
+        ? '<br/><br/>⚠️ Hay una <b>invitación pendiente</b> con la placa vieja: sigue funcionando, pero considera <b>reenviársela</b> al conductor desde la pestaña Datos.'
+        : '';
+      Swal.fire({
+        icon: 'success',
+        title: 'Placa corregida',
+        html: `El vehículo ahora es <b>${data?.placa || placaNueva}</b>.${avisoInvitacion}`,
+      });
+      alCambiar(`Placa corregida: ${veh.placa} → ${placaNueva}`);
+    } catch (error: any) {
+      Swal.fire("Error", error?.response?.data?.detail || "Error al corregir la placa.", "error");
+    }
+  };
+
   const estado = veh.estadoIntegra;
 
   return (
@@ -393,6 +469,12 @@ const AccionesVehiculo: React.FC<AccionesVehiculoProps> = ({ veh, alCambiar }) =
           <FaUndo /> Reactivar
         </button>
       )}
+      {/* Corregir placa: disponible en TODOS los estados (es una corrección de
+          identidad, no una transición). El padrino no ve este componente. */}
+      <button className="rev-btn rev-btn--secundario" onClick={corregirPlaca}
+              title="Corregir un error de digitación en la placa (queda en auditoría)">
+        <FaIdCard /> Corregir placa
+      </button>
     </div>
   );
 };

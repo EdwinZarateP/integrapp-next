@@ -205,9 +205,11 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     }
     // La bandeja terminó y la consulta individual ya se intentó sin éxito:
     // la placa no existe en ninguna parte (link viejo compartido) →
-    // soltarla para que el espejo limpie la URL.
+    // soltarla para que el espejo limpie la URL. El tick re-dispara la carga
+    // de la bandeja (con la prioridad-al-panel, quedó esperando la placa).
     if (!cargando && !buscandoVehiculoRef.current) {
       placaPendienteRef.current = null;
+      setTickPopstate(t => t + 1);
       return;
     }
     if (buscandoVehiculoRef.current) return; // consulta individual en vuelo
@@ -447,20 +449,33 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   };
 
   // Carga perezosa: solo la bandeja activa (la URL ya se leyó en el 1er render).
+  // (2026-10-15) PRIORIDAD AL PANEL: si la URL trae ?placa= (restauración de
+  // panel), la bandeja NO se pide de entrada — su request pesado (toda la
+  // bandeja con cada documento firmado) competía con la consulta individual
+  // del vehículo y el panel esperaba "a que todo lo de atrás cargara". Se
+  // pide recién cuando el panel YA ESTÁ ABIERTO (de fondo, así al cerrarlo
+  // la lista está lista) o si la placa se suelta (link viejo).
   useEffect(() => {
     if (vista !== 'bandejas') return;
     const idUsuario = Cookies.get("seguridadId");
     if (!idUsuario) return;
+    if (placaPendienteRef.current && !seleccionado) {
+      // Diferida: nada está cargando de fondo — sin esto `cargando` quedaba
+      // en true para siempre y una placa inválida nunca se soltaba.
+      setCargando(false);
+      return; // primero el panel
+    }
     if (pestanaActiva !== "aprobados") cargarBandeja(idUsuario, pestanaActiva);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vista, pestanaActiva]);
+  }, [vista, pestanaActiva, seleccionado, tickPopstate]);
 
   // Aprobados se consulta al backend (paginado + búsqueda) al entrar a la pestaña.
   useEffect(() => {
     if (vista !== 'bandejas' || pestanaActiva !== "aprobados") return;
+    if (placaPendienteRef.current && !seleccionado) return; // primero el panel
     fetchAprobados(busquedaAprobadosEnVuelo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vista, pestanaActiva, busquedaAprobadosEnVuelo]);
+  }, [vista, pestanaActiva, busquedaAprobadosEnVuelo, seleccionado, tickPopstate]);
 
   /* ---------------------------------------------------------------- */
   /* BÚSQUEDA Y PAGINACIÓN                                            */
@@ -520,11 +535,46 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     // allowOutsideClick:false y lo dejaban abierto para siempre encima del
     // panel que este refresh reabre — parecía un loop eterno.
     Swal.close();
-    const placaMantener = mantener ? seleccionado?.placa?.toUpperCase() || null : null;
-    if (mantener) {
+
+    // (2026-10-15, ronda 2) `mantener` = el cambio NO mueve el vehículo de
+    // bandeja (adopción, recorte ✂️, documento adicional): refrescar SOLO
+    // este vehículo con la consulta individual (rápida) y parchar la lista
+    // de atrás en el sitio. El panel ya NO se cierra ni espera la bandeja
+    // completa (antes: cerrar → segundos de bandeja → reabrir; en Render
+    // sería peor). Fallback al flujo completo si la consulta no lo trae.
+    if (mantener && seleccionado?.placa) {
+      const placaMantener = seleccionado.placa.toUpperCase();
+      try {
+        const { data } = await axios.get<{ vehicles: Vehiculo[] }>(
+          `${API_BASE}/vehiculos/obtener-vehiculos-incompletos`,
+          { params: { id_usuario: Cookies.get("seguridadId"), placa: placaMantener } }
+        );
+        const v = (data.vehicles || []).find(x => x.placa?.toUpperCase() === placaMantener);
+        if (v) {
+          setSeleccionado(v); // el panel permanece abierto, con datos frescos
+          // Parchar la bandeja de atrás (estado + cachés) sin re-fetch.
+          const parchar = (lista: Vehiculo[]) =>
+            lista.map(x => x.placa?.toUpperCase() === placaMantener ? v : x);
+          setListaBandeja(parchar);
+          setVehiculosAprobados(parchar);
+          (Object.keys(cacheBandejasRef.current) as PestanaBandeja[]).forEach(b => {
+            const lista = cacheBandejasRef.current[b];
+            if (lista) {
+              const nueva = parchar(lista);
+              cacheBandejasRef.current[b] = nueva;
+              guardarBandejaSesion(b, nueva);
+            }
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn("[revision] Refresco individual falló, se usa el refresco completo:", e);
+      }
       pestanaInicialRef.current = pestanaPanel;
       reaperturaMantenerRef.current = true;
     }
+
+    const placaMantener = mantener ? seleccionado?.placa?.toUpperCase() || null : null;
     setSeleccionado(null);
     // Un cambio de estado puede mover vehículos entre bandejas: la caché
     // queda vieja → se limpia (memoria Y sessionStorage) y se recarga SOLO

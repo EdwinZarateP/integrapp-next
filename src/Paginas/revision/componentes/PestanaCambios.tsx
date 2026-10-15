@@ -113,6 +113,7 @@ const ETIQUETAS_ACCION: Record<string, string> = {
   estado_rechazado: '🚫 Vehículo RECHAZADO',
   responsable_asignado: '🔗 Responsable asignado',
   estudios_consultados: '🔎 Estudios de seguridad consultados',
+  placa_corregida: '🪪 Placa corregida',
 };
 
 const ETIQUETAS_VIA: Record<string, { texto: string, clase: string }> = {
