@@ -7,6 +7,7 @@ import { ContextoApp } from "@/Contexto/index";
 import VerCaraDocumento from "@/Componentes/VerCaraDocumento";
 import VerDocumento from "@/Componentes/VerDocumento";
 import RecortarDocumento from "@/Componentes/RecortarDocumento";
+import { pdfTieneClave, MENSAJE_PDF_CON_CLAVE } from "@/Funciones/pdfProtegido";
 import { Vehiculo } from "../tipos";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -40,6 +41,10 @@ const DOCUMENTOS_DISPLAY = [
   { key: "documentoIdentidadRemolque", label: "Cédula Dueño Remolque", dosCaras: true },
   { key: "rutTenedor", label: "RUT Tenedor" },
   { key: "rutPropietario", label: "RUT Propietario (empresa)" },
+  // (2026-10-15) Collage COMPLETO: estos documentos podían estar cargados (se
+  // veían en el historial) pero no tenían tarjeta arriba.
+  { key: "documentoAcreditacionTenedor", label: "Acreditación Tenedor" },
+  { key: "propCertificacionBancaria", label: "Cert. Bancaria Propietario" },
   { key: "condCertificacionBancaria", label: "Cert. Bancaria Cond." },
   { key: "tenedCertificacionBancaria", label: "Cert. Bancaria Tened." },
   // SEGUNDO CONDUCTOR (2026-10-14): sus tarjetas SOLO aparecen cuando el
@@ -76,6 +81,7 @@ const PestanaDocumentos: React.FC<{
   const [recorte, setRecorte] = useState<{ campo: string; etiqueta: string } | null>(null);
   const inputHV = useRef<HTMLInputElement | null>(null);
   const inputPlanilla = useRef<HTMLInputElement | null>(null);
+  const inputAdicional = useRef<HTMLInputElement | null>(null);
 
   /* Hoja de Vida Física: la sube SEGURIDAD desde acá (PDF o imagen firmada).
      No baja un aprobado a re-revisión (excepción backend) — es un adjunto de
@@ -83,6 +89,11 @@ const PestanaDocumentos: React.FC<{
   const subirHojaVida = async (archivo: File) => {
     if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
       Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la hoja de vida firmada.', 'warning');
+      return;
+    }
+    // PDF con clave (2026-10-15): no se sube — nadie podría abrirlo después.
+    if (await pdfTieneClave(archivo)) {
+      Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: MENSAJE_PDF_CON_CLAVE, confirmButtonColor: '#d33' });
       return;
     }
     Swal.fire({ title: 'Subiendo Hoja de Vida…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -107,14 +118,28 @@ const PestanaDocumentos: React.FC<{
      re-revisión (excepción backend). La puede subir Seguridad desde acá o el
      conductor desde su paso 3 — ambos acumulan igual.
      La FECHA DE VENCIMIENTO es obligatoria (2026-10-07): con ella el vehículo
-     queda INHABILITADO de la bolsa al vencerse. */
-  const subirPlanilla = async (archivo: File) => {
-    if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
-      Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la planilla.', 'warning');
-      return;
+     queda INHABILITADO de la bolsa al vencerse.
+     VARIOS ARCHIVOS (2026-10-15): la EPS y la ARL suelen venir separadas — se
+     suben JUNTAS (máx. 3) con UNA fecha de vencimiento para la tanda; cada
+     archivo queda como fila propia del historial. */
+  const subirPlanilla = async (archivosEntrada: File[]) => {
+    const archivos = archivosEntrada.slice(0, 3);
+    if (archivosEntrada.length > 3) {
+      Swal.fire({ icon: 'info', title: 'Máximo 3 archivos', text: 'Se suben los primeros 3.', timer: 3500, showConfirmButton: false });
+    }
+    for (const archivo of archivos) {
+      if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
+        Swal.fire('Archivo no válido', 'Sube el PDF o una imagen de la planilla.', 'warning');
+        return;
+      }
+      // PDF con clave (2026-10-15): no se sube — nadie podría abrirlo después.
+      if (await pdfTieneClave(archivo)) {
+        Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: `<b>${archivo.name}</b>: ${MENSAJE_PDF_CON_CLAVE}`, confirmButtonColor: '#d33' });
+        return;
+      }
     }
     // Fecha de vencimiento (por si la IA no la lee): obligatoria, vigente y
-    // máximo 31 días desde hoy — misma regla del backend.
+    // máximo 31 días desde hoy — misma regla del backend. UNA por tanda.
     const isoLocal = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const hoy = isoLocal(new Date());
@@ -123,7 +148,7 @@ const PestanaDocumentos: React.FC<{
     const resFecha = await Swal.fire({
       icon: 'info',
       title: 'Fecha de vencimiento de la planilla',
-      html: '¿Hasta qué fecha está <b>vigente</b> esta planilla?<br/><small>Aparece en el documento — máximo 31 días desde hoy. Vencida esa fecha, el vehículo queda inhabilitado hasta que suban una planilla nueva.</small>',
+      html: `${archivos.length > 1 ? `Vas a subir <b>${archivos.length} archivos</b> (EPS/ARL): todos comparten esta fecha.<br/>` : ''}¿Hasta qué fecha está <b>vigente</b> esta planilla?<br/><small>Aparece en el documento — máximo 31 días desde hoy. Vencida esa fecha, el vehículo queda inhabilitado hasta que suban una planilla nueva.</small>`,
       input: 'date',
       inputAttributes: { min: hoy, max: topeIso },
       showCancelButton: true,
@@ -139,19 +164,24 @@ const PestanaDocumentos: React.FC<{
       },
     });
     if (!resFecha.isConfirmed || !resFecha.value) return;
-    Swal.fire({ title: 'Subiendo Planilla…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: `Subiendo ${archivos.length > 1 ? `${archivos.length} planillas` : 'Planilla'}…`, allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
-      const body = new FormData();
-      body.append('placa', veh.placa);
-      body.append('tipo', 'planillaEpsArl');
-      body.append('archivo', archivo);
-      body.append('fecha_vencimiento', resFecha.value as string);
-      const nombre = Cookies.get('seguridadNombre');
-      if (nombre) body.append('editado_por', nombre);
-      const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.detail || 'No se pudo subir la planilla.');
-      alCambiar(`Planilla de Seguridad Social actualizada en ${veh.placa}`);
+      let subidos = 0;
+      for (const archivo of archivos) {
+        const body = new FormData();
+        body.append('placa', veh.placa);
+        body.append('tipo', 'planillaEpsArl');
+        body.append('archivo', archivo);
+        body.append('fecha_vencimiento', resFecha.value as string);
+        body.append('extraer', 'false');
+        const nombre = Cookies.get('seguridadNombre');
+        if (nombre) body.append('editado_por', nombre);
+        const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.detail || 'No se pudo subir la planilla.');
+        subidos += 1;
+      }
+      alCambiar(`Planilla de Seguridad Social actualizada en ${veh.placa} (${subidos} archivo${subidos === 1 ? '' : 's'})`);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo subir la planilla.', 'error');
     }
@@ -171,6 +201,57 @@ const PestanaDocumentos: React.FC<{
   const cerrar = () => {
     setDocAbierto(null);
     setVerDocumento(false);
+  };
+
+  /* Documento ADICIONAL con nombre libre (2026-10-15): Seguridad/Admin
+     adjuntan cualquier otro documento (contrato, certificado…) con una
+     etiqueta que ellos digitan. Acumula en `documentosAdicionales`; NO baja
+     un aprobado a re-revisión. PADRINO: solo ver (el backend también lo
+     rechaza). */
+  const subirAdicional = async (archivo: File) => {
+    if (!/^(image\/|application\/pdf)/.test(archivo.type)) {
+      Swal.fire('Archivo no válido', 'Sube una imagen o un PDF.', 'warning');
+      return;
+    }
+    if (await pdfTieneClave(archivo)) {
+      Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: MENSAJE_PDF_CON_CLAVE, confirmButtonColor: '#d33' });
+      return;
+    }
+    const res = await Swal.fire({
+      icon: 'question',
+      title: 'Nombre del documento',
+      html: `¿Cómo se llama este archivo?<br/><small>Aparecerá con ese nombre en la lista de documentos de <b>${veh.placa}</b>.</small>`,
+      input: 'text',
+      inputPlaceholder: 'Ej: Contrato de teneduría 2026',
+      showCancelButton: true,
+      confirmButtonText: 'Adjuntar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2c5f9e',
+      allowOutsideClick: false,
+      inputValidator: (valor) => {
+        if (!valor || !valor.trim()) return 'Escribe un nombre para el documento.';
+        if (valor.trim().length > 80) return 'Máximo 80 caracteres.';
+        return null;
+      },
+    });
+    if (!res.isConfirmed || !res.value) return;
+    Swal.fire({ title: 'Adjuntando documento…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const body = new FormData();
+      body.append('placa', veh.placa);
+      body.append('nombre', res.value.trim());
+      body.append('archivo', archivo);
+      const nombre = Cookies.get('seguridadNombre');
+      if (nombre) body.append('editado_por', nombre);
+      const resp = await fetch(`${API_BASE}/vehiculos/subir-documento-adicional`, { method: 'PUT', body });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || 'No se pudo adjuntar el documento.');
+      // mantener=true: es un adjunto — el panel se reabre en la misma
+      // placa/pestaña tras el refresco, sin cambiar el vehículo de bandeja.
+      alCambiar(`Documento adicional «${res.value.trim()}» cargado en ${veh.placa}`, true);
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo adjuntar el documento.', 'error');
+    }
   };
 
   const fotos = Array.isArray(veh.fotos)
@@ -214,6 +295,18 @@ const PestanaDocumentos: React.FC<{
             onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.firmaUrl, etiqueta: 'Firma del Conductor', reverso: undefined })}
           >
             <p>✍️ Firma Conductor</p>
+            <span className="text-xs text-blue-600">Ver</span>
+          </div>
+        )}
+
+        {/* Firma del SEGUNDO conductor (2026-10-15): estaba invisible aunque
+            existiera — solo aparece con el slot 2 vinculado. */}
+        {veh.idConductor2 && typeof veh.firmaUrl2 === 'string' && veh.firmaUrl2 && (
+          <div
+            className="documento-card"
+            onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: veh.firmaUrl2 as string, etiqueta: 'Firma del Conductor 2', reverso: undefined })}
+          >
+            <p>✍️ Firma Conductor 2</p>
             <span className="text-xs text-blue-600">Ver</span>
           </div>
         )}
@@ -306,6 +399,44 @@ const PestanaDocumentos: React.FC<{
           }
           return null;
         })}
+
+        {/* DOCUMENTOS ADICIONALES (2026-10-15): adjuntos con nombre libre que
+            Seguridad/Admin carga desde acá (contratos, certificados, etc.).
+            PADRINO los ve pero no puede cargar más. */}
+        {(Array.isArray(veh.documentosAdicionales) ? veh.documentosAdicionales : [])
+          .filter((d: any) => d?.ruta && String(d.ruta).trim())
+          .map((d: any, i: number) => (
+            <div
+              key={`${d.ruta}-${i}`}
+              className="documento-card"
+              title={d.actor ? `Cargado por ${d.actor}${d.fecha ? ` · ${fechaLegible(d.fecha)}` : ''}` : undefined}
+              onClick={() => setDocAbierto({ tipo: 'dosCaras', frente: d.ruta as string, etiqueta: d.nombre || 'Documento adicional', reverso: undefined })}
+            >
+              <p className="font-medium">📎 {d.nombre || 'Documento adicional'}</p>
+              <span className="text-xs text-blue-600">Ver</span>
+            </div>
+          ))}
+        {!esPadrino && (
+          <div
+            className="documento-card"
+            onClick={() => inputAdicional.current?.click()}
+            title="Adjuntar cualquier otro documento con un nombre propio (solo Seguridad)"
+          >
+            <p className="font-medium"><FaUpload /> Documento adicional</p>
+            <span className="text-xs text-blue-600">Adjuntar</span>
+          </div>
+        )}
+        <input
+          ref={inputAdicional}
+          type="file"
+          accept="image/*,application/pdf"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const archivo = e.target.files?.[0];
+            e.target.value = ''; // permitir re-elegir el mismo archivo
+            if (archivo) subirAdicional(archivo);
+          }}
+        />
       </div>
 
       {/* Planilla de Seguridad Social (2026-10-07): se actualiza MENSUALMENTE
@@ -317,7 +448,8 @@ const PestanaDocumentos: React.FC<{
           <div className="rev-planilla-titulo">
             <strong>🏥 Planilla de Seguridad Social</strong>
             <span className="rev-planilla-sub">
-              Se actualiza mensualmente · cada carga queda en el historial y NO inhabilita el vehículo
+              Se actualiza mensualmente · cada carga queda en el historial y NO inhabilita el vehículo ·
+              puedes subir EPS y ARL juntas (archivos separados, hasta 3)
             </span>
             {typeof veh.planillaVencimiento === 'string' && veh.planillaVencimiento && (() => {
               // Vence dd/mm/aaaa + VENCIDA en rojo (misma convención de la
@@ -376,11 +508,12 @@ const PestanaDocumentos: React.FC<{
         ref={inputPlanilla}
         type="file"
         accept="image/*,application/pdf"
+        multiple
         style={{ display: 'none' }}
         onChange={(e) => {
-          const archivo = e.target.files?.[0];
+          const archivos = Array.from(e.target.files || []);
           e.target.value = ''; // permitir re-elegir el mismo archivo
-          if (archivo) subirPlanilla(archivo);
+          if (archivos.length) subirPlanilla(archivos);
         }}
       />
 

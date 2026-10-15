@@ -24,6 +24,10 @@ export interface LoginRespuesta {
   usuario: {
     id: string;
     usuario: string;
+    // El backend /login los incluye (baseusuarios.py): se usan para las
+    // cookies seguridad* del portal de Seguridad (p. ej. login PADRINO).
+    nombre?: string;
+    correo?: string;
     perfil: string;
     regional: string;
     clientes: string[];

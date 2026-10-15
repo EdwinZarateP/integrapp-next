@@ -22,6 +22,24 @@ interface VerDocumentoProps {
 
 const API_BASE_URL = "https://integrappi-dvmh.onrender.com/vehiculos";
 
+/* PDF INLINE (2026-10-15): el PDF se incrusta en un iframe — mismo visor que
+   el ojito del paso 2 (VerCaraDocumento). Antes aquí solo aparecía el nombre
+   del archivo y un botón «Descargar»: para VERLO había que descargarlo. */
+const PdfInline: React.FC<{ url: string; nombre: string }> = ({ url, nombre }) => (
+  <div className="VerDocumento-pdf-inline">
+    <iframe src={url} title={nombre} className="VerDocumento-pdf-frame" />
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="VerDocumento-pdf-abrir"
+      title="Abrir el PDF en otra pestaña"
+    >
+      Abrir en otra pestaña
+    </a>
+  </div>
+);
+
 const VerDocumento: React.FC<VerDocumentoProps> = ({ urls, placa, onDeleteSuccess, onClose, reversoUrl, soloLectura = false }) => {
   const almacenVariables = useContext(ContextoApp);
   if (!almacenVariables) {
@@ -207,18 +225,7 @@ const VerDocumento: React.FC<VerDocumentoProps> = ({ urls, placa, onDeleteSucces
                   {esImagen(reversoUrl) ? (
                     <img src={reversoUrl} alt="Reverso del documento" className="VerDocumento-imagen" />
                   ) : (
-                    <div className="VerDocumento-pdf-line">
-                      <span className="VerDocumento-pdf-nombre">{obtenerNombreArchivo(reversoUrl)}</span>
-                      <a
-                        href={reversoUrl}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="VerDocumento-pdf-descargar"
-                      >
-                        Descargar
-                      </a>
-                    </div>
+                    <PdfInline url={reversoUrl} nombre={obtenerNombreArchivo(reversoUrl)} />
                   )}
                 </div>
               </div>
@@ -277,17 +284,8 @@ const VerDocumento: React.FC<VerDocumentoProps> = ({ urls, placa, onDeleteSucces
                                 )}
                               </>
                             ) : (
-                              <div className="VerDocumento-pdf-line">
-                                <span className="VerDocumento-pdf-nombre">{obtenerNombreArchivo(url)}</span>
-                                <a
-                                  href={url}
-                                  download
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="VerDocumento-pdf-descargar"
-                                >
-                                  Descargar
-                                </a>
+                              <>
+                                <PdfInline url={url} nombre={obtenerNombreArchivo(url)} />
                                 {i === indiceActual && !soloLectura && (
                                   <button
                                     className="VerDocumento-boton-eliminar"
@@ -297,7 +295,7 @@ const VerDocumento: React.FC<VerDocumentoProps> = ({ urls, placa, onDeleteSucces
                                     🗑
                                   </button>
                                 )}
-                              </div>
+                              </>
                             )}
                           </div>
                         </div>
@@ -336,26 +334,18 @@ const VerDocumento: React.FC<VerDocumentoProps> = ({ urls, placa, onDeleteSucces
                           )}
                         </>
                       ) : (
-                        <div className="VerDocumento-pdf-line">
-                          <span className="VerDocumento-pdf-nombre">{obtenerNombreArchivo(url)}</span>
-                          <a
-                            href={url}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="VerDocumento-pdf-descargar"
-                          >
-                            Descargar
-                          </a>
+                        <>
+                          <PdfInline url={url} nombre={obtenerNombreArchivo(url)} />
                           {!soloLectura && (
                           <button
                             className="VerDocumento-boton-eliminar"
                             onClick={() => handleEliminarDocumento(url)}
+                            title="Eliminar este archivo"
                           >
                             🗑
                           </button>
                           )}
-                        </div>
+                        </>
                       )}
                     </div>
                   ))

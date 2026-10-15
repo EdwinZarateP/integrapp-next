@@ -8,6 +8,7 @@ import animationData from "@/Imagenes/AnimationPuntos.json";
 import { esImpersonacionPadrino } from "@/Paginas/revision/componentes/impersonacion";
 import { calcularFigurasIguales, gemelosDocumento } from '@/Funciones/documentConstants';
 import { comprimirImagen } from '@/Funciones/comprimirImagen';
+import { pdfTieneClave, MENSAJE_PDF_CON_CLAVE } from '@/Funciones/pdfProtegido';
 import VerCaraDocumento from '@/Componentes/VerCaraDocumento';
 import CamaraInterna from '@/Componentes/CamaraInterna';
 import PhoneFieldCompartido from '@/Componentes/PhoneField';
@@ -670,7 +671,8 @@ const cederFrame = () => new Promise<void>(r =>
 // ciudad, correo, celular, fechas, NIT). Ambos aportan; nunca pisan lo manual.
 // soloPdf: documentos que SOLO se aceptan como PDF y sin cámara (el RUT se
 // descarga de la DIAN, no se fotografía — una foto lo deja ilegible para la IA).
-const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string; soloPdf?: boolean; soloConductor2?: boolean }> = [
+// `sub` (2026-10-15): aclaración en letra pequeña junto a la etiqueta.
+const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: string; sub?: string; soloPdf?: boolean; soloConductor2?: boolean }> = [
   { tipo: 'cedula', esquema: 'cedula', etiqueta: '🪪 Cédula del conductor' },
   { tipo: 'licencia', esquema: 'licencia', etiqueta: '🎫 Licencia de conducción' },
   { tipo: 'tarjeta_propiedad', esquema: 'tarjeta_propiedad', etiqueta: '📄 Tarjeta de propiedad' },
@@ -684,7 +686,7 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
   // (2026-08-31) Sin «RUT del propietario»: ese documento dejó de pedirse
   // por completo (orden del usuario).
   { tipo: 'certificado_bancario_cond', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario conductor' },
-  { tipo: 'certificado_bancario_tened', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario tenedor' },
+  { tipo: 'certificado_bancario_tened', esquema: 'certificado_bancario', etiqueta: '🏦 Cert. bancario tenedor', sub: 'para pago saldos' },
   // (2026-08-31) Sin «Cert. bancario propietario»: ese documento dejó de
   // pedirse por completo (orden del usuario).
   // SEGUNDO CONDUCTOR (2026-10-14): sus botones solo aparecen cuando la
@@ -1235,10 +1237,12 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
    * Lee un documento con IA, GUARDA el archivo como documento oficial del
    * vehículo y autollena el formulario.
    * - 8 tipos de un solo archivo: `PUT /subir-documento` (sube + lee en un
-   *   solo request; `lectura_ia` null = guardado pero ilegible → campos a mano).
+   *   solo request). Si la IA no logra leer NADA (anti-basura 2026-10-15), el
+   *   backend rechaza (422): se pide confirmación y solo guarda si el usuario
+   *   acepta «Adjuntar de todos modos» (reenvío con extraer=false).
    * - Cédula: `POST /extraer-datos-documento` (necesita frente+reverso) y
    *   luego SIEMPRE sube el frente (`extraer=false`, ya se leyó). Si la IA no
-   *   logra leer (cédula azul nueva), el documento IGUAL queda guardado.
+   *   logra leer, misma confirmación: nada de basura silenciosa.
    */
   const leerDocumentoConIA = async (
     tipoLectura: string,
@@ -1258,6 +1262,19 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         confirmButtonColor: '#e67e22',
       });
       return;
+    }
+    // PDF con clave (2026-10-15): NO se sube — quedaría guardado y después
+    // nadie podría abrirlo. Se detecta en el navegador (marca /Encrypt).
+    for (const f of archivos) {
+      if (await pdfTieneClave(f)) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'PDF con contraseña',
+          html: `<b>${f.name}</b> (${etiqueta}): ${MENSAJE_PDF_CON_CLAVE}`,
+          confirmButtonColor: '#d33',
+        });
+        return;
+      }
     }
     setLeyendoCedula(true);
     setEtiquetaLecturaIA(etiqueta);
@@ -1312,10 +1329,36 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
             });
             return; // NO subir el archivo.
           }
-          // Ilegible: se sube igual. Si el backend dejó un motivo legible
-          // (ej. PDF con contraseña), viaja como aviso al Swal de resultado.
-          if (error?.message) avisos = [error.message];
-          lecturaFallida = true;
+          // PDF con clave (2026-10-15): nunca se guarda — imposible de abrir
+          // después. (El chequeo del navegador suele atraparlo antes.)
+          if (error?.message?.includes('protegido con contraseña')) {
+            setLeyendoCedula(false);
+            await Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: error.message, confirmButtonColor: '#d33' });
+            return;
+          }
+          // Ilegible (2026-10-15): ya NO se guarda silenciosamente — se pide
+          // confirmación explícita; si acepta, sube SIN lectura IA.
+          if (error?.message?.includes('No se logró leer')) {
+            setLeyendoCedula(false);
+            const forzar = await Swal.fire({
+              icon: 'warning',
+              title: 'No pudimos leer el documento',
+              html: `${error.message}<br/><br/>¿Estás seguro de que es <b>${etiqueta}</b> y se ve completo y nítido?`,
+              showCancelButton: true,
+              confirmButtonText: 'Adjuntar de todos modos',
+              cancelButtonText: 'Cancelar',
+              confirmButtonColor: '#e67e22',
+            });
+            if (!forzar.isConfirmed) return;
+            datos = null;
+            avisos = [];
+            lecturaFallida = true; // sube SIN lectura (extraer=false ya va).
+          } else {
+            // Otro error (ej. servicio de IA caído): se sube igual. Si el
+            // backend dejó un motivo legible, viaja como aviso al Swal final.
+            if (error?.message) avisos = [error.message];
+            lecturaFallida = true;
+          }
         }
 
         // 2) Subir el FRENTE como documento oficial (+ REVERSO si lo hay).
@@ -1348,8 +1391,27 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         if (gemelos.length) body.append('replicar_en', gemelos.join(','));
         if (editarAprobado && idUsuario) body.append('editado_por', idUsuario);
         else if (actorImpersonacion) body.append('editado_por', actorImpersonacion);
-        const resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
-        const data = await resp.json().catch(() => ({}));
+        let resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
+        let data = await resp.json().catch(() => ({}));
+        // Ilegible (2026-10-15): el backend ya NO guarda docs que la IA no
+        // logra leer (anti-basura). Se ofrece adjuntarlo sin lectura IA.
+        if (resp.status === 422) {
+          setLeyendoCedula(false);
+          const forzar = await Swal.fire({
+            icon: 'warning',
+            title: 'No pudimos leer el documento',
+            html: `${data.detail || 'La IA no logró leer ningún dato del documento.'}<br/><br/>¿Estás seguro de que es <b>${etiqueta}</b> y se ve completo y nítido?`,
+            showCancelButton: true,
+            confirmButtonText: 'Adjuntar de todos modos',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#e67e22',
+          });
+          if (!forzar.isConfirmed) return;
+          setLeyendoCedula(true);
+          body.append('extraer', 'false');
+          resp = await fetch(`${API_BASE}/vehiculos/subir-documento`, { method: 'PUT', body });
+          data = await resp.json().catch(() => ({}));
+        }
         if (!resp.ok) throw new Error(data.detail || `No se pudo guardar ${etiqueta.toLowerCase()}.`);
 
         if (data.lectura_ia && data.lectura_ia.datos) {
@@ -2725,7 +2787,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
                   disabled={leyendoCedula}
                   title={listo ? 'Documento cargado — toca para reemplazarlo' : (dosCaras ? 'Frente y reverso (opcional)' : undefined)}
                 >
-                  <span className="Datos-iaDoc-texto">{opcion.etiqueta}</span>
+                  <span className="Datos-iaDoc-texto">
+                    {opcion.etiqueta}
+                    {opcion.sub && <small style={{ fontSize: '0.72em', opacity: 0.75 }}> ({opcion.sub})</small>}
+                  </span>
                   {listo && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
                 </button>
                 {listo && (

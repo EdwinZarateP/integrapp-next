@@ -6,6 +6,7 @@ import Lottie from 'lottie-react';
 import animationData from "@/Imagenes/AnimationPuntos.json";
 import { tiposMapping } from '@/Funciones/documentConstants';
 import { comprimirImagen } from '@/Funciones/comprimirImagen';
+import { pdfTieneClave, MENSAJE_PDF_CON_CLAVE } from '@/Funciones/pdfProtegido';
 import CamaraInterna from '@/Componentes/CamaraInterna';
 import './estilos.css';
 
@@ -140,6 +141,25 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           Swal.fire({ icon: 'error', title: 'Archivo muy pesado', text: `Cada archivo debe pesar máximo ${MAX_SIZE_MB} MB. Revisa: ${tooBig.map(f => f.name).join(', ')}` });
           return;
         }
+        // PDF con clave (2026-10-15): NO se sube — quedaría guardado y
+        // después nadie (Seguridad) podría abrirlo. Chequeo en el navegador.
+        const conClave: string[] = [];
+        for (const f of validFiles) {
+          if (await pdfTieneClave(f)) conClave.push(f.name);
+        }
+        if (conClave.length > 0) {
+          Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: `${MENSAJE_PDF_CON_CLAVE}<br/><br/>Revisa: <b>${conClave.join(', ')}</b>.`, confirmButtonColor: '#d33' });
+          return;
+        }
+        // Planilla en varios archivos (2026-10-15): EPS y ARL juntos, máx. 3.
+        if (tipoDoc === 'planillaEpsArl' && validFiles.length > 3) {
+          validFiles = validFiles.slice(0, 3);
+          Swal.fire({
+            icon: 'info', title: 'Máximo 3 archivos',
+            text: 'La planilla admite hasta 3 archivos por carga: se suben los primeros 3.',
+            timer: 4000, showConfirmButton: false,
+          });
+        }
         // Tope total (fotos del vehículo): las ya subidas + esta tanda.
         if (maximo != null && (cantidadActual ?? 0) + validFiles.length > maximo) {
           Swal.fire({
@@ -197,6 +217,11 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     }
     if (reverso && !validarArchivo(reverso)) {
       await handleUpload([frente]);
+      return;
+    }
+    // Reverso en PDF con clave (2026-10-15): aborta la subida completa.
+    if (reverso && await pdfTieneClave(reverso)) {
+      Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: `El PDF del <b>reverso</b> está protegido con clave. ${MENSAJE_PDF_CON_CLAVE}`, confirmButtonColor: '#d33' });
       return;
     }
     await handleUpload([frente], reverso || undefined);
@@ -311,22 +336,82 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     setUploading(true);
     setProgress(0);
     setProcesando(false);
+    const enviar = (fd: FormData = formData) => axios.put<UploadResponse>(endpoint, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      // Tope generoso (5 min): conexiones colgadas dejaban el modal en
+      // «Subiendo…» para siempre sin error alguno (2026-10-11).
+      timeout: 300000,
+      onUploadProgress: (progressEvent) => {
+        const pct = progressEvent.total
+          ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          : 0;
+        // Bytes completos = el archivo YA viajó; lo que sigue es procesamiento
+        // del servidor (lectura IA) — se refleja con otro mensaje.
+        if (pct >= 100) setProcesando(true);
+        setProgress(Math.min(pct, 99));
+      }
+    });
     try {
-      const response = await axios.put<UploadResponse>(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        // Tope generoso (5 min): conexiones colgadas dejaban el modal en
-        // «Subiendo…» para siempre sin error alguno (2026-10-11).
-        timeout: 300000,
-        onUploadProgress: (progressEvent) => {
-          const pct = progressEvent.total
-            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
-            : 0;
-          // Bytes completos = el archivo YA viajó; lo que sigue es procesamiento
-          // del servidor (lectura IA) — se refleja con otro mensaje.
-          if (pct >= 100) setProcesando(true);
-          setProgress(Math.min(pct, 99));
+      // Planilla en VARIOS archivos (2026-10-15): la EPS y la ARL suelen venir
+      // en PDFs separados — cada archivo viaja en su propio request (el backend
+      // guarda uno por subida y acumula en el historial) compartiendo la MISMA
+      // fecha de vencimiento digitada para la tanda.
+      if (tipoDoc === 'planillaEpsArl' && fechaVencimiento && files.length > 1) {
+        let subidos = 0;
+        for (const file of files) {
+          const fd = new FormData();
+          fd.append('archivo', file);
+          fd.append('placa', placa);
+          fd.append('tipo', tipo);
+          fd.append('fecha_vencimiento', fechaVencimiento);
+          fd.append('extraer', 'false');
+          if (editadoPor) fd.append('editado_por', editadoPor);
+          setProgress(0);
+          setProcesando(false);
+          const resp = await enviar(fd);
+          if (resp.status === 200) {
+            subidos += 1;
+            if (resp.data.url && onUploadSuccess) onUploadSuccess(resp.data.url, resp.data.url_reverso);
+          }
         }
-      });
+        setProgress(100);
+        const [a, m, d] = fechaVencimiento.split('-');
+        Swal.fire({
+          icon: 'success',
+          title: '✓ Planilla cargada',
+          html: `Subimos <b>${subidos}</b> archivo${subidos === 1 ? '' : 's'} de la planilla (EPS/ARL).<br/>El vehículo queda habilitado hasta el <b>${d}/${m}/${a}</b>.`,
+          confirmButtonColor: '#27ae60',
+        });
+        return; // finally apaga uploading/procesando
+      }
+      let response: import('axios').AxiosResponse<UploadResponse>;
+      try {
+        response = await enviar();
+      } catch (error: any) {
+        // Ilegible (2026-10-15): el backend ya NO guarda documentos que la IA
+        // no logra leer (anti-basura). Si el usuario confirma que el documento
+        // es correcto, se reenvía SIN lectura IA (extraer=false).
+        if (error?.response?.status === 422 && error?.response?.data?.detail) {
+          setUploading(false);
+          const forzar = await Swal.fire({
+            icon: 'warning',
+            title: 'No pudimos leer el documento con IA',
+            html: `${error.response.data.detail}<br/><br/>Si estás seguro de que es <b>${documentName}</b> correcto y legible, puedes adjuntarlo de todos modos.`,
+            showCancelButton: true,
+            confirmButtonText: 'Adjuntar de todos modos',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#e67e22',
+          });
+          if (!forzar.isConfirmed) return; // finally cierra el modal de carga
+          setUploading(true);
+          setProgress(0);
+          setProcesando(false);
+          formData.append('extraer', 'false');
+          response = await enviar();
+        } else {
+          throw error;
+        }
+      }
 
       if (response.status === 200) {
         setProgress(100);
@@ -393,8 +478,10 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
       console.error('Error de carga:', error);
       const texto = error?.code === 'ECONNABORTED'
         ? 'El servidor tardó demasiado respondiendo. Revisa en unos minutos si el documento quedó cargado antes de reintentar.'
-        : (error?.message || 'No se pudo subir el documento.');
-      Swal.fire({ icon: 'error', title: 'Error al subir', text: texto });
+        // detail del backend (ej. PDF con clave, documento equivocado): el
+        // mensaje accionable llega completo al usuario.
+        : (error?.response?.data?.detail || error?.message || 'No se pudo subir el documento.');
+      Swal.fire({ icon: 'error', title: 'Error al subir', html: texto });
     } finally {
       setUploading(false);
       setProcesando(false);
@@ -429,6 +516,13 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             no se admite archivo de galería.
           </p>
         )}
+        {tipoDoc === 'planillaEpsArl' && (
+          <p className="CargaDocumento-hint">
+            🏥 Si tienes la <b>EPS</b> y la <b>ARL</b> en archivos separados,
+            selecciónalos <b>juntos</b> (hasta 3) — comparten la misma fecha de
+            vencimiento.
+          </p>
+        )}
         {!soloPdf && !soloCamara && (
           <p className="CargaDocumento-hint">
             💡 Si al tomar la foto con la cámara el celular dice <b>«memoria insuficiente»</b>,
@@ -448,7 +542,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           )}
           {!soloCamara && (
             <label className="CargaDocumento-btn-file" htmlFor="file-upload">
-              {documentName === "Fotos" ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
+              {documentName === "Fotos" || tipoDoc === 'planillaEpsArl' ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
             </label>
           )}
           {!soloCamara && (
@@ -461,7 +555,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
               id="file-upload"
               type="file"
               accept={soloPdf ? 'application/pdf' : 'image/jpeg, image/png, image/jpg, application/pdf'}
-              multiple={documentName === "Fotos"}
+              multiple={documentName === "Fotos" || tipoDoc === 'planillaEpsArl'}
               onChange={handleFileChange}
               disabled={uploading || preparando}
               className="CargaDocumento-input-hidden"

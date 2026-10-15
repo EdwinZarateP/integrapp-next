@@ -57,10 +57,10 @@ const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: stri
   },
 };
 
-// Perfiles que pueden ver el portal de Seguridad (/revision). PADRINO
-// (2026-10-14): entra al mismo portal en modo simplificado (solo lectura +
-// impersonar para cargar documentos) — /revision lo distingue por la cookie
-// `seguridadPerfil` que se setea al elegir el portal.
+// Perfiles que pueden ver el portal de Seguridad (/revision). PADRINO entra
+// directo (micro-portal aislado, 2026-10-15) y no llega a esta lista, pero se
+// deja por si otro flujo lo consulta. /revision lo distingue por la cookie
+// `seguridadPerfil` que se setea al entrar al portal.
 const PERFILES_SEGURIDAD = ["ADMIN", "SEGURIDAD", "PADRINO"];
 
 // Perfiles que pueden administrar el cobro de Estudios de Seguridad (/AdminSeguridad).
@@ -92,6 +92,9 @@ const LoginUsuario: React.FC = () => {
       // CLIENTE_ESTUDIOS es cliente externo del portal de Estudios de
       // Seguridad: jamás entra a la Torre de Control ni a /revision.
       if (perfilCookie === 'CLIENTE_ESTUDIOS') { router.replace('/PortalSeguridad'); return; }
+      // PADRINO (2026-10-15): su único módulo es Seguridad — vuelve directo a
+      // /revision, sin pasar por el selector de portales.
+      if (perfilCookie === 'PADRINO') { router.replace('/revision'); return; }
       const cliente = clienteCookie[2];
       // Seguridad entró desde la Torre de Control: vuelve a /revision.
       if (cliente === 'SEGURIDAD') { router.replace('/revision'); return; }
@@ -141,6 +144,22 @@ const LoginUsuario: React.FC = () => {
       // sin pasar por el selector de portales (no ve nada de la Torre).
       if (perfilUpper === 'CLIENTE_ESTUDIOS') {
         setTimeout(() => router.replace('/PortalSeguridad'), 200);
+        return;
+      }
+
+      // PADRINO (2026-10-15): su único módulo es Seguridad — micro-portal
+      // aislado (patrón FINANCIERO/VISUALIZADOR): entra directo a /revision
+      // con las cookies seguridad* seteadas, sin ver el selector de portales
+      // (KABI/MEDICAL_CARE/INDICADORES quedan fuera de su alcance).
+      if (perfilUpper === 'PADRINO') {
+        document.cookie = `clientePedidosCookie=SEGURIDAD; path=/; ${expires}`;
+        document.cookie = `seguridadId=${res.usuario.id}; path=/; ${expires}`;
+        document.cookie = `seguridadNombre=${encodeURIComponent(res.usuario.nombre || res.usuario.usuario)}; path=/; ${expires}`;
+        document.cookie = `seguridadPerfil=${res.usuario.perfil}; path=/; ${expires}`;
+        if (res.usuario.correo) {
+          document.cookie = `seguridadCorreo=${encodeURIComponent(res.usuario.correo)}; path=/; ${expires}`;
+        }
+        setTimeout(() => router.replace('/revision'), 200);
         return;
       }
 
