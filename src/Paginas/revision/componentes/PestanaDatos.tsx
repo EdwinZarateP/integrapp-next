@@ -339,14 +339,19 @@ const PestanaDatos: React.FC<{
   };
 
   // Sección activa según el desplazamiento (la más cercana al tope).
+  // getBoundingClientRect contra el contenedor: offsetTop medía contra el
+  // offsetParent (que NO es el contenedor con scroll) y el resaltado quedaba
+  // corrido una sección (clic en «Referencias» marcaba «Emergencia»).
   useEffect(() => {
     const raiz = scrollRef.current;
     if (!raiz) return;
     const alScroll = () => {
+      // Línea de corte: tope del contenedor + la barra de navegación sticky.
+      const corte = raiz.getBoundingClientRect().top + 72;
       let activa = NAV[0]?.id;
       for (const n of NAV) {
         const el = document.getElementById(`rev-sec-${n.id}`);
-        if (el && el.offsetTop - raiz.scrollTop <= 72) activa = n.id;
+        if (el && el.getBoundingClientRect().top <= corte) activa = n.id;
       }
       if (activa) setSeccionActiva(activa);
     };
