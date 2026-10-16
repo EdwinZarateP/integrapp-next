@@ -20,7 +20,10 @@ interface VerDocumentoProps {
   soloLectura?: boolean;
 }
 
-const API_BASE_URL = "https://integrappi-dvmh.onrender.com/vehiculos";
+/* Misma base del resto de la app (env): antes estaba QUEMADA a prod
+   (onrender.com) y en dev local la eliminación del carrusel se iba
+   contra el backend de producción. */
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL}/vehiculos`;
 
 /* PDF INLINE (2026-10-15): el PDF se incrusta en un iframe — mismo visor que
    el ojito del paso 2 (VerCaraDocumento). Antes aquí solo aparecía el nombre

@@ -1,5 +1,8 @@
 // documentConstants.ts
-const API_BASE_URL = "https://integrappi-dvmh.onrender.com/vehiculos";
+/* Misma base del resto de la app (env): antes estaba QUEMADA a prod
+   (onrender.com) y las SUBIDAS del paso 3 se iban contra el backend de
+   producción incluso en dev local. */
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL}/vehiculos`;
 
 // Función para normalizar claves
 const normalizeKey = (key: string) => key.trim().toLowerCase();
