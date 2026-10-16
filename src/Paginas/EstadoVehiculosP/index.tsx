@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaSearch, FaTruck, FaEye, FaTimes, FaHistory, FaCheckCircle, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaSearch, FaTruck, FaEye, FaTimes, FaHistory, FaCheckCircle, FaMapMarkerAlt, FaFilePdf, FaFileInvoiceDollar, FaSpinner } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import Swal from 'sweetalert2';
 import {
@@ -10,18 +10,12 @@ import {
 } from '@/Funciones/ApiPedidos/estadoFlota';
 import './estilos.css';
 
-// Perfiles con acceso (el backend re-valida contra baseusuarios).
-const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'];
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 
-const ESTADOS = [
-  { id: 'registro_incompleto', label: 'Pendiente conductor' },
-  { id: 'completado_revision', label: 'En revisión' },
-  { id: 'aprobado', label: 'Aprobado' },
-  { id: 'devuelto', label: 'Devuelto' },
-  { id: 'en_actualizacion', label: 'En actualización' },
-  { id: 'inactivo', label: 'Inactivo' },
-  { id: 'rechazado', label: 'Rechazado' },
-];
+// Perfiles con acceso (el backend re-valida contra baseusuarios).
+// (2026-10-16) FINANCIERO entra a ver los APROBADOS y descargar la
+// información financiera de cada vehículo.
+const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR', 'FINANCIERO'];
 
 const sanitizarPlaca = (v: string) => v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
@@ -63,22 +57,23 @@ const EstadoVehiculosP: React.FC = () => {
   const router = useRouter();
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil] = useState('');
-  const [montado, setMontado] = useState(false);
 
-  // Filtros (los procesa el backend)
+  // Filtros (los procesa el backend). (2026-10-16) La página muestra SOLO
+  // los APROBADOS (flota en operación) — el resto de estados vive en /revision.
   const [fPlaca, setFPlaca] = useState('');
-  const [fEstado, setFEstado] = useState('');
   const [skip, setSkip] = useState(0);
   const limit = 50;
 
   const [items, setItems] = useState<VehiculoEstado[]>([]);
   const [total, setTotal] = useState(0);
-  const [conteos, setConteos] = useState<Record<string, number>>({});
   const [cargando, setCargando] = useState(false);
 
   // Detalle por placa (modal)
   const [detalle, setDetalle] = useState<DetalleVehiculoEstado | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  // Descargables por fila (2026-10-16, fuera del modal — pedido del usuario):
+  // placa cuya HV / informe financiero se está generando.
+  const [generando, setGenerando] = useState<{ hv: string | null; fin: string | null }>({ hv: null, fin: null });
 
   useEffect(() => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
@@ -87,17 +82,15 @@ const EstadoVehiculosP: React.FC = () => {
     if (!PERFILES_PERMITIDOS.includes(p)) { router.replace('/MedicalCare'); return; }
     setUsuario(u);
     setPerfil(p);
-    setMontado(true);
   }, [router]);
 
-  const cargar = useCallback(async (u: string, placa: string, estado: string, sk: number) => {
+  const cargar = useCallback(async (u: string, placa: string, sk: number) => {
     if (!u) return;
     setCargando(true);
     try {
-      const data = await listarEstadoFlota({ usuario: u, placa: placa || undefined, estado: estado || undefined, skip: sk, limit });
+      const data = await listarEstadoFlota({ usuario: u, placa: placa || undefined, estado: 'aprobado', skip: sk, limit });
       setItems(data.vehiculos);
       setTotal(data.total);
-      setConteos(data.conteos || {});
     } catch (e: any) {
       Swal.fire('Error', extraerErrorApi(e, 'No se pudo consultar el estado de la flota'), 'error');
     } finally {
@@ -106,26 +99,20 @@ const EstadoVehiculosP: React.FC = () => {
   }, [limit]);
 
   useEffect(() => {
-    if (usuario) cargar(usuario, fPlaca, fEstado, skip);
+    if (usuario) cargar(usuario, fPlaca, skip);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario, skip]);
 
   const buscar = () => {
     setSkip(0);
-    cargar(usuario, fPlaca, fEstado, 0);
+    cargar(usuario, fPlaca, 0);
   };
 
   // Borrar el filtro de placa y recargar sin él.
   const limpiarFiltro = () => {
     setFPlaca('');
     setSkip(0);
-    cargar(usuario, '', fEstado, 0);
-  };
-
-  const cambiarEstado = (estado: string) => {
-    setFEstado(estado);
-    setSkip(0);
-    cargar(usuario, fPlaca, estado, 0);
+    cargar(usuario, '', 0);
   };
 
   const abrirDetalle = async (placa: string) => {
@@ -144,6 +131,54 @@ const EstadoVehiculosP: React.FC = () => {
 
   const cerrarDetalle = () => setDetalle(null);
 
+  // HV por fila (2026-10-16): descarga directa SIN abrir el modal — se
+  // consulta la ficha completa (con URLs firmadas) y se genera el PDF.
+  // El módulo de la HV (con @react-pdf/renderer) se importa DINÁMICO al
+  // hacer clic: esta página se pre-renderiza estáticamente y react-pdf en
+  // el bundle del servidor rompía el prerender («Element type is invalid»).
+  const descargarHV = async (placa: string) => {
+    if (generando.hv) return;
+    setGenerando(g => ({ ...g, hv: placa }));
+    try {
+      const { descargarHvPdf } = await import('@/Componentes/HvVehiculos');
+      const r = await fetch(`${API_BASE}/vehiculos/obtener-vehiculo/${placa}`);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.data) throw new Error('No se pudo consultar la ficha del vehículo.');
+      await descargarHvPdf(j.data);
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo generar la hoja de vida.', 'error');
+    } finally {
+      setGenerando(g => ({ ...g, hv: null }));
+    }
+  };
+
+  // (2026-10-16) FINANCIERO y ADMIN: PDF con toda la información financiera
+  // del vehículo — bancos de las figuras + links a los certificados guardados.
+  const descargarFinanciero = async (placa: string) => {
+    if (generando.fin) return;
+    setGenerando(g => ({ ...g, fin: placa }));
+    try {
+      const resp = await fetch(`${API_BASE}/vehiculos/financiero/${placa}?usuario=${encodeURIComponent(usuario)}`);
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        throw new Error(j.detail || 'No se pudo generar el informe financiero.');
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Financiero_${placa}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo generar el informe financiero.', 'error');
+    } finally {
+      setGenerando(g => ({ ...g, fin: null }));
+    }
+  };
+
   const pagina = Math.floor(skip / limit) + 1;
   const totalPaginas = Math.max(1, Math.ceil(total / limit));
 
@@ -156,7 +191,7 @@ const EstadoVehiculosP: React.FC = () => {
           <div className="EV-titulo">
             <h1><FaTruck /> Estado de Vehículos</h1>
             <p>
-              Consulta de solo lectura del estado de cada vehículo en el flujo En Ruta.
+              Consulta de solo lectura de los vehículos APROBADOS (flota en operación).
               <span className="EV-soloLectura"><FaEye /> Solo visualización</span>
             </p>
           </div>
@@ -189,25 +224,8 @@ const EstadoVehiculosP: React.FC = () => {
           </div>
         </div>
 
-        {/* Chips de estado con conteo (calculado en el backend) */}
-        <div className="EV-chips">
-          <button
-            className={`EV-chip ${fEstado === '' ? 'EV-chipActivo' : ''}`}
-            onClick={() => cambiarEstado('')}
-          >
-            Todos {montado && <span className="EV-chipCount">{Object.values(conteos).reduce((s, n) => s + n, 0)}</span>}
-          </button>
-          {ESTADOS.map(est => (
-            <button
-              key={est.id}
-              className={`EV-chip EV-chip--${est.id} ${fEstado === est.id ? 'EV-chipActivo' : ''}`}
-              onClick={() => cambiarEstado(fEstado === est.id ? '' : est.id)}
-              title={est.label}
-            >
-              {est.label} {montado && <span className="EV-chipCount">{conteos[est.id] ?? 0}</span>}
-            </button>
-          ))}
-        </div>
+        {/* (2026-10-16) Los chips de estado se retiraron: la página muestra
+            SOLO los vehículos APROBADOS (flota en operación). */}
 
         {/* Tabla */}
         <div className="EV-tablaWrap">
@@ -226,13 +244,11 @@ const EstadoVehiculosP: React.FC = () => {
               <thead>
                 <tr>
                   <th>Placa</th>
-                  <th>Estado</th>
                   <th>Conductor</th>
                   <th>Cédula</th>
                   <th>Celular</th>
-                  <th>Vehículo</th>
-                  <th>En estado desde</th>
-                  <th>Observaciones</th>
+                  <th>Aprobado desde</th>
+                  <th>Descargas</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,15 +263,32 @@ const EstadoVehiculosP: React.FC = () => {
                         {v.placa}
                       </button>
                     </td>
-                    <td>
-                      <span className={`EV-estado EV-estado--${v.estado}`}>{v.estado_legible}</span>
-                    </td>
                     <td>{v.conductor || '-'}</td>
                     <td>{v.cedula || '-'}</td>
                     <td>{v.celular || '-'}</td>
-                    <td>{[v.marca, v.linea, v.modelo].filter(Boolean).join(' ') || '-'}</td>
                     <td className="EV-fecha">{formatFecha(v.fecha_estado)}</td>
-                    <td className="EV-obs" title={v.observaciones || ''}>{v.observaciones || '-'}</td>
+                    <td className="EV-acciones">
+                      <button
+                        className="EV-btnAccion"
+                        onClick={() => descargarHV(v.placa)}
+                        disabled={generando.hv === v.placa}
+                        title="Descargar la hoja de vida del vehículo en PDF"
+                      >
+                        {generando.hv === v.placa ? <FaSpinner className="spin" /> : <FaFilePdf />}
+                        HV
+                      </button>
+                      {['FINANCIERO', 'ADMIN'].includes(perfil) && (
+                        <button
+                          className="EV-btnAccion EV-btnAccion--fin"
+                          onClick={() => descargarFinanciero(v.placa)}
+                          disabled={generando.fin === v.placa}
+                          title="Información financiera (bancos + certificados)"
+                        >
+                          {generando.fin === v.placa ? <FaSpinner className="spin" /> : <FaFileInvoiceDollar />}
+                          Financiera
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -268,7 +301,7 @@ const EstadoVehiculosP: React.FC = () => {
           <div className="EV-paginacion">
             <span className="EV-pagInfo">
               Mostrando <strong>{skip + 1}–{Math.min(skip + limit, total)}</strong> de{' '}
-              <strong>{fEstado ? (conteos[fEstado] ?? total) : total}</strong> vehículo(s)
+              <strong>{total}</strong> vehículo(s) aprobado(s)
               {fPlaca && <> · placa «{fPlaca}»</>}
             </span>
             <div className="EV-pagBotones">
@@ -282,7 +315,7 @@ const EstadoVehiculosP: React.FC = () => {
               <span className="EV-pagNum">Página {pagina} de {totalPaginas}</span>
               <button
                 className="EV-pagBtn"
-                disabled={skip + limit >= (fEstado ? (conteos[fEstado] ?? total) : total)}
+                disabled={skip + limit >= total}
                 onClick={() => setSkip(skip + limit)}
               >
                 Siguiente →
@@ -306,7 +339,6 @@ const EstadoVehiculosP: React.FC = () => {
                 <div className="EV-modalHeader">
                   <div className="EV-modalTitulo">
                     <span className="EV-placa">{detalle.placa}</span>
-                    <span className={`EV-estado EV-estado--${detalle.estado}`}>{detalle.estado_legible}</span>
                     {detalle.disponible_hoy && (
                       <span className="EV-disponibleHoy">
                         <FaCheckCircle /> Disponible hoy en la bolsa

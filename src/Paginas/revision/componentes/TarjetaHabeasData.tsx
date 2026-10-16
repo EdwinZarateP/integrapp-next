@@ -41,6 +41,8 @@ interface Aceptacion {
   declaracion_titulo?: string;
   aceptado_en?: string;
   canal?: string;
+  /** (2026-10-16) A qué correo llegó el link que esta aceptación usó. */
+  correo?: string;
   ip?: string;
   user_agent?: string;
   documento_ruta?: string;
@@ -196,16 +198,18 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
           correo,
           nombre: p.nombre || '',
           solicitado_por: 'seguridad',
+          // (2026-10-16) El botón manual SIEMPRE envía: invalida el link
+          // vigente y manda correo nuevo (aunque sea a otro correo). El
+          // «no duplicar» queda solo para el envío automático del sistema.
+          forzar: true,
         }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo enviar.');
       await cargar();
-      const estado = data.estado === 'pendiente'
-        ? 'Ya había un enlace vigente — no se duplicó el correo.'
-        : data.estado === 'ya_autorizado'
-          ? 'La persona ya tenía autorización registrada.'
-          : `Correo enviado a ${correo} (enlace vigente 30 días).`;
+      const estado = data.estado === 'ya_autorizado'
+        ? 'La persona ya tenía autorización registrada.'
+        : `Correo enviado a ${correo} — el enlace anterior quedó anulado (vigencia 30 días).`;
       Swal.fire({ title: 'Autorización', text: estado, icon: data.estado === 'enviado' ? 'success' : 'info', timer: 3200, showConfirmButton: false });
     } catch (e: any) {
       setError(e?.message || 'No se pudo enviar el correo.');
@@ -281,6 +285,10 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
             const ultima = p.aceptaciones[0];
             const primera = p.aceptaciones[p.aceptaciones.length - 1];
             const canales = Array.from(new Set(p.aceptaciones.map(a => a.canal).filter((cn): cn is string => Boolean(cn))));
+            // (2026-10-16) A qué correo llegó el link aceptado — más útil que
+            // el label genérico del canal (pedido del usuario).
+            const correosAceptacion = Array.from(new Set(
+              p.aceptaciones.map(a => (a.correo || '').trim()).filter(Boolean)));
             const verDetalle = detalleAbierto === p.cedula;
             const roles = rolesDe(p.cedula);
             const sinEvidencia = p.aceptaciones.length === 0;
@@ -323,7 +331,9 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                         {ultima && primera && ultima.aceptado_en !== primera.aceptado_en && (
                           <> · Última: <strong>{fechaLegible(ultima.aceptado_en)}</strong></>
                         )}
-                        {canales.length > 0 && <> · Canal: {canales.map(cn => ETIQUETA_CANAL[cn] || cn).join(', ')}</>}
+                        {correosAceptacion.length > 0
+                          ? <> · Aceptado desde: <strong>{correosAceptacion.join(', ')}</strong></>
+                          : canales.length > 0 && <> · Canal: {canales.map(cn => ETIQUETA_CANAL[cn] || cn).join(', ')}</>}
                         {ultima?.version != null && <> · Política v{ultima.version}</>}
                       </>
                     ) : p.tiene_cuenta
@@ -350,7 +360,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                           <tr style={{ textAlign: 'left', color: '#7f8c8d' }}>
                             <th style={{ padding: '3px 6px' }}>Fecha</th>
                             <th style={{ padding: '3px 6px' }}>Declaración</th>
-                            <th style={{ padding: '3px 6px' }}>Canal</th>
+                            <th style={{ padding: '3px 6px' }}>Correo / Canal</th>
                             <th style={{ padding: '3px 6px' }}>IP</th>
                           </tr>
                         </thead>
@@ -375,7 +385,11 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                                 )}
                               </td>
                               <td style={{ padding: '3px 6px' }}>
-                                {f.acept ? (ETIQUETA_CANAL[f.acept.canal || ''] || f.acept.canal || '—') : '—'}
+                                {f.acept
+                                  ? (f.acept.correo
+                                      ? <span title="Correo al que llegó el enlace aceptado">{f.acept.correo}</span>
+                                      : (ETIQUETA_CANAL[f.acept.canal || ''] || f.acept.canal || '—'))
+                                  : '—'}
                               </td>
                               <td style={{ padding: '3px 6px' }} title={f.acept?.user_agent}>{f.acept?.ip || '—'}</td>
                             </tr>

@@ -185,8 +185,16 @@ const LoginUsuario: React.FC = () => {
       } else {
         setPaso(2);
       }
-    } catch {
-      setMensajeError("Usuario o clave incorrectos. Inténtalo de nuevo.");
+    } catch (err: any) {
+      // (2026-10-16) El backend distingue «cuenta no existe» de «clave
+      // incorrecta» (y el 403 de usuario inactivo): mostrar SU detalle en
+      // vez del genérico que no decía qué corregir.
+      const detalle = err?.response?.data?.detail;
+      if (detalle && [401, 403].includes(err?.response?.status)) {
+        setMensajeError(detalle);
+      } else {
+        setMensajeError("No se pudo iniciar sesión. Verifica tu conexión e inténtalo de nuevo.");
+      }
     } finally {
       setCargando(false);
     }

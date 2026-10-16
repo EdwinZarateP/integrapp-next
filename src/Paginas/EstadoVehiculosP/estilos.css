@@ -567,3 +567,33 @@
 .EV-tlVia--seguridad     { background: #e8f1fb; color: #2a7de1; }
 .EV-tlVia--impersonacion { background: #f3eaf9; color: #7d3ca3; }
 .EV-tlVia--conductor     { background: #e9f7ef; color: #1e8e4e; }
+
+/* ── Acciones por fila (2026-10-16): HV + Financiera fuera del modal ──────── */
+.EV-acciones {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.EV-btnAccion {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #c9d3da;
+  border-radius: 7px;
+  padding: 5px 10px;
+  background: #fff;
+  color: #23414e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.EV-btnAccion:hover { border-color: #0e6b5c; color: #0e6b5c; }
+.EV-btnAccion:disabled { opacity: 0.55; cursor: wait; }
+.EV-btnAccion--fin { color: #0e6b5c; border-color: #0e6b5c; }
+.EV-btnAccion--fin:hover { background: #0e6b5c; color: #fff; }
+
+.EV-btnAccion .spin { animation: EVgirar 0.9s linear infinite; }
+@keyframes EVgirar { to { transform: rotate(360deg); } }

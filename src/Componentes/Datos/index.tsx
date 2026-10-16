@@ -1336,6 +1336,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
             await Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: error.message, confirmButtonColor: '#d33' });
             return;
           }
+          // Nequi/Daviplata (2026-10-16): NO se aceptan como certificación
+          // bancaria — rechazo duro del backend, nunca se guarda (sin escape
+          // «adjuntar de todos modos»: es política, no legibilidad).
+          if (error?.message?.includes('Nequi')) {
+            setLeyendoCedula(false);
+            await Swal.fire({ icon: 'error', title: 'Cuenta no aceptada', html: error.message, confirmButtonColor: '#d33' });
+            return; // NO subir el archivo.
+          }
           // Ilegible (2026-10-15): ya NO se guarda silenciosamente — se pide
           // confirmación explícita; si acepta, sube SIN lectura IA.
           if (error?.message?.includes('No se logró leer')) {
@@ -1900,12 +1908,18 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     const camposCatalogo = new Set(
       sections.flatMap(s => s.fields.filter(f => f.options).map(f => f.name))
     );
+    // Claves/credenciales: se guardan TAL CUAL se digitan (2026-10-16,
+    // pedido del usuario) — una clave satelital mayusculada deja de servir
+    // para entrar a la plataforma de rastreo.
+    const camposCaseSensitive = new Set(['vehClaveSat']);
     const cleanedFormData: any = Object.fromEntries(
       Object.entries(restFormData)
         .filter(([key]) => !CAMPOS_DOCUMENTOS_PROTEGIDOS.includes(key))
         .map(([key, value]) => {
           let v = value || "";
-          if (v !== "" && !camposCatalogo.has(key)) v = String(v).toUpperCase();
+          if (v !== "" && !camposCatalogo.has(key) && !camposCaseSensitive.has(key)) {
+            v = String(v).toUpperCase();
+          }
           return [key, v];
         })
     );

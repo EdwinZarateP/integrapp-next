@@ -118,8 +118,9 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
               {clientes.includes('KABI') && <div className="NMC-dropDivider" />}
               {ITEMS.map(item => {
                 const esActual = item.id === paginaActual;
-                // FINANCIERO: micro-portal aislado (solo Otros Costos y su histórico)
-                if (perfil === 'FINANCIERO' && !['otroscostos', 'historicooc'].includes(item.id)) {
+                // FINANCIERO: micro-portal aislado (Otros Costos, su histórico
+                // y Estado de Vehículos — aprobados + info financiera, 2026-10-16)
+                if (perfil === 'FINANCIERO' && !['otroscostos', 'historicooc', 'estadovehiculos'].includes(item.id)) {
                   return null;
                 }
                 // VISUALIZADOR: solo lectura (solo los históricos)
@@ -147,8 +148,9 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 if (item.id === 'cuentasplaca' && !['ADMIN', 'OPERATIVO', 'DESPACHADOR'].includes(perfil)) {
                   return null;
                 }
-                // Estado de Vehículos: vista de solo lectura (OPERATIVO, CONTROL, COORDINADOR, ADMIN)
-                if (item.id === 'estadovehiculos' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+                // Estado de Vehículos: vista de solo lectura (OPERATIVO, CONTROL,
+                // COORDINADOR, ADMIN) + FINANCIERO (aprobados + info financiera, 2026-10-16)
+                if (item.id === 'estadovehiculos' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR', 'FINANCIERO'].includes(perfil)) {
                   return null;
                 }
                 return (

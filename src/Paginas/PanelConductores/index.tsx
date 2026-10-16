@@ -1924,8 +1924,10 @@ const PanelConductoresVista: React.FC = () => {
                         firmaEvidenciaInicial={vehiculoActual?.firmaEvidencia2}
                       />
                     )}
-                    {/* PADRINO: no finaliza — enviar a revisión es de Seguridad. */}
-                    {!modoLectura && !esPadrinoImp && (
+                    {/* PADRINO (2026-10-16): SÍ puede Finalizar (corrigió una
+                        foto y envía a revisión); aprobar/rechazar sigue siendo
+                        exclusivo de Seguridad en /revision. */}
+                    {!modoLectura && (
                       <button className="btn-finalizar" onClick={handleFinalizar}>Finalizar Registro</button>
                     )}
                 </div>
@@ -1999,9 +2001,9 @@ const PanelConductoresVista: React.FC = () => {
           /* RUT del tenedor: SOLO PDF (archivo descargado de la DIAN), sin
              opción de tomar foto. */
           soloPdf={normalizeKey(selectedDocumento.documentName) === 'rut tenedor'}
-          /* Foto del conductor: SOLO cámara (se toma en vivo, sin archivo de
-             galería — pedido del usuario 2026-10-06). */
-          soloCamara={normalizeKey(selectedDocumento.documentName) === 'foto conductor'}
+          /* (2026-10-16) La foto del conductor VOLVIÓ a admitir archivo de
+             galería junto a la cámara en vivo (el «solo cámara» de 2026-10-06
+             se retiró a pedido del usuario). */
           /* Ángulo de foto del vehículo (2026-10-14): foto_tipo al backend. */
           fotoTipo={selectedDocumento.fotoTipo}
           cantidadActual={(() => {

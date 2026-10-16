@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 import confetti from "canvas-confetti";
+import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -92,6 +93,17 @@ const LoginConductores = () => {
       // Cuenta creada por Seguridad: políticas pendientes de aceptar en el panel.
       if (response.data.politicas_pendientes) {
           Cookies.set("conductorPoliticasPendientes", "1", { expires: 30 });
+          // (2026-10-16) Aviso EXPLÍCITO en el login (pedido del usuario):
+          // aún no ha respondido el habeas data — se acepta al entrar.
+          Swal.fire({
+            icon: "info",
+            title: "Falta aceptar el habeas data",
+            html: "Tu correo y contraseña son correctos, pero <b>aún no has aceptado las "
+                + "políticas de tratamiento de datos</b>. Al entrar se abrirá la aceptación "
+                + "para completar tu registro.",
+            confirmButtonText: "Continuar",
+            confirmButtonColor: "#008794",
+          });
       } else {
           Cookies.remove("conductorPoliticasPendientes");
       }
@@ -140,7 +152,10 @@ const LoginConductores = () => {
         Cookies.remove("conductorPrimerNombre");
 
         setClave("");
-        setError("Correo o contraseña incorrectos.");
+        // (2026-10-16) El backend ya distingue «correo no registrado» de
+        // «clave incorrecta»: mostrar SU detalle en vez de un genérico que
+        // no decía qué corregir.
+        setError(err.response.data?.detail || "Correo o contraseña incorrectos.");
 
       } else if (err.response && err.response.status === 404) {
         setError("Conductor no encontrado.");

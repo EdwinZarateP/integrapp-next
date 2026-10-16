@@ -265,6 +265,43 @@ const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null 
 };
 
 
+/* Genera y descarga la HV en PDF de un vehículo. Exportada (2026-10-16) para
+   que otras páginas (/EstadoVehiculos) ofrezcan la descarga SIN abrir un
+   modal — antes la lógica vivía atrapada en el botón del componente. */
+export const descargarHvPdf = async (vehiculo: HvVehiculosProps['vehiculo']) => {
+    // Firma fresca (convierte a PNG para el PDF); fallback a la URL guardada.
+    let firmaDataUrl: string | null = null;
+    try {
+        const resFirma = await axios.get<FirmaResponse>(`${API_BASE}/vehiculos/obtener-firma?placa=${vehiculo.placa}`);
+
+        if (resFirma.status === 200 && resFirma.data.firma_b64) {
+            firmaDataUrl = resFirma.data.firma_b64;
+        }
+    } catch (err) {
+        console.warn("No se pudo obtener la firma fresca. Usando URL guardada como fallback.", err);
+    }
+
+    const imagenFirmaFinal = firmaDataUrl || vehiculo.firmaUrl;
+
+    const blob = await pdf(
+        <DocuPDF
+            veh={vehiculo}
+            firmaBlob={imagenFirmaFinal}
+        />
+    ).toBlob();
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `HV_${vehiculo.placa}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+};
+
+
 const HvVehiculos: React.FC<HvVehiculosProps> = ({ vehiculo }) => {
     const [cargando, setCargando] = useState(false);
 
@@ -274,37 +311,7 @@ const HvVehiculos: React.FC<HvVehiculosProps> = ({ vehiculo }) => {
         setCargando(true);
 
         try {
-            // Firma fresca (convierte a PNG para el PDF); fallback a la URL guardada.
-            let firmaDataUrl: string | null = null;
-            try {
-                const resFirma = await axios.get<FirmaResponse>(`${API_BASE}/vehiculos/obtener-firma?placa=${vehiculo.placa}`);
-
-                if (resFirma.status === 200 && resFirma.data.firma_b64) {
-                    firmaDataUrl = resFirma.data.firma_b64;
-                }
-            } catch (err) {
-                console.warn("No se pudo obtener la firma fresca. Usando URL guardada como fallback.", err);
-            }
-
-            const imagenFirmaFinal = firmaDataUrl || vehiculo.firmaUrl;
-
-            const blob = await pdf(
-                <DocuPDF
-                    veh={vehiculo}
-                    firmaBlob={imagenFirmaFinal}
-                />
-            ).toBlob();
-
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `HV_${vehiculo.placa}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            URL.revokeObjectURL(url);
-
+            await descargarHvPdf(vehiculo);
         } catch (error) {
             console.error("Error generando PDF:", error);
             alert("Hubo un error al generar el PDF.");
