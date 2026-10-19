@@ -186,10 +186,12 @@ const OtrosCostosP: React.FC = () => {
   const [guardando, setGuardando] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
 
-  // Adjuntos del formulario: los ya subidos (solo lectura, se conservan) y los
-  // seleccionados en esta sesión (se envían junto con crear/editar).
+  // Adjuntos del formulario: los ya subidos (se conservan salvo los quitados) y
+  // los seleccionados en esta sesión. `adjuntosEliminados` guarda las URLs de
+  // los existentes que el usuario quita: se borran de Mongo y del bucket al guardar.
   const [archivosNuevos, setArchivosNuevos] = useState<File[]>([]);
   const [adjuntosExistentes, setAdjuntosExistentes] = useState<Adjunto[]>([]);
+  const [adjuntosEliminados, setAdjuntosEliminados] = useState<Set<string>>(new Set());
   const inputAdjuntosRef = useRef<HTMLInputElement | null>(null);
 
   // Selección de consecutivos para el archivo bancario (FINANCIERO/ADMIN)
@@ -453,6 +455,7 @@ const OtrosCostosP: React.FC = () => {
     setMotivoDevolucion('');
     setAdjuntosExistentes([]);
     setArchivosNuevos([]);
+    setAdjuntosEliminados(new Set());
     setModalMode('form');
   };
 
@@ -475,6 +478,7 @@ const OtrosCostosP: React.FC = () => {
       setDetalle(d);  // disponibiliza el estado actual (ej. 'devuelto') en el modal de edición
       setAdjuntosExistentes(d.adjuntos || []);
       setArchivosNuevos([]);
+      setAdjuntosEliminados(new Set());
       setBusqueda(null);
       setSeleccionados(new Set());
       setModalMode('form');
@@ -489,6 +493,7 @@ const OtrosCostosP: React.FC = () => {
     setMotivoDevolucion('');
     setAdjuntosExistentes([]);
     setArchivosNuevos([]);
+    setAdjuntosEliminados(new Set());
   };
 
   // ── Adjuntos del formulario ────────────────────────────────────────────────
@@ -520,6 +525,13 @@ const OtrosCostosP: React.FC = () => {
 
   const quitarArchivoNuevo = (i: number) =>
     setArchivosNuevos((prev) => prev.filter((_, idx) => idx !== i));
+
+  // Quitar un adjunto ya subido: desaparece del listado y su URL queda marcada
+  // para que /editar lo borre de Mongo y del bucket al guardar.
+  const quitarAdjuntoExistente = (a: Adjunto) => {
+    setAdjuntosExistentes((prev) => prev.filter((x) => x.url !== a.url));
+    setAdjuntosEliminados((prev) => new Set(prev).add(a.url));
+  };
 
   // ── Guardar (crear/editar) ──────────────────────────────────────────────────
   const validarForm = (enviar: boolean): string | null => {
@@ -565,7 +577,14 @@ const OtrosCostosP: React.FC = () => {
         conductor: form.conductor,
       };
       if (form.consecutivo) {
-        await editarSolicitud({ ...payload, consecutivo: form.consecutivo }, archivosNuevos);
+        await editarSolicitud(
+          {
+            ...payload,
+            consecutivo: form.consecutivo,
+            adjuntos_eliminar: adjuntosEliminados.size ? [...adjuntosEliminados] : undefined,
+          },
+          archivosNuevos,
+        );
         if (enviar) {
           Swal.fire('✅ Enviada', `Solicitud ${form.consecutivo} enviada a aprobación`, 'success');
         } else {
@@ -1372,10 +1391,18 @@ const OtrosCostosP: React.FC = () => {
               {(adjuntosExistentes.length > 0 || archivosNuevos.length > 0) && (
                 <div className="OC-adjList">
                   {adjuntosExistentes.map((a) => (
-                    <a key={a.url} className="OC-adjItem" href={a.url} target="_blank" rel="noopener noreferrer">
-                      <FaPaperclip /> <span className="OC-adjNombre">{a.nombre}</span>
-                      <span className="OC-adjMeta">{formatTamano(a.tamano)}</span>
-                    </a>
+                    <div key={a.url} className="OC-adjItem">
+                      <a className="OC-adjLink" href={a.url} target="_blank" rel="noopener noreferrer">
+                        <FaPaperclip /> <span className="OC-adjNombre">{a.nombre}</span>
+                        <span className="OC-adjMeta">{formatTamano(a.tamano)}</span>
+                      </a>
+                      <button
+                        type="button"
+                        className="OC-adjRemove"
+                        title="Eliminar adjunto (se aplica al guardar)"
+                        onClick={() => quitarAdjuntoExistente(a)}
+                      ><FaTrash /></button>
+                    </div>
                   ))}
                   {archivosNuevos.map((f, i) => (
                     <div key={`${f.name}-${f.size}-${i}`} className="OC-adjItem">

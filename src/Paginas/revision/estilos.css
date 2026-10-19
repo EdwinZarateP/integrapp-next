@@ -1814,6 +1814,46 @@ body {
   flex-wrap: wrap;
 }
 
+/* ── Cuentas sin vehículo: acciones MINIMALISTAS (2026-10-19) ──
+   Botones de SOLO icono, todos del MISMO tamaño (34×34), sutiles; el
+   significado va en el tooltip (title). Variante --peligro para eliminar. */
+.revx-alta-fila-acciones {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.revx-alta-btn-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: #fff;
+  color: #5b6770;
+  border: 1px solid #dfe5ea;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.revx-alta-btn-mini:hover:not(:disabled) {
+  background: #eef4f8;
+  color: #2c5f9e;
+  border-color: #bcd4e8;
+}
+
+.revx-alta-btn-mini:disabled { opacity: 0.45; cursor: default; }
+
+.revx-alta-btn-mini--peligro { color: #c0392b; border-color: #ecd2d0; }
+
+.revx-alta-btn-mini--peligro:hover:not(:disabled) {
+  background: #fdf0ee;
+  color: #a93226;
+  border-color: #e5b4b0;
+}
+
 .revx-alta-acciones .revx-alta-btn-copiar { margin-left: 0; }
 
 /* ── Auditoría del vehículo (PestanaCambios) — tablas + exportación ── */

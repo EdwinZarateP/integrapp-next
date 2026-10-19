@@ -5,8 +5,9 @@ import Swal from "sweetalert2";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import {
-  FaCheckCircle, FaCopy, FaEnvelopeOpenText, FaExternalLinkAlt, FaKey,
-  FaLink, FaPaperPlane, FaPlus, FaSearch, FaTimes, FaTruck, FaUserPlus,
+  FaCheckCircle, FaCopy, FaEnvelopeOpenText, FaExchangeAlt, FaExternalLinkAlt,
+  FaKey, FaLink, FaPaperPlane, FaPlus, FaSearch, FaTimes, FaTrashAlt, FaTruck,
+  FaUserPlus,
 } from "react-icons/fa";
 import PhoneField from "@/Componentes/PhoneField";
 import { abrirPanelComoConductor } from "./impersonacion";
@@ -144,8 +145,10 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
 
   const cargarSinVehiculo = async () => {
     try {
+      // Cache-buster: sin él el navegador puede servir el GET anterior del
+      // caché y una cuenta recién eliminada "vuelve" a la lista.
       const res = await axios.get<{ cuentas: CuentaSinVehiculo[] }>(
-        `${API_BASE}/conductores/sin-vehiculo`);
+        `${API_BASE}/conductores/sin-vehiculo`, { params: { _t: Date.now() } });
       setSinVehiculo(res.data.cuentas || []);
     } catch { setSinVehiculo([]); }
     finally { setCargandoSinVehiculo(false); }
@@ -175,6 +178,63 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
       Swal.fire("Recordatorio enviado", res.data.mensaje, "success");
     } catch (err: any) {
       Swal.fire("No se pudo enviar", err?.response?.data?.detail || "Error de conexión.", "error");
+    } finally { setEnviandoCorreo(null); }
+  };
+
+  /** (2026-10-19) Corrige el PERFIL de una cuenta que se registró con el rol
+   *  equivocado (p.ej. TENEDOR que en realidad es CONDUCTOR): solo se permite
+   *  mientras no tenga placas inscritas (el backend rechaza con 409 si tiene). */
+  const cambiarPerfil = async (c: CuentaSinVehiculo) => {
+    const esTenedor = c.perfil === "TENEDOR";
+    const destino = esTenedor ? "CONDUCTOR" : "TENEDOR";
+    const res = await Swal.fire({
+      icon: "question",
+      title: "¿Corregir el perfil?",
+      html: `<b>${c.correo}</b> aparece como <b>${esTenedor ? "Tenedor" : "Conductor"}</b>.<br/>¿Pasarla a <b>${destino === "CONDUCTOR" ? "Conductor" : "Tenedor"}</b>?<br/><small>Solo se puede cambiar mientras no tenga placas inscritas.</small>`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, cambiar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#2c5f9e",
+    });
+    if (!res.isConfirmed) return;
+    setEnviandoCorreo(c.id);
+    try {
+      const resp = await axios.post<{ mensaje: string }>(
+        `${API_BASE}/conductores/${c.id}/cambiar-perfil`, { perfil: destino });
+      // Actualización OPTIMISTA: la fila cambia YA (el refetch re-sincroniza).
+      setSinVehiculo(prev => prev.map(x => x.id === c.id ? { ...x, perfil: destino } : x));
+      Swal.fire({ icon: "success", title: "Perfil corregido", text: resp.data.mensaje, timer: 2400, showConfirmButton: false });
+      await cargarSinVehiculo();
+    } catch (err: any) {
+      Swal.fire("No se pudo cambiar", err?.response?.data?.detail || "Error de conexión.", "error");
+    } finally { setEnviandoCorreo(null); }
+  };
+
+  /** (2026-10-19) Desactiva una cuenta BASURA (correo mal digitado que solo
+   *  hace ruido): sin borrado físico — desaparece del listado, el login la
+   *  rechaza y queda el registro por auditoría. Solo sin placas inscritas. */
+  const eliminarCuenta = async (c: CuentaSinVehiculo) => {
+    const res = await Swal.fire({
+      icon: "warning",
+      title: "¿Eliminar esta cuenta?",
+      html: `Se va a <b>desactivar</b> la cuenta <b>${c.correo}</b>.<br/><small>Solo se permite sin placas inscritas. No se borra de la BD (queda el registro); si se necesita recuperar, es a mano.</small>`,
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#d33",
+    });
+    if (!res.isConfirmed) return;
+    setEnviandoCorreo(c.id);
+    try {
+      const resp = await axios.post<{ mensaje: string }>(
+        `${API_BASE}/conductores/${c.id}/eliminar`);
+      // La fila desaparece YA de la pantalla (el refetch re-sincroniza; era
+      // el motivo de que la cuenta "eliminada" siguiera viéndose).
+      setSinVehiculo(prev => prev.filter(x => x.id !== c.id));
+      Swal.fire({ icon: "success", title: "Cuenta eliminada", text: resp.data.mensaje, timer: 2400, showConfirmButton: false });
+      await cargarSinVehiculo();
+    } catch (err: any) {
+      Swal.fire("No se pudo eliminar", err?.response?.data?.detail || "Error de conexión.", "error");
     } finally { setEnviandoCorreo(null); }
   };
 
@@ -762,17 +822,36 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
                   </td>
                   <td>{fechaCorta(c.creado)}</td>
                   <td>
-                    {c.correo_verificado ? (
-                      <button className="revx-alta-btn-copiar"
-                        onClick={() => enviarRecordatorio(c)} disabled={enviandoCorreo === c.id}>
-                        <FaPaperPlane /> {enviandoCorreo === c.id ? "Enviando…" : "Enviar recordatorio"}
+                    {/* Acciones minimalistas (2026-10-19): botones de SOLO icono,
+                        todos de 34×34; el significado va en el tooltip. */}
+                    <span className="revx-alta-fila-acciones" role="group" aria-label="Acciones de la cuenta">
+                      {c.correo_verificado ? (
+                        <button className="revx-alta-btn-mini"
+                          onClick={() => enviarRecordatorio(c)} disabled={enviandoCorreo === c.id}
+                          title="Enviar recordatorio para que inscriba su vehículo">
+                          <FaPaperPlane aria-hidden="true" />
+                        </button>
+                      ) : (
+                        <button className="revx-alta-btn-mini"
+                          onClick={() => reenviarVerificacion(c)} disabled={enviandoCorreo === c.id}
+                          title="Reenviar el enlace de verificación del correo">
+                          <FaEnvelopeOpenText aria-hidden="true" />
+                        </button>
+                      )}
+                      {/* Corrección de perfil: se registró con el rol equivocado
+                          (p.ej. TENEDOR siendo CONDUCTOR). */}
+                      <button className="revx-alta-btn-mini"
+                        onClick={() => cambiarPerfil(c)} disabled={enviandoCorreo === c.id}
+                        title={`Corregir perfil — hoy es ${c.perfil === "TENEDOR" ? "Tenedor" : "Conductor"} (solo sin placas)`}>
+                        <FaExchangeAlt aria-hidden="true" />
                       </button>
-                    ) : (
-                      <button className="revx-alta-btn-copiar"
-                        onClick={() => reenviarVerificacion(c)} disabled={enviandoCorreo === c.id}>
-                        <FaEnvelopeOpenText /> {enviandoCorreo === c.id ? "Enviando…" : "Reenviar verificación"}
+                      {/* Cuenta basura: correo mal digitado — se DESACTIVA. */}
+                      <button className="revx-alta-btn-mini revx-alta-btn-mini--peligro"
+                        onClick={() => eliminarCuenta(c)} disabled={enviandoCorreo === c.id}
+                        title="Eliminar esta cuenta (desactivarla; solo sin placas)">
+                        <FaTrashAlt aria-hidden="true" />
                       </button>
-                    )}
+                    </span>
                   </td>
                 </tr>
               ))}

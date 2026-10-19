@@ -390,6 +390,18 @@
 
 a.OC-adjItem:hover { background: #f0fdfa; border-color: #99f6e4; }
 
+/* Adjunto existente: el enlace ocupa el renglón y el botón de eliminar va al final */
+.OC-adjLink {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+a.OC-adjLink:hover .OC-adjNombre { text-decoration: underline; }
+
 .OC-adjNombre {
   flex: 1;
   min-width: 0;

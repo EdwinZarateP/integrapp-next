@@ -200,6 +200,9 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     const veh = fuente.find(v => v.placa?.toUpperCase() === placa);
     if (veh) {
       setSeleccionado(veh);
+      // (2026-10-19) El objeto de la bandeja es LIGERO: completar el panel
+      // con la consulta individual (firmas + auditoría + historiales).
+      completarVehiculoPanel(placa);
       placaPendienteRef.current = null;
       return;
     }
@@ -446,6 +449,23 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     } finally {
       setCargando(false);
     }
+  };
+
+  /** (2026-10-19) La bandeja llega LIGERA (sin firmas/auditoría/historiales):
+   * el panel necesita el vehículo COMPLETO — se pide por placa (rápido: ~60
+   * firmas ≈ 0,1 s) y se intercambia apenas llega SI el usuario sigue viendo
+   * la misma placa (funcional: no pisa una selección posterior). */
+  const completarVehiculoPanel = (placaSel: string) => {
+    axios.get<{ vehicles: Vehiculo[] }>(
+      `${API_BASE}/vehiculos/obtener-vehiculos-incompletos`,
+      { params: { id_usuario: Cookies.get("seguridadId"), placa: placaSel } }
+    ).then(res => {
+      const full = (res.data.vehicles || []).find(x => x.placa?.toUpperCase() === placaSel);
+      if (full) {
+        setSeleccionado(prev =>
+          prev && prev.placa?.toUpperCase() === placaSel ? full : prev);
+      }
+    }).catch(() => { /* sigue el objeto ligero: panel sin auditoría/historial */ });
   };
 
   // Carga perezosa: solo la bandeja activa (la URL ya se leyó en el 1er render).
@@ -887,6 +907,9 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
                 pestanaInicialRef.current = null;
                 setPestanaPanel(null);
                 setSeleccionado(v);
+                // (2026-10-19) La bandeja viaja LIGERA (sin firmas ni
+                // auditoría): completar el panel con la consulta individual.
+                if (v.placa) completarVehiculoPanel(v.placa.toUpperCase());
               }}
               vacioTexto={pestanaActiva === 'aprobados' ? 'No se encontraron vehículos aprobados.' : 'No hay vehículos en esta bandeja.'}
             />
