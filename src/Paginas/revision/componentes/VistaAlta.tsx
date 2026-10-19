@@ -513,6 +513,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
                       <b> «Crear cuenta nueva»</b>.
                     </p>
                   ) : (
+                    <div className="rev-tabla-wrap">
                     <table className="rev-est-tabla revx-alta-tabla">
                       <thead>
                         <tr>
@@ -541,6 +542,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   )
                 )}
               </>
@@ -668,6 +670,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
         ) : cuentas.length === 0 ? (
           <p className="revx-alta-nota">Aún no hay cuentas creadas por Seguridad.</p>
         ) : (
+          <div className="rev-tabla-wrap">
           <table className="rev-est-tabla revx-alta-tabla">
             <thead>
               <tr>
@@ -703,6 +706,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
@@ -731,6 +735,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
         ) : sinVehiculo.length === 0 ? (
           <p className="revx-alta-nota">Todas las cuentas registradas ya tienen vehículo inscrito. ✓</p>
         ) : (
+          <div className="rev-tabla-wrap">
           <table className="rev-est-tabla revx-alta-tabla">
             <thead>
               <tr>
@@ -773,6 +778,7 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

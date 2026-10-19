@@ -174,6 +174,10 @@ const VerDocumento: React.FC<VerDocumentoProps> = ({ urls, placa, onDeleteSucces
       let deleteEndpoint = "";
       if (tipoDocumento === "fotos") {
         deleteEndpoint = `${API_BASE_URL}/eliminar-foto?placa=${placa}&url=${encodeURIComponent(urlLimpia)}`;
+      } else if (tipoDocumento === "planillaEpsArl") {
+        // Planilla multi-archivo (2026-10-19): se borra EL archivo elegido
+        // del historial (url=), no el espejo (último subido).
+        deleteEndpoint = `${API_BASE_URL}/eliminar-documento?placa=${placa}&tipo=planillaEpsArl&url=${encodeURIComponent(urlLimpia)}`;
       } else {
         deleteEndpoint = `${API_BASE_URL}/eliminar-documento?placa=${placa}&tipo=${tipoDocumento}`;
       }

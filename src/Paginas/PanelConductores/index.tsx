@@ -325,8 +325,21 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       const reutilizableDe = !cubiertoPor && !docEstaLleno(vehiculo?.[field])
         ? reutilizableDeItem(field, vehiculo)
         : undefined;
+      // Planilla en VARIOS archivos (2026-10-19): el ítem lista los archivos
+      // de la planilla VIGENTE (los del historial con el vencimiento actual,
+      // p.ej. EPS y ARL en PDFs separados) — «Ver» los recorre todos y
+      // «＋ Cargar más» suma sin borrar los ya subidos.
+      let valorCampo = vehiculo[field];
+      if (field === 'planillaEpsArl' && Array.isArray(vehiculo.documentosPlanillaSegSocial)) {
+        const venceActual = String(vehiculo.planillaVencimiento || '').slice(0, 10);
+        const rutasPlanilla = vehiculo.documentosPlanillaSegSocial
+          .filter((p: any) => !venceActual || String(p?.vence || '').slice(0, 10) === venceActual)
+          .map((p: any) => p?.ruta)
+          .filter((r: any) => r && String(r).trim());
+        if (rutasPlanilla.length > 0) valorCampo = rutasPlanilla;
+      }
       if (field && vehiculo[field]) {
-        let valor = vehiculo[field];
+        let valor = valorCampo;
         if (Array.isArray(valor)) {
           valor = valor.filter((url: any) =>
             url && url !== "null" && url !== "undefined" &&
@@ -1102,6 +1115,15 @@ const PanelConductoresVista: React.FC = () => {
             const urlLimpia = String(rawUrl).split("?")[0];
             await fetch(`${API_BASE}/vehiculos/eliminar-foto?placa=${selectedPlate}&url=${encodeURIComponent(urlLimpia)}${qsActor}`, { method: "DELETE" });
           }
+        } else if (tipo === "planillaEpsArl" && Array.isArray(item.url)) {
+          // Planilla en VARIOS archivos (2026-10-19): se borra CADA archivo
+          // del historial por su URL (el backend reasigna el espejo/vence a
+          // la más reciente restante y limpia todo con la última).
+          for (const rawUrl of item.url) {
+            const urlLimpia = String(rawUrl).split("?")[0];
+            const res = await fetch(`${API_BASE}/vehiculos/eliminar-documento?placa=${selectedPlate}&tipo=${tipo}&url=${encodeURIComponent(urlLimpia)}${qsActor}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("El servidor no pudo eliminar la planilla.");
+          }
         } else {
           const res = await fetch(`${API_BASE}/vehiculos/eliminar-documento?placa=${selectedPlate}&tipo=${tipo}${qsActor}`, { method: "DELETE" });
           if (!res.ok) throw new Error("El servidor no pudo eliminar el documento.");
@@ -1860,6 +1882,19 @@ const PanelConductoresVista: React.FC = () => {
                                                                 ＋ Cargar más
                                                             </button>
                                                         )}
+                                                        {/* Planilla de Seguridad Social (2026-10-19):
+                                                            la EPS y la ARL suelen venir en PDFs separados —
+                                                            se pueden añadir MÁS archivos sin borrar los ya
+                                                            subidos (máx. 3 por carga, una fecha por tanda). */}
+                                                        {!modoLectura && normalizeKey(item.nombre) === 'planilla de seguridad social' && (
+                                                            <button
+                                                                className="btn-doc-action upload"
+                                                                onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
+                                                                title="Agregar más archivos de la planilla (EPS/ARL) — se suman a los ya subidos"
+                                                            >
+                                                                ＋ Cargar más
+                                                            </button>
+                                                        )}
                                                         <button
                                                             className="btn-doc-action view"
                                                             title={item.reversoUrl ? 'Ver documento (gira al respaldo)' : 'Ver documento'}
@@ -2021,34 +2056,40 @@ const PanelConductoresVista: React.FC = () => {
           }
           onClose={() => setSelectedDocumento(null)}
           onUploadSuccess={(result: string | string[], urlReverso?: string) => {
-             const newSec = JSON.parse(JSON.stringify(secciones));
-             const item = newSec[selectedDocumento.sectionIndex].items[selectedDocumento.itemIndex];
-
-             item.progreso = 100;
-
-             // Doc de dos caras subido con reverso: refrescar sello del ítem
-             // (chip «Falta el reverso» fuera, botón girar disponible en Ver).
-             if (urlReverso) {
-                item.reversoUrl = urlReverso;
-                item.faltaReverso = false;
-                item.hint = undefined;
-             }
-
-             if (normalizeKey(item.nombre) === 'fotos') {
-                // Acumular SIN duplicados: si el array traía URLs repetidas
-                // (bug de numeración) o el backend devolvió una ya existente,
-                // se muestran una sola vez.
-                const previas = Array.isArray(item.url)
-                    ? item.url.filter((u: any) => u && String(u).trim() && u !== 'null' && u !== 'undefined')
-                    : (item.url ? [item.url] : []);
-                const nuevas = Array.isArray(result) ? result : [result];
-                item.url = Array.from(new Set([...previas, ...nuevas]));
-             } else {
-                 item.url = result;
-             }
-
-             setSecciones(newSec);
+             // OJO (2026-10-19): la planilla multi-archivo llama a este
+             // callback UNA VEZ POR ARCHIVO (un request cada uno) — se
+             // actualiza desde el estado PREVIO (functional) para que cada
+             // archivo se ACUMULE en vez de pisarse entre llamadas.
              setSelectedDocumento(null);
+             setSecciones(prev => {
+               const newSec = JSON.parse(JSON.stringify(prev));
+               const item = newSec[selectedDocumento.sectionIndex].items[selectedDocumento.itemIndex];
+
+               item.progreso = 100;
+
+               // Doc de dos caras subido con reverso: refrescar sello del ítem
+               // (chip «Falta el reverso» fuera, botón girar disponible en Ver).
+               if (urlReverso) {
+                  item.reversoUrl = urlReverso;
+                  item.faltaReverso = false;
+                  item.hint = undefined;
+               }
+
+               if (normalizeKey(item.nombre) === 'fotos' || normalizeKey(item.nombre) === 'planilla de seguridad social') {
+                  // Acumular SIN duplicados: si el array traía URLs repetidas
+                  // (bug de numeración) o el backend devolvió una ya existente,
+                  // se muestran una sola vez.
+                  const previas = Array.isArray(item.url)
+                      ? item.url.filter((u: any) => u && String(u).trim() && u !== 'null' && u !== 'undefined')
+                      : (item.url ? [item.url] : []);
+                  const nuevas = Array.isArray(result) ? result : [result];
+                  item.url = Array.from(new Set([...previas, ...nuevas]));
+               } else {
+                   item.url = result;
+               }
+
+               return newSec;
+             });
           }}
         />
       )}
@@ -2060,37 +2101,31 @@ const PanelConductoresVista: React.FC = () => {
             placa={selectedPlate || ""}
             onClose={() => { setVerDocumentoInfo(null); setVerDocumento(false); }}
 
-onDeleteSuccess={(urlAEliminar: any) => {
-    const newSec = JSON.parse(JSON.stringify(secciones));
-    const item = newSec[verDocumentoInfo.sectionIndex].items[verDocumentoInfo.itemIndex];
-
+onDeleteSuccess={(nuevasUrls: string[]) => {
+    // VerDocumento pasa la lista RESTANTE tras eliminar un archivo del
+    // carrusel — reflejarla tal cual en la fila (2026-10-19: antes se
+    // comparaba contra la URL "borrada" y la fila no se refrescaba).
     const normalize = (u: any) => {
         if (!u) return "";
         if (typeof u !== 'string') return String(u);
         try { return decodeURIComponent(u).trim(); } catch { return u.trim(); }
     };
+    const nuevas = (nuevasUrls || []).filter((u: any) => {
+        const valor = normalize(u);
+        return valor && valor !== "null" && valor !== "undefined";
+    });
 
-    const targetUrl = normalize(urlAEliminar);
+    const newSec = JSON.parse(JSON.stringify(secciones));
+    const item = newSec[verDocumentoInfo.sectionIndex].items[verDocumentoInfo.itemIndex];
 
-    if (Array.isArray(item.url)) {
-        const nuevasUrls = item.url.filter((u: any) => {
-            const valor = normalize(u);
-            const esBasura = !u || valor === "" || valor === "null" || valor === "undefined";
-            const esLaBorrada = valor === targetUrl;
-            return !esBasura && !esLaBorrada;
-        });
-        item.url = nuevasUrls;
-        if (nuevasUrls.length === 0) {
-            item.progreso = 0;
-            item.url = undefined;
-            setVerDocumento(false);
-            setVerDocumentoInfo(null);
-        } else {
-            setVerDocumentoInfo({ ...verDocumentoInfo, urls: nuevasUrls });
-        }
+    if (Array.isArray(item.url) && nuevas.length > 0) {
+        item.url = nuevas;
+        setVerDocumentoInfo({ ...verDocumentoInfo, urls: nuevas });
     } else {
         item.progreso = 0;
         item.url = undefined;
+        item.reversoUrl = undefined;
+        item.faltaReverso = false;
         setVerDocumento(false);
         setVerDocumentoInfo(null);
     }
