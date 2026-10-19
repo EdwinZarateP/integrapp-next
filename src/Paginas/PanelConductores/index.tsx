@@ -252,11 +252,17 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
     const v = String(vehiculo?.[k] || '').trim();
     return v && v !== 'null' && v !== 'undefined';
   });
-  // Vehículo NUEVO (modelo < 2 años, incluidos modelos del año siguiente):
-  // la Revisión Tecnomecánica no se exige (espejo de _exento_tecnomecanica
-  // del backend — pedido del usuario 2026-10-07).
+  // Vehículo NUEVO: la Revisión Tecnomecánica no se exige (espejo de
+  // _exento_tecnomecanica del backend — pedido del usuario 2026-10-07). La
+  // fuente de la verdad es la FECHA DE MATRÍCULA de la tarjeta de propiedad
+  // (2026-10-19, matriculado hace < 2 años); sin fecha se cae al modelo.
+  const matriculaTecno = String(vehiculo?.vehFechaMatricula || '').slice(0, 10);
   const modeloAnio = parseInt(String(vehiculo?.vehModelo || '').replace(/\D/g, '').slice(0, 4), 10);
-  const exentoTecno = !isNaN(modeloAnio) && modeloAnio >= new Date().getFullYear() - 1;
+  const hace2Anios = new Date();
+  hace2Anios.setFullYear(hace2Anios.getFullYear() - 2);
+  const exentoTecno = /^\d{4}-\d{2}-\d{2}$/.test(matriculaTecno)
+    ? new Date(`${matriculaTecno}T00:00:00`) > hace2Anios
+    : !isNaN(modeloAnio) && modeloAnio >= new Date().getFullYear() - 1;
   return limpias.map((sec: SeccionDocumentos) => {
     let items = sec.items;
     // Vehículo nuevo (modelo < 2 años): la tecnomecánica NI se pide NI se
@@ -296,7 +302,7 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
         ? 'Obligatoria: tu vehículo tiene remolque'
         : item.hint;
       if (field === 'revisionTecnomecanica' && exentoTecno) {
-        hintFinal = 'Opcional: vehículo nuevo (modelo de menos de 2 años)';
+        hintFinal = 'Opcional: vehículo nuevo (matriculado hace menos de 2 años)';
       }
       // ÁNGULOS de foto (2026-10-14): viven en `fotosVehiculo`, no en un
       // campo plano — una entrada por ángulo, la foto actual es su ruta.
@@ -425,7 +431,8 @@ const SECCIONES_DATOS: { titulo: string; campos: { label: string; key: string }[
     titulo: "Conductor",
     campos: [
       { label: "Nombres", key: "condNombres" },
-      { label: "Cédula", key: "condCedulaCiudadania" },
+      { label: "Tipo Documento", key: "condTipoDocumento" },
+      { label: "Cédula / No. Documento", key: "condCedulaCiudadania" },
       { label: "Celular", key: "condCelular" },
       { label: "Correo", key: "condCorreo" },
       { label: "Dirección", key: "condDireccion" },

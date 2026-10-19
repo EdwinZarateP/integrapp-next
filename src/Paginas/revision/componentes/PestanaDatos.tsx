@@ -468,7 +468,8 @@ const PestanaDatos: React.FC<{
           <Campo label="Nombre completo" ancho
                  valor={[veh.condNombres, veh.condPrimerApellido, veh.condSegundoApellido].filter(Boolean).join(' ')}
                  antes={antesDe('condNombres')} />
-          <Campo label="Cédula" valor={veh.condCedulaCiudadania} antes={antesDe('condCedulaCiudadania')} />
+          <Campo label="Cédula / No. Documento" valor={veh.condCedulaCiudadania} antes={antesDe('condCedulaCiudadania')} />
+          <Campo label="Tipo de documento" valor={veh.condTipoDocumento || 'CC'} />
           <Campo label="Fecha de nacimiento" valor={fechaDDMMAAAA(veh.condFechaNacimiento)} />
           <Campo label="Cédula expedida en" valor={veh.condExpedidaEn} />
           <Campo label="Fecha de expedición de la cédula" valor={fechaDDMMAAAA(veh.condFechaExpedicion)} />

@@ -56,7 +56,16 @@ const tieneRemolque = (v: any): boolean => CAMPOS_REMOLQUE.some((c) => {
   return Boolean(s) && s !== "null" && s !== "undefined";
 });
 
+/** Vehículo nuevo: exento de tecnomecánica. Basado en la FECHA DE MATRÍCULA
+ *  de la tarjeta de propiedad (2026-10-19, matriculado hace < 2 años); sin
+ *  fecha se cae al modelo, como antes. */
 const exentoTecnomecanica = (v: any): boolean => {
+  const matricula = String(v?.vehFechaMatricula || "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(matricula)) {
+    const hace2 = new Date();
+    hace2.setFullYear(hace2.getFullYear() - 2);
+    return new Date(`${matricula}T00:00:00`) > hace2;
+  }
   const modelo = String(v?.vehModelo || "").replace(/\D/g, "").slice(0, 4);
   if (modelo.length !== 4) return false;
   const anio = Number(modelo);
@@ -157,7 +166,7 @@ const PestanaDocumentos: React.FC<{
     if (figuras.tenedIgualProp) nota("tenedor", "El tenedor es el mismo propietario: comparten documentos de identidad.");
     if (propEmpresa) nota("propietario", "Propietario empresa (NIT): acredita identidad con el RUT.");
     if (tenedEmpresa) nota("tenedor", "Tenedor empresa (NIT): acredita identidad con el RUT.");
-    if (exentoTecnomecanica(v)) nota("vehiculo", "Vehículo nuevo (menos de 2 años): exento de tecnomecánica.");
+    if (exentoTecnomecanica(v)) nota("vehiculo", "Vehículo nuevo (matriculado hace menos de 2 años): exento de tecnomecánica.");
 
     const f: FilaDoc[] = [];
     const add = (x: FilaDoc) => f.push(x);
@@ -190,7 +199,7 @@ const PestanaDocumentos: React.FC<{
     add({ key: "tarjetaPropiedad", etiqueta: "Tarjeta de propiedad", grupo: "vehiculo", obligatorio: true, dosCaras: true, frente: v.tarjetaPropiedad, reverso: v.tarjetaPropiedadReverso, campoRecorte: "tarjetaPropiedad" });
     add({ key: "soat", etiqueta: "SOAT", grupo: "vehiculo", obligatorio: true, dosCaras: false, frente: v.soat, campoRecorte: "soat" });
     add(exentoTecnomecanica(v)
-      ? { key: "revisionTecnomecanica", etiqueta: "Revisión tecnomecánica", grupo: "vehiculo", obligatorio: false, dosCaras: false, noAplica: "Vehículo nuevo (menos de 2 años)" }
+      ? { key: "revisionTecnomecanica", etiqueta: "Revisión tecnomecánica", grupo: "vehiculo", obligatorio: false, dosCaras: false, noAplica: "Vehículo nuevo (matriculado hace menos de 2 años)" }
       : { key: "revisionTecnomecanica", etiqueta: "Revisión tecnomecánica", grupo: "vehiculo", obligatorio: true, dosCaras: false, frente: v.revisionTecnomecanica, campoRecorte: "revisionTecnomecanica" });
     // Remolque: obligatorio si hay remolque declarado; opcional-informativo si
     // el archivo existe sin declaración; sin nada → no se muestra.

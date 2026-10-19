@@ -395,6 +395,22 @@ const tiposDocumentoRut = [
   'CÉDULA DE CIUDADANÍA', 'NIT', 'CÉDULA DE EXTRANJERÍA', 'PASAPORTE', 'TARJETA DE IDENTIDAD',
 ];
 
+/* Tipo de documento de IDENTIDAD del conductor (2026-10-19): los venezolanos
+   con PPT (Permiso por Protección Temporal, documento de Migración Colombia)
+   no tienen cédula colombiana — el No. del PPT (~7 dígitos) va en el mismo
+   campo numérico y este select aclara QUÉ documento es (para el PDF, la
+   auditoría y quien revise). Default CC: los históricos son cédula. */
+const tiposDocumentoIdentidad = ['CC', 'CÉDULA DE EXTRANJERÍA', 'PPT', 'PASAPORTE'];
+
+// Aterriza el tipo leído por la IA al catálogo del select.
+const aterrizarTipoDocumentoIA = (crudo: unknown): string => {
+  const t = String(crudo || '').toUpperCase();
+  if (t.includes('PPT') || t.includes('PROTECCION TEMPORAL') || t.includes('PROTECCIÓN TEMPORAL')) return 'PPT';
+  if (t.includes('EXTRANJER')) return 'CÉDULA DE EXTRANJERÍA';
+  if (t.includes('PASAPORTE')) return 'PASAPORTE';
+  return 'CC';
+};
+
 // Aterriza el tipo de documento leído al catálogo (viene con acentos variantes).
 const normalizarTipoDocumento = (crudo: string): string => {
   const t = String(crudo).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
@@ -442,7 +458,10 @@ const mapearCedulaAPersona = (prefijo: 'prop' | 'tened' | 'RemolDueno', d: Recor
   if (nombre) nuevos[`${prefijo}Nombre`] = nombre;
   if (d.numero) {
     nuevos[`${prefijo}Documento`] = String(d.numero).replace(/\D/g, '');
-    nuevos[`${prefijo}TipoDocumento`] = 'CÉDULA DE CIUDADANÍA';
+    // (2026-10-19) El doc puede ser PPT/CE/pasaporte: aterrizar lo que la IA
+    // leyó en vez de asumir siempre cédula de ciudadanía (catálogo del RUT).
+    const tipoLeido = aterrizarTipoDocumentoIA(d.tipo_documento);
+    nuevos[`${prefijo}TipoDocumento`] = tipoLeido === 'CC' ? 'CÉDULA DE CIUDADANÍA' : tipoLeido;
   }
   // Expedición: aterrizar al catálogo para que calce con el select de ciudad
   // (y derivar el departamento, que alimenta las opciones del select).
@@ -505,6 +524,8 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
     }
     if (d.nombres) nuevos.condNombres = d.nombres;
     if (d.numero) nuevos.condCedulaCiudadania = d.numero;
+    // (2026-10-19) PPT/CE/pasaporte: el tipo leído aclara qué es el número.
+    if (d.tipo_documento) nuevos.condTipoDocumento = aterrizarTipoDocumentoIA(d.tipo_documento);
     if (d.rh) nuevos.condGrupoSanguineo = d.rh;
     if (d.fecha_nacimiento) nuevos.condFechaNacimiento = d.fecha_nacimiento;
     if (d.fecha_expedicion) nuevos.condFechaExpedicion = d.fecha_expedicion;
@@ -969,7 +990,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     // usuario: no todos tienen dos apellidos) — fuera de la lista: sin *,
     // no cuenta en el avance y no bloquea «Continuar». Las demás figuras
     // usan un campo único «Nombre/Razón», así que solo aplica al conductor.
-    'condPrimerApellido', 'condNombres', 'condCedulaCiudadania', 'condExpedidaEn', 'condDireccion',
+    'condPrimerApellido', 'condNombres', 'condTipoDocumento', 'condCedulaCiudadania', 'condExpedidaEn', 'condDireccion',
     'condCiudad', 'condCelular', 'condCorreo', 'condEps', 'condArl', 'condNoLicencia', 'condFechaVencimientoLic', 'condCategoriaLic',
     'condGrupoSanguineo', 'condNombreEmergencia', 'condCelularEmergencia', 'condParentescoEmergencia', 'condEmpresaRef', 'condCelularRef',
     'condCiudadRef', 'condNroViajesRef', 'condAntiguedadRef', 'condMercTransportada',
@@ -996,7 +1017,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     // vehículo con un solo conductor no debe exigir nada de él. Mismos campos
     // del conductor 1 (el segundo apellido también es opcional aquí).
     ...(vinculacionConductor2?.idConductor2 ? [
-      'cond2PrimerApellido', 'cond2Nombres', 'cond2CedulaCiudadania', 'cond2ExpedidaEn', 'cond2Direccion',
+      'cond2PrimerApellido', 'cond2Nombres', 'cond2TipoDocumento', 'cond2CedulaCiudadania', 'cond2ExpedidaEn', 'cond2Direccion',
       'cond2Ciudad', 'cond2Celular', 'cond2Correo', 'cond2Eps', 'cond2Arl', 'cond2NoLicencia', 'cond2FechaVencimientoLic', 'cond2CategoriaLic',
       'cond2GrupoSanguineo', 'cond2NombreEmergencia', 'cond2CelularEmergencia', 'cond2ParentescoEmergencia', 'cond2EmpresaRef', 'cond2CelularRef',
       'cond2CiudadRef', 'cond2NroViajesRef', 'cond2AntiguedadRef', 'cond2MercTransportada',
@@ -1075,6 +1096,14 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           const datosCargados = { ...loadedData };
           if (!datosCargados.vehRepotenciado || String(datosCargados.vehRepotenciado).trim() === '') {
             datosCargados.vehRepotenciado = 'No';
+          }
+          // Tipo de documento (2026-10-19): default CC — los históricos y los
+          // vehículos sin el campo son cédula; el 2º conductor solo si existe.
+          if (!String(datosCargados.condTipoDocumento || '').trim()) {
+            datosCargados.condTipoDocumento = 'CC';
+          }
+          if (datosCargados.cond2CedulaCiudadania && !String(datosCargados.cond2TipoDocumento || '').trim()) {
+            datosCargados.cond2TipoDocumento = 'CC';
           }
           // Correo de la CUENTA por defecto: entró a la plataforma con ese
           // correo, no debería digitarlo de nuevo (CONDUCTOR → condCorreo,
@@ -2154,7 +2183,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         { label: 'Primer Apellido', name: 'condPrimerApellido' },
         { label: 'Segundo Apellido', name: 'condSegundoApellido' },
         { label: 'Nombres', name: 'condNombres' },
-        { label: 'Cédula de Ciudadanía', name: 'condCedulaCiudadania' },
+        { label: 'Tipo de Documento', name: 'condTipoDocumento', options: tiposDocumentoIdentidad },
+        { label: 'No. de Documento (Cédula/PPT) *', name: 'condCedulaCiudadania' },
         { label: 'Fecha de Nacimiento', name: 'condFechaNacimiento', type: 'date' },
         { label: 'Expedida en (Ciudad) *', name: 'condExpedidaEn' },
         { label: 'Fecha de Expedición Cédula', name: 'condFechaExpedicion', type: 'date' },
@@ -2204,7 +2234,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           { label: 'Primer Apellido', name: 'cond2PrimerApellido' },
           { label: 'Segundo Apellido (opcional)', name: 'cond2SegundoApellido' },
           { label: 'Nombres', name: 'cond2Nombres' },
-          { label: 'Cédula de Ciudadanía', name: 'cond2CedulaCiudadania' },
+          { label: 'Tipo de Documento', name: 'cond2TipoDocumento', options: tiposDocumentoIdentidad },
+          { label: 'No. de Documento (Cédula/PPT) *', name: 'cond2CedulaCiudadania' },
           { label: 'Fecha de Nacimiento', name: 'cond2FechaNacimiento', type: 'date' },
           { label: 'Expedida en (Ciudad)', name: 'cond2ExpedidaEn' },
           { label: 'Fecha de Expedición Cédula', name: 'cond2FechaExpedicion', type: 'date' },

@@ -50,9 +50,17 @@ export const docLleno = (v: any): boolean => {
   return Boolean(v && String(v).trim() && String(v) !== 'null' && String(v) !== 'undefined');
 };
 
-/** Vehículo de modelo con MENOS de 2 años (incluye modelos del año
- *  siguiente): exento de Revisión Tecnomecánica (2026-10-07). */
+/** Vehículo nuevo: exento de Revisión Tecnomecánica (2026-10-07). La fuente
+ *  de la verdad es la FECHA DE MATRÍCULA de la tarjeta de propiedad
+ *  (vehFechaMatricula, 2026-10-19): exento si fue matriculado hace MENOS de
+ *  2 años; sin fecha (históricos) se cae al modelo >= año actual - 1. */
 export const exentoTecnomecanica = (veh: any): boolean => {
+  const matricula = String(veh?.vehFechaMatricula ?? '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(matricula)) {
+    const hace2 = new Date();
+    hace2.setFullYear(hace2.getFullYear() - 2);
+    return new Date(`${matricula}T00:00:00`) > hace2;
+  }
   const modelo = parseInt(String(veh?.vehModelo ?? '').replace(/\D/g, '').slice(0, 4), 10);
   if (isNaN(modelo) || modelo < 1900) return false;
   return modelo >= new Date().getFullYear() - 1;
