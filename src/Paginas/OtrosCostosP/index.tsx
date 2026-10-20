@@ -1329,7 +1329,9 @@ const OtrosCostosP: React.FC = () => {
                 )}
                 <div className="OC-field" style={{ gridColumn: '1 / -1' }}>
                   <label className="OC-label">Descripción *</label>
-                  <textarea className="OC-textarea" rows={2} value={c.descripcion} onChange={(e) => updateCosto(i, 'descripcion', e.target.value.toUpperCase())} />
+                  {/* (2026-10-20, pedido del usuario) Un poco más alta: antes
+                      rows=2 y se veía muy pequeña para escribir cómodo. */}
+                  <textarea className="OC-textarea" rows={4} value={c.descripcion} onChange={(e) => updateCosto(i, 'descripcion', e.target.value.toUpperCase())} />
                 </div>
               </div>
             ))}

@@ -89,6 +89,14 @@
   box-shadow: 0 0 0 3px rgba(0, 107, 94, .1);
 }
 
+/* (2026-10-20) La descripción de cada otro costo se veía muy pequeña: piso
+   mínimo de altura + el usuario puede estirarla si necesita más. */
+.OC-textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .OC-searchBox {
   display: flex;
   align-items: center;

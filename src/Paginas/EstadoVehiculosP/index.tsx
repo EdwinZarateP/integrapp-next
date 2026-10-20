@@ -74,6 +74,9 @@ const EstadoVehiculosP: React.FC = () => {
   // Descargables por fila (2026-10-16, fuera del modal — pedido del usuario):
   // placa cuya HV / informe financiero se está generando.
   const [generando, setGenerando] = useState<{ hv: string | null; fin: string | null }>({ hv: null, fin: null });
+  // (2026-10-20) Excel de TODA la base con los datos financieros de los
+  // actores de cada vehículo (FINANCIERO/ADMIN).
+  const [descargandoExcel, setDescargandoExcel] = useState(false);
 
   useEffect(() => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
@@ -179,6 +182,35 @@ const EstadoVehiculosP: React.FC = () => {
     }
   };
 
+  // (2026-10-20) Excel con los vehículos APROBADOS: una fila por actor de
+  // cada vehículo con sus datos financieros (identidad + cuentas bancarias).
+  // SIN enlaces — solo datos. FINANCIERO y ADMIN.
+  const descargarExcelFinanciero = async () => {
+    if (descargandoExcel) return;
+    setDescargandoExcel(true);
+    try {
+      const resp = await fetch(`${API_BASE}/vehiculos/financiero-excel?usuario=${encodeURIComponent(usuario)}`);
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        throw new Error(j.detail || 'No se pudo generar el Excel financiero.');
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const hoy = new Date().toISOString().slice(0, 10);
+      link.download = `Datos_financieros_flota_${hoy}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo generar el Excel financiero.', 'error');
+    } finally {
+      setDescargandoExcel(false);
+    }
+  };
+
   const pagina = Math.floor(skip / limit) + 1;
   const totalPaginas = Math.max(1, Math.ceil(total / limit));
 
@@ -221,6 +253,19 @@ const EstadoVehiculosP: React.FC = () => {
             <button className="EV-btnBuscar" onClick={buscar} disabled={cargando || !usuario}>
               <FaSearch /> Buscar
             </button>
+            {/* (2026-10-20) Excel con los datos financieros de los vehículos
+                APROBADOS (actores de cada uno) — FINANCIERO y ADMIN. */}
+            {['FINANCIERO', 'ADMIN'].includes(perfil) && (
+              <button
+                className="EV-btnAccion EV-btnAccion--fin"
+                onClick={descargarExcelFinanciero}
+                disabled={descargandoExcel || !usuario}
+                title="Excel con los datos financieros (bancos) de los actores de los vehículos APROBADOS — sin enlaces, solo datos"
+              >
+                {descargandoExcel ? <FaSpinner className="spin" /> : <FaFileInvoiceDollar />}
+                Excel financiero
+              </button>
+            )}
           </div>
         </div>
 

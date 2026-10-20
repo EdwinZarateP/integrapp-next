@@ -648,6 +648,8 @@ const PestanaDatos: React.FC<{
             <Campo label="Alto (m)" valor={veh.RemolAlto} />
             <Campo label="Largo (m)" valor={veh.RemolLargo} />
             <Campo label="Ancho (m)" valor={veh.RemolAncho} />
+            <Campo label="VIN" valor={veh.RemolVin} />
+            <Campo label="PBV máximo (kg)" valor={veh.RemolPbvMax} />
           </div>
           {veh.RemolDuenoDocumento && (
             <>

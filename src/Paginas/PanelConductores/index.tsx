@@ -151,7 +151,10 @@ const initialSecciones: SeccionDocumentos[] = [
         { nombre: "Foto Posterior", progreso: 0, fotoTipo: 'posterior', hint: 'La parte de atrás, completa' },
         { nombre: "Fotos", progreso: 0, opcional: true, hint: "Adicionales — hasta 10 fotos en total" },
         { nombre: "Revisión Tecnomecánica", progreso: 0 },
-        { nombre: "Tarjeta de Remolque", progreso: 0, opcional: true },
+        // (2026-10-20) Renombrada: es la Tarjeta de PROPIEDAD del remolque
+        // (campo `tarjetaRemolque`) — dos caras, se puede subir con lectura IA
+        // desde «Datos del Remolque» del paso 2 o aquí en el paso 3.
+        { nombre: "Tarjeta de Propiedad del Remolque", progreso: 0, opcional: true },
         { nombre: "Póliza de Responsabilidad Civil", progreso: 0, opcional: true },
         // La Hoja de Vida FÍSICA no se le pide al conductor (2026-10-01): la
         // sube Seguridad desde /revision solo en los casos históricos con
@@ -320,11 +323,11 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       // Documentos de dos caras: el visor «Ver» gira frente↔reverso (un solo
       // ítem por documento, sin filas «(Reverso)» separadas). TODAS las cédulas
       // (conductor/propietario/tenedor) + licencia + tarjeta de propiedad.
-      const esDosCaras = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad', 'documentoIdentidadConductor2', 'licencia2'].includes(field);
+      const esDosCaras = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad', 'tarjetaRemolque', 'documentoIdentidadConductor2', 'licencia2'].includes(field);
       const reversoUrl = esDosCaras && vehiculo[`${field}Reverso`] ? vehiculo[`${field}Reverso`] : undefined;
       // TODAS las cédulas + licencia + tarjeta exigen reverso (2026-08-27):
       // si hay frente pero no reverso, se marca para que el conductor lo complete.
-      const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad', 'documentoIdentidadConductor2', 'licencia2'].includes(field);
+      const requiereReverso = ['documentoIdentidadConductor', 'documentoIdentidadPropietario', 'documentoIdentidadTenedor', 'documentoIdentidadRemolque', 'licencia', 'tarjetaPropiedad', 'tarjetaRemolque', 'documentoIdentidadConductor2', 'licencia2'].includes(field);
       // «Cubierto por» (gemelos por dígitos) tiene precedencia sobre la
       // sugerencia de reutilización (correo/dígitos + doc del conductor).
       const cubiertoPor = figuraQueCubre(field, vehiculo);

@@ -263,6 +263,68 @@ body {
   white-space: nowrap;
 }
 
+/* ── Tabla de la bandeja (2026-10-20, pedido del usuario): títulos Placa ·
+   Conductor · Avance · Tiempo y orden asc/desc por columna (clic en el
+   título). Reemplaza las filas flex sin encabezado. ── */
+.rev-tabla-bandeja {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e2e7e4;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rev-tabla-bandeja thead th {
+  background: #f4f8f7;
+  border-bottom: 2px solid #dfe7e4;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5b6b66;
+  white-space: nowrap;
+}
+
+.rev-ord-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: inherit;
+  color: inherit;
+}
+.rev-ord-btn:hover { color: #006b77; }
+.rev-ord-btn:focus-visible { outline: 2px solid #00a5b5; outline-offset: 2px; border-radius: 4px; }
+
+/* Flecha de orden: tenue sin orden activo, sólida en la columna activa. */
+.rev-ord-flecha { opacity: 0.35; font-size: 0.8em; }
+.rev-ord-flecha--activa { opacity: 1; color: #00a5b5; }
+
+.rev-tabla-bandeja tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf1ef;
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+.rev-tabla-bandeja tbody tr:last-child td { border-bottom: none; }
+
+.rev-tfila { cursor: pointer; transition: background 0.12s ease; }
+.rev-tfila:hover { background: #f7fbfb; }
+.rev-tfila--activa {
+  background: #f0fafb;
+  box-shadow: inset 3px 0 0 #00a5b5;
+}
+
+/* Dentro de la tabla las celdas heredan el look de placa/conductor/avance/
+   tiempo sin el layout flex de las filas viejas. */
+.rev-tabla-bandeja .rev-fila-conductor { display: table-cell; }
+.rev-tabla-bandeja .rev-fila-tiempo { display: inline-block; }
+.rev-tabla-bandeja .rev-fila-avance { white-space: nowrap; }
+
 .rev-vacio {
   color: #8a94a0;
   text-align: center;

@@ -611,6 +611,40 @@ const MAPEOS_IA: Record<string, (d: Record<string, any>) => Record<string, strin
     if (d.propietario_documento) nuevos.propDocumento = String(d.propietario_documento).replace(/\D/g, '');
     return nuevos;
   },
+  // Tarjeta de Propiedad del REMOLQUE (2026-10-20): se sube dentro de «Datos
+  // del Remolque» (paso 2). Las medidas TOTALES vienen impresas en
+  // MILÍMETROS (ej: LARGO TOTAL 13000 mm) pero el formulario las guarda en
+  // METROS — se convierten (> 50 ⇒ mm → /1000, 2 decimales; ≤ 50 ⇒ ya viene
+  // en metros). La identificación del propietario alimenta la comparación
+  // contra la cédula del dueño (ver leerDocumentoConIA).
+  tarjeta_propiedad_remolque: (d) => {
+    const nuevos: Record<string, string> = {};
+    if (d.placa) nuevos.RemolPlaca = String(d.placa).toUpperCase().replace(/[\s-]/g, '').slice(0, 10);
+    if (d.ano_modelo) nuevos.RemolModelo = String(d.ano_modelo).slice(0, 4);
+    if (d.clase) nuevos.RemolClase = d.clase.toUpperCase();
+    if (d.tipo_carroceria) nuevos.RemolTipoCarroceria = d.tipo_carroceria.toUpperCase();
+    // mm → m: la tarjeta imprime "LARGO TOTAL 13000 mm". Un valor ≤ 50 ya
+    // viene en metros (defensa si la IA lo normaliza sola).
+    const aMetros = (v: unknown): string | null => {
+      const n = Number(String(v ?? '').replace(/[^\d.]/g, ''));
+      if (!Number.isFinite(n) || n <= 0) return null;
+      const metros = n > 50 ? Math.round((n / 1000) * 100) / 100 : n;
+      return (metros >= 1 && metros <= 50) ? String(metros) : null;
+    };
+    const largo = aMetros(d.largo_total_mm);
+    const ancho = aMetros(d.ancho_total_mm);
+    const alto = aMetros(d.alto_total_mm);
+    if (largo) nuevos.RemolLargo = largo;
+    if (ancho) nuevos.RemolAncho = ancho;
+    if (alto) nuevos.RemolAlto = alto;
+    // (2026-10-20) VIN (alfanumérico, mayúsculas) y PBV máximo (solo dígitos).
+    if (d.vin) nuevos.RemolVin = String(d.vin).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 25);
+    const pbv = parseInt(String(d.pbv_maximo ?? '').replace(/\D/g, ''), 10);
+    if (pbv > 0) nuevos.RemolPbvMax = String(pbv);
+    if (d.propietario_nombre) nuevos.RemolDuenoNombre = d.propietario_nombre.toUpperCase();
+    if (d.propietario_documento) nuevos.RemolDuenoDocumento = String(d.propietario_documento).replace(/\D/g, '');
+    return nuevos;
+  },
   soat: (d) => {
     const nuevos: Record<string, string> = {};
     if (d.aseguradora) nuevos.vehAseguradoraSoat = aterrizarAseguradora(d.aseguradora);
@@ -632,11 +666,51 @@ MAPEOS_IA.certificado_bancario_cond2 = (d) => aCamposConductor2(MAPEOS_IA.certif
 
 // Traducción: tipo de SUBIDA (clave con que el backend guarda lecturasIA)
 // → clave de MAPEOS_IA (para autollenar el formulario al montar).
+/* Identidad propietario ↔ cédula (2026-10-20, espejo del bloqueo 409 del
+   backend): la identificación del propietario que trae la tarjeta de
+   propiedad (del VEHÍCULO o del REMOLQUE) debe coincidir con el número de
+   documento de la figura — en CUALQUIER orden de subida. Si difieren, NO se
+   sube el documento (Swal rojo); si coincide, aviso ✓ en el Swal final.
+   Figura NIT/empresa: sin cédula que comparar → se omite. */
+const compararIdentidadPropietario = (
+  tipoLectura: string,
+  datos: Record<string, any> | null,
+  fd: Record<string, string>,
+): { error?: string; ok?: string } => {
+  if (!datos) return {};
+  const digitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+  // [tipoLectura, clave de la lectura, campo del formulario, rol, campo tipo-doc]
+  const pares: Array<[string, string, string, string, string]> = [
+    ['tarjeta_propiedad_remolque', 'propietario_documento', 'RemolDuenoDocumento', 'dueño del remolque', 'RemolDuenoTipoDocumento'],
+    ['cedula_remolque', 'numero', 'RemolDuenoDocumento', 'dueño del remolque', 'RemolDuenoTipoDocumento'],
+    ['tarjeta_propiedad', 'propietario_documento', 'propDocumento', 'propietario', 'propTipoDocumento'],
+    ['cedula_propietario', 'numero', 'propDocumento', 'propietario', 'propTipoDocumento'],
+  ];
+  const par = pares.find(([t]) => t === tipoLectura);
+  if (!par) return {};
+  const [, claveLectura, campoForm, rol, campoTipoDoc] = par;
+  if (String(fd[campoTipoDoc] ?? '').toUpperCase().includes('NIT')) return {};
+  const leido = digitos(datos[claveLectura]);
+  const conocido = digitos(fd[campoForm]);
+  if (!leido || !conocido) return {}; // sin contraparte: se cubre al subir el otro
+  if (leido !== conocido) {
+    return {
+      error: (
+        `La identificación del documento que subiste (<b>${leido}</b>) no coincide ` +
+        `con el número de documento del ${rol} ya registrado (<b>${conocido}</b>).<br/><br/>` +
+        `No lo subimos: vuelve a subir el documento correcto, o corrige el otro documento/dato.`
+      ),
+    };
+  }
+  return { ok: `✓ La identificación del propietario coincide con el documento del ${rol} (${leido}).` };
+};
+
 const LECTURA_SUBIDA_A_MAPEO: Record<string, string> = {
   documentoIdentidadConductor: 'cedula',
   documentoIdentidadPropietario: 'cedula_propietario',
   documentoIdentidadTenedor: 'cedula_tenedor',
   documentoIdentidadRemolque: 'cedula_remolque',
+  tarjetaRemolque: 'tarjeta_propiedad_remolque',
   // SEGUNDO CONDUCTOR (2026-10-14): lecturas guardadas al subir sus docs
   // en el paso 3 se aplican a los campos cond2* al montar el paso 2.
   documentoIdentidadConductor2: 'cedula_cond2',
@@ -662,6 +736,9 @@ const LECTURA_IA_A_TIPO_SUBIDA: Record<string, string> = {
   cedula_propietario: 'documentoIdentidadPropietario',
   cedula_tenedor: 'documentoIdentidadTenedor',
   cedula_remolque: 'documentoIdentidadRemolque',
+  // Tarjeta de Propiedad del REMOLQUE (2026-10-20): dos caras, dentro de la
+  // sección «Datos del Remolque» del paso 2 (misma cajita que la cédula).
+  tarjeta_propiedad_remolque: 'tarjetaRemolque',
   // RUT: complemento (dirección, ciudad, correo, fechas, NIT) — también se
   // pueden subir en el paso 3 y su lectura se aplica aquí al montar.
   rut_tenedor: 'rutTenedor',
@@ -703,6 +780,11 @@ const OPCIONES_LECTURA_IA: Array<{ tipo: string; esquema: string; etiqueta: stri
   // Dueño del remolque (2026-10-05): opcional — su cédula entra al estudio
   // de seguridad cuando el remolque aplica.
   { tipo: 'cedula_remolque', esquema: 'cedula', etiqueta: '🪪 Cédula del dueño del remolque' },
+  // Tarjeta de Propiedad del remolque (2026-10-20): llena los datos del
+  // remolque (medidas mm→m) y compara la identificación del propietario con
+  // la cédula del dueño. Vive DENTRO de la sección del remolque (se filtra
+  // de la tarjeta ⚡ superior, igual que la cédula del remolque).
+  { tipo: 'tarjeta_propiedad_remolque', esquema: 'tarjeta_propiedad_remolque', etiqueta: '🚛 Tarjeta de Propiedad del Remolque' },
   { tipo: 'rut_tenedor', esquema: 'rut', etiqueta: '📊 RUT del tenedor', soloPdf: true },
   // (2026-08-31) Sin «RUT del propietario»: ese documento dejó de pedirse
   // por completo (orden del usuario).
@@ -849,7 +931,10 @@ const refAdicionalVacia = (): Record<string, string> => ({
    obligatorios (2026-10-06); el dueño queda a discreción (su correo solo se
    exige si se diligencia el dueño). ── */
 const REMOL_FIELDS_VEHICULO = ['RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria', 'RemolAlto', 'RemolLargo', 'RemolAncho'];
-const REMOL_FIELDS = [...REMOL_FIELDS_VEHICULO,
+// (2026-10-20) VIN y PBV máximo del remolque: los lee la 🚛 Tarjeta de
+// Propiedad; OPCIONALES (no bloquean «Continuar», históricos intactos).
+const REMOL_FIELDS_EXTRAS = ['RemolVin', 'RemolPbvMax'];
+const REMOL_FIELDS = [...REMOL_FIELDS_VEHICULO, ...REMOL_FIELDS_EXTRAS,
   // Dueño del remolque (2026-10-05): identidad mínima; su cédula (foto en la
   // tarjeta IA) alimenta el estudio de seguridad como rol «Dueño remolque».
   'RemolDuenoNombre', 'RemolDuenoTipoDocumento', 'RemolDuenoDocumento', 'RemolDuenoCiudadExpDoc',
@@ -1060,6 +1145,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
             ...Object.values(LECTURA_IA_A_TIPO_SUBIDA),
             'documentoIdentidadConductorReverso', 'licenciaReverso', 'tarjetaPropiedadReverso',
             'documentoIdentidadPropietarioReverso', 'documentoIdentidadTenedorReverso',
+            // Reversos del remolque (2026-10-20): la cédula del dueño y la nueva
+            // tarjeta de propiedad — sin ellos el ✓ del botón desaparecía al
+            // recargar aunque el reverso SÍ estuviera guardado.
+            'documentoIdentidadRemolqueReverso', 'tarjetaRemolqueReverso',
           ];
           const subidos: Record<string, string> = {};
           tiposSubidaIA.forEach((tipo) => {
@@ -1283,7 +1372,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (!mapear) return;
     // Reverso OBLIGATORIO para TODOS los docs de dos caras (cédulas, licencia
     // y tarjeta de propiedad — siempre frente y reverso, sin excepciones).
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(tipoLectura) && archivos.length < 2) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad', 'tarjeta_propiedad_remolque'].includes(tipoLectura) && archivos.length < 2) {
       Swal.fire({
         icon: 'warning',
         title: 'Falta el reverso',
@@ -1323,7 +1412,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       // Documentos de DOS caras (cédulas de conductor/propietario/tenedor,
       // licencia, tarjeta de propiedad): leer frente+reverso con IA y subir
       // el frente como documento oficial.
-      const esDosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(tipoLectura);
+      const esDosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad', 'tarjeta_propiedad_remolque'].includes(tipoLectura);
 
       if (esDosCaras) {
         // 1) Lectura con IA (frente + reverso opcional).
@@ -1365,14 +1454,8 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
             await Swal.fire({ icon: 'error', title: 'PDF con contraseña', html: error.message, confirmButtonColor: '#d33' });
             return;
           }
-          // Nequi/Daviplata (2026-10-16): NO se aceptan como certificación
-          // bancaria — rechazo duro del backend, nunca se guarda (sin escape
-          // «adjuntar de todos modos»: es política, no legibilidad).
-          if (error?.message?.includes('Nequi')) {
-            setLeyendoCedula(false);
-            await Swal.fire({ icon: 'error', title: 'Cuenta no aceptada', html: error.message, confirmButtonColor: '#d33' });
-            return; // NO subir el archivo.
-          }
+          // (Nequi/Daviplata se rechazaban 2026-10-16; RE-HABILITADOS
+          // 2026-10-20 por orden del usuario — suben como cualquier banco.)
           // Ilegible (2026-10-15): ya NO se guarda silenciosamente — se pide
           // confirmación explícita; si acepta, sube SIN lectura IA.
           if (error?.message?.includes('No se logró leer')) {
@@ -1396,6 +1479,25 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
             if (error?.message) avisos = [error.message];
             lecturaFallida = true;
           }
+        }
+
+        // (2026-10-20) Identidad propietario ↔ cédula (tarjeta del remolque /
+        // tarjeta del vehículo vs cédula de la figura, en cualquier orden):
+        // si la lectura no coincide con el documento ya registrado, NO se
+        // sube nada (el backend también bloquea con 409 — doble barrera).
+        if (datos) {
+          const identidad = compararIdentidadPropietario(tipoLectura, datos, formData);
+          if (identidad.error) {
+            setLeyendoCedula(false);
+            await Swal.fire({
+              icon: 'error',
+              title: 'La identificación no coincide',
+              html: identidad.error,
+              confirmButtonColor: '#d33',
+            });
+            return; // NO subir el archivo.
+          }
+          if (identidad.ok) avisos = [...avisos, identidad.ok];
         }
 
         // 2) Subir el FRENTE como documento oficial (+ REVERSO si lo hay).
@@ -1555,7 +1657,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     // Documentos de DOS caras OBLIGATORIAS (todas las cédulas, licencia y
     // tarjeta de propiedad — 2026-08-27, orden del usuario: siempre reverso):
     // tras el frente se pide el reverso inmediatamente, sin poder saltarlo.
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(opcion.tipo)) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad', 'tarjeta_propiedad_remolque'].includes(opcion.tipo)) {
       setLeyendoCedula(false); // El Swal del reverso manda; no dejar el overlay pegado.
       Swal.fire({
         icon: 'info',
@@ -1868,7 +1970,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     if (!tipo) return;
     const opcion = OPCIONES_LECTURA_IA.find(o => o.tipo === tipo);
     if (!opcion) return;
-    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(tipo)) {
+    if (['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad', 'tarjeta_propiedad_remolque'].includes(tipo)) {
       Swal.fire({
         icon: 'info',
         title: 'Ahora el REVERSO',
@@ -1914,7 +2016,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
     // Reversos de documentos de dos caras (mismo blindaje que sus frentes).
     'documentoIdentidadConductorReverso', 'documentoIdentidadPropietarioReverso',
     'documentoIdentidadTenedorReverso', 'documentoIdentidadRemolqueReverso',
-    'licenciaReverso', 'tarjetaPropiedadReverso',
+    'licenciaReverso', 'tarjetaPropiedadReverso', 'tarjetaRemolqueReverso',
     // Sello de la firma electrónica: solo /vehiculos/firmar lo escribe.
     'firmaEvidencia',
   ];
@@ -2381,6 +2483,10 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
         { label: 'Alto (m)', name: 'RemolAlto', type: 'number', inputProps: { min: 1, max: REMOL_DIM_MAX } },
         { label: 'Largo (m)', name: 'RemolLargo', type: 'number', inputProps: { min: 1, max: REMOL_DIM_MAX } },
         { label: 'Ancho (m)', name: 'RemolAncho', type: 'number', inputProps: { min: 1, max: REMOL_DIM_MAX } },
+        // (2026-10-20, pedido del usuario) VIN y PBV máximo: los lee la 🚛
+        // Tarjeta de Propiedad del Remolque. Opcionales.
+        { label: 'VIN Remolque', name: 'RemolVin', inputProps: { maxLength: 25 } },
+        { label: 'PBV Máximo (kg)', name: 'RemolPbvMax', type: 'number', inputProps: { min: 0 } },
         // Dueño del remolque: identidad mínima (la cédula se fotografía en la
         // tarjeta IA — mismo patrón de frente+reverso que el conductor).
         { label: 'Nombre del Dueño', name: 'RemolDuenoNombre' },
@@ -2805,11 +2911,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
           </span>
         </div>
         <div className="Datos-iaCedula-acciones">
-          {/* La cédula del dueño del remolque NO vive aquí (2026-10-06, pedido
-              del usuario): se muestra DENTRO de la sección «Datos del Remolque
-              (Opcional)», donde tiene sentido — solo cuando hay remolque. */}
+          {/* La cédula del dueño del remolque y la 🚛 Tarjeta de Propiedad del
+              Remolque NO viven aquí (patrón 2026-10-06): se muestran DENTRO de
+              la sección «Datos del Remolque (Opcional)», donde tienen sentido —
+              solo cuando hay remolque. */}
           {OPCIONES_LECTURA_IA
             .filter(opcion => opcion.tipo !== 'cedula_remolque'
+              && opcion.tipo !== 'tarjeta_propiedad_remolque'
               && (!opcion.soloConductor2 || cond2Visible))
             .map(opcion => {
             const tipoSubida = opcion.tipo === 'cedula'
@@ -2817,7 +2925,7 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
               : LECTURA_IA_A_TIPO_SUBIDA[opcion.tipo];
             // TODAS las cédulas + licencia + tarjeta: dos caras OBLIGATORIAS
             // (el ✓ exige frente y reverso).
-            const dosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad'].includes(opcion.tipo);
+            const dosCaras = ['cedula', 'cedula_propietario', 'cedula_tenedor', 'cedula_remolque', 'cedula_cond2', 'licencia', 'licencia_cond2', 'tarjeta_propiedad', 'tarjeta_propiedad_remolque'].includes(opcion.tipo);
             // Dos caras obligatorias: el ✓ solo con FRENTE y REVERSO subidos.
             const listo = Boolean(
               tipoSubida && docsSubidos[tipoSubida]
@@ -2975,11 +3083,57 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
                         sección (pedido del usuario 2026-10-06) — sube
                         frente+reverso con lectura IA (mismo flujo de los
                         demás actores) o REUTILIZA la de otra figura («es la
-                        misma persona», sin gastar IA). Solo dueño PERSONA. */}
-                    {!soloLectura && !remolqueEsEmpresa && (
+                        misma persona», sin gastar IA). Solo dueño PERSONA.
+                        Debajo, la 🚛 Tarjeta de Propiedad del Remolque
+                        (2026-10-20): dos caras, llena los datos del remolque
+                        (medidas mm→m) y compara la identificación del
+                        propietario con la cédula del dueño (bloquea si no
+                        coincide). La tarjeta aplica TAMBIÉN con dueño NIT. */}
+                    {!soloLectura && (
                       <div className="Datos-remolque-doc">
+                        {!remolqueEsEmpresa && (
+                          (() => {
+                            const tipoSubida = 'documentoIdentidadRemolque';
+                            const listo = Boolean(
+                              docsSubidos[tipoSubida] && docsSubidos[`${tipoSubida}Reverso`]);
+                            return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  className={`Datos-iaDoc-boton ${listo ? 'Datos-iaDoc-listo' : ''}`}
+                                  onClick={() => solicitarLecturaDocumento('cedula_remolque')}
+                                  disabled={leyendoCedula}
+                                  title={listo
+                                    ? 'Documento cargado — toca para reemplazarlo'
+                                    : 'Frente y reverso: se guarda y llena los datos del dueño con IA'}
+                                >
+                                  <span className="Datos-iaDoc-texto">🪪 Cédula del dueño del remolque</span>
+                                  {listo && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
+                                </button>
+                                {listo && (
+                                  <button
+                                    type="button"
+                                    className="Datos-iaDoc-ver"
+                                    onClick={() => {
+                                      setVerCaraIA({
+                                        frente: docsSubidos[tipoSubida],
+                                        reverso: docsSubidos[`${tipoSubida}Reverso`],
+                                        etiqueta: 'Cédula del dueño del remolque',
+                                      });
+                                    }}
+                                    title={docsSubidos[`${tipoSubida}Reverso`]
+                                      ? 'Ver el documento (gira al respaldo)'
+                                      : 'Ver el documento subido (foto o PDF)'}
+                                  >
+                                    👁
+                                  </button>
+                                )}
+                              </span>
+                            );
+                          })()
+                        )}
                         {(() => {
-                          const tipoSubida = 'documentoIdentidadRemolque';
+                          const tipoSubida = 'tarjetaRemolque';
                           const listo = Boolean(
                             docsSubidos[tipoSubida] && docsSubidos[`${tipoSubida}Reverso`]);
                           return (
@@ -2987,13 +3141,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
                               <button
                                 type="button"
                                 className={`Datos-iaDoc-boton ${listo ? 'Datos-iaDoc-listo' : ''}`}
-                                onClick={() => solicitarLecturaDocumento('cedula_remolque')}
+                                onClick={() => solicitarLecturaDocumento('tarjeta_propiedad_remolque')}
                                 disabled={leyendoCedula}
                                 title={listo
-                                  ? 'Documento cargado — toca para reemplazarlo'
-                                  : 'Frente y reverso: se guarda y llena los datos del dueño con IA'}
+                                  ? 'Tarjeta cargada — toca para reemplazarla'
+                                  : 'Frente y reverso: se guarda y llena placa/modelo/clase/medidas del remolque con IA'}
                               >
-                                <span className="Datos-iaDoc-texto">🪪 Cédula del dueño del remolque</span>
+                                <span className="Datos-iaDoc-texto">🚛 Tarjeta de Propiedad del Remolque</span>
                                 {listo && <span className="Datos-iaDoc-badge" title="Documento cargado">✓</span>}
                               </button>
                               {listo && (
@@ -3004,12 +3158,12 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
                                     setVerCaraIA({
                                       frente: docsSubidos[tipoSubida],
                                       reverso: docsSubidos[`${tipoSubida}Reverso`],
-                                      etiqueta: 'Cédula del dueño del remolque',
+                                      etiqueta: 'Tarjeta de Propiedad del Remolque',
                                     });
                                   }}
                                   title={docsSubidos[`${tipoSubida}Reverso`]
-                                    ? 'Ver el documento (gira al respaldo)'
-                                    : 'Ver el documento subido (foto o PDF)'}
+                                    ? 'Ver la tarjeta (gira al respaldo)'
+                                    : 'Ver la tarjeta subida (foto o PDF)'}
                                 >
                                   👁
                                 </button>
@@ -3018,8 +3172,13 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
                           );
                         })()}
                         <span style={{ fontSize: '0.78rem', color: '#5a6472' }}>
-                          Foto frente y reverso: se guarda y llena los datos del dueño con IA.
-                          Si es la misma persona del conductor/propietario/tenedor, te ofrecemos reutilizar su cédula.
+                          {!remolqueEsEmpresa && (
+                            <>Cédula: foto frente y reverso — se guarda y llena los datos del dueño con IA.
+                            Si es la misma persona del conductor/propietario/tenedor, te ofrecemos reutilizar su cédula.<br/></>
+                          )}
+                          Tarjeta: frente y reverso — llena placa, modelo, clase, carrocería y medidas (viene en
+                          milímetros, se guarda en metros). La identificación del propietario se compara con la
+                          cédula del dueño y se bloquea si no coinciden.
                         </span>
                       </div>
                     )}

@@ -204,7 +204,10 @@ const PestanaDocumentos: React.FC<{
     // Remolque: obligatorio si hay remolque declarado; opcional-informativo si
     // el archivo existe sin declaración; sin nada → no se muestra.
     if (conRemolque || docLleno(v, "tarjetaRemolque")) {
-      add({ key: "tarjetaRemolque", etiqueta: "Tarjeta del remolque", grupo: "vehiculo", obligatorio: conRemolque, dosCaras: false, frente: v.tarjetaRemolque, nota: conRemolque ? undefined : "Sin remolque declarado", campoRecorte: "tarjetaRemolque" });
+      // Tarjeta de Propiedad del remolque (2026-10-20): DOS CARAS — el reverso
+      // trae organismo de tránsito y fechas. Se sube con lectura IA desde
+      // «Datos del Remolque» del paso 2 (o aquí para Seguridad).
+      add({ key: "tarjetaRemolque", etiqueta: "Tarjeta de propiedad del remolque", grupo: "vehiculo", obligatorio: conRemolque, dosCaras: true, frente: v.tarjetaRemolque, reverso: v.tarjetaRemolqueReverso, nota: conRemolque ? undefined : "Sin remolque declarado", campoRecorte: "tarjetaRemolque" });
     }
     // 4 ángulos exigidos (2026-10-14).
     const angulos: Array<[string, string]> = [

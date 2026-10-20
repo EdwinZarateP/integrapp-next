@@ -15,6 +15,12 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     "soat": `${API_BASE_URL}/subir-documento`,
     "Revisión Tecnomecánica": `${API_BASE_URL}/subir-documento`,
     "Tarjeta de Remolque": `${API_BASE_URL}/subir-documento`,
+    // (2026-10-20) Renombrada en el paso 3: es la Tarjeta de PROPIEDAD del
+    // remolque (la misma `tarjetaRemolque`, ahora con lectura IA de dos caras
+    // desde la sección «Datos del Remolque» del paso 2). El nombre viejo
+    // queda como alias de compatibilidad.
+    "Tarjeta de Propiedad del Remolque": `${API_BASE_URL}/subir-documento`,
+    "Tarjeta de Propiedad del Remolque (Reverso)": `${API_BASE_URL}/subir-documento`,
     "Fotos": `${API_BASE_URL}/subir-fotos`,
     // Ángulos de foto del vehículo (2026-10-14): el mismo endpoint con
     // foto_tipo en el body (una foto por ángulo, re-subirla la reemplaza).
@@ -62,6 +68,8 @@ export const tiposMapping: Record<string, string> = Object.fromEntries(
     "soat": "soat",
     "Revisión Tecnomecánica": "revisionTecnomecanica",
     "Tarjeta de Remolque": "tarjetaRemolque",
+    "Tarjeta de Propiedad del Remolque": "tarjetaRemolque",
+    "Tarjeta de Propiedad del Remolque (Reverso)": "tarjetaRemolqueReverso",
     "Fotos": "fotos",
     // Ángulos (2026-10-14): mapean a "fotos" para que el flujo de ELIMINAR
     // del paso 3 (rama eliminar-foto) los trate igual que las fotos.
