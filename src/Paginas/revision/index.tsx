@@ -371,8 +371,12 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // `busqueda` = lo tecleado; `busquedaConfirmada` = lo APLICADO. El filtro
+  // NO se dispara al teclear: se confirma con el botón «Buscar» (o Enter)
+  // en TODAS las bandejas (2026-10-21, pedido del usuario — mismo patrón
+  // que ya tenía Aprobados: busca en la base completa, esta filtra la bandeja).
   const [busqueda, setBusqueda] = useState("");
-  const [busquedaAprobadosEnVuelo, setBusquedaAprobadosEnVuelo] = useState("");
+  const [busquedaConfirmada, setBusquedaConfirmada] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const vehiclesPerPage = 20;
 
@@ -493,17 +497,17 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   useEffect(() => {
     if (vista !== 'bandejas' || pestanaActiva !== "aprobados") return;
     if (placaPendienteRef.current && !seleccionado) return; // primero el panel
-    fetchAprobados(busquedaAprobadosEnVuelo);
+    fetchAprobados(busquedaConfirmada);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vista, pestanaActiva, busquedaAprobadosEnVuelo, seleccionado, tickPopstate]);
+  }, [vista, pestanaActiva, busquedaConfirmada, seleccionado, tickPopstate]);
 
   /* ---------------------------------------------------------------- */
   /* BÚSQUEDA Y PAGINACIÓN                                            */
   /* ---------------------------------------------------------------- */
 
   const filtrarLocales = (lista: Vehiculo[]) => {
-    if (!busqueda) return lista;
-    const q = busqueda.toLowerCase();
+    if (!busquedaConfirmada) return lista;
+    const q = busquedaConfirmada.toLowerCase();
     return lista.filter(veh =>
       veh.placa?.toLowerCase().includes(q) ||
       veh.condCedulaCiudadasia?.toString().toLowerCase().includes(q)
@@ -513,7 +517,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   const listaActiva = useMemo(() => (
     pestanaActiva === "aprobados" ? vehiculosAprobados : filtrarLocales(listaBandeja)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [pestanaActiva, busqueda, listaBandeja, vehiculosAprobados]);
+  ), [pestanaActiva, busquedaConfirmada, listaBandeja, vehiculosAprobados]);
 
   // PADRINO (2026-10-15): placas adoptadas por el padrino logueado (★) y el
   // filtro «Solo mis placas» de las bandejas.
@@ -535,7 +539,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listaVisible, currentPage, pestanaActiva, vehiclesPerPage]);
 
-  useEffect(() => { setCurrentPage(1); }, [pestanaActiva, busqueda, busquedaAprobadosEnVuelo]);
+  useEffect(() => { setCurrentPage(1); }, [pestanaActiva, busquedaConfirmada]);
 
   /* ---------------------------------------------------------------- */
   /* ACCIONES                                                         */
@@ -602,7 +606,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     cacheBandejasRef.current = {};
     limpiarCacheBandejasSesion();
     const frescos = pestanaActiva === "aprobados"
-      ? await fetchAprobados(busquedaAprobadosEnVuelo)
+      ? await fetchAprobados(busquedaConfirmada)
       : await cargarBandeja(Cookies.get("seguridadId") || "", pestanaActiva, true);
     // Re-apertura con el objeto FRESCO (por si el cambio movió de bandeja, se
     // busca en la lista nueva; si no está, el mecanismo de placa pendiente la
@@ -618,7 +622,7 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
     }
   };
 
-  const ejecutarBusquedaAprobados = () => setBusquedaAprobadosEnVuelo(busqueda.trim());
+  const ejecutarBusqueda = () => setBusquedaConfirmada(busqueda.trim());
 
   // Contador de la bandeja ACTIVA (vive junto al título del módulo, ya NO en
   // la sidebar): total de la bandeja cargada, sin el filtro de búsqueda local.
@@ -855,29 +859,31 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
           <section className="revx-tarjeta revx-bandeja">
             <div className="rev-toolbar">
               <div className="rev-busqueda">
-                <FaSearch className="rev-busqueda-icono" aria-hidden="true" />
-                <input
-                  type="text"
-                  className="rev-input-busqueda"
-                  placeholder={pestanaActiva === "aprobados" ? "Buscar en la base por placa o cédula…" : "Filtrar por placa o cédula…"}
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && pestanaActiva === 'aprobados') ejecutarBusquedaAprobados(); }}
-                />
-                {busqueda && (
-                  <button
-                    className="rev-btn-clear"
-                    title="Limpiar"
-                    onClick={() => { setBusqueda(""); if (pestanaActiva === 'aprobados') setBusquedaAprobadosEnVuelo(""); }}
-                  >
-                    <FaTimes />
-                  </button>
-                )}
-                {pestanaActiva === "aprobados" && (
-                  <button className="rev-btn-buscar" onClick={ejecutarBusquedaAprobados}>
-                    Buscar
-                  </button>
-                )}
+                {/* El campo (input + lupa + ✕) va en su wrapper propio: la ✕
+                    se posiciona dentro del CAMPO y no se monta sobre «Buscar». */}
+                <div className="rev-busqueda-campo">
+                  <FaSearch className="rev-busqueda-icono" aria-hidden="true" />
+                  <input
+                    type="text"
+                    className="rev-input-busqueda"
+                    placeholder={pestanaActiva === "aprobados" ? "Buscar en la base por placa o cédula…" : "Buscar en la bandeja por placa o cédula…"}
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') ejecutarBusqueda(); }}
+                  />
+                  {busqueda && (
+                    <button
+                      className="rev-btn-clear"
+                      title="Limpiar"
+                      onClick={() => { setBusqueda(""); setBusquedaConfirmada(""); }}
+                    >
+                      <FaTimes />
+                    </button>
+                  )}
+                </div>
+                <button className="rev-btn-buscar" onClick={ejecutarBusqueda}>
+                  Buscar
+                </button>
               </div>
               {pestanaActiva === "aprobados" && (
                 <button

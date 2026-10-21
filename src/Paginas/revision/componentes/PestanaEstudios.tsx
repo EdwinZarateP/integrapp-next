@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import Cookies from "js-cookie";
 import { FaChevronDown, FaFilePdf, FaRedo, FaShieldAlt, FaSyncAlt, FaUpload } from "react-icons/fa";
 import { Vehiculo, EstudioAuto } from "../tipos";
 import TarjetaHabeasData from "./TarjetaHabeasData";
@@ -259,7 +260,12 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
     });
     if (!ok.isConfirmed) return;
     try {
-      await axios.post(`${API_BASE}/vehiculos/estudios-seguridad/${veh.placa}/disparar`);
+      // `usuario` (2026-10-21): queda sellado en cada estudio para que el
+      // historial muestre QUIÉN disparó la corrida (o si fue automática).
+      await axios.post(
+        `${API_BASE}/vehiculos/estudios-seguridad/${veh.placa}/disparar`,
+        null,
+        { params: { usuario: Cookies.get("seguridadNombre") || undefined } });
       await cargar();
       iniciarSondeo();
       Swal.fire({ title: 'Estudios en curso', text: 'Los resultados aparecen automáticamente en unos minutos.', icon: 'success', timer: 2500, showConfirmButton: false });
@@ -545,6 +551,10 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
           semClase: string; semTexto: string; url: string;
           /** Estudio automático (apertura con manejo de expiración). */
           estudio?: EstudioAuto;
+          /** Quién disparó la corrida (2026-10-21): 'Automático' | usuario | '—'. */
+          origen?: string;
+          /** true = corrida manual de un usuario de Seguridad. */
+          origenManual?: boolean;
         }
         const filas: Fila[] = [];
         documentos.forEach((d, i) => {
@@ -562,6 +572,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
           .filter(e => e.reporte_id)
           .forEach(e => {
             const sem = semaforoEstudio({ ...e, estado: 'finalizado' });
+            const manual = e.canal === 'manual';
             filas.push({
               key: `${e.id ?? ''}-${e.reporte_id}`,
               fecha: e.finalizado_en || e.iniciado_en,
@@ -571,6 +582,9 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
               semClase: sem.clase, semTexto: sem.texto,
               url: urlReporte(e, veh.placa),
               estudio: e,
+              // Corridas previas al 2026-10-21 no traen sello: '—'.
+              origen: e.canal ? (manual ? (e.disparado_por || 'Seguridad') : 'Automático (plataforma)') : '—',
+              origenManual: manual,
             });
           });
         filas.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
@@ -585,6 +599,7 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                   <th>Antigüedad</th>
                   <th>Sujeto</th>
                   <th>Resultado</th>
+                  <th>Disparado por</th>
                   <th></th>
                 </tr>
               </thead>
@@ -598,6 +613,13 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                       {f.sub && <span className="rev-est-tabla-id">{f.sub}</span>}
                     </td>
                     <td><span className={`rev-est-sem ${f.semClase}`}>{f.semTexto}</span></td>
+                    <td>
+                      {f.origenManual ? (
+                        <span className="rev-est-origen rev-est-origen--manual" title="Corrida disparada manualmente">{f.origen}</span>
+                      ) : (
+                        <span className="rev-est-origen" title={f.origen === 'Automático (plataforma)' ? 'Se disparó solo al pasar a revisión / re-revisión' : undefined}>{f.origen ?? '—'}</span>
+                      )}
+                    </td>
                     <td>
                       <button
                         className="rev-est-btn-tabla"

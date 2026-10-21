@@ -29,20 +29,33 @@ body {
 }
 
 /* ── Buscador: campo redondeado con lupa integrada y limpiar dentro ── */
+/* (2026-10-21) El input + lupa + ✕ viven en su PROPIO wrapper
+   (.rev-busqueda-campo): antes la ✕ se posicionaba contra el contenedor
+   completo con un `right: 78px` a ojo del ancho del botón «Buscar» y se
+   montaba ENCIMA del botón. Ahora la ✕ siempre cae dentro del campo. */
 .rev-busqueda {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   flex: 1 1 280px;
-  max-width: 440px;
+  max-width: 480px;
+}
+
+.rev-busqueda-campo {
   position: relative;
+  flex: 1;
+  display: flex;
+  min-width: 0;
 }
 
 .rev-busqueda-icono {
   position: absolute;
   left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #9aa5ae;
   font-size: 0.9rem;
   pointer-events: none;
+  z-index: 1;
 }
 
 .rev-input-busqueda {
@@ -55,14 +68,12 @@ body {
   background: #fff;
   min-width: 0;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  /* Cuando hay botón «Buscar», el input redondea solo a la izquierda */
-  border-radius: 10px;
 }
 
+/* Cuando hay botón «Buscar», el input redondea solo a la izquierda */
 .rev-busqueda:has(.rev-btn-buscar) .rev-input-busqueda {
   border-radius: 10px 0 0 10px;
   border-right: none;
-  padding-right: 34px;
 }
 
 .rev-input-busqueda::placeholder { color: #a8b2ba; }
@@ -75,7 +86,7 @@ body {
 
 .rev-btn-clear {
   position: absolute;
-  right: 12px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   background: #eef1f4;
@@ -93,14 +104,6 @@ body {
 }
 
 .rev-btn-clear:hover { background: #fdeeec; color: #c0392b; }
-
-.rev-busqueda:has(.rev-btn-buscar) .rev-btn-clear {
-  right: auto;
-  left: auto;
-  /* Cuando hay «Buscar», el ✕ se ubica pegado al borde interno izquierdo del botón */
-  position: absolute;
-  right: 78px;
-}
 
 /* Botón «Buscar» (solo pestaña Aprobados: consulta al servidor con Enter) */
 .rev-btn-buscar {
@@ -1077,8 +1080,12 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.4px;
     margin: 0 0 12px;
-    padding-bottom: 8px;
+    /* (2026-10-21) Sombreado leve: marca visualmente el arranque de cada
+       sección (Emergencia, Referencias, Remolque…) dentro de la tarjeta. */
+    background: #f2f8f9;
+    padding: 8px 10px;
     border-bottom: 2px solid #e2f1f3;
+    border-radius: 6px 6px 0 0;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2353,6 +2360,17 @@ body {
   display: block;
   font-size: 0.72rem;
   color: #8a94a0;
+}
+
+/* Quién disparó la corrida (2026-10-21): columna del historial de estudios. */
+.rev-est-origen {
+  font-size: 0.78rem;
+  color: #6b7c85;
+  white-space: nowrap;
+}
+.rev-est-origen--manual {
+  color: #6d3fa4;
+  font-weight: 700;
 }
 
 .rev-est-btn-tabla {

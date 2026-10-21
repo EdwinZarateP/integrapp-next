@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import Cookies from "js-cookie";
 import { FaChevronDown, FaHistory, FaRedo, FaSyncAlt } from "react-icons/fa";
 import TarjetaHabeasData from "./TarjetaHabeasData";
 
@@ -198,7 +199,12 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
     if (!ok.isConfirmed) return;
     setActualizando(f.placa);
     try {
-      await axios.post(`${API_BASE}/vehiculos/estudios-seguridad/${f.placa}/disparar`);
+      // `usuario` (2026-10-21): queda sellado en cada estudio para que el
+      // historial del vehículo muestre quién disparó la corrida.
+      await axios.post(
+        `${API_BASE}/vehiculos/estudios-seguridad/${f.placa}/disparar`,
+        null,
+        { params: { usuario: Cookies.get("seguridadNombre") || undefined } });
       await cargar();
       Swal.fire({
         title: 'Estudios en curso',

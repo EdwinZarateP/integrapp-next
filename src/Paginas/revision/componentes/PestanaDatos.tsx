@@ -8,7 +8,8 @@ import {
 } from "react-icons/fa";
 import { Vehiculo, PestanaDetalle } from "../tipos";
 import GestionConductores from "./GestionConductores";
-import { calcularFigurasIguales } from "@/Funciones/documentConstants";
+import { calcularFigurasIguales, gemelosDocumento } from "@/Funciones/documentConstants";
+import { exentoTecnomecanica } from "@/Funciones/avanceDocumentosVehiculo";
 
 /* Requisitos para el aviso de faltantes (mismos del diseño anterior). */
 const DOCUMENTOS_REQUERIDOS = [
@@ -20,8 +21,11 @@ const DOCUMENTOS_REQUERIDOS = [
 ];
 
 const CAMPOS_TEXTO_REQUERIDOS = [
+  // (2026-10-21) El 2º apellido del conductor es OPCIONAL (fuera de
+  // requiredFields del paso 2 desde 2026-10-14): NO puede generar la alerta
+  // de faltantes. La opcionalidad dinámica (figura NIT sin campos de persona)
+  // se resuelve en camposTextoRequeridos().
   { key: 'condPrimerApellido', label: '1er apellido del conductor' },
-  { key: 'condSegundoApellido', label: '2do apellido del conductor' },
   { key: 'condNombres', label: 'Nombres del conductor' },
   { key: 'condCedulaCiudadania', label: 'Cédula del conductor' },
   { key: 'condExpedidaEn', label: 'Ciudad de expedición de la cédula' },
@@ -46,18 +50,18 @@ const CAMPOS_TEXTO_REQUERIDOS = [
   { key: 'condMercTransportada', label: 'Mercancía transportada' },
   { key: 'propNombre', label: 'Nombre del propietario' },
   { key: 'propDocumento', label: 'Documento del propietario' },
-  { key: 'propCiudadExpDoc', label: 'Ciudad de expedición del doc. del propietario' },
-  { key: 'propCorreo', label: 'Correo del propietario' },
-  { key: 'propCelular', label: 'Celular del propietario' },
-  { key: 'propDireccion', label: 'Dirección del propietario' },
-  { key: 'propCiudad', label: 'Ciudad del propietario' },
+  { key: 'propCiudadExpDoc', label: 'Ciudad de expedición del doc. del propietario', soloPersona: true },
+  { key: 'propCorreo', label: 'Correo del propietario', soloPersona: true },
+  { key: 'propCelular', label: 'Celular del propietario', soloPersona: true },
+  { key: 'propDireccion', label: 'Dirección del propietario', soloPersona: true },
+  { key: 'propCiudad', label: 'Ciudad del propietario', soloPersona: true },
   { key: 'tenedNombre', label: 'Nombre del tenedor' },
   { key: 'tenedDocumento', label: 'Documento del tenedor' },
-  { key: 'tenedCiudadExpDoc', label: 'Ciudad de expedición del doc. del tenedor' },
-  { key: 'tenedCorreo', label: 'Correo del tenedor' },
-  { key: 'tenedCelular', label: 'Celular del tenedor' },
-  { key: 'tenedDireccion', label: 'Dirección del tenedor' },
-  { key: 'tenedCiudad', label: 'Ciudad del tenedor' },
+  { key: 'tenedCiudadExpDoc', label: 'Ciudad de expedición del doc. del tenedor', soloPersona: true },
+  { key: 'tenedCorreo', label: 'Correo del tenedor', soloPersona: true },
+  { key: 'tenedCelular', label: 'Celular del tenedor', soloPersona: true },
+  { key: 'tenedDireccion', label: 'Dirección del tenedor', soloPersona: true },
+  { key: 'tenedCiudad', label: 'Ciudad del tenedor', soloPersona: true },
   { key: 'vehModelo', label: 'Modelo del vehículo' },
   { key: 'vehMarca', label: 'Marca del vehículo' },
   { key: 'vehTipoCarroceria', label: 'Carrocería del vehículo' },
@@ -68,6 +72,20 @@ const CAMPOS_TEXTO_REQUERIDOS = [
   { key: 'vehUsuarioSat', label: 'Usuario satelital' },
   { key: 'vehClaveSat', label: 'Clave satelital' },
 ];
+
+/** Campos de texto exigidos para ESTE vehículo (espejo de requiredFields del
+ * paso 2): la figura propietario/tenedor con documento NIT (empresa) no tiene
+ * los campos de persona (correo/celular/dirección/ciudad/expedición). */
+const camposTextoRequeridos = (veh: Vehiculo) => {
+  const esNIT = (v?: string) => String(v || '').toUpperCase().includes('NIT');
+  const propEmpresa = esNIT(veh.propTipoDocumento);
+  const tenedEmpresa = esNIT(veh.tenedTipoDocumento);
+  return CAMPOS_TEXTO_REQUERIDOS.filter(c => {
+    if (!(c as any).soloPersona) return true;
+    if (c.key.startsWith('prop')) return !propEmpresa;
+    return !tenedEmpresa;
+  });
+};
 
 /* Etiqueta legible para cualquier campo (diff Antes/Ahora). */
 const LABEL_CAMPO: Record<string, string> = Object.fromEntries(
@@ -243,12 +261,24 @@ const PestanaDatos: React.FC<{
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [seccionActiva, setSeccionActiva] = useState("conductor");
 
-  /* ── Faltantes (mismas reglas del diseño anterior) ────────────────────── */
-  const faltantesTexto = CAMPOS_TEXTO_REQUERIDOS.filter(req => {
+  /* ── Figuras compartidas (por identificador real, NO por nombre). Vive
+       ARRIBA del bloque de faltantes porque este lo usa (gemelos). ──────── */
+  const figuras = useMemo(() => calcularFigurasIguales(veh as any), [veh]);
+
+  /* ── Faltantes (espejo del gate real del paso 2/backend: NADA opcional
+       genera la alerta — 2026-10-21, reporte del usuario en EXX729) ─────── */
+  const faltantesTexto = camposTextoRequeridos(veh).filter(req => {
       const val = veh[req.key];
       return !val || val.toString().trim() === "";
   });
   const faltantesDocs = DOCUMENTOS_REQUERIDOS.filter(req => {
+      // Vehículo nuevo (<2 años por fecha de matrícula, fallback modelo):
+      // la tecnomecánica está EXENTA — no puede figurar como faltante.
+      if (req.key === 'revisionTecnomecanica' && exentoTecnomecanica(veh as any)) return false;
+      // Cobertura por gemelos de figuras iguales (misma semántica del backend):
+      // la cédula del conductor puede estar cubierta por la del propietario.
+      if (req.key === 'documentoIdentidadConductor'
+        && gemelosDocumento(req.key, figuras).some(g => veh[g])) return false;
       const urlDoc = veh[req.key];
       return !urlDoc || urlDoc === "";
   });
@@ -314,9 +344,6 @@ const PestanaDatos: React.FC<{
     const a = cambios.get(campo);
     return a === undefined || a === "" ? null : a;
   };
-
-  /* ── Figuras compartidas (por identificador real, NO por nombre) ─────── */
-  const figuras = useMemo(() => calcularFigurasIguales(veh as any), [veh]);
 
   /* ── Navegación por secciones ─────────────────────────────────────────── */
   const hayCond2 = Boolean(veh.idConductor2 || veh.cond2Nombres || veh.cond2CedulaCiudadania);

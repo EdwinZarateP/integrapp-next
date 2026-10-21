@@ -166,6 +166,31 @@ export const getClientes = async (): Promise<string[]> => {
   return res.data;
 };
 
+// ── Administración del catálogo de clientes (GestionUsuarios, 2026-10-21) ────
+export interface ClienteOtroCosto {
+  id: string;
+  nombre: string;
+  nit: string;
+  activo: boolean;
+}
+
+// Catálogo COMPLETO: incluye los deshabilitados (apartado de GestionUsuarios).
+export const getClientesCompletos = async (): Promise<ClienteOtroCosto[]> => {
+  const res = await axios.get<ClienteOtroCosto[]>(`${BASE_URL}/clientes/completo`);
+  return res.data;
+};
+
+// Crea un cliente (NIT opcional; nombre único). 409 si ya existe.
+export const crearClienteOc = async (nombre: string, nit: string): Promise<ClienteOtroCosto> => {
+  const res = await axios.post<ClienteOtroCosto>(`${BASE_URL}/clientes/crear`, { nombre, nit });
+  return res.data;
+};
+
+// Habilita/deshabilita: el deshabilitado sale del dropdown sin borrarse.
+export const cambiarEstadoClienteOc = async (id: string, activo: boolean): Promise<void> => {
+  await axios.put(`${BASE_URL}/clientes/${id}/estado`, { activo });
+};
+
 // Proveedores del campo opcional del formulario (catálogo editable en Mongo)
 export const getProveedores = async (): Promise<string[]> => {
   const res = await axios.get<string[]>(`${BASE_URL}/proveedores`);

@@ -6,7 +6,7 @@ import {
   FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter,
 } from 'react-icons/fa';
 import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarClientesAprobacion, actualizarPerfilUsuario, actualizarPerfilesAdicionales, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
-import { getClientes } from '@/Funciones/ApiPedidos/otrosCostos';
+import { getClientes, getClientesCompletos, crearClienteOc, cambiarEstadoClienteOc, ClienteOtroCosto } from '@/Funciones/ApiPedidos/otrosCostos';
 import { listarEmpresasCobro } from '@/Funciones/ApiPedidos/seguridadCobro';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
@@ -80,6 +80,12 @@ const GestionUsuariosP: React.FC = () => {
   const [empresasSeguridad, setEmpresasSeguridad] = useState<{ id: string; nombre: string }[]>([]);
   // Alcance de aprobación por cliente (Otros Costos, perfiles COORDINADOR/CONTROL)
   const [clientesOc, setClientesOc] = useState<string[]>([]);
+  // Administración del catálogo de clientes de Otros Costos (2026-10-21)
+  const [clientesOcAdmin, setClientesOcAdmin] = useState<ClienteOtroCosto[]>([]);
+  const [nuevoClienteOc, setNuevoClienteOc] = useState({ nombre: '', nit: '' });
+  const [guardandoClienteOc, setGuardandoClienteOc] = useState(false);
+  const [msgClienteOc, setMsgClienteOc] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const [toggleandoClienteOc, setToggleandoClienteOc] = useState<string | null>(null);
   const [modalAlcance, setModalAlcance] = useState<BaseUsuario | null>(null);
   const [alcanceSel, setAlcanceSel] = useState<string[]>([]);
   const [alcanceTodos, setAlcanceTodos] = useState(true);
@@ -106,6 +112,10 @@ const GestionUsuariosP: React.FC = () => {
     getClientes()
       .then(setClientesOc)
       .catch(() => {});
+    // Apartado de administración del catálogo (crear/deshabilitar clientes).
+    getClientesCompletos()
+      .then(setClientesOcAdmin)
+      .catch(() => {});
   }, [router]);
 
   const toggleCliente = async (usuario: BaseUsuario, clienteKey: string) => {
@@ -129,6 +139,46 @@ const GestionUsuariosP: React.FC = () => {
       setMsgsCliente(m => ({ ...m, [usuario.id!]: 'Error al guardar.' }));
     } finally {
       setGuardandoCliente(null);
+    }
+  };
+
+  // ── Apartado: catálogo de clientes de Otros Costos (2026-10-21) ────────────
+  const crearClienteOcSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nombre = nuevoClienteOc.nombre.trim();
+    if (!nombre) return;
+    setGuardandoClienteOc(true);
+    setMsgClienteOc(null);
+    try {
+      const creado = await crearClienteOc(nombre, nuevoClienteOc.nit.trim());
+      // Refrescar el catálogo completo (orden alfabético del backend) y el de
+      // nombres que consume el modal de alcance.
+      setClientesOcAdmin(await getClientesCompletos());
+      getClientes().then(setClientesOc).catch(() => {});
+      setNuevoClienteOc({ nombre: '', nit: '' });
+      setMsgClienteOc({ tipo: 'ok', texto: `✓ Cliente «${creado.nombre}» creado.` });
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setMsgClienteOc({ tipo: 'error', texto: msg || 'Error al crear el cliente.' });
+    } finally {
+      setGuardandoClienteOc(false);
+    }
+  };
+
+  const toggleClienteOc = async (c: ClienteOtroCosto) => {
+    setToggleandoClienteOc(c.id);
+    setMsgClienteOc(null);
+    try {
+      await cambiarEstadoClienteOc(c.id, !c.activo);
+      setClientesOcAdmin(prev => prev.map(x => x.id === c.id ? { ...x, activo: !c.activo } : x));
+      // El dropdown del formulario solo ofrece activos: refrescar también el
+      // catálogo de nombres del modal de alcance.
+      getClientes().then(setClientesOc).catch(() => {});
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setMsgClienteOc({ tipo: 'error', texto: msg || 'Error al cambiar el estado.' });
+    } finally {
+      setToggleandoClienteOc(null);
     }
   };
 
@@ -570,6 +620,87 @@ const GestionUsuariosP: React.FC = () => {
               </table>
             </div>
           )}
+
+          {/* ══ APARTADO: CLIENTES DE OTROS COSTOS (2026-10-21) ═════════════
+              Catálogo que alimenta el campo «Cliente» del formulario de
+              Otros Costos: crear con NIT + nombre y habilitar/deshabilitar. */}
+          <section className="GU-clioc">
+            <div className="GU-clioc-header">
+              <div>
+                <h2 className="GU-clioc-titulo">Clientes — Otros Costos</h2>
+                <p className="GU-clioc-sub">
+                  Catálogo del campo «Cliente» del formulario de Otros Costos. Al deshabilitar
+                  un cliente sale del formulario, pero el histórico y los alcances de aprobación
+                  asignados no se pierden.
+                </p>
+              </div>
+            </div>
+
+            <form className="GU-clioc-form" onSubmit={crearClienteOcSubmit}>
+              <input
+                type="text"
+                className="GU-clioc-input GU-clioc-input--nit"
+                placeholder="NIT (opcional)"
+                value={nuevoClienteOc.nit}
+                onChange={e => setNuevoClienteOc(v => ({ ...v, nit: e.target.value }))}
+                disabled={guardandoClienteOc}
+              />
+              <input
+                type="text"
+                className="GU-clioc-input"
+                placeholder="Nombre del cliente *"
+                value={nuevoClienteOc.nombre}
+                onChange={e => setNuevoClienteOc(v => ({ ...v, nombre: e.target.value }))}
+                disabled={guardandoClienteOc}
+              />
+              <button type="submit" className="GU-clioc-btn" disabled={guardandoClienteOc || !nuevoClienteOc.nombre.trim()}>
+                <FaPlus /> {guardandoClienteOc ? 'Creando…' : 'Crear cliente'}
+              </button>
+            </form>
+            {msgClienteOc && (
+              <p className={`GU-clioc-msg GU-clioc-msg--${msgClienteOc.tipo}`}>{msgClienteOc.texto}</p>
+            )}
+
+            <div className="GU-clioc-tabla-wrap">
+              <table className="GU-clioc-tabla">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>NIT</th>
+                    <th>Estado</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientesOcAdmin.length === 0 && (
+                    <tr><td colSpan={4} className="GU-clioc-vacio">Sin clientes en el catálogo.</td></tr>
+                  )}
+                  {clientesOcAdmin.map(c => (
+                    <tr key={c.id} className={c.activo ? '' : 'GU-clioc-fila--inactiva'}>
+                      <td className="GU-clioc-td-nombre">{c.nombre}</td>
+                      <td className="GU-clioc-td-nit">{c.nit || '—'}</td>
+                      <td>
+                        <span className={`GU-clioc-chip GU-clioc-chip--${c.activo ? 'activo' : 'inactivo'}`}>
+                          {c.activo ? 'Activo' : 'Deshabilitado'}
+                        </span>
+                      </td>
+                      <td className="GU-clioc-td-accion">
+                        <button
+                          type="button"
+                          className={`GU-clioc-toggle GU-clioc-toggle--${c.activo ? 'off' : 'on'}`}
+                          title={c.activo ? 'Deshabilitar (sale del formulario de Otros Costos)' : 'Volver a habilitar'}
+                          disabled={toggleandoClienteOc === c.id}
+                          onClick={() => toggleClienteOc(c)}
+                        >
+                          {toggleandoClienteOc === c.id ? '…' : c.activo ? 'Deshabilitar' : 'Habilitar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </main>
 

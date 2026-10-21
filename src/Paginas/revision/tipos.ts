@@ -91,6 +91,11 @@ export interface EstudioAuto {
    *  ''=no aplicó a la consulta (el proveedor envía más estados de los documentados). */
   fuentes?: Record<string, boolean | string | null>;
   reporte_id?: string;         // PDF del reporte vía /tusdatos/reportes/{id}/pdf
+  // Origen de la corrida (2026-10-21): 'manual' = usuario de Seguridad
+  // (ver `disparado_por`) · 'automatico' = plataforma (al pasar a revisión);
+  // undefined = corrida previa al sello (se muestra «—»).
+  canal?: 'manual' | 'automatico';
+  disparado_por?: string | null;
   /** URL firmada del PDF ARCHIVADO en el bucket privado (si existe). */
   pdf_url?: string;
   pdf_gcs?: { ruta: string; tamano?: number; archivado_en?: string };

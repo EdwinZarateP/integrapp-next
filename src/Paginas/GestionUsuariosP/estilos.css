@@ -464,3 +464,114 @@
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ── Apartado: Clientes — Otros Costos (2026-10-21) ── */
+.GU-clioc {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15,25,40,.08);
+  padding: clamp(16px, 2vw, 28px);
+}
+.GU-clioc-header { margin-bottom: 16px; }
+.GU-clioc-titulo {
+  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+  font-weight: 800;
+  color: #0f1928;
+  margin: 0 0 4px;
+}
+.GU-clioc-sub {
+  font-size: clamp(0.8rem, 1vw, 0.92rem);
+  color: #6b7a8d;
+  margin: 0;
+}
+.GU-clioc-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.GU-clioc-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  border: 1px solid #d7dee8;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #0f1928;
+}
+.GU-clioc-input:focus { outline: 2px solid #0f192833; border-color: #0f1928; }
+.GU-clioc-input--nit { flex: 0 1 170px; }
+.GU-clioc-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #0f1928;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 20px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+.GU-clioc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.GU-clioc-btn:not(:disabled):hover { opacity: 0.85; }
+.GU-clioc-msg { margin: 0 0 12px; font-size: 0.85rem; }
+.GU-clioc-msg--ok { color: #1e8e5a; }
+.GU-clioc-msg--error { color: #c0392b; }
+.GU-clioc-tabla-wrap { overflow-x: auto; }
+.GU-clioc-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.82rem, 1vw, 0.95rem);
+}
+.GU-clioc-tabla th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f3f6fa;
+  color: #46586e;
+  font-weight: 700;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+.GU-clioc-tabla td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+  color: #22303f;
+}
+.GU-clioc-fila--inactiva td { color: #97a5b4; }
+.GU-clioc-td-nombre { font-weight: 600; }
+.GU-clioc-td-nit { font-variant-numeric: tabular-nums; }
+.GU-clioc-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.GU-clioc-chip--activo { background: #e5f5ec; color: #1e8e5a; }
+.GU-clioc-chip--inactivo { background: #fdeaec; color: #c0392b; }
+.GU-clioc-td-accion { text-align: right; }
+.GU-clioc-toggle {
+  border: 1px solid #d7dee8;
+  background: #fff;
+  color: #22303f;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.GU-clioc-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+.GU-clioc-toggle--off:hover { background: #fdeaec; border-color: #c0392b; color: #c0392b; }
+.GU-clioc-toggle--on:hover { background: #e5f5ec; border-color: #1e8e5a; color: #1e8e5a; }
+.GU-clioc-vacio { text-align: center; color: #97a5b4; padding: 22px !important; }
