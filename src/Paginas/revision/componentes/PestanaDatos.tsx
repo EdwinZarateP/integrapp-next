@@ -3,9 +3,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import {
   FaAmbulance, FaExclamationTriangle, FaEye, FaEyeSlash,
-  FaFileInvoiceDollar, FaHandshake, FaIdCard, FaTrailer, FaTruck, FaUser, FaUserFriends,
+  FaFileInvoiceDollar, FaFingerprint, FaHandshake, FaIdCard, FaTrailer, FaTruck, FaUser, FaUserFriends,
   FaUserTie, FaCopy, FaClipboardList,
 } from "react-icons/fa";
+import axios from "axios";
 import { Vehiculo, PestanaDetalle } from "../tipos";
 import GestionConductores from "./GestionConductores";
 import { calcularFigurasIguales, gemelosDocumento } from "@/Funciones/documentConstants";
@@ -345,6 +346,64 @@ const PestanaDatos: React.FC<{
     return a === undefined || a === "" ? null : a;
   };
 
+  /* ── Huellas digitales (recuperado 2026-10-22, OPCIONAL): consulta por
+       cédula del conductor y del 2º conductor contra la colección biometria
+       (/verificacion/verificar). Solo informativo — nada de gates. ───────── */
+  const [huellas, setHuellas] = useState<Record<string, { existe: boolean; fecha?: string } | "cargando" | "error">>({});
+  const cedulasHuellas = useMemo(() => {
+    const ceds = [veh.condCedulaCiudadania, veh.cond2CedulaCiudadania]
+      .map(c => (c || "").toString().trim())
+      .filter(Boolean);
+    return [...new Set(ceds)]; // misma persona en ambos slots → una sola consulta
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [veh.condCedulaCiudadania, veh.cond2CedulaCiudadania]);
+
+  useEffect(() => {
+    if (!cedulasHuellas.length) return;
+    let vigente = true;
+    setHuellas(Object.fromEntries(cedulasHuellas.map(c => [c, "cargando" as const])));
+    cedulasHuellas.forEach(async (cedula) => {
+      try {
+        const res = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/verificacion/verificar`,
+          { tenedor: cedula }
+        );
+        if (!vigente) return;
+        setHuellas(prev => ({
+          ...prev,
+          [cedula]: {
+            existe: Boolean(res.data?.existe),
+            fecha: res.data?.data?.fecha_registro,
+          },
+        }));
+      } catch {
+        if (vigente) setHuellas(prev => ({ ...prev, [cedula]: "error" }));
+      }
+    });
+    return () => { vigente = false; };
+  }, [cedulasHuellas.join(",")]);
+
+  const ChipHuella: React.FC<{ cedula: string; etiqueta: string }> = ({ cedula, etiqueta }) => {
+    const estado = huellas[cedula];
+    return (
+      <span
+        className={`rev-chip ${typeof estado === "object" && estado.existe ? "rev-chip--aprobado" : "rev-chip--devuelto"}`}
+        title={`Cédula ${cedula} consultada en el registro biométrico`}
+      >
+        {etiqueta}:{" "}
+        {estado === "cargando" && "consultando…"}
+        {estado === "error" && "sin respuesta del registro"}
+        {estado && estado !== "cargando" && estado !== "error" && (
+          <>
+            {estado.existe
+              ? `✓ huellas registradas${estado.fecha ? ` (${fechaDDMMAAAA(estado.fecha) || estado.fecha})` : ""}`
+              : "✗ sin huellas registradas"}
+          </>
+        )}
+      </span>
+    );
+  };
+
   /* ── Navegación por secciones ─────────────────────────────────────────── */
   const hayCond2 = Boolean(veh.idConductor2 || veh.cond2Nombres || veh.cond2CedulaCiudadania);
   const hayRemolque = Boolean(veh.RemolPlaca || veh.tarjetaRemolque || veh.RemolDuenoDocumento);
@@ -357,6 +416,7 @@ const PestanaDatos: React.FC<{
     ...(hayRemolque ? [{ id: "remolque", etiqueta: "Remolque" }] : []),
     { id: "propietario", etiqueta: "Propietario" },
     { id: "tenedor", etiqueta: "Tenedor" },
+    { id: "huellas", etiqueta: "Huellas" },
   ];
 
   const irA = (id: string) => {
@@ -779,6 +839,27 @@ const PestanaDatos: React.FC<{
             </div>
           </>
         )}
+      </Seccion>
+
+      {/* ── HUELLAS DIGITALES (opcional, informativo — recuperado 2026-10-22):
+            saber si el/los conductores ya tienen su registro dactilar. No es
+            requisito del trámite ni genera alertas de faltantes. ──────────── */}
+      <Seccion id="huellas" titulo="Huellas digitales" icono={<FaFingerprint aria-hidden="true" />}>
+        <div className="rev-datos-estado">
+          {veh.condCedulaCiudadania && (
+            <ChipHuella cedula={veh.condCedulaCiudadania} etiqueta="Conductor" />
+          )}
+          {hayCond2 && veh.cond2CedulaCiudadania && veh.cond2CedulaCiudadania !== veh.condCedulaCiudadania && (
+            <ChipHuella cedula={veh.cond2CedulaCiudadania} etiqueta="Conductor 2" />
+          )}
+          {!veh.condCedulaCiudadania && !veh.cond2CedulaCiudadania && (
+            <span className="rev-chip">Sin cédula registrada para consultar</span>
+          )}
+        </div>
+        <p className="rev-datos-nota" style={{ fontSize: 12, color: "#667", margin: "6px 0 0" }}>
+          Registro dactilar del sistema biométrico. Informativo: no es requisito del trámite
+          ni afecta el estado del vehículo.
+        </p>
       </Seccion>
     </div>
   );

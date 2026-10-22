@@ -48,7 +48,28 @@ interface FilaAntiguedad {
   total_estudios: number;
   personas: number;
   pendientes_autorizacion: number;
+  /** Huellas dactilares de los conductores (2026-10-22): cuántas cédulas
+   * únicas de conductor hay y cuántas tienen registro en biometria.
+   * registradas = null → el registro no respondió (no se asume faltante). */
+  huellas_total: number;
+  huellas_registradas: number | null;
 }
+
+/** Claves de ordenación (2026-10-22): cada encabezado clicable ordena
+ * asc → desc → sin orden (orden del backend: antigüedad). */
+type CampoOrden =
+  | 'placa' | 'estadoIntegra' | 'sujetos' | 'pendientes_autorizacion'
+  | 'ultimo_estudio' | 'antiguedad_dias' | 'vigencia_vence' | 'huellas';
+
+const valorOrden = (f: FilaAntiguedad, campo: CampoOrden): string | number | null => {
+  switch (campo) {
+    case 'sujetos': return f.sujetos.length;
+    case 'huellas':
+      // faltantes (null = sin respuesta → va al final)
+      return f.huellas_registradas === null ? null : f.huellas_total - f.huellas_registradas;
+    default: return (f as any)[campo] ?? null;
+  }
+};
 
 /** Fecha legible en hora Colombia (el backend guarda UTC naive). */
 const fechaLegible = (iso?: string): string => {
@@ -97,9 +118,13 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
   const [filtroPlaca, setFiltroPlaca] = useState('');
   const [soloVencidas, setSoloVencidas] = useState(false);
   const [soloPendientes, setSoloPendientes] = useState(false);
+  const [soloSinHuellas, setSoloSinHuellas] = useState(false);
   // Contador de placas con pendientes que reporta el backend para el label
   // del filtro (se actualiza con cada búsqueda).
   const [conPendientes, setConPendientes] = useState(0);
+  const [sinHuellas, setSinHuellas] = useState(0);
+  // Ordenación por encabezado (2026-10-22): null = orden del backend.
+  const [orden, setOrden] = useState<{ campo: CampoOrden; dir: 'asc' | 'desc' } | null>(null);
   const [actualizando, setActualizando] = useState<string | null>(null);
   const [expandida, setExpandida] = useState<string | null>(null);
   // Switch del disparo automático (2026-10-05): pausa temporal para ingresos
@@ -165,12 +190,15 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
       if (filtroPlaca.trim()) params.set('placa', filtroPlaca.trim());
       if (soloVencidas) params.set('solo_vencidas', 'true');
       if (soloPendientes) params.set('solo_pendientes', 'true');
+      if (soloSinHuellas) params.set('solo_sin_huellas', 'true');
       const qs = params.toString();
       const res = await axios.get<{
-        vehiculos: FilaAntiguedad[]; vencidas: number; con_pendientes: number;
+        vehiculos: FilaAntiguedad[]; vencidas: number;
+        con_pendientes: number; sin_huellas: number;
       }>(`${API_BASE}/vehiculos/estudios-antiguedad${qs ? `?${qs}` : ''}`);
       setFilas(res.data.vehiculos || []);
       setConPendientes(res.data.con_pendientes ?? 0);
+      setSinHuellas(res.data.sin_huellas ?? 0);
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'No se pudo cargar el listado de estudios.');
     } finally {
@@ -220,9 +248,48 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
 
   // Sin filtrado local (2026-10-06): el resultado que muestra la tabla es
   // EXACTAMENTE lo que devolvió el backend con los criterios de búsqueda.
-  const visibles = filas;
+  // La ORDENACIÓN sí es local (2026-10-22): clic en el encabezado
+  // asc → desc → sin orden (orden del backend por antigüedad).
+  const alternarOrden = (campo: CampoOrden) => {
+    setOrden(prev => {
+      if (prev?.campo !== campo) return { campo, dir: 'asc' };
+      if (prev.dir === 'asc') return { campo, dir: 'desc' };
+      return null;
+    });
+  };
+  const visibles = React.useMemo(() => {
+    if (!orden) return filas;
+    const { campo, dir } = orden;
+    const mult = dir === 'asc' ? 1 : -1;
+    return [...filas].sort((a, b) => {
+      const va = valorOrden(a, campo), vb = valorOrden(b, campo);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;   // nulos (sin vigencia/sin respuesta) al final
+      if (vb === null) return -1;
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * mult;
+      return String(va).localeCompare(String(vb), 'es', { numeric: true }) * mult;
+    });
+  }, [filas, orden]);
 
   const vencidas = filas.filter(f => f.vencida).length;
+
+  /** Encabezado clicable con indicador ▲▼ (⇅ tenue sin orden). */
+  const ThOrd: React.FC<{ campo: CampoOrden; children: React.ReactNode }> =
+    ({ campo, children }) => {
+      const activo = orden?.campo === campo;
+      return (
+        <th
+          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+          onClick={() => alternarOrden(campo)}
+          title="Clic: ascendente → descendente → orden por antigüedad"
+        >
+          {children}{' '}
+          <span style={{ opacity: activo ? 1 : 0.3, fontSize: '0.7em' }}>
+            {activo ? (orden!.dir === 'asc' ? '▲' : '▼') : '⇅'}
+          </span>
+        </th>
+      );
+    };
 
   return (
     <section className="revx-tarjeta">
@@ -267,6 +334,18 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
             onChange={(e) => setSoloPendientes(e.target.checked)}
           />
           Solo con autorizaciones pendientes ({conPendientes})
+        </label>
+        <label style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontSize: '0.85rem', color: '#3b4a5a', cursor: 'pointer', userSelect: 'none',
+        }}>
+          <input
+            type="checkbox"
+            checked={soloSinHuellas}
+            onChange={(e) => setSoloSinHuellas(e.target.checked)}
+            title="Solo placas con algún conductor sin registro dactilar en el sistema biométrico"
+          />
+          Solo sin huellas ({sinHuellas})
         </label>
         <button className="rev-est-btn-fuentes" onClick={cargar} title="Recargar el listado con los filtros actuales">
           <FaRedo /> Actualizar
@@ -327,16 +406,21 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
       )}
 
       {visibles.length > 0 && (
+        /* Wrapper responsive (2026-10-22, mismo fix de las bandejas): la tabla
+           tiene 9 columnas — en pantallas angostas hace scroll horizontal
+           DENTRO de la tarjeta en vez de desbordar el contenedor padre. */
+        <div className="rev-tabla-wrap">
         <table className="rev-est-tabla">
           <thead>
             <tr>
-              <th>Placa</th>
-              <th>Estado</th>
-              <th>Sujetos consultados</th>
-              <th>Autorización de datos</th>
-              <th>Último estudio</th>
-              <th>Antigüedad</th>
-              <th>Vigencia</th>
+              <ThOrd campo="placa">Placa</ThOrd>
+              <ThOrd campo="estadoIntegra">Estado</ThOrd>
+              <ThOrd campo="sujetos">Sujetos consultados</ThOrd>
+              <ThOrd campo="pendientes_autorizacion">Autorización de datos</ThOrd>
+              <ThOrd campo="ultimo_estudio">Último estudio</ThOrd>
+              <ThOrd campo="antiguedad_dias">Antigüedad</ThOrd>
+              <ThOrd campo="vigencia_vence">Vigencia</ThOrd>
+              <ThOrd campo="huellas">Huellas</ThOrd>
               <th></th>
             </tr>
           </thead>
@@ -398,6 +482,27 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
                         ? <span className={`rev-est-sem ${sem.clase}`}>{sem.texto}</span>
                         : <span style={{ color: '#7f8c8d', fontSize: '0.78rem' }}>sin vigencia sellada</span>}
                     </td>
+                    <td title="Registro dactilar del o los conductores en el sistema biométrico">
+                      {f.huellas_registradas === null ? (
+                        <span style={{ color: '#7f8c8d', fontSize: '0.78rem' }}>sin respuesta</span>
+                      ) : f.huellas_total === 0 ? (
+                        <span style={{ color: '#7f8c8d', fontSize: '0.78rem' }}>sin conductor</span>
+                      ) : f.huellas_registradas === f.huellas_total ? (
+                        <span style={{
+                          display: 'inline-block', background: '#eaf7ef', color: '#1e8449',
+                          borderRadius: 999, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
+                        }}>
+                          ✓ {f.huellas_registradas}/{f.huellas_total}
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-block', background: '#fdeeec', color: '#c0392b',
+                          borderRadius: 999, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
+                        }}>
+                          ✗ {f.huellas_registradas}/{f.huellas_total}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <button
                         className="rev-est-btn-fuentes"
@@ -412,7 +517,7 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
                   </tr>
                   {abierta && (
                     <tr>
-                      <td colSpan={8} style={{ background: '#fbfcfd' }}>
+                      <td colSpan={9} style={{ background: '#fbfcfd' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '6px 0' }}>
                           {f.sujetos.map((s, i) => (
                             <span key={i} style={{
@@ -443,6 +548,7 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
             })}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

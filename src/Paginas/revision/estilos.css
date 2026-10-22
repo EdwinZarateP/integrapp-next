@@ -2328,6 +2328,10 @@ body {
 
 .rev-est-tabla {
   width: 100%;
+  /* 9 columnas (2026-10-22, con la nueva «Huellas»): en pantallas angostas
+     el wrapper .rev-tabla-wrap da scroll horizontal — sin min-width las
+     celdas se aplastan y el botón de acción se deforma. */
+  min-width: 980px;
   border-collapse: collapse;
   font-size: 0.82rem;
   background: #fff;

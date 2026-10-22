@@ -41,9 +41,17 @@ const styles = StyleSheet.create({
     checkRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2, justifyContent: 'space-between', paddingRight: 2 },
     checkBox: { width: 10, height: 10, border: '1px solid #000', alignItems: 'center', justifyContent: 'center' },
 
-    // Sin registro dactilar (eliminado 2026-08-27): la caja de firma gana
-    // el espacio que dejaron las huellas.
-    firmaBox: { height: 90, border: '1px solid #000', marginTop: 5, padding: 5 },
+    // Registro dactilar (restaurado 2026-10-22, opcional): cuadrícula de las
+    // 10 huellas del sistema biométrico (5 por mano). Tamaño ORIGINAL (90 pt):
+    // desde 2026-10-22 la sección vive en página PROPIA (hoja 2), con espacio
+    // de sobra incluso para el 2º conductor.
+    huellasContainer: { border: '1px solid #000', marginTop: 5 },
+    huellasRow: { flexDirection: 'row', width: '100%' },
+    huellaBox: { width: '20%', height: 90, borderRight: '1px solid #000', padding: 2, alignItems: 'center', justifyContent: 'flex-start' },
+    huellaImageContainer: { width: 50, height: 60, marginTop: 5, marginBottom: 5, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9f9f9' },
+    huellaImage: { width: '100%', height: '100%', objectFit: 'contain' },
+
+    firmaBox: { height: 60, border: '1px solid #000', marginTop: 5, padding: 5 },
     w50: { width: '50%' },
     w33: { width: '33.33%' },
     w25: { width: '25%' },
@@ -64,7 +72,53 @@ const CheckItem = ({ label, checked }: { label: string, checked: boolean }) => (
     </View>
 );
 
-const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null }) => {
+interface HuellasResponse {
+    encontrado: boolean;
+    huellas: (string | null)[];
+}
+
+const DEDOS = ["PULGAR", "ÍNDICE", "MEDIO", "ANULAR", "MEÑIQUE"];
+
+/* Cuadrícula de las 10 huellas de UN conductor (mano derecha 0-4,
+   izquierda 5-9). Sin datos → cajas «SIN HUELLA» (mismo formato de siempre).
+   `wrap={false}` en cada mano (título + fila de dedos): si la hoja está llena,
+   la mano pasa ENTERA a la siguiente — react-pdf jamás la parte a media
+   (dejaba el título «MANO IZQUIERDA» al final de una hoja y los dedos en la
+   siguiente). */
+const HuellasGrid = ({ huellas, etiqueta }: { huellas: (string | null)[]; etiqueta: string }) => {
+    const getHuella = (idx: number) => (huellas && huellas.length > idx && huellas[idx]) ? huellas[idx] : null;
+    const filaBorde = (i: number) => (i === 4 ? { borderRight: 'none' } : {});
+    return (
+        <View style={styles.huellasContainer}>
+            <Text break={false} style={[styles.headerGreen, { width: '100%' }]}>{etiqueta}</Text>
+            {(["MANO DERECHA", "MANO IZQUIERDA"] as const).map((mano, fila) => (
+                <View key={mano} wrap={false}>
+                    <Text style={[styles.headerGreen, { width: '100%' }]}>{mano}</Text>
+                    <View style={[styles.huellasRow, fila === 0 ? { borderBottom: '1px solid #000' } : {}]}>
+                        {DEDOS.map((nombre, i) => {
+                            const urlHuella = getHuella(fila * 5 + i);
+                            return (
+                                <View key={`${mano}-${i}`} style={[styles.huellaBox, filaBorde(i)]}>
+                                    <View style={styles.huellaImageContainer}>
+                                        {urlHuella ? (
+                                            <Image src={urlHuella} style={styles.huellaImage} />
+                                        ) : (
+                                            <Text style={{ fontSize: 6, color: '#999' }}>SIN HUELLA</Text>
+                                        )}
+                                    </View>
+                                    <Text style={{ fontSize: 6 }}>{nombre}</Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                </View>
+            ))}
+        </View>
+    );
+};
+
+const DocuPDF = ({ veh, firmaBlob, huellasConductor, huellasConductor2 }:
+    { veh: Vehiculo, firmaBlob?: string | null, huellasConductor?: (string | null)[], huellasConductor2?: (string | null)[] }) => {
 
     const hasDoc = (_keyCandidates: string[]) => true;
 
@@ -235,9 +289,26 @@ const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null 
                         <View style={[styles.col, styles.w33, { borderRight: 'none' }]}><Text style={styles.label}>VENCE SOAT</Text><Text style={styles.value}>{upper(veh.vehVencimientoSoat)}</Text></View>
                     </View>
                 </View>
+            </Page>
 
-                {/* AUTORIZACIÓN Y FIRMA (sin registro dactilar, eliminado 2026-08-27) */}
-                <View style={styles.sectionTitle}><Text>AUTORIZACIÓN</Text></View>
+            {/* ── HOJA 2 (2026-10-22, pedido del usuario): el REGISTRO DACTILAR
+                  Y AUTORIZACIÓN completo en página PROPIA — antes compartía
+                  hoja con el resto y react-pdf partía la fila de la mano
+                  izquierda a media. Página nueva = hueco de sobra para las
+                  cuadrículas (tamaño original, 90 pt) y la firma. ────────── */}
+            <Page size="A4" style={styles.page}>
+                {/* REGISTRO DACTILAR (restaurado 2026-10-22, opcional) Y AUTORIZACIÓN */}
+                <View style={styles.sectionTitle}><Text>REGISTRO DACTILAR Y AUTORIZACIÓN</Text></View>
+                <HuellasGrid
+                    huellas={huellasConductor || []}
+                    etiqueta={`CONDUCTOR: ${upper(veh.condNombres)} ${upper(veh.condPrimerApellido)} — C.C. ${upper(veh.condCedulaCiudadania)}`}
+                />
+                {veh.cond2CedulaCiudadania && (
+                    <HuellasGrid
+                        huellas={huellasConductor2 || []}
+                        etiqueta={`CONDUCTOR 2: ${upper(veh.cond2Nombres)} ${upper(veh.cond2PrimerApellido)} — C.C. ${upper(veh.cond2CedulaCiudadania)}`}
+                    />
+                )}
                 <View style={{ flexDirection: 'row', marginTop: 5 }}>
                     <View style={{ width: '65%', paddingRight: 5 }}>
                            <Text style={{ fontSize: 5.5, textAlign: 'justify', color: '#555' }}>
@@ -251,7 +322,7 @@ const DocuPDF = ({ veh, firmaBlob }: { veh: Vehiculo, firmaBlob?: string | null 
                                  {imagenFirma && (
                                      <Image
                                          src={imagenFirma}
-                                         style={{ width: '100%', height: 70, objectFit: 'contain', marginTop: 2 }}
+                                         style={{ width: '100%', height: 45, objectFit: 'contain', marginTop: 2 }}
                                      />
                                  )}
 
@@ -283,10 +354,36 @@ export const descargarHvPdf = async (vehiculo: HvVehiculosProps['vehiculo']) => 
 
     const imagenFirmaFinal = firmaDataUrl || vehiculo.firmaUrl;
 
+    // Huellas dactilares (restaurado 2026-10-22, opcional): 10 imágenes base64
+    // por cédula. Sin registro o con error → cuadrícula «SIN HUELLA» (el PDF
+    // JAMÁS se bloquea por las huellas).
+    const traerHuellas = async (cedula?: string): Promise<(string | null)[]> => {
+        if (!cedula) return [];
+        try {
+            const res = await axios.get<HuellasResponse>(
+                `${API_BASE}/verificacion/obtener-huellas-pdf/${cedula}`);
+            if (res.data && res.data.encontrado && Array.isArray(res.data.huellas)) {
+                return res.data.huellas.map(h => h || "");
+            }
+        } catch (err) {
+            console.warn(`No se pudieron obtener las huellas de ${cedula}:`, err);
+        }
+        return [];
+    };
+    const [huellasConductor, huellasConductor2] = await Promise.all([
+        traerHuellas(vehiculo.condCedulaCiudadania),
+        vehiculo.cond2CedulaCiudadania
+            && vehiculo.cond2CedulaCiudadania !== vehiculo.condCedulaCiudadania
+            ? traerHuellas(vehiculo.cond2CedulaCiudadania)
+            : Promise.resolve([]),
+    ]);
+
     const blob = await pdf(
         <DocuPDF
             veh={vehiculo}
             firmaBlob={imagenFirmaFinal}
+            huellasConductor={huellasConductor}
+            huellasConductor2={huellasConductor2}
         />
     ).toBlob();
 
