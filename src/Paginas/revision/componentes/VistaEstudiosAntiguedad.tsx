@@ -179,6 +179,27 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
     }
   };
 
+  // Descarga de la HV al clic sobre la placa (2026-10-27): mismo patrón de
+  // /EstadoVehiculos — trae la ficha por placa y genera el PDF con el import
+  // DINÁMICO de @react-pdf (la trampa de siempre: en el bundle del servidor
+  // rompe el prerender de la página).
+  const [descargandoHv, setDescargandoHv] = useState<string | null>(null);
+  const descargarHv = async (placa: string) => {
+    if (descargandoHv) return;
+    setDescargandoHv(placa);
+    try {
+      const { descargarHvPdf } = await import('@/Componentes/HvVehiculos');
+      const r = await fetch(`${API_BASE}/vehiculos/obtener-vehiculo/${placa}`);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.data) throw new Error('No se pudo consultar la ficha del vehículo.');
+      await descargarHvPdf(j.data);
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo generar la hoja de vida.', 'error');
+    } finally {
+      setDescargandoHv(null);
+    }
+  };
+
   // La búsqueda la procesa el BACKEND (2026-10-06, pedido del usuario): el
   // front solo pasa los criterios (placa / vencidas / pendientes de
   // autorización) con el botón «Buscar».
@@ -433,11 +454,22 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
                 <React.Fragment key={f.placa}>
                   <tr>
                     <td>
-                      <span style={{
-                        display: 'inline-block', border: '1px solid #c9d3de', borderRadius: 6,
-                        background: '#fafbfc', padding: '2px 8px', letterSpacing: 2,
-                        fontFamily: 'inherit', fontWeight: 700,
-                      }}>{f.placa}</span>
+                      {/* Clic en la placa → descarga la HV en PDF (2026-10-27). */}
+                      <button
+                        type="button"
+                        onClick={() => descargarHv(f.placa)}
+                        disabled={descargandoHv !== null}
+                        title={descargandoHv === f.placa ? 'Generando hoja de vida…' : 'Clic para descargar la hoja de vida (HV) en PDF'}
+                        style={{
+                          display: 'inline-block', border: '1px solid #c9d3de', borderRadius: 6,
+                          background: descargandoHv === f.placa ? '#eef6f7' : '#fafbfc',
+                          padding: '2px 8px', letterSpacing: 2,
+                          fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer',
+                          color: '#2c3e50',
+                        }}
+                      >
+                        {descargandoHv === f.placa ? '…' : f.placa}
+                      </button>
                     </td>
                     <td>
                       <span style={{ fontSize: '0.78rem', color: '#5a6472' }}>

@@ -1005,6 +1005,12 @@ const OtrosCostosP: React.FC = () => {
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="OC-btnAction" title="Detalle" style={{ background: '#334155' }} onClick={() => abrirDetalle(it)}><FaEye /></button>
                       {puedeEditar(it) && <button className="OC-btnAction" title="Editar" style={{ background: '#2563eb' }} onClick={() => abrirEditar(it)}><FaEdit /></button>}
+                      {/* Anular directo desde la fila (2026-10-27): misma regla del
+                          modal — solo ADMIN, no pagadas ni ya anuladas. Pide motivo
+                          y la mueve a anulados_otros_costos. */}
+                      {puedeAnular && it.estado !== 'anulado' && it.estado !== 'pagado' && (
+                        <button className="OC-btnAction" title="Anular solicitud" style={{ background: '#b91c1c' }} onClick={() => onAnular(it)}><FaBan /></button>
+                      )}
                       {puedeMarcarTramite && it.estado === 'aprobado' && it.tramite_vulcano !== 'ok' && <button className="OC-btnAction" title="Marcar trámite Vulcano OK" style={{ background: '#0d9488' }} onClick={() => onTramiteVulcano(it)}><FaCheck /></button>}
                       {perfil === 'ADMIN' && it.estado === 'aprobado' && it.tramite_vulcano === 'ok' && <button className="OC-btnAction" title="Revertir trámite Vulcano" style={{ background: '#6b7280' }} onClick={() => onTramiteVulcano(it)}><FaUndo /></button>}
                       {puedePagar && it.estado === 'aprobado' && it.tramite_vulcano === 'ok' && <button className="OC-btnAction" title="Registrar pago" style={{ background: '#1d4ed8' }} onClick={() => onPagar(it)}><FaMoneyBillWave /></button>}

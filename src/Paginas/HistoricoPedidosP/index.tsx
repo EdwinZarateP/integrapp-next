@@ -590,7 +590,7 @@ const HistoricoPedidosP: React.FC = () => {
       hour: '2-digit', minute: '2-digit', hour12: false,
     }).formatToParts(d);
     const g = (t: string) => partes.find(p => p.type === t)?.value ?? '00';
-    return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}`;
+    return `${g('day')}-${g('month')}-${g('year')} ${g('hour')}:${g('minute')}`;
   };
 
   const fmtVal = (val: any): number => {
@@ -614,20 +614,31 @@ const HistoricoPedidosP: React.FC = () => {
     </div>
   );
 
-  // Resumen legible de una entrada del historial_cambios: campos modificados
-  // (campo: anterior → nuevo), causal y motivo de devolución.
-  const resumenCambio = (h: any): string => {
-    const partes: string[] = [];
-    const campos = Array.isArray(h?.campos_modificados) ? h.campos_modificados : [];
-    for (const c of campos) {
-      if (!c?.campo) continue;
-      const ant = c.valor_anterior ?? '';
-      const nuevo = c.valor_nuevo ?? '';
-      partes.push(`${c.campo}: ${ant === '' ? 'vacío' : String(ant)} → ${nuevo === '' ? 'vacío' : String(nuevo)}`);
-    }
-    if (h?.causal) partes.push(`Causal: ${h.causal}`);
-    if (h?.motivo) partes.push(`Motivo: ${h.motivo}`);
-    return partes.join(' · ') || '-';
+  // Detalle legible de una entrada del historial_cambios: UN CAMBIO POR LÍNEA
+  // (campo: anterior → nuevo) + causal, motivo de devolución y observación de
+  // aprobación en líneas propias. Cada línea parte el texto dentro de su ancho.
+  const DetalleCambio = ({ h }: { h: any }) => {
+    const campos = Array.isArray(h?.campos_modificados) ? h.campos_modificados.filter((c: any) => c?.campo) : [];
+    const vacio = (v: any) => (v === '' || v === undefined || v === null ? 'vacío' : String(v));
+    return (
+      <div className="HP-cambioLineas">
+        {campos.map((c: any, i: number) => (
+          <div key={i} className="HP-cambioLinea">
+            <span className="HP-cambioCampo">{c.campo}</span>
+            {': '}
+            <span>{vacio(c.valor_anterior)}</span>
+            {' → '}
+            <span className="HP-cambioValNuevo">{vacio(c.valor_nuevo)}</span>
+          </div>
+        ))}
+        {h?.causal && <div className="HP-cambioLinea HP-cambioMeta">Causal: {h.causal}</div>}
+        {h?.motivo && <div className="HP-cambioLinea HP-cambioMeta HP-cambioMotivo">Motivo: {h.motivo}</div>}
+        {h?.observacion_aprobacion && (
+          <div className="HP-cambioLinea HP-cambioMeta HP-cambioObs">Observación: {h.observacion_aprobacion}</div>
+        )}
+        {campos.length === 0 && !h?.causal && !h?.motivo && !h?.observacion_aprobacion && '-'}
+      </div>
+    );
   };
 
   return (
@@ -962,12 +973,16 @@ const HistoricoPedidosP: React.FC = () => {
               <span className="HP-modalValue">{modalDoc.observacion || '-'}</span>
             </div>
 
-            {/* Fechas */}
-            <div className="HP-modalSection">Fechas</div>
+            {/* Fechas y responsables. «Registrado por» y «Asignó Pedido Vulcano» viven
+                aquí porque el registro y la asignación NO generan entrada en el
+                historial_cambios (aprobaciones, ediciones y devoluciones sí). */}
+            <div className="HP-modalSection">Fechas y responsables</div>
             <div className="HP-modalGrid">
-              {Campo('Preaprobado', formatDate(modalDoc.fecha_preaprobado))}
               {Campo('Creación', formatDate(modalDoc.fecha_creacion))}
+              {Campo('Preaprobado', formatDate(modalDoc.fecha_preaprobado))}
               {Campo('Movimiento a histórico', formatDate(modalDoc.fecha_movimiento_historico))}
+              {Campo('Registrado por', nombrePersona(modalDoc.usuario_registro_nombre || modalDoc.usuario_registro))}
+              {Campo('Asignó Pedido Vulcano', nombrePersona(modalDoc.usuario_pedido_vulcano_nombre || modalDoc.usuario_pedido_vulcano))}
             </div>
 
             {/* Planillas originales (si es fusión) */}
@@ -1009,29 +1024,6 @@ const HistoricoPedidosP: React.FC = () => {
             <div className="HP-modalSection">Detalle de pedidos</div>
             <DetallePedidosModal doc={modalDoc} />
 
-            {/* Trazabilidad del flujo (quién registró, editó, aprobó, asignó) — al final del formulario.
-                Los campos *_nombre los resuelve el backend desde baseusuarios; si faltan,
-                `nombrePersona` resuelve contra el mapa local de usuarios. */}
-            <div className="HP-modalSection">Trazabilidad del flujo</div>
-            <div className="HP-modalGrid">
-              {Campo('Registrado por', nombrePersona(modalDoc.usuario_registro_nombre || modalDoc.usuario_registro))}
-              {Campo('Solicitó autorización', nombrePersona(modalDoc.usuario_solicitud_autorizacion_nombre || modalDoc.usuario_solicitud_autorizacion))}
-              {Campo('Fecha solicitud aut.', formatDate(modalDoc.fecha_solicitud_autorizacion))}
-              {Campo('Última modificación por', nombrePersona(modalDoc.usuario_modificacion_nombre || modalDoc.usuario_modificacion))}
-              {Campo('Fecha modificación', formatDate(modalDoc.fecha_modificacion))}
-              {Campo('Aprobado por', nombrePersona(modalDoc.aprobado_por_nombre || modalDoc.aprobado_por))}
-              {Campo('Fecha aprobación', formatDate(modalDoc.fecha_aprobacion))}
-              {Campo('Asignó Pedido Vulcano', nombrePersona(modalDoc.usuario_pedido_vulcano_nombre || modalDoc.usuario_pedido_vulcano))}
-              {modalDoc.motivo_devolucion && Campo('Devuelto por', nombrePersona(modalDoc.devuelto_por_nombre || modalDoc.devuelto_por))}
-              {modalDoc.motivo_devolucion && Campo('Fecha devolución', formatDate(modalDoc.fecha_devolucion))}
-            </div>
-            {modalDoc.motivo_devolucion && (
-              <div className="HP-modalField" style={{ marginTop: '0.25rem' }}>
-                <span className="HP-modalLabel">Motivo de devolución</span>
-                <span className="HP-modalValue">{modalDoc.motivo_devolucion}</span>
-              </div>
-            )}
-
             {/* Historial de cambios (timeline de modificaciones y cambios de estado) */}
             {(modalDoc.historial_cambios?.length ?? 0) > 0 && (
               <>
@@ -1047,12 +1039,14 @@ const HistoricoPedidosP: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {modalDoc.historial_cambios.map((h: any, i: number) => (
+                      {/* Se muestra del MÁS RECIENTE al más viejo (en Mongo se
+                          almacenan en orden cronológico, con append al final). */}
+                      {[...modalDoc.historial_cambios].reverse().map((h: any, i: number) => (
                         <tr key={i}>
-                          <td style={{ whiteSpace: 'nowrap' }}>{formatDate(h?.fecha)}</td>
-                          <td>{nombrePersona(h?.usuario_nombre || h?.usuario)}</td>
-                          <td>{h?.accion || '-'}</td>
-                          <td className="HP-detalleCambio">{resumenCambio(h)}</td>
+                          <td data-label="Fecha" style={{ whiteSpace: 'nowrap' }}>{formatDate(h?.fecha)}</td>
+                          <td data-label="Usuario">{nombrePersona(h?.usuario_nombre || h?.usuario)}</td>
+                          <td data-label="Acción">{h?.accion || '-'}</td>
+                          <td data-label="Detalle" className="HP-detalleCambio"><DetalleCambio h={h} /></td>
                         </tr>
                       ))}
                     </tbody>

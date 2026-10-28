@@ -592,47 +592,52 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
         return (
           <div className="rev-est-historial">
             <h4>Historial de estudios</h4>
-            <table className="rev-est-tabla">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Antigüedad</th>
-                  <th>Sujeto</th>
-                  <th>Resultado</th>
-                  <th>Disparado por</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map(f => (
-                  <tr key={f.key}>
-                    <td className="rev-est-tabla-fecha">{f.fecha ? fechaLegible(f.fecha) : '—'}</td>
-                    <td className="rev-est-tabla-antiguedad">{antiguedadLegible(f.fecha)}</td>
-                    <td>
-                      {f.sujeto}
-                      {f.sub && <span className="rev-est-tabla-id">{f.sub}</span>}
-                    </td>
-                    <td><span className={`rev-est-sem ${f.semClase}`}>{f.semTexto}</span></td>
-                    <td>
-                      {f.origenManual ? (
-                        <span className="rev-est-origen rev-est-origen--manual" title="Corrida disparada manualmente">{f.origen}</span>
-                      ) : (
-                        <span className="rev-est-origen" title={f.origen === 'Automático (plataforma)' ? 'Se disparó solo al pasar a revisión / re-revisión' : undefined}>{f.origen ?? '—'}</span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        className="rev-est-btn-tabla"
-                        onClick={() => (f.estudio ? abrirReporte(f.estudio) : window.open(f.url, '_blank'))}
-                        title="Abrir el documento"
-                      >
-                        <FaFilePdf /> Abrir
-                      </button>
-                    </td>
+            {/* Wrapper con scroll horizontal: la tabla es min-width 980px y en
+                celulares debe desplazarse DENTRO del contenedor, no desbordarlo
+                (mismo patrón de las tablas de /revision/alta). */}
+            <div className="rev-tabla-wrap">
+              <table className="rev-est-tabla">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Antigüedad</th>
+                    <th>Sujeto</th>
+                    <th>Resultado</th>
+                    <th>Disparado por</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filas.map(f => (
+                    <tr key={f.key}>
+                      <td className="rev-est-tabla-fecha">{f.fecha ? fechaLegible(f.fecha) : '—'}</td>
+                      <td className="rev-est-tabla-antiguedad">{antiguedadLegible(f.fecha)}</td>
+                      <td>
+                        {f.sujeto}
+                        {f.sub && <span className="rev-est-tabla-id">{f.sub}</span>}
+                      </td>
+                      <td><span className={`rev-est-sem ${f.semClase}`}>{f.semTexto}</span></td>
+                      <td>
+                        {f.origenManual ? (
+                          <span className="rev-est-origen rev-est-origen--manual" title="Corrida disparada manualmente">{f.origen}</span>
+                        ) : (
+                          <span className="rev-est-origen" title={f.origen === 'Automático (plataforma)' ? 'Se disparó solo al pasar a revisión / re-revisión' : undefined}>{f.origen ?? '—'}</span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          className="rev-est-btn-tabla"
+                          onClick={() => (f.estudio ? abrirReporte(f.estudio) : window.open(f.url, '_blank'))}
+                          title="Abrir el documento"
+                        >
+                          <FaFilePdf /> Abrir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })()}

@@ -477,12 +477,113 @@
   overflow: visible;
 }
 
-/* Celda "Detalle" del historial de cambios: ancho acotado para que el texto
-   haga salto de línea en lugar de ensanchar la tabla. */
-.HP-detalleCambio {
-  max-width: 360px;
+/* La tabla del historial es layout FIJO: así las columnas respetan el ancho del
+   modal y un Detalle largo hace salto de línea en vez de ensanchar la tabla
+   (max-width en <td> es ignorado por el layout automático de tablas). */
+.HP-cambiosWrap .HP-subTable {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.HP-cambiosWrap .HP-subTable th:nth-child(1),
+.HP-cambiosWrap .HP-subTable td:nth-child(1) { width: 128px; }
+
+.HP-cambiosWrap .HP-subTable th:nth-child(2),
+.HP-cambiosWrap .HP-subTable td:nth-child(2) { width: 22%; }
+
+.HP-cambiosWrap .HP-subTable th:nth-child(3),
+.HP-cambiosWrap .HP-subTable td:nth-child(3) { width: 104px; }
+
+/* Celda "Detalle": el texto SIEMPRE parte dentro del ancho asignado por el
+   layout fijo. ⚠️ Selector con especificidad ALTA (3 clases + elemento) porque
+   la regla global ".HP-subTable td { white-space: nowrap }" de abajo le gana
+   a un selector de una sola clase — era la causa del desbordamiento. */
+.HP-cambiosWrap .HP-subTable td.HP-detalleCambio,
+.HP-cambiosWrap .HP-subTable th.HP-detalleCambio {
+  max-width: none;
   white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* Detalle legible: un cambio por línea (campo: anterior → nuevo). */
+.HP-cambioLineas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.HP-cambioLinea {
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.HP-cambioCampo {
+  font-weight: 600;
+  color: #334155;
+}
+
+.HP-cambioValNuevo {
+  font-weight: 600;
+  color: #005f56;
+}
+
+.HP-cambioMeta {
+  color: #475569;
+}
+
+.HP-cambioMotivo {
+  color: #b91c1c;
+}
+
+.HP-cambioObs {
+  color: #005f56;
+}
+
+/* Móvil: el historial de cambios pasa a tarjetas apiladas (una por cambio),
+   cada campo con su etiqueta — la tabla de 4 columnas no cabe en pantalla. */
+@media (max-width: 640px) {
+  .HP-cambiosWrap .HP-subTable,
+  .HP-cambiosWrap .HP-subTable tbody,
+  .HP-cambiosWrap .HP-subTable tr,
+  .HP-cambiosWrap .HP-subTable td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .HP-cambiosWrap .HP-subTable thead {
+    display: none;
+  }
+
+  .HP-cambiosWrap .HP-subTable tr {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    background: #f8fafc;
+  }
+
+  .HP-cambiosWrap .HP-subTable td {
+    border: none;
+    border-bottom: 1px dashed #e2e8f0;
+    padding: 6px 10px;
+  }
+
+  .HP-cambiosWrap .HP-subTable td:last-child {
+    border-bottom: none;
+  }
+
+  .HP-cambiosWrap .HP-subTable td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #64748b;
+    font-weight: 700;
+    margin-bottom: 1px;
+  }
 }
 
 .HP-subTable {
