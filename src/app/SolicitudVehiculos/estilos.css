@@ -742,3 +742,135 @@ input[type="number"] {
 .SV-consecutivoLink:hover {
   text-decoration: underline;
 }
+
+/* ── Historial de cambios (modal Editar/Ver Planilla) ──
+   Mismo arreglo que HistoricoPedidos: tabla layout FIJO para que la columna
+   Detalle parta el texto dentro de su ancho (un maxWidth inline en <td> es
+   ignorado por el layout automático de tablas) y tarjetas apiladas en móvil. */
+.SV-historialWrap {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: white;
+}
+
+.SV-historialTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  table-layout: fixed;
+}
+
+.SV-historialTable thead {
+  position: sticky;
+  top: 0;
+  background: #f1f5f9;
+  z-index: 1;
+}
+
+.SV-historialTable th {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+
+.SV-historialTable td {
+  padding: 0.4rem 0.6rem;
+  border-top: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.SV-historialTable th:nth-child(1),
+.SV-historialTable td:nth-child(1) { width: 150px; }
+
+.SV-historialTable th:nth-child(2),
+.SV-historialTable td:nth-child(2) { width: 22%; }
+
+.SV-historialTable th:nth-child(3),
+.SV-historialTable td:nth-child(3) { width: 104px; }
+
+/* Celda "Detalle": salto de línea SIEMPRE dentro del ancho del layout fijo. */
+.SV-detalleCambio {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Detalle legible: un cambio por línea (campo: anterior → nuevo). */
+.SV-cambioLineas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.SV-cambioLinea {
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.SV-cambioCampo {
+  font-weight: 600;
+  color: #334155;
+}
+
+.SV-cambioValNuevo {
+  font-weight: 600;
+  color: #005f56;
+}
+
+.SV-cambioMeta {
+  color: #475569;
+}
+
+.SV-cambioMotivo {
+  color: #b91c1c;
+}
+
+.SV-cambioObs {
+  color: #005f56;
+}
+
+/* Móvil: el historial pasa a tarjetas apiladas (una por cambio) con etiquetas. */
+@media (max-width: 640px) {
+  .SV-historialTable,
+  .SV-historialTable tbody,
+  .SV-historialTable tr,
+  .SV-historialTable td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .SV-historialTable thead {
+    display: none;
+  }
+
+  .SV-historialTable tr {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin: 0 0.5rem 0.5rem;
+    background: #f8fafc;
+  }
+
+  .SV-historialTable td {
+    border: none;
+    border-bottom: 1px dashed #e2e8f0;
+    padding: 6px 10px;
+  }
+
+  .SV-historialTable td:last-child {
+    border-bottom: none;
+  }
+
+  .SV-historialTable td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #64748b;
+    font-weight: 700;
+    margin-bottom: 1px;
+  }
+}

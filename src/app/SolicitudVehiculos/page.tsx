@@ -135,20 +135,31 @@ interface PlanillaResultado {
   historial_cambios?: any[];
 }
 
-// Resumen legible de una entrada del historial_cambios: campos modificados
-// (campo: anterior → nuevo), causal y motivo de devolución.
-const resumenCambioHistorial = (h: any): string => {
-  const partes: string[] = [];
-  const campos = Array.isArray(h?.campos_modificados) ? h.campos_modificados : [];
-  for (const c of campos) {
-    if (!c?.campo) continue;
-    const ant = c.valor_anterior ?? '';
-    const nuevo = c.valor_nuevo ?? '';
-    partes.push(`${c.campo}: ${ant === '' ? 'vacío' : String(ant)} → ${nuevo === '' ? 'vacío' : String(nuevo)}`);
-  }
-  if (h?.causal) partes.push(`Causal: ${h.causal}`);
-  if (h?.motivo) partes.push(`Motivo: ${h.motivo}`);
-  return partes.join(' · ') || '-';
+// Detalle legible de una entrada del historial_cambios: UN CAMBIO POR LÍNEA
+// (campo: anterior → nuevo) + causal, motivo de devolución y observación de
+// aprobación en líneas propias (mismo formato que HistoricoPedidos).
+const DetalleCambioHistorial = ({ h }: { h: any }) => {
+  const campos = Array.isArray(h?.campos_modificados) ? h.campos_modificados.filter((c: any) => c?.campo) : [];
+  const vacio = (v: any) => (v === '' || v === undefined || v === null ? 'vacío' : String(v));
+  return (
+    <div className="SV-cambioLineas">
+      {campos.map((c: any, i: number) => (
+        <div key={i} className="SV-cambioLinea">
+          <span className="SV-cambioCampo">{c.campo}</span>
+          {': '}
+          <span>{vacio(c.valor_anterior)}</span>
+          {' → '}
+          <span className="SV-cambioValNuevo">{vacio(c.valor_nuevo)}</span>
+        </div>
+      ))}
+      {h?.causal && <div className="SV-cambioLinea SV-cambioMeta">Causal: {h.causal}</div>}
+      {h?.motivo && <div className="SV-cambioLinea SV-cambioMeta SV-cambioMotivo">Motivo: {h.motivo}</div>}
+      {h?.observacion_aprobacion && (
+        <div className="SV-cambioLinea SV-cambioMeta SV-cambioObs">Observación: {h.observacion_aprobacion}</div>
+      )}
+      {campos.length === 0 && !h?.causal && !h?.motivo && !h?.observacion_aprobacion && '-'}
+    </div>
+  );
 };
 
 const OPCIONES_VEHICULO = ['CARRY', 'NHR', 'TURBO', 'NIES', 'SENCILLO', 'PATINETA', 'TRACTOMULA'];
@@ -4383,52 +4394,39 @@ const SolicitudVehiculos: React.FC = () => {
               </div>
             </fieldset>
 
-            {/* Trazabilidad del flujo (solo lectura, al final del formulario): quiénes
-                registraron, editaron y aprobaron. Los *_nombre vienen del backend
-                (resueltos en baseusuarios); fallback al username si no existe. */}
-            <div style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
-              <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#666', fontWeight: '600' }}>📋 TRAZABILIDAD DEL FLUJO</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem 1rem' }}>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Registrado por</strong><div>{nombrePersona(modalDetalle.resultado.usuario_registro_nombre || modalDetalle.resultado.usuario_registro)}</div></div>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Solicitó autorización</strong><div>{nombrePersona(modalDetalle.resultado.usuario_solicitud_autorizacion_nombre || modalDetalle.resultado.usuario_solicitud_autorizacion)}</div></div>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha solicitud aut.</strong><div>{modalDetalle.resultado.fecha_solicitud_autorizacion ? formatearFechaColombia(modalDetalle.resultado.fecha_solicitud_autorizacion) : '-'}</div></div>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Última modificación por</strong><div>{nombrePersona(modalDetalle.resultado.usuario_modificacion_nombre || modalDetalle.resultado.usuario_modificacion)}</div></div>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha modificación</strong><div>{modalDetalle.resultado.fecha_modificacion ? formatearFechaColombia(modalDetalle.resultado.fecha_modificacion) : '-'}</div></div>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Aprobado por</strong><div>{nombrePersona(modalDetalle.resultado.aprobado_por_nombre || modalDetalle.resultado.aprobado_por)}</div></div>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha aprobación</strong><div>{modalDetalle.resultado.fecha_aprobacion ? formatearFechaColombia(modalDetalle.resultado.fecha_aprobacion) : '-'}</div></div>
-                <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Asignó Pedido Vulcano</strong><div>{nombrePersona(modalDetalle.resultado.usuario_pedido_vulcano_nombre || modalDetalle.resultado.usuario_pedido_vulcano)}</div></div>
-                {modalDetalle.resultado.observacion_aprobacion && (
-                  <div style={{ gridColumn: '1 / -1' }}><strong style={{ color: '#666', fontSize: '0.85rem' }}>Observación de aprobación</strong><div>{modalDetalle.resultado.observacion_aprobacion}</div></div>
-                )}
-                {modalDetalle.resultado.motivo_devolucion && (
-                  <>
-                    <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Devuelto por</strong><div>{nombrePersona(modalDetalle.resultado.devuelto_por_nombre || modalDetalle.resultado.devuelto_por)}</div></div>
-                    <div><strong style={{ color: '#666', fontSize: '0.85rem' }}>Fecha devolución</strong><div>{modalDetalle.resultado.fecha_devolucion ? formatearFechaColombia(modalDetalle.resultado.fecha_devolucion) : '-'}</div></div>
-                    <div style={{ gridColumn: '1 / -1', color: '#b91c1c' }}><strong style={{ fontSize: '0.85rem' }}>Motivo de devolución:</strong> {modalDetalle.resultado.motivo_devolucion}</div>
-                  </>
-                )}
-              </div>
+            {/* Responsables que NO generan entrada en el historial de cambios (el
+                registro inicial y la asignación de Pedido Vulcano). Aprobaciones,
+                ediciones, devoluciones, causal y observaciones viven en el
+                Historial de cambios de abajo. */}
+            <div style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem', color: '#475569', display: 'flex', flexWrap: 'wrap', gap: '0.25rem 1.5rem' }}>
+              <span><strong style={{ color: '#666' }}>Registrado por:</strong> {nombrePersona(modalDetalle.resultado.usuario_registro_nombre || modalDetalle.resultado.usuario_registro)}</span>
+              <span><strong style={{ color: '#666' }}>Asignó Pedido Vulcano:</strong> {nombrePersona(modalDetalle.resultado.usuario_pedido_vulcano_nombre || modalDetalle.resultado.usuario_pedido_vulcano)}</span>
+            </div>
+
+            <div style={{ marginTop: '1.5rem' }}>
 
               {modalDetalle.resultado.historial_cambios && modalDetalle.resultado.historial_cambios.length > 0 && (
                 <div style={{ marginTop: '1rem' }}>
                   <strong style={{ color: '#666', fontSize: '0.85rem' }}>Historial de cambios ({modalDetalle.resultado.historial_cambios.length})</strong>
-                  <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '6px', background: 'white' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                      <thead style={{ position: 'sticky', top: 0, background: '#f1f5f9' }}>
+                  <div className="SV-historialWrap">
+                    <table className="SV-historialTable">
+                      <thead>
                         <tr>
-                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', whiteSpace: 'nowrap' }}>Fecha</th>
-                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Usuario</th>
-                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left' }}>Acción</th>
-                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', maxWidth: '300px' }}>Detalle</th>
+                          <th>Fecha</th>
+                          <th>Usuario</th>
+                          <th>Acción</th>
+                          <th>Detalle</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {modalDetalle.resultado.historial_cambios.map((h: any, i: number) => (
-                          <tr key={i} style={{ borderTop: '1px solid #e2e8f0' }}>
-                            <td style={{ padding: '0.4rem 0.6rem', whiteSpace: 'nowrap' }}>{formatearFechaColombia(h?.fecha)}</td>
-                            <td style={{ padding: '0.4rem 0.6rem' }}>{nombrePersona(h?.usuario_nombre || h?.usuario)}</td>
-                            <td style={{ padding: '0.4rem 0.6rem' }}>{h?.accion || '-'}</td>
-                            <td style={{ padding: '0.4rem 0.6rem', maxWidth: '300px', wordBreak: 'break-word' }}>{resumenCambioHistorial(h)}</td>
+                        {/* Del MÁS RECIENTE al más viejo (en Mongo se guardan en
+                            orden cronológico, con append al final). */}
+                        {[...modalDetalle.resultado.historial_cambios].reverse().map((h: any, i: number) => (
+                          <tr key={i}>
+                            <td data-label="Fecha" style={{ whiteSpace: 'nowrap' }}>{formatearFechaColombia(h?.fecha)}</td>
+                            <td data-label="Usuario">{nombrePersona(h?.usuario_nombre || h?.usuario)}</td>
+                            <td data-label="Acción">{h?.accion || '-'}</td>
+                            <td data-label="Detalle" className="SV-detalleCambio"><DetalleCambioHistorial h={h} /></td>
                           </tr>
                         ))}
                       </tbody>
