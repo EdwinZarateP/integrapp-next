@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
-  FaExchangeAlt, FaBan, FaWallet, FaIdCard, FaTruckMoving,
+  FaExchangeAlt, FaBan, FaWallet, FaIdCard, FaTruckMoving, FaClipboardCheck,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca' | 'estadovehiculos';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca' | 'estadovehiculos' | 'novedadesot';
 
 interface Props {
   paginaActual: PaginaMC;
@@ -30,6 +30,7 @@ const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode
   { id: 'historicooc',    label: 'Histórico Otros Costos', ruta: '/HistoricoOtrosCostos', icono: <FaHistory /> },
   { id: 'cuentasplaca',   label: 'Cuentas por Placa',      ruta: '/CuentasPlaca',         icono: <FaIdCard /> },
   { id: 'estadovehiculos', label: 'Estado de Vehículos',   ruta: '/EstadoVehiculos',      icono: <FaTruckMoving /> },
+  { id: 'novedadesot',     label: 'Novedades OT Justificadas', ruta: '/NovedadesOT',       icono: <FaClipboardCheck /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
@@ -151,6 +152,11 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 // Estado de Vehículos: vista de solo lectura (OPERATIVO, CONTROL,
                 // COORDINADOR, ADMIN) + FINANCIERO (aprobados + info financiera, 2026-10-16)
                 if (item.id === 'estadovehiculos' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR', 'FINANCIERO'].includes(perfil)) {
+                  return null;
+                }
+                // Novedades OT Justificadas: carga del Excel de guías con causal
+                // + justificación para el On Time (2026-10-29)
+                if (item.id === 'novedadesot' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
                   return null;
                 }
                 return (

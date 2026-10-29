@@ -135,6 +135,79 @@
   z-index: 40;
 }
 
+/* (2026-10-29) Botón mostrar/ocultar filtros: SOLO móvil (desktop no lo
+   renderiza visualmente y la barra siempre está visible). Badge con el nº de
+   filtros activos para que ocultar no pierda información. */
+.DC-filtrosToggle {
+  display: none;
+}
+.DC-filtrosToggleBadge {
+  background: #2a78d6;
+  color: #fff;
+  border-radius: 999px;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0 5px;
+}
+.DC-filtrosToggleFlecha { transition: transform 200ms ease-out; }
+
+/* Migas de navegación de filtros: cada filtro aplicado como chip borrable */
+.DC-migas {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.DC-miga {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #eef2f7;
+  border: 1px solid #d3dce8;
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0f1928;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.DC-miga:hover {
+  background: #fde8e8;
+  border-color: #e3a1a1;
+}
+
+.DC-migaX {
+  color: #9aa7b8;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.DC-miga:hover .DC-migaX { color: #b91c1c; }
+
+/* Ítems de leyenda con tooltip (title) en vez de paréntesis */
+.DC-leyendaItem { cursor: help; border-bottom: 1px dotted #b6c2d2; }
+
+/* (2026-10-29) Chip de guía con novedad justificada (morado, del segmento
+   «Justificadas» del OT) — el detalle viaja en el title del chip. */
+.DC-guiaChipJustificada {
+  background: #4a3aa7;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.DC-leyendaHint { color: #8aa0b8; font-size: 0.75rem; }
+
 .DC-filtrosPanel {
   max-width: 1200px;
   margin: 0 auto;
@@ -414,6 +487,18 @@
 
 @media (prefers-reduced-motion: reduce) {
   .DC-skel { animation: none; }
+  .DC-swapOT { animation: none; }
+}
+
+/* (2026-10-29) Entrada suave del gráfico OT al cambiar de vista (Mensual↔
+   Diario / zoom de mes): el wrapper se re-monta con key y entra con fade +
+   slide corto mientras las barras crecen (animación de recharts). */
+.DC-swapOT {
+  animation: DC-swapEntra 280ms ease-out both;
+}
+@keyframes DC-swapEntra {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Trazabilidad (búsqueda guía/consecutivo) sobre el informe ── */
@@ -648,6 +733,58 @@
 
 .DC-guiaBotonExportar:hover { background: #1e3a5f; }
 
+.DC-guiaBotonExportar:disabled { opacity: 0.6; cursor: wait; }
+
+/* (2026-10-29) Botón Excel del gráfico On Time: compacto, con el isotipo de
+   Excel (cuadro verde + X blanca) a la izquierda del toggle Mensual/Diario. */
+.DC-botonExcelOT {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f1f5f9;
+  color: #0f1928;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.34rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: 0.4rem;
+  transition: background 150ms ease-out, border-color 150ms ease-out;
+}
+.DC-botonExcelOT:hover { background: #e2e8f0; border-color: #94a3b8; }
+.DC-botonExcelOT:disabled { opacity: 0.6; cursor: wait; }
+
+/* Isotipo estilo Excel: cuadro verde con la X en blanco */
+.DC-iconoExcel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  background: #1d6f42;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+/* Footer de paginación de la tabla de guías: "Mostrando X de Y" + Cargar más */
+.DC-guiaPaginacion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.7rem;
+}
+
+.DC-guiaPagInfo {
+  font-size: 0.8rem;
+  color: #475569;
+}
+
 /* Botón "Cargar Citas" (plan B del OT) — mismo look del exportar, azul */
 .DC-guiaBotonCargar {
   display: flex;
@@ -754,6 +891,23 @@
   .DC-nombreCliente { font-size: 1.1rem; }
   .DC-userInfo { display: none; }
   .DC-filtrosSection { position: static; }
+  .DC-filtrosToggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    background: #f1f5f9;
+    color: #0f1928;
+    border: none;
+    border-bottom: 1px solid #e5e9f0;
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .DC-filtrosToggle:active { background: #e2e8f0; }
+  .DC-filtrosToggleFlecha { margin-left: auto; }
+  .DC-filtrosOcultos { display: none; }
   .DC-main { width: 94%; padding-top: 1.2rem; }
   .DC-guiaTiles { display: none; }
   .DC-guiaCeldaVeh { max-width: 150px; }

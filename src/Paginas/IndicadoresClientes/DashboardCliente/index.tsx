@@ -38,49 +38,104 @@ type ApiResponse = {
   error?: string;
 };
 
-// Informe de guías TMS: contexto del vehículo (Mongo) + estado/fechas (Postgres).
-// planilla_siscore puede traer varias guías por coma → una fila por guía.
+// Informe de guías TMS (PostgreSQL puro desde 2026-10-29: todo sale de
+// informe_guias_tms — sin Mongo, sin consecutivo de vehículo ni cajas).
 type FilaGuia = {
   guia: string;
-  consecutivo_vehiculo: string | number;
-  fecha_creacion: string | null;
-  cajas_vehiculo: number;
-  destino?: string;
-  estado: string | null;
+  planilla: string | null;      // n° de planilla del TMS (null si '0'/vacía)
+  ciudad_destino: string | null;
+  destinatario: string | null;
+  servicio: string | null;
+  piezas: number | null;
+  kilos: number | null;
+  estado: string | null;        // canónico; null si el TMS trajo basura
+  estado_crudo: string | null;  // valor original del TMS (diagnóstico/export)
   fecha_emision: string | null;
   fecha_entrega: string | null;
   fecha_digitalizacion: string | null;
-  // TEXT crudo del TMS: histórico con basura (zonas, teléfonos); llegará
-  // YYYY-MM-DD cuando la operación digite fechas reales.
+  // TEXT crudo del TMS ('D/M/YYYY' cuando la operación digita; basura histórica
+  // también) — el backend la parsea para el OT pero viaja tal cual.
   fecha_cita: string | null;
-  destinatario: string | null;
-  // On Time: fecha inicial (emision ?? creacion) vs fecha promesa (CITA si es
-  // servible, si no inicial + promesa_entrega_dias hábiles del destino en
-  // Tarifas). ot=1 cumplió, 0 no, null no evaluable.
+  // On Time: emisión vs fecha promesa (CITA si es servible, si no emisión +
+  // promesa_entrega_dias hábiles del destino en Tarifas). ot=1/0/null.
   fecha_promesa: string | null;
   origen_promesa: 'CITA' | 'PROMESA' | null;
   dias_habiles: number | null;
   ot: number | null;
+  // (2026-10-29) Novedad justificada (gestión en /NovedadesOT): si existe, la
+  // guía cuenta en el segmento «Justificadas» y se excluye del % OT.
+  novedad?: {
+    causal: string;
+    justificacion: string;
+    usuario?: string;
+    nombre?: string;
+    fecha?: string;
+  } | null;
 };
 
 type ResumenGuias = {
-  total_vehiculos: number;
   total_guias: number;
+  total_planillas: number;
   entregadas: number;
   en_proceso: number;
-  sin_info: number;
-  anuladas: number;
+  sin_info: number; // estados basura del TMS (no reconocidos)
   por_estado: Record<string, number>;
   ot_cumplen: number;
   ot_no_cumplen: number;
   ot_no_evaluables: number;
   ot_pct: number | null;
-  truncada: boolean;
 };
+
+type PaginacionGuias = { pagina: number; limite: number; total: number; hay_mas: boolean };
+
+// Bucket del gráfico OT — lo agrega el BACKEND (misma pasada que la tabla).
+// Bucket = FECHA DE EMISIÓN; segmentos = división real de estados del TMS
+// (ENTREGADO partido en cumplieron/no cumplieron + estados en curso).
+type BucketOT = {
+  periodo: string;
+  cumplieron: number;
+  noCumplieron: number;
+  justificadas: number;
+  con_novedad: number;
+  en_distribucion: number;
+  transito: number;
+  pendiente: number;
+  sin_info: number;
+  evaluables: number;
+  total: number;
+};
+
+// Definición única de los segmentos del gráfico OT (orden de la pila, color,
+// etiqueta y explicación para title/tooltip) — barras, leyenda y tooltip.
+const SEGMENTOS_OT: { clave: keyof BucketOT; color: string; etiqueta: string; explica: string }[] = [
+  { clave: 'cumplieron', color: '#15803d', etiqueta: 'Cumplieron', explica: 'ENTREGADO en fecha ≤ fecha promesa (días hábiles)' },
+  { clave: 'noCumplieron', color: '#b91c1c', etiqueta: 'No cumplieron', explica: 'ENTREGADO después de la fecha promesa' },
+  { clave: 'justificadas', color: '#4a3aa7', etiqueta: 'Justificadas', explica: 'Con novedad justificada (causal + justificación cargados en Novedades OT): excluidas del % OT' },
+  { clave: 'en_distribucion', color: '#eda100', etiqueta: 'En distribución', explica: 'Estado TMS: En distribucion' },
+  { clave: 'transito', color: '#2a78d6', etiqueta: 'Tránsito Nacional', explica: 'Estado TMS: Transito Nacional' },
+  { clave: 'pendiente', color: '#94a3b8', etiqueta: 'Pendiente', explica: 'Estado TMS: PENDIENTE' },
+  { clave: 'con_novedad', color: '#eb6834', etiqueta: 'Con novedad', explica: 'Entrega con novedad reportada (el bot sigue actualizándola)' },
+  { clave: 'sin_info', color: '#cbd5e1', etiqueta: 'Sin info', explica: 'Sin estado servible del TMS, o ENTREGADO sin fecha de entrega (no evaluable)' },
+];
 
 type InformeGuiasResponse = {
   success: boolean;
-  data?: { cliente: string; filas: FilaGuia[]; resumen: ResumenGuias; advertencia?: string | null };
+  data?: {
+    cliente: string;
+    grupos?: string[];
+    filas: FilaGuia[];
+    resumen: ResumenGuias;
+    serie_mensual?: BucketOT[];
+    serie_diaria?: BucketOT[];
+    paginacion?: PaginacionGuias;
+    advertencia?: string | null;
+  };
+  error?: string;
+};
+
+type FilasGuiasResponse = {
+  success: boolean;
+  data?: { cliente: string; filas: FilaGuia[]; paginacion: PaginacionGuias };
   error?: string;
 };
 
@@ -148,12 +203,26 @@ const MESES = [
 /**
  * Dashboard de indicadores de UN cliente (registro: ../clientes.ts).
  * Por ahora: gráfico "Cantidad de cajas" (media milla) con toggle Mensual/Diario.
+ *
+ * `modoExterno` (2026-10-29): portal «Mis Indicadores» para clientes externos
+ * (perfil CLIENTE). Reduce el dashboard a «🎯 On Time por período» + «🚚 Informe
+ * de guías TMS»: sin cajas, sin uso de vehículos, sin «⬆ Cargar Citas». El
+ * fetch de guías viaja con ?usuario= para que el backend valide la asignación.
  */
-const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
+const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> = ({ clienteId, modoExterno = false }) => {
+  // (2026-10-29) Transición del OT al cambiar de vista (Mensual↔Diario, zoom de
+  // mes): el wrapper del gráfico se re-monta con key → fade + slide corto del
+  // contenedor (ejes y etiquetas no "saltan") mientras las barras crecen con el
+  // easing de recharts. prefers-reduced-motion: sin animación.
+  const REDUCE_MOTION = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const ANIM_BARRAS = { isAnimationActive: !REDUCE_MOTION, animationDuration: 650, animationEasing: 'ease-out' as const };
+
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const cliente = obtenerCliente(clienteId);
+  // Portal de regreso: externos vuelven a «Mis Indicadores», internos al panel.
+  const rutaPanel = modoExterno ? '/indicadores/mis-clientes' : '/indicadores/clientes';
 
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [datosUsuario, setDatosUsuario] = useState<{ usuario: string; perfil?: string; regional?: string } | null>(null);
@@ -167,15 +236,23 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   const [filasGuias, setFilasGuias] = useState<FilaGuia[]>([]);
   const [resumenGuias, setResumenGuias] = useState<ResumenGuias | null>(null);
   const [cargandoGuias, setCargandoGuias] = useState(false);
+  const [exportandoOT, setExportandoOT] = useState(false);
   const [errorGuias, setErrorGuias] = useState<string | null>(null);
   const [advertenciaGuias, setAdvertenciaGuias] = useState<string | null>(null);
-  // Trazabilidad: búsqueda por guía o consecutivo de vehículo (va al backend
-  // como ?q= y reemplaza el filtro de fechas).
+  // Series OT del BACKEND (agregación en el servidor; antes se agrupaban en el
+  // navegador con TODAS las filas del período).
+  const [serieOTMensual, setSerieOTMensual] = useState<BucketOT[]>([]);
+  const [serieOTDiaria, setSerieOTDiaria] = useState<BucketOT[]>([]);
+  // Paginación de la tabla (la 1ª página viaja en /guias; el resto en /filas).
+  const [paginacionGuias, setPaginacionGuias] = useState<PaginacionGuias | null>(null);
+  const [cargandoMasGuias, setCargandoMasGuias] = useState(false);
+  // Trazabilidad: búsqueda por guía/planilla/destinatario (va al backend como
+  // ?q= en /guias/filas y reemplaza el filtro de fechas SOLO en la tabla).
   const [inputTraza, setInputTraza] = useState('');
   const [trazaActiva, setTrazaActiva] = useState<string | null>(null);
 
   // Carga del Excel de citas (plan B del OT): solo ADMIN/ANALISTA/COORDINADOR/CONTROL.
-  const puedeCargarCitas = PERFILES_CARGA_CITAS.includes((datosUsuario?.perfil || '').toUpperCase());
+  const puedeCargarCitas = !modoExterno && PERFILES_CARGA_CITAS.includes((datosUsuario?.perfil || '').toUpperCase());
   const [cargandoCitas, setCargandoCitas] = useState(false);
 
   const handleCargarCitas = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -259,6 +336,19 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   const [mesesSeleccionados, setMesesSeleccionados] = useState<number[]>([]);
   const [dropdownAnioAbierto, setDropdownAnioAbierto] = useState(false);
   const [dropdownMesAbierto, setDropdownMesAbierto] = useState(false);
+  // Sub-grupo del informe de guías (p. ej. Fresenius Kabi vs FK Servicio
+  // Técnico): etiquetas que llegan del backend en /guias (grupos); SOLO viaja
+  // en las consultas de guías (cajas/uso son por NIT en Mongo, no aplica).
+  const [gruposCliente, setGruposCliente] = useState<string[]>([]);
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState<string | null>(null);
+  const [grupoAplicado, setGrupoAplicado] = useState<string | null>(null);
+  const [dropdownGrupoAbierto, setDropdownGrupoAbierto] = useState(false);
+  // Mostrar/ocultar la barra de filtros (SOLO móvil, CSS la controla): en
+  // pantallas chicas arranca OCULTA para dar paso a los gráficos; el botón
+  // «Filtros» la despliega. En escritorio el botón no existe y siempre se ve.
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(
+    () => (typeof window === 'undefined' ? true : window.innerWidth > 768)
+  );
 
   // Filtros aplicados (los que realmente se consultan)
   const [filtrosAplicados, setFiltrosAplicados] = useState({
@@ -292,10 +382,17 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     return params;
   };
 
-  // Params del informe de guías: los del período + la trazabilidad activa (q).
+  // Params base del informe de guías: SOLO los del período (la trazabilidad
+  // viaja aparte en /guias/filas) + el sub-grupo si hay uno aplicado. En
+  // modoExterno va además ?usuario= (la cookie se lee directo: el estado
+  // datosUsuario puede no estar resuelto en el fetch de la carga inicial).
   const construirParamsGuias = () => {
     const params = construirParams();
-    if (trazaActiva) params.set('q', trazaActiva);
+    if (grupoAplicado) params.set('grupo', grupoAplicado);
+    if (modoExterno) {
+      const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2];
+      if (u) params.set('usuario', u);
+    }
     return params;
   };
 
@@ -323,6 +420,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     }
   };
 
+  // Informe del PERÍODO: resumen + series OT (backend) + 1ª página de filas.
   const obtenerInformeGuias = async () => {
     setCargandoGuias(true);
     setErrorGuias(null);
@@ -331,14 +429,65 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
       if (!response.ok) throw new Error('Error al obtener el informe de guías');
       const data: InformeGuiasResponse = await response.json();
       if (data.success && data.data) {
+        setGruposCliente(data.data.grupos || []);
         setFilasGuias(data.data.filas || []);
         setResumenGuias(data.data.resumen || null);
+        setSerieOTMensual(data.data.serie_mensual || []);
+        setSerieOTDiaria(data.data.serie_diaria || []);
+        setPaginacionGuias(data.data.paginacion || null);
         setAdvertenciaGuias(data.data.advertencia || null);
       } else {
         throw new Error(data.error || 'Error desconocido');
       }
     } catch (err) {
       setErrorGuias(err instanceof Error ? err.message : 'Error al cargar el informe de guías');
+    } finally {
+      setCargandoGuias(false);
+    }
+  };
+
+  // Fetch de /guias/filas con params arbitrarios (trazabilidad, más páginas,
+  // export completo). Devuelve las filas o lanza.
+  const obtenerFilasGuias = async (extra: URLSearchParams): Promise<{ filas: FilaGuia[]; paginacion: PaginacionGuias }> => {
+    const params = construirParamsGuias();
+    extra.forEach((v, k) => params.set(k, v));
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/guias/filas?${params.toString()}`);
+    if (!response.ok) throw new Error('Error al obtener las guías');
+    const data: FilasGuiasResponse = await response.json();
+    if (!data.success || !data.data) throw new Error(data.error || 'Error desconocido');
+    return { filas: data.data.filas || [], paginacion: data.data.paginacion };
+  };
+
+  // «Cargar más»: página siguiente de la tabla, append al final.
+  const cargarMasGuias = async () => {
+    if (!paginacionGuias?.hay_mas || cargandoMasGuias) return;
+    setCargandoMasGuias(true);
+    try {
+      const { filas, paginacion } = await obtenerFilasGuias(new URLSearchParams({
+        pagina: String(paginacionGuias.pagina + 1),
+        limite: String(paginacionGuias.limite),
+      }));
+      setFilasGuias(prev => [...prev, ...filas]);
+      setPaginacionGuias(paginacion);
+    } catch (err) {
+      setErrorGuias(err instanceof Error ? err.message : 'Error al cargar más guías');
+    } finally {
+      setCargandoMasGuias(false);
+    }
+  };
+
+  // Trazabilidad: SOLO la tabla (ILIKE guía/planilla/destinatario en todo el
+  // histórico); el gráfico OT sigue mostrando el período filtrado.
+  const buscarTrazaGuias = async (q: string) => {
+    setCargandoGuias(true);
+    setErrorGuias(null);
+    try {
+      const { filas, paginacion } = await obtenerFilasGuias(new URLSearchParams({ q }));
+      setFilasGuias(filas);
+      setPaginacionGuias(paginacion);
+      setAdvertenciaGuias(null);
+    } catch (err) {
+      setErrorGuias(err instanceof Error ? err.message : 'Error en la trazabilidad');
     } finally {
       setCargandoGuias(false);
     }
@@ -381,10 +530,19 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
 
   useEffect(() => {
     if (cliente) {
-      obtenerDatos();
-      // Con trazabilidad de uso activa, el "Filtrar" no la pisa (igual que
-      // el informe de guías): la búsqueda viaja sola.
-      if (!trazaUsoActiva) obtenerUsoVehiculos();
+      if (modoExterno) {
+        // Portal externo: solo On Time + informe de guías — no se consultan
+        // /cajas ni /uso-vehiculos. Sin /cajas no llegan los años del filtro:
+        // se ofrecen el actual y el anterior (default = año actual).
+        const anioActual = new Date().getFullYear();
+        setAniosDisponibles([anioActual - 1, anioActual].filter(a => a >= 2025));
+        setCargando(false);
+      } else {
+        obtenerDatos();
+        // Con trazabilidad de uso activa, el "Filtrar" no la pisa (igual que
+        // el informe de guías): la búsqueda viaja sola.
+        if (!trazaUsoActiva) obtenerUsoVehiculos();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtrosAplicados, clienteId]);
@@ -392,7 +550,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
   // Al cambiar la trazabilidad del uso, re-consultar (el backend busca en
   // TODO el histórico: los filtros de Año/Mes no aplican a esa consulta).
   useEffect(() => {
-    if (cliente) obtenerUsoVehiculos(trazaUsoActiva);
+    if (cliente && !modoExterno) obtenerUsoVehiculos(trazaUsoActiva);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trazaUsoActiva]);
 
@@ -418,56 +576,75 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     setTrazaActiva(null);
   };
 
-  // Al cambiar la trazabilidad, re-consultar el informe (la trazabilidad
-  // reemplaza el filtro de fechas en el backend: busca en TODO el histórico).
+  // Al cambiar la trazabilidad, re-consultar SOLO la tabla (busca en TODO el
+  // histórico; el gráfico OT y los tiles siguen siendo del período filtrado).
+  // Al limpiar, se restaura el informe del período.
   useEffect(() => {
-    if (cliente) obtenerInformeGuias();
+    if (!cliente) return;
+    if (trazaActiva) buscarTrazaGuias(trazaActiva);
+    else obtenerInformeGuias();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trazaActiva]);
 
   const aplicarFiltros = () => {
+    setGrupoAplicado(grupoSeleccionado);
     setFiltrosAplicados({ anios: aniosSeleccionados, meses: mesesSeleccionados });
   };
 
-  // ── Serie OT por período (para el gráfico sobre el informe de guías) ──
-  // Bucket = fecha de ENTREGA (cuándo se cerró la promesa); fallback a la de
-  // creación. Tres segmentos: cumplieron (ot=1), no cumplieron (ot=0) y
-  // PENDIENTES (sin fecha de entrega aún — en proceso/con novedad/sin cargar;
-  // las ANULADAS quedan fuera). El % OT se calcula solo sobre las evaluables.
-  const [vistaOT, setVistaOT] = useState<'mensual' | 'diaria'>('mensual');
-  const acumularOT = (buckets: Map<string, { cumplieron: number; noCumplieron: number; pendientes: number }>, f: FilaGuia, largo: number) => {
-    const clave = (f.fecha_entrega || f.fecha_creacion || '').slice(0, largo);
-    if (!clave) return;
-    const b = buckets.get(clave) || { cumplieron: 0, noCumplieron: 0, pendientes: 0 };
-    if (f.ot === 1) b.cumplieron += 1;
-    else if (f.ot === 0) b.noCumplieron += 1;
-    else if ((f.estado || '').toUpperCase() !== 'ANULADA') b.pendientes += 1;
-    buckets.set(clave, b);
+  // Quitar el grupo de las migas: sincroniza el dropdown y re-consulta (pisa
+  // filtrosAplicados con un objeto NUEVO de los mismos valores para que el
+  // useEffect del informe reaccione — el grupo NO viaja en filtrosAplicados).
+  const quitarGrupoMiga = () => {
+    setGrupoSeleccionado(null);
+    setGrupoAplicado(null);
+    setFiltrosAplicados(prev => ({ ...prev }));
   };
-  const serieOTMensual = useMemo(() => {
-    const buckets = new Map<string, { cumplieron: number; noCumplieron: number; pendientes: number }>();
-    for (const f of filasGuias) acumularOT(buckets, f, 7);
-    return [...buckets.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([periodo, v]) => ({ periodo, ...v, evaluables: v.cumplieron + v.noCumplieron, total: v.cumplieron + v.noCumplieron + v.pendientes }));
-  }, [filasGuias]);
 
-  const serieOTDiaria = useMemo(() => {
-    const buckets = new Map<string, { cumplieron: number; noCumplieron: number; pendientes: number }>();
-    for (const f of filasGuias) acumularOT(buckets, f, 10);
-    return [...buckets.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([periodo, v]) => ({ periodo, ...v, evaluables: v.cumplieron + v.noCumplieron, total: v.cumplieron + v.noCumplieron + v.pendientes }));
-  }, [filasGuias]);
+  // Migas de navegación: cada filtro aplicado se ve como chip borrable; quitar
+  // uno lo aplica DE INMEDIATO (sin pasar por "Filtrar") y sincroniza los
+  // dropdowns. Sin años/meses → todo el histórico (mismo contrato del backend).
+  const quitarAnioMiga = (a: number) => {
+    const anios = filtrosAplicados.anios.filter(x => x !== a);
+    setAniosSeleccionados(anios);
+    setFiltrosAplicados(prev => ({ ...prev, anios }));
+  };
+  const quitarMesMiga = (m: number) => {
+    const meses = filtrosAplicados.meses.filter(x => x !== m);
+    setMesesSeleccionados(meses);
+    setFiltrosAplicados(prev => ({ ...prev, meses }));
+  };
+
+  // ── Serie OT por período ──
+  // Desde 2026-10-29 los buckets los agrega el BACKEND sobre la pasada
+  // completa del período (serie_mensual/serie_diaria del /guias) — antes se
+  // agrupaban acá con TODAS las filas (cap 20k) en el navegador. Bucket =
+  // fecha de ENTREGA (fallback emisión); % OT solo sobre evaluables.
+  const [vistaOT, setVistaOT] = useState<'mensual' | 'diaria'>('mensual');
 
   const dataOT = useMemo(
-    () => (vistaOT === 'diaria' ? serieOTDiaria : serieOTMensual),
-    [vistaOT, serieOTDiaria, serieOTMensual],
+    () => (vistaOT === 'mensual' ? serieOTMensual : serieOTDiaria),
+    [vistaOT, serieOTDiaria, serieOTMensual]
   );
 
-  // % OT por período para etiqueta y tooltip.
-  const pctOT = (d: { cumplieron: number; total: number }) =>
-    d.total > 0 ? Math.round((d.cumplieron / d.total) * 100) : null;
+  // Clic en una barra mensual del OT → APLICA el filtro real de ese mes (Año+Mes
+  // quedan marcados en los dropdowns y viajan en el fetch — sin estado paralelo
+  // de zoom) y pasa a la vista diaria, que llega ya acotada del backend.
+  const clicBarraOT = (estado: any) => {
+    const periodo = String(estado?.activeLabel ?? '');
+    if (vistaOT === 'mensual' && /^\d{4}-\d{2}$/.test(periodo)) {
+      const [a, m] = periodo.split('-').map(Number);
+      setAniosSeleccionados([a]);
+      setMesesSeleccionados([m]);
+      setFiltrosAplicados({ anios: [a], meses: [m] });
+      setVistaOT('diaria');
+    }
+  };
+  const alternarVistaOT = (v: 'mensual' | 'diaria') => setVistaOT(v);
+
+  // % OT por período para etiqueta y tooltip — SIEMPRE sobre evaluables
+  // (entregadas con promesa), no sobre el total del período.
+  const pctOT = (d: { cumplieron: number; evaluables: number }) =>
+    d.evaluables > 0 ? Math.round((d.cumplieron / d.evaluables) * 100) : null;
 
   // ── Uso de vehículos: agregaciones de los 4 niveles del drill-down ──
   // Todas se calculan en el frontend desde las filas de /uso-vehiculos.
@@ -637,20 +814,23 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     return `${nombres} ${anios.length === 1 ? anios[0] : '(' + anios.join(', ') + ')'}`;
   }, [filtrosAplicados]);
 
-  // Tooltip del gráfico OT: período, cumplidas/no cumplidas/pendientes y %.
+  // Tooltip del gráfico OT: período, cada estado con su conteo (solo >0 para
+  // no llenar de ceros) y el pie con evaluables / % OT / total.
   const tooltipOT = (props: any) => {
     if (!props.active || !props.payload || !props.payload.length) return null;
-    const d = props.payload[0].payload as { periodo: string; cumplieron: number; noCumplieron: number; pendientes: number; evaluables: number; total: number };
+    const d = props.payload[0].payload as BucketOT;
     const fechaTxt = vistaOT === 'diaria'
       ? format(parseISO(d.periodo), "d 'de' MMMM yyyy", { locale: es })
       : format(parseISO(d.periodo + '-01'), 'MMMM yyyy', { locale: es });
     const pct = pctOT(d);
     return (
       <div className="IG-tooltipSerie">
-        <p className="IG-tooltipSerieFecha">{fechaTxt}</p>
-        <p><span className="IG-tooltipEtapa" style={{ background: '#15803d' }} />Cumplieron: <b>{formatearEntero(d.cumplieron)}</b></p>
-        <p><span className="IG-tooltipEtapa" style={{ background: '#b91c1c' }} />No cumplieron: <b>{formatearEntero(d.noCumplieron)}</b></p>
-        <p><span className="IG-tooltipEtapa" style={{ background: '#94a3b8' }} />Pendientes: <b>{formatearEntero(d.pendientes)}</b></p>
+        <p className="IG-tooltipSerieFecha">{fechaTxt} <span style={{ color: '#8aa0b8' }}>(emisión)</span></p>
+        {SEGMENTOS_OT.map(s => (d[s.clave] as number) > 0 ? (
+          <p key={s.clave}>
+            <span className="IG-tooltipEtapa" style={{ background: s.color }} />{s.etiqueta}: <b>{formatearEntero(d[s.clave] as number)}</b>
+          </p>
+        ) : null)}
         <p className="IG-tooltipSerieSub">
           Evaluables: {formatearEntero(d.evaluables)}{pct != null ? ` · ${pct}% OT` : ''} · Total: {formatearEntero(d.total)}
         </p>
@@ -752,14 +932,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     return String(Math.round(n));
   };
 
-  // Chip de estado del TMS: ENTREGADO (exacto, valor real de la BD) → verde;
-  // ANULADA (sin registro TMS y antigua) → gris; el resto → ámbar.
-  const claseChipEstado = (estado: string) => {
-    const e = estado.toUpperCase();
-    if (e === 'ENTREGADO') return 'DC-guiaChipEntregada';
-    if (e === 'ANULADA') return 'DC-guiaChipAnulada';
-    return 'DC-guiaChipProceso';
-  };
+  // Chip de estado del TMS: ENTREGADO → verde; el resto → ámbar. (La regla
+  // ANULADA desapareció con la migración a PG puro: toda fila viene del TMS.)
+  const claseChipEstado = (estado: string) =>
+    estado.toUpperCase() === 'ENTREGADO' ? 'DC-guiaChipEntregada' : 'DC-guiaChipProceso';
 
   // '2026-08-14' → '14-08-2026' (día primero, como lo lee el usuario). Solo
   // reformattea si calza exacto con ISO; fecha_cita puede traer basura y se
@@ -770,36 +946,109 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
     return m ? `${m[3]}-${m[2]}-${m[1]}` : v;
   };
 
-  // Export Excel (.xlsx) del informe — SheetJS, mismo patrón que el Export de
-  // Tarifas. Fechas ya en DD-MM-AAAA (formatearFecha) para que Excel-ES las lea.
-  const exportarGuiasExcel = () => {
-    const datos = filasGuias.map(f => ({
-      'Guía': f.guia,
-      'Vehículo': f.consecutivo_vehiculo,
-      'Destinatario': f.destinatario ?? '',
-      'Destino': f.destino ?? '',
-      'Fecha': f.fecha_creacion ? formatearFecha(f.fecha_creacion) : '',
-      'Cajas': f.cajas_vehiculo,
-      'Estado': f.estado ?? '',
-      'F. Emisión': f.fecha_emision ? formatearFecha(f.fecha_emision) : '',
-      'F. Entrega': f.fecha_entrega ? formatearFecha(f.fecha_entrega) : '',
-      'F. Promesa': f.fecha_promesa ? formatearFecha(f.fecha_promesa) : '',
-      'Origen Promesa': f.origen_promesa ?? '',
-      'Días Hábiles': f.dias_habiles ?? '',
-      'OT': f.ot ?? '',
-      'F. Digitalización': f.fecha_digitalizacion ? formatearFecha(f.fecha_digitalizacion) : '',
-      'F. Cita': f.fecha_cita ? formatearFecha(f.fecha_cita) : '',
-    }));
+  // Fila de guía → objeto plano para Excel (compartido por el export del
+  // informe y el del gráfico On Time). Fechas ya en DD-MM-AAAA. «F. Conteo OT»
+  // = el criterio EXACTO con el que bucketa el gráfico On Time (fecha de
+  // ENTREGA; fallback emisión si aún no hay entrega) — filtrando el Excel por
+  // esta columna se replica la altura de las barras.
+  const filaGuiaAExport = (f: FilaGuia) => ({
+    'Guía': f.guia,
+    'Planilla': f.planilla ?? '',
+    'Destino': f.ciudad_destino ?? '',
+    'Destinatario': f.destinatario ?? '',
+    'Servicio': f.servicio ?? '',
+    'Piezas': f.piezas ?? '',
+    'Kilos': f.kilos ?? '',
+    'Estado': f.estado ?? '',
+    'Estado Crudo': f.estado_crudo && !f.estado ? f.estado_crudo : '',
+    'F. Conteo OT': formatearFecha(f.fecha_entrega || f.fecha_emision),
+    'F. Emisión': f.fecha_emision ? formatearFecha(f.fecha_emision) : '',
+    'F. Entrega': f.fecha_entrega ? formatearFecha(f.fecha_entrega) : '',
+    'F. Promesa': f.fecha_promesa ? formatearFecha(f.fecha_promesa) : '',
+    'Origen Promesa': f.origen_promesa ?? '',
+    'Días Hábiles': f.dias_habiles ?? '',
+    'OT': f.ot ?? '',
+    'F. Digitalización': f.fecha_digitalizacion ? formatearFecha(f.fecha_digitalizacion) : '',
+    'F. Cita': f.fecha_cita ? formatearFecha(f.fecha_cita) : '',
+    'Causal (justificada)': f.novedad?.causal ?? '',
+    'Justificación': f.novedad?.justificacion ?? '',
+    'Registrada por': f.novedad ? (f.novedad.nombre || f.novedad.usuario || '') : '',
+  });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(datos);
-    ws['!cols'] = [
-      { wch: 12 }, { wch: 34 }, { wch: 24 }, { wch: 18 }, { wch: 12 }, { wch: 8 },
-      { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 10 },
-      { wch: 6 }, { wch: 14 }, { wch: 12 },
-    ];
-    XLSX.utils.book_append_sheet(wb, ws, 'Guías TMS');
-    XLSX.writeFile(wb, `guias_tms_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  // Export Excel (.xlsx) del informe — SheetJS, mismo patrón que el Export de
+  // Tarifas. Exporta el RANGO COMPLETO del alcance visible (período o
+  // trazabilidad activa), no solo las filas cargadas en pantalla: un único
+  // fetch a /guias/filas con limite=30000 (un año Kabi ≈ 29k). Fechas ya en
+  // DD-MM-AAAA (formatearFecha) para que Excel-ES las lea.
+  const exportarGuiasExcel = async () => {
+    setCargandoMasGuias(true);
+    try {
+      const extra = new URLSearchParams({ pagina: '1', limite: '30000' });
+      if (trazaActiva) extra.set('q', trazaActiva);
+      const { filas } = await obtenerFilasGuias(extra);
+      const datos = filas.map(filaGuiaAExport);
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(datos);
+      ws['!cols'] = [
+        { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
+        { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+        { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
+        { wch: 20 }, { wch: 40 }, { wch: 18 },
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, 'Guías TMS');
+      XLSX.writeFile(wb, `guias_tms_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    } catch (err) {
+      setErrorGuias(err instanceof Error ? err.message : 'Error al exportar');
+    } finally {
+      setCargandoMasGuias(false);
+    }
+  };
+
+  // Export Excel (.xlsx) del gráfico «On Time por período»: 2 hojas —
+  // ① «On Time»: la serie de la VISTA ACTIVA (mensual/diaria) con el % OT por
+  // período; ② «Guías»: la BASE completa del filtro vigente (año/mes/grupo —
+  // un fetch a /guias/filas con limite=30000, sin trazabilidad: el gráfico
+  // siempre es del período). Mismas columnas que el export del informe.
+  const exportarOTExcel = async () => {
+    if (exportandoOT) return;
+    setExportandoOT(true);
+    try {
+      const hojaOT = dataOT.map(b => ({
+        'Período': b.periodo,
+        'Cumplieron': b.cumplieron,
+        'No cumplieron': b.noCumplieron,
+        'Justificadas': b.justificadas,
+        'En distribución': b.en_distribucion,
+        'Tránsito Nacional': b.transito,
+        'Pendiente': b.pendiente,
+        'Con novedad': b.con_novedad,
+        'Sin info': b.sin_info,
+        'Evaluables': b.evaluables,
+        'Total': b.total,
+        '% OT': b.evaluables > 0 ? Math.round((b.cumplieron / b.evaluables) * 100) : '',
+      }));
+      const { filas } = await obtenerFilasGuias(new URLSearchParams({ pagina: '1', limite: '30000' }));
+      const hojaGuias = filas.map(filaGuiaAExport);
+
+      const wb = XLSX.utils.book_new();
+      const wsOT = XLSX.utils.json_to_sheet(hojaOT);
+      wsOT['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 15 }, { wch: 11 }, { wch: 10 }, { wch: 12 }, { wch: 9 }, { wch: 11 }, { wch: 8 }, { wch: 7 }];
+      XLSX.utils.book_append_sheet(wb, wsOT, 'On Time');
+      const wsGuias = XLSX.utils.json_to_sheet(hojaGuias);
+      wsGuias['!cols'] = [
+        { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
+        { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+        { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
+        { wch: 20 }, { wch: 40 }, { wch: 18 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsGuias, 'Guías');
+      XLSX.writeFile(wb, `on_time_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    } catch (err) {
+      setErrorGuias(err instanceof Error ? err.message : 'Error al exportar el On Time');
+    } finally {
+      setExportandoOT(false);
+    }
   };
 
   // Etiquetas de valor VERTICALES adaptativas: sobre un pico suben desde justo
@@ -1068,7 +1317,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
       {/* Header */}
       <header className="DC-header">
         <div className="DC-headerInner">
-          <button className="DC-brand" onClick={() => router.push('/indicadores/clientes')} title="Panel de clientes">
+          <button className="DC-brand" onClick={() => router.push(rutaPanel)} title={modoExterno ? 'Mis indicadores' : 'Panel de clientes'}>
             <Image src={logo} alt="Integra" height={40} priority />
             <span className="DC-brandName">Integr<span className="DC-brandAccent">App</span></span>
           </button>
@@ -1091,12 +1340,14 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
 
             {menuAbierto && (
               <div className="DC-dropdown">
-                <button className="DC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores/clientes'); }}>
-                  <FaChartBar /> Panel de clientes
+                <button className="DC-dropItem" onClick={() => { setMenuAbierto(false); router.push(rutaPanel); }}>
+                  <FaChartBar /> {modoExterno ? 'Mis indicadores' : 'Panel de clientes'}
                 </button>
-                <button className="DC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
-                  <FaChartBar /> Menú de indicadores
-                </button>
+                {!modoExterno && (
+                  <button className="DC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
+                    <FaChartBar /> Menú de indicadores
+                  </button>
+                )}
                 <div className="DC-dropDivider" />
                 <button className="DC-dropItem DC-dropItemDanger" onClick={cerrarSesion}>
                   <FaSignOutAlt /> Cerrar sesión
@@ -1109,12 +1360,32 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
 
       {/* Filtros */}
       <div className="DC-filtrosSection">
-        <div className="DC-filtrosPanel">
+        {/* (2026-10-29) Mostrar/ocultar filtros en móvil — badge con el nº de
+            filtros activos; las migas quedan SIEMPRE visibles debajo. */}
+        <button
+          className="DC-filtrosToggle"
+          onClick={() => {
+            setFiltrosAbiertos(a => !a);
+            setDropdownAnioAbierto(false);
+            setDropdownMesAbierto(false);
+            setDropdownGrupoAbierto(false);
+          }}
+          aria-expanded={filtrosAbiertos}
+        >
+          <span>⚙ Filtros</span>
+          {filtrosAplicados.anios.length + filtrosAplicados.meses.length + (grupoAplicado ? 1 : 0) + (trazaActiva ? 1 : 0) > 0 && (
+            <span className="DC-filtrosToggleBadge">
+              {filtrosAplicados.anios.length + filtrosAplicados.meses.length + (grupoAplicado ? 1 : 0) + (trazaActiva ? 1 : 0)}
+            </span>
+          )}
+          <span className="DC-filtrosToggleFlecha" style={{ transform: filtrosAbiertos ? 'rotate(180deg)' : 'none' }}>▾</span>
+        </button>
+        <div className={`DC-filtrosPanel ${filtrosAbiertos ? '' : 'DC-filtrosOcultos'}`}>
           {/* Año */}
           <div className="DC-filtroGrupo" style={{ position: 'relative' }}>
             <label>Año:</label>
             <div className="DC-dropdownFiltro">
-              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); }}>
+              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); }}>
                 <span className="DC-dropdownFiltroTexto">
                   {aniosSeleccionados.length === 0
                     ? 'Todos'
@@ -1149,7 +1420,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
           <div className="DC-filtroGrupo" style={{ position: 'relative' }}>
             <label>Mes:</label>
             <div className="DC-dropdownFiltro">
-              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); }}>
+              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); setDropdownGrupoAbierto(false); }}>
                 <span className="DC-dropdownFiltroTexto">
                   {mesesSeleccionados.length === 0
                     ? 'Todos'
@@ -1182,20 +1453,77 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
             </div>
           </div>
 
-          <button className="DC-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); }}>
+          {/* Cliente (sub-grupo): SOLO para el informe de guías — filtra por el
+              nombre con que el TMS registra cada parte del grupo (llega del
+              backend en /guias). Oculto si el cliente no tiene sub-grupos. */}
+          {gruposCliente.length > 1 && (
+            <div className="DC-filtroGrupo" style={{ position: 'relative' }}>
+              <label>Cliente:</label>
+              <div className="DC-dropdownFiltro">
+                <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownGrupoAbierto(!dropdownGrupoAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); }}>
+                  <span className="DC-dropdownFiltroTexto">{grupoSeleccionado ?? 'Todos'}</span>
+                  <span className="DC-dropdownFiltroFlecha">▾</span>
+                </button>
+                {dropdownGrupoAbierto && (
+                  <div className="DC-dropdownFiltroLista">
+                    <label className={`DC-dropdownFiltroItem ${grupoSeleccionado === null ? 'seleccionado' : ''}`}>
+                      <input type="radio" checked={grupoSeleccionado === null} onChange={() => setGrupoSeleccionado(null)} />
+                      Todos
+                    </label>
+                    {gruposCliente.map(g => (
+                      <label key={g} className={`DC-dropdownFiltroItem ${grupoSeleccionado === g ? 'seleccionado' : ''}`}>
+                        <input type="radio" checked={grupoSeleccionado === g} onChange={() => setGrupoSeleccionado(g)} />
+                        {g}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button className="DC-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); }}>
             Filtrar
           </button>
         </div>
+
+        {/* Migas de navegación: cada filtro aplicado (años, meses — incluido el
+            mes del clic en una barra del OT —, trazabilidad) como chip borrable;
+            quitarlo re-filtra al instante. */}
+        {(filtrosAplicados.anios.length > 0 || filtrosAplicados.meses.length > 0 || trazaActiva || grupoAplicado) && (
+          <div className="DC-migas">
+            {filtrosAplicados.anios.map(a => (
+              <button key={`miga-a-${a}`} className="DC-miga" onClick={() => quitarAnioMiga(a)} title="Quitar este filtro">
+                Año {a} <span className="DC-migaX">✕</span>
+              </button>
+            ))}
+            {filtrosAplicados.meses.map(m => (
+              <button key={`miga-m-${m}`} className="DC-miga" onClick={() => quitarMesMiga(m)} title="Quitar este filtro">
+                {MESES.find(x => x.valor === m)?.nombre ?? `Mes ${m}`} <span className="DC-migaX">✕</span>
+              </button>
+            ))}
+            {grupoAplicado && (
+              <button className="DC-miga" onClick={quitarGrupoMiga} title="Volver a ver todos los sub-grupos del cliente">
+                👥 {grupoAplicado} <span className="DC-migaX">✕</span>
+              </button>
+            )}
+            {trazaActiva && (
+              <button className="DC-miga" onClick={limpiarTraza} title="Quitar la trazabilidad">
+                🔎 {trazaActiva} <span className="DC-migaX">✕</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Contenido */}
       <main className="DC-main">
-        {cargando ? (
+        {!modoExterno && cargando ? (
           <>
             <SkeletonGrafico />
             <SkeletonGrafico bajo />
           </>
-        ) : error ? (
+        ) : !modoExterno && error ? (
           <div className="DC-error">
             <p>{error}</p>
             <button className="DC-reintentar" onClick={obtenerDatos}>Reintentar</button>
@@ -1204,7 +1532,9 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
           <>
             {/* Cantidad de cajas — misma lógica/look que el gráfico de cajas por
                 etapa de Costo de Operación, pero acotado a este cliente y a la
-                media milla (pedidos_completados). Toggle Mensual/Diario propio. */}
+                media milla (pedidos_completados). Toggle Mensual/Diario propio.
+                Oculto en modoExterno (portal de clientes). */}
+            {!modoExterno && (
             <div className="IG-graficoContainer">
               {dataCajas.some(d => d.cajas > 0) ? (
                 <>
@@ -1352,12 +1682,15 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                 <div className="IG-sinDatos"><p>No hay datos de cajas para el período seleccionado</p></div>
               )}
             </div>
+            )}
 
             {/* 🎯 On Time por período — mismo chrome/toggle que el gráfico de
                 cajas. Carga junto con la data (mismo fetch del informe de
-                guías); mientras consulta muestra su skeleton. Barras apiladas:
-                verdes cumplieron (ot=1), rojas no cumplieron (ot=0), grises
-                pendientes (sin entrega aún). */}
+                guías); mientras consulta muestra su skeleton. Barras apiladas
+                por FECHA DE EMISIÓN con la división real de estados del TMS
+                (SEGMENTOS_OT): ENTREGADO partido en cumplieron/no cumplieron
+                + En distribución / Tránsito / Pendiente / Con novedad / Sin
+                info. */}
             {cargandoGuias ? (
               <SkeletonGrafico bajo />
             ) : (
@@ -1378,20 +1711,51 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                         </h2>
                       </div>
                       <div className="IG-graficoAcciones">
+                        <button
+                          className="DC-botonExcelOT"
+                          onClick={exportarOTExcel}
+                          disabled={exportandoOT}
+                          title="Descarga Excel: resumen On Time de la vista activa + base de guías del filtro vigente (año/mes/cliente)"
+                        >
+                          <span className="DC-iconoExcel" aria-hidden="true">X</span>
+                          {exportandoOT ? 'Generando…' : 'Excel'}
+                        </button>
                         <div className="IG-toggleGrupo" role="group" aria-label="Vista On Time">
-                          <button className={`IG-toggleBtn ${vistaOT === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaOT('mensual')}>Mensual</button>
-                          <button className={`IG-toggleBtn ${vistaOT === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => setVistaOT('diaria')}>Diario</button>
+                          <button className={`IG-toggleBtn ${vistaOT === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => alternarVistaOT('mensual')}>Mensual</button>
+                          <button className={`IG-toggleBtn ${vistaOT === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => alternarVistaOT('diaria')}>Diario</button>
                         </div>
                       </div>
                     </div>
+                    {/* Leyenda: un punto por segmento (la división real de
+                        estados del TMS) — cada término explica su significado
+                        al pasar el mouse (title). Guías por FECHA DE EMISIÓN. */}
                     <p className="IG-graficoSub">
-                      <span style={{ color: '#15803d' }}>●</span> <b>Cumplieron</b> (entrega ≤ fecha promesa) &nbsp;&nbsp;
-                      <span style={{ color: '#b91c1c' }}>●</span> <b>No cumplieron</b> (entrega tarde) &nbsp;&nbsp;
-                      <span style={{ color: '#94a3b8' }}>●</span> <b>Pendientes</b> (sin fecha de entrega aún)
+                      {SEGMENTOS_OT.map((s, i) => (
+                        <span key={s.clave}>
+                          {i > 0 && '    '}
+                          <span className="DC-leyendaItem" title={s.explica}>
+                            <span style={{ color: s.color }}>●</span> <b>{s.etiqueta}</b>
+                          </span>
+                        </span>
+                      ))}
+                      <span className="DC-leyendaHint"> · por fecha de emisión{vistaOT === 'mensual' ? ' · clic en una barra → sus días' : ''}</span>
                     </p>
-                    <div style={{ width: '100%', height: 320 }}>
+                    {/* key por vista/filtros aplicados (incluido el sub-grupo):
+                        al cambiar (vista, clic en barra, migas) se re-monta y
+                        entra con la animación DC-swapOT (fade+slide) + barras
+                        creciendo. */}
+                    <div
+                      key={`${vistaOT}-${filtrosAplicados.anios.join(',')}|${filtrosAplicados.meses.join(',')}|${grupoAplicado ?? ''}`}
+                      className="DC-swapOT"
+                      style={{ width: '100%', height: 320 }}
+                    >
                       <ResponsiveContainer width="100%" height={320}>
-                        <BarChart data={dataOT} margin={{ top: 24, right: 20, left: 20, bottom: 10 }}>
+                        <BarChart
+                          data={dataOT}
+                          margin={{ top: 24, right: 20, left: 20, bottom: 10 }}
+                          onClick={clicBarraOT}
+                          style={vistaOT === 'mensual' ? { cursor: 'pointer' } : undefined}
+                        >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis
                             dataKey="periodo"
@@ -1409,17 +1773,28 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                           />
                           <YAxis tickFormatter={(v: number) => formatearEntero(v)} width={60} allowDecimals={false} />
                           <Tooltip content={tooltipOT} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
-                          <Bar dataKey="cumplieron" name="Cumplieron" stackId="ot" fill="#15803d" isAnimationActive={false} />
-                          <Bar dataKey="noCumplieron" name="No cumplieron" stackId="ot" fill="#b91c1c" isAnimationActive={false} />
-                          <Bar dataKey="pendientes" name="Pendientes" stackId="ot" fill="#94a3b8" isAnimationActive={false}>
-                            <LabelList
-                              dataKey="total"
-                              position="top"
-                              offset={10}
-                              formatter={(v: number) => (v > 0 ? `${v}` : '')}
-                              style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
-                            />
-                          </Bar>
+                          {SEGMENTOS_OT.map((s, i) => (
+                            <Bar
+                              key={s.clave}
+                              dataKey={s.clave as string}
+                              name={s.etiqueta}
+                              stackId="ot"
+                              fill={s.color}
+                              isAnimationActive={ANIM_BARRAS.isAnimationActive}
+                              animationDuration={ANIM_BARRAS.animationDuration}
+                              animationEasing={ANIM_BARRAS.animationEasing}
+                            >
+                              {i === SEGMENTOS_OT.length - 1 && (
+                                <LabelList
+                                  dataKey="total"
+                                  position="top"
+                                  offset={10}
+                                  formatter={(v: number) => (v > 0 ? `${v}` : '')}
+                                  style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
+                                />
+                              )}
+                            </Bar>
+                          ))}
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1437,8 +1812,10 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                 casi a nivel de consecutivo. % de uso = kg reales / tope de la
                 categoría del tipo solicitado (TRACTOMULA: 34.000 kg de
                 referencia). Todo se agrupa en el frontend con las filas de
-                /uso-vehiculos (una por consecutivo_vehiculo). */}
-            {cargandoUso ? (
+                /uso-vehiculos (una por consecutivo_vehiculo).
+                Oculto en modoExterno (portal de clientes). */}
+            {!modoExterno && (
+            cargandoUso ? (
               <SkeletonGrafico bajo />
             ) : errorUso ? (
               <div className="IG-graficoContainer">
@@ -1704,19 +2081,20 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                   </div>
                 )}
               </div>
-            )}
+            ))}
 
             {/* Informe de guías TMS — colapsable. planilla_siscore (Mongo, media
                 milla) == guia (PostgreSQL informe_guias_tms); puede traer varias
                 guías por coma → una fila por guía. Fetch perezoso al abrir. */}
             <section className="DC-guiaSeccion">
-              {/* Trazabilidad: guía o consecutivo → el backend busca en TODO el
-                  histórico (ignora año/mes) y muestra el vehículo con sus guías. */}
+              {/* Trazabilidad: guía, planilla o destinatario (parcial) → el
+                  backend busca en TODO el histórico (ignora año/mes) y
+                  reemplaza la tabla; el gráfico OT sigue con el período. */}
               <div className="DC-trazaBarra">
                 <input
                   className="DC-trazaInput"
                   type="text"
-                  placeholder="Trazabilidad: número de guía o consecutivo del vehículo…"
+                  placeholder="Trazabilidad: n° de guía, planilla o destinatario…"
                   value={inputTraza}
                   onChange={e => setInputTraza(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && aplicarTraza()}
@@ -1731,7 +2109,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
               </div>
               {trazaActiva && (
                 <p className="DC-trazaInfo">
-                  🔎 Trazabilidad por <strong>{trazaActiva}</strong> — buscando en todo el histórico (los filtros de Año/Mes no aplican ahora).
+                  🔎 Trazabilidad por <strong>{trazaActiva}</strong> — buscando en todo el histórico (los filtros de Año/Mes no aplican a esta tabla; el gráfico OT sigue con el período).
                 </p>
               )}
               <button className="DC-guiaToggle" onClick={alternarInforme} aria-expanded={informeAbierto}>
@@ -1742,9 +2120,9 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                       <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.total_guias)}</span>
                       <span className="DC-guiaTileLabel">Guías</span>
                     </div>
-                    <div className="DC-guiaTile">
-                      <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.total_vehiculos)}</span>
-                      <span className="DC-guiaTileLabel">Vehículos</span>
+                    <div className="DC-guiaTile" title="Planillas distintas del TMS en el período (las que tienen n° asignado)">
+                      <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.total_planillas)}</span>
+                      <span className="DC-guiaTileLabel">Planillas</span>
                     </div>
                     <div className="DC-guiaTile DC-guiaTileExito">
                       <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.entregadas)}</span>
@@ -1763,7 +2141,7 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                       <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.en_proceso)}</span>
                       <span className="DC-guiaTileLabel">En proceso</span>
                     </div>
-                    <div className="DC-guiaTile DC-guiaTileMuta">
+                    <div className="DC-guiaTile DC-guiaTileMuta" title="Guías cuyo estado en el TMS no es reconocido (viene vacío o con basura)">
                       <span className="DC-guiaTileValor">{formatearEntero(resumenGuias.sin_info)}</span>
                       <span className="DC-guiaTileLabel">Sin info</span>
                     </div>
@@ -1795,23 +2173,20 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                   ) : (
                     <>
                       {advertenciaGuias && <p className="DC-guiaAdvertencia">⚠ {advertenciaGuias}</p>}
-                      {resumenGuias?.truncada && (
-                        <p className="DC-guiaAdvertencia">Mostrando las {formatearEntero(filasGuias.length)} guías más recientes (límite alcanzado).</p>
-                      )}
                       <div className="DC-guiaTablaWrapper">
                         <table className="IG-tabla">
                           <thead>
                             <tr>
                               <th>Guía</th>
-                              <th>Vehículo</th>
+                              <th title="N° de planilla del TMS (agrupa las guías del mismo viaje)">Planilla</th>
                               <th>Destino</th>
                               <th>Destinatario</th>
-                              <th>Fecha</th>
-                              <th>Cajas</th>
-                              <th>Estado</th>
                               <th>F. Emisión</th>
+                              <th>Piezas</th>
+                              <th>Kilos</th>
+                              <th>Estado</th>
                               <th>F. Entrega</th>
-                              <th title="Fecha límite: la de CITA si es válida; si no, inicial + promesa del destino (días hábiles)">F. Promesa</th>
+                              <th title="Fecha límite: la de CITA si es válida; si no, emisión + promesa del destino (días hábiles)">F. Promesa</th>
                               <th title="Días hábiles transcurridos (sin sáb/dom/festivos)">Días háb.</th>
                               <th title="1 = entregada dentro de la fecha promesa; 0 = tarde; — = no evaluable">OT</th>
                               <th>F. Digitalización</th>
@@ -1822,17 +2197,30 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                             {filasGuias.map(f => (
                               <tr key={f.guia}>
                                 <td className="DC-guiaCeldaNum">{f.guia}</td>
-                                <td className="DC-guiaCeldaVeh">{f.consecutivo_vehiculo}</td>
-                                <td className="DC-guiaCeldaDest">{f.destino || '—'}</td>
+                                <td className="DC-guiaCeldaNum">{f.planilla ?? '—'}</td>
+                                <td className="DC-guiaCeldaDest">{f.ciudad_destino || '—'}</td>
                                 <td className="DC-guiaCeldaDest">{f.destinatario ?? '—'}</td>
-                                <td>{formatearFecha(f.fecha_creacion)}</td>
-                                <td className="DC-guiaCeldaNum">{formatearEntero(f.cajas_vehiculo)}</td>
-                                <td>{f.estado ? <span className={`DC-guiaChip ${claseChipEstado(f.estado)}`}>{f.estado}</span> : '—'}</td>
                                 <td>{formatearFecha(f.fecha_emision)}</td>
+                                <td className="DC-guiaCeldaNum">{f.piezas != null ? formatearEntero(f.piezas) : '—'}</td>
+                                <td className="DC-guiaCeldaNum">{f.kilos != null ? formatearEntero(f.kilos) : '—'}</td>
+                                <td>
+                                  {f.novedad ? (
+                                    <span
+                                      className="DC-guiaChip DC-guiaChipJustificada"
+                                      title={`Novedad justificada — causal: ${f.novedad.causal}. ${f.novedad.justificacion}${f.novedad.nombre || f.novedad.usuario ? ` (registró: ${f.novedad.nombre || f.novedad.usuario})` : ''}`}
+                                    >
+                                      💬 JUSTIFICADA · {f.novedad.causal}
+                                    </span>
+                                  ) : f.estado ? (
+                                    <span className={`DC-guiaChip ${claseChipEstado(f.estado)}`}>{f.estado}</span>
+                                  ) : (
+                                    <span title={`Estado original del TMS: ${f.estado_crudo || '(vacío)'}`}>—</span>
+                                  )}
+                                </td>
                                 <td>{formatearFecha(f.fecha_entrega)}</td>
                                 <td>
                                   {f.fecha_promesa
-                                    ? <span title={f.origen_promesa === 'CITA' ? 'Promesa: fecha de cita' : 'Promesa: inicial + días del destino (hábiles)'}>
+                                    ? <span title={f.origen_promesa === 'CITA' ? 'Promesa: fecha de cita' : 'Promesa: emisión + días del destino (hábiles)'}>
                                         {formatearFecha(f.fecha_promesa)}
                                         {f.origen_promesa === 'CITA' && <span className="DC-guiaOrigPromesa DC-guiaOrigPromesaCita"> cita</span>}
                                       </span>
@@ -1851,6 +2239,18 @@ const DashboardCliente: React.FC<{ clienteId: string }> = ({ clienteId }) => {
                           </tbody>
                         </table>
                       </div>
+                      {paginacionGuias && paginacionGuias.total > 0 && (
+                        <div className="DC-guiaPaginacion">
+                          <span className="DC-guiaPagInfo">
+                            Mostrando {formatearEntero(filasGuias.length)} de {formatearEntero(paginacionGuias.total)} guías
+                          </span>
+                          {paginacionGuias.hay_mas && (
+                            <button className="DC-guiaBotonExportar" onClick={cargarMasGuias} disabled={cargandoMasGuias}>
+                              {cargandoMasGuias ? 'Cargando…' : `＋ Cargar más (${paginacionGuias.limite})`}
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <div className="DC-guiaAcciones">
                         <button className="DC-guiaBotonExportar" onClick={exportarGuiasExcel}>⬇ Exportar Excel</button>
                         {puedeCargarCitas && (

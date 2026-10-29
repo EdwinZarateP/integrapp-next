@@ -10,6 +10,9 @@ export interface BaseUsuario {
   usuario: string;
   clave: string;
   clientes?: string[];
+  // (2026-10-29) Clientes asignados del catálogo clientes_siscore (NITs) —
+  // aplicable a cualquier perfil; null/undefined = usuario anterior al campo.
+  clientes_siscore?: string[] | null;
   // Alcance de aprobación por cliente en Otros Costos (COORDINADOR/CONTROL; [] = TODOS)
   clientes_aprobacion?: string[];
   activo?: boolean;
@@ -35,5 +38,6 @@ export interface LoginRespuesta {
     perfiles_adicionales?: string[];
     regional: string;
     clientes: string[];
+    clientes_siscore?: string[] | null;
   };
 }

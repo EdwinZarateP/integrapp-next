@@ -342,6 +342,9 @@
   letter-spacing: 0.4px; color: #8a97a8; margin-top: 2px;
 }
 .GU-alcance-lista { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+/* (2026-10-29) Lista de clientes dentro del modal Nuevo usuario (mismo look). */
+.GU-alcance-lista--form { max-height: 180px; }
+.GU-th-clientes { text-align: center !important; }
 .GU-alcance-acciones { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 
 /* ── FOOTER ── */

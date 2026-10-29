@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse, FaClipboardList, FaHistory, FaFileInvoiceDollar } from 'react-icons/fa';
+import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse, FaClipboardList, FaHistory, FaFileInvoiceDollar, FaBuilding } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -19,6 +19,12 @@ const IndicadoresMenu: React.FC = () => {
     const regionalMatch = document.cookie.match(/(^| )regionalPedidosCookie=([^;]+)/);
 
     if (usuarioMatch) {
+      // CLIENTE (2026-10-29): cliente externo — no ve los dashboards internos,
+      // va directo a su portal «Mis Indicadores».
+      if (perfilMatch?.[2] === 'CLIENTE') {
+        router.replace('/indicadores/mis-clientes');
+        return;
+      }
       setDatosUsuario({
         usuario: usuarioMatch[2],
         perfil: perfilMatch?.[2],
@@ -74,6 +80,21 @@ const IndicadoresMenu: React.FC = () => {
     },
     // Aquí se agregarán más indicadores en el futuro
   ];
+
+  // (2026-10-29) ADMIN: tarjeta del portal «Mis Indicadores» (clientes externos,
+  // perfil CLIENTE). Los CLIENTE no ven este menú (el login los aterriza directo
+  // y /indicadores los redirige) — la tarjeta es el acceso del ADMIN para probarlo.
+  const indicadoresAdmin =
+    datosUsuario?.perfil === 'ADMIN'
+      ? [
+          {
+            id: 'mis-clientes',
+            titulo: 'Mis Indicadores (portal clientes)',
+            icono: <FaBuilding />,
+            ruta: '/indicadores/mis-clientes',
+          },
+        ]
+      : [];
 
   // VISUALIZADOR: atajos a los históricos de solo lectura desde este panel
   // (es su única puerta de entrada, ya que no pasa por el selector de portales).
@@ -144,7 +165,7 @@ const IndicadoresMenu: React.FC = () => {
       {/* Main */}
       <main className="IM-main">
         <div className="IM-indicadoresGrid">
-          {[...indicadores, ...indicadoresVisualizador].map((indicador) => (
+          {[...indicadores, ...indicadoresAdmin, ...indicadoresVisualizador].map((indicador) => (
             <button
               key={indicador.id}
               className="IM-indicadorCard"

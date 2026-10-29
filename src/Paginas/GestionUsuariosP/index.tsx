@@ -3,20 +3,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter,
+  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter, FaUsers,
 } from 'react-icons/fa';
-import { obtenerUsuarios, crearUsuario, actualizarClientesUsuario, actualizarClientesAprobacion, actualizarPerfilUsuario, actualizarPerfilesAdicionales, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { obtenerUsuarios, crearUsuario, actualizarClientesSiscore, obtenerClientesSiscore, ClienteSiscore, actualizarClientesAprobacion, actualizarPerfilUsuario, actualizarPerfilesAdicionales, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
 import { getClientes, getClientesCompletos, crearClienteOc, cambiarEstadoClienteOc, ClienteOtroCosto } from '@/Funciones/ApiPedidos/otrosCostos';
 import { listarEmpresasCobro } from '@/Funciones/ApiPedidos/seguridadCobro';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
-
-const CLIENTES_DISPONIBLES = [
-  { key: 'KABI', label: 'Fresenius Kabi' },
-  { key: 'MEDICAL_CARE', label: 'Fresenius Medical Care' },
-];
 
 const REGIONALES = [
   'FUNZA',
@@ -45,7 +40,7 @@ const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CLIENTE_ESTUDIOS', 'CONDUCTOR',
 
 const USUARIO_VACIO: BaseUsuario = {
   nombre: '', correo: '', regional: '', celular: '',
-  perfil: 'OPERATIVO', usuario: '', clave: '', clientes: [],
+  perfil: 'OPERATIVO', usuario: '', clave: '', clientes: [], clientes_siscore: [],
 };
 
 const GestionUsuariosP: React.FC = () => {
@@ -55,6 +50,14 @@ const GestionUsuariosP: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [guardandoCliente, setGuardandoCliente] = useState<string | null>(null);
   const [msgsCliente, setMsgsCliente] = useState<Record<string, string>>({});
+  // (2026-10-29) Asignación de clientes por NIT (catálogo clientes_siscore),
+  // aplicable a CUALQUIER perfil — reemplaza los toggles KABI/MEDICAL_CARE.
+  const [clientesSiscore, setClientesSiscore] = useState<ClienteSiscore[]>([]);
+  const [modalClientes, setModalClientes] = useState<BaseUsuario | null>(null);
+  const [clientesSel, setClientesSel] = useState<string[]>([]);
+  const [filtroClientes, setFiltroClientes] = useState('');
+  const [guardandoClientes, setGuardandoClientes] = useState(false);
+  const [errorClientes, setErrorClientes] = useState('');
   const [guardandoPerfil, setGuardandoPerfil] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [guardandoNotifMc, setGuardandoNotifMc] = useState<string | null>(null);
@@ -112,34 +115,58 @@ const GestionUsuariosP: React.FC = () => {
     getClientes()
       .then(setClientesOc)
       .catch(() => {});
+    // (2026-10-29) Catálogo clientes_siscore: alimenta el selector de clientes
+    // asignables a cualquier perfil.
+    obtenerClientesSiscore()
+      .then(setClientesSiscore)
+      .catch(() => {});
     // Apartado de administración del catálogo (crear/deshabilitar clientes).
     getClientesCompletos()
       .then(setClientesOcAdmin)
       .catch(() => {});
   }, [router]);
 
-  const toggleCliente = async (usuario: BaseUsuario, clienteKey: string) => {
-    if (!usuario.id) return;
-    const actuales = usuario.clientes || ['KABI'];
-    const nuevos = actuales.includes(clienteKey)
-      ? actuales.filter(c => c !== clienteKey)
-      : [...actuales, clienteKey];
-    if (nuevos.length === 0) {
-      setMsgsCliente(m => ({ ...m, [usuario.id!]: 'Debe tener al menos un cliente.' }));
-      return;
-    }
-    setGuardandoCliente(usuario.id);
-    setMsgsCliente(m => ({ ...m, [usuario.id!]: '' }));
+  // ── Asignación de clientes (clientes_siscore) — cualquier perfil ───────────
+  // (2026-10-29) Reemplaza los toggles KABI/MEDICAL_CARE: el desplegable toma
+  // los clientes del catálogo clientes_siscore y guarda NITs; el backend deriva
+  // los portales clásicos (clientes) de esa asignación.
+  const abrirClientes = (u: BaseUsuario) => {
+    setModalClientes(u);
+    setErrorClientes('');
+    setFiltroClientes('');
+    setClientesSel(u.clientes_siscore || []);
+  };
+
+  const toggleClienteSiscore = (nit: string) => {
+    setErrorClientes('');
+    setClientesSel(prev => (prev.includes(nit) ? prev.filter(c => c !== nit) : [...prev, nit]));
+  };
+
+  const guardarClientes = async () => {
+    if (!modalClientes?.id) return;
+    setGuardandoClientes(true);
+    setErrorClientes('');
     try {
-      await actualizarClientesUsuario(usuario.id, nuevos);
-      setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, clientes: nuevos } : u));
-      setMsgsCliente(m => ({ ...m, [usuario.id!]: '✓ Guardado' }));
-      setTimeout(() => setMsgsCliente(m => ({ ...m, [usuario.id!]: '' })), 2000);
-    } catch {
-      setMsgsCliente(m => ({ ...m, [usuario.id!]: 'Error al guardar.' }));
+      const res = await actualizarClientesSiscore(modalClientes.id, clientesSel);
+      setUsuarios(prev => prev.map(u => u.id === modalClientes.id
+        ? { ...u, clientes_siscore: res.clientes_siscore, clientes: res.clientes } : u));
+      setModalClientes(null);
+    } catch (e: any) {
+      const d = e?.response?.data?.detail;
+      setErrorClientes(typeof d === 'string' ? d : 'Error al guardar los clientes.');
     } finally {
-      setGuardandoCliente(null);
+      setGuardandoClientes(false);
     }
+  };
+
+  const clientesFiltrados = () => {
+    const f = filtroClientes.trim().toLowerCase();
+    if (!f) return clientesSiscore;
+    return clientesSiscore.filter(c =>
+      (c.entidad || '').toLowerCase().includes(f)
+      || (c.razon || '').toLowerCase().includes(f)
+      || (c.nit || '').toLowerCase().includes(f)
+    );
   };
 
   // ── Apartado: catálogo de clientes de Otros Costos (2026-10-21) ────────────
@@ -417,8 +444,11 @@ const GestionUsuariosP: React.FC = () => {
   const guardarUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (form.perfil !== 'CLIENTE_FMC' && form.perfil !== 'CLIENTE_ESTUDIOS' && (!form.clientes || form.clientes.length === 0)) {
-      setError('Selecciona al menos un cliente.');
+    // (2026-10-29) El perfil CLIENTE (portal Mis Indicadores) necesita al
+    // menos un cliente asignado; el resto puede quedar sin asignación y
+    // editarse luego con el botón «Clientes» de la fila.
+    if (form.perfil === 'CLIENTE' && (form.clientes_siscore || []).length === 0) {
+      setError('Selecciona al menos un cliente para el perfil CLIENTE.');
       return;
     }
     if (form.perfil === 'CLIENTE_ESTUDIOS' && !form.empresa_id_seguridad) {
@@ -432,8 +462,9 @@ const GestionUsuariosP: React.FC = () => {
         usuario: form.usuario.toUpperCase().trim(),
         nombre: form.nombre.toUpperCase().trim(),
         clave: form.perfil === 'CLIENTE_FMC' ? 'SIN_ACCESO' : form.clave,
-        // CLIENTE_ESTUDIOS no usa portales FMC: sin clientes.
-        clientes: form.perfil === 'CLIENTE_FMC' || form.perfil === 'CLIENTE_ESTUDIOS' ? [] : form.clientes,
+        // CLIENTE_FMC/CLIENTE_ESTUDIOS no usan portales ni asignación.
+        clientes_siscore: form.perfil === 'CLIENTE_FMC' || form.perfil === 'CLIENTE_ESTUDIOS' ? [] : (form.clientes_siscore || []),
+        clientes: [],
       });
       setUsuarios(prev => [...prev, res.usuario]);
       setModal(false);
@@ -473,9 +504,7 @@ const GestionUsuariosP: React.FC = () => {
                     <th>Correo</th>
                     <th>Perfil</th>
                     <th>Regional</th>
-                    {CLIENTES_DISPONIBLES.map(c => (
-                      <th key={c.key} className="GU-th-cliente">{c.label}</th>
-                    ))}
+                    <th className="GU-th-clientes">Clientes</th>
                     <th className="GU-th-alcance-oc">Alcance OC</th>
                     <th className="GU-th-notif-mc">Notif. MC</th>
                     <th>Estado</th>
@@ -516,21 +545,24 @@ const GestionUsuariosP: React.FC = () => {
                           )}
                         </td>
                         <td>{u.regional}</td>
-                        {CLIENTES_DISPONIBLES.map(c => (
-                          <td key={c.key} className="GU-td-check">
-                            {esSoloNotif ? null : (
-                            <label className="GU-toggle">
-                              <input
-                                type="checkbox"
-                                checked={clientesUsuario.includes(c.key)}
-                                disabled={guardandoCliente === u.id || !activo}
-                                onChange={() => toggleCliente(u, c.key)}
-                              />
-                              <span className="GU-toggleSlider" />
-                            </label>
-                            )}
-                          </td>
-                        ))}
+                        {/* (2026-10-29) Clientes asignables (catálogo clientes_siscore):
+                            reemplaza los toggles KABI/MEDICAL_CARE. El botón abre el
+                            modal multi-selección; válido para CUALQUIER perfil. */}
+                        <td className="GU-td-alcance-oc">
+                          <button
+                            className={`GU-btn-alcance-oc${(u.clientes_siscore || []).length > 0 ? ' GU-btn-alcance-oc--restringido' : ''}`}
+                            title="Clientes que el usuario puede ver (definen también sus portales Kabi / Medical Care)"
+                            disabled={!activo}
+                            onClick={() => abrirClientes(u)}
+                          >
+                            <FaUsers />
+                            <span>
+                              {(u.clientes_siscore || []).length === 0
+                                ? '—'
+                                : `${u.clientes_siscore!.length} cliente${u.clientes_siscore!.length === 1 ? '' : 's'}`}
+                            </span>
+                          </button>
+                        </td>
                         <td className="GU-td-alcance-oc">
                           {u.perfil === 'COORDINADOR' || u.perfil === 'CONTROL' ? (
                             <button
@@ -812,24 +844,35 @@ const GestionUsuariosP: React.FC = () => {
                 )}
                 {form.perfil !== 'CLIENTE_FMC' && form.perfil !== 'CLIENTE_ESTUDIOS' && (
                 <div className="GU-formGrupo GU-formGrupo--full">
-                  <label className="GU-formLabel">Acceso a clientes</label>
-                  <div className="GU-checkGrupo">
-                    {CLIENTES_DISPONIBLES.map(c => (
-                      <label key={c.key} className="GU-checkItem">
-                        <input
-                          type="checkbox"
-                          checked={(form.clientes || []).includes(c.key)}
-                          onChange={() => {
-                            const actuales = form.clientes || [];
-                            const nuevos = actuales.includes(c.key)
-                              ? actuales.filter(x => x !== c.key)
-                              : [...actuales, c.key];
-                            if (nuevos.length > 0) setForm(f => ({ ...f, clientes: nuevos }));
-                          }}
-                        />
-                        {c.label}
-                      </label>
-                    ))}
+                  <label className="GU-formLabel">
+                    Clientes {form.perfil === 'CLIENTE' ? '*' : ''}
+                    <span className="GU-formLabel--opcional"> (catálogo clientes_siscore — definen sus portales y tableros)</span>
+                  </label>
+                  <div className="GU-alcance-lista GU-alcance-lista--form">
+                    {clientesSiscore.length === 0 && (
+                      <p className="GU-notif-mc-opcion-desc">No se pudo cargar el catálogo clientes_siscore; recargue la página.</p>
+                    )}
+                    {clientesSiscore.map(c => {
+                      const checked = (form.clientes_siscore || []).includes(c.nit);
+                      return (
+                        <label key={c.id} className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setForm(f => ({
+                              ...f,
+                              clientes_siscore: checked
+                                ? (f.clientes_siscore || []).filter(n => n !== c.nit)
+                                : [...(f.clientes_siscore || []), c.nit],
+                            }))}
+                          />
+                          <div className="GU-notif-mc-opcion-info">
+                            <span className="GU-notif-mc-opcion-label">{c.razon || c.entidad}</span>
+                            <span className="GU-notif-mc-opcion-desc">{c.entidad} — NIT {c.nit}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
                 )}
@@ -1023,6 +1066,77 @@ const GestionUsuariosP: React.FC = () => {
                   {msgsNotifMc[modalNotifMc.id || '']}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL: CLIENTES ASIGNADOS (clientes_siscore) ══
+          (2026-10-29) Reemplaza los toggles KABI/MEDICAL_CARE: asigna qué
+          clientes puede ver el usuario, tomados del catálogo clientes_siscore.
+          Aplica a CUALQUIER perfil; el backend deriva los portales clásicos. */}
+      {modalClientes && (
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalClientes(null))}>
+          <div className="GU-modalCard GU-modalCard--sm" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+            <div className="GU-modalHeader">
+              <div>
+                <h3 className="GU-modalTitulo"><FaUsers style={{ marginRight: 8, color: '#004d40' }} />Clientes asignados</h3>
+                <p className="GU-modal-sub">{modalClientes.nombre} ({modalClientes.perfil})</p>
+              </div>
+              <button className="GU-modalCerrar" onClick={() => setModalClientes(null)}><FaTimes /></button>
+            </div>
+            <div className="GU-alcance-body">
+              {modalClientes.clientes_siscore == null && (
+                <p className="GU-notif-mc-opcion-desc">
+                  Este usuario es anterior a la asignación por cliente y aún usa los portales clásicos
+                  ({(modalClientes.clientes || []).join(', ') || 'ninguno'}). Al guardar, la lista de abajo pasa a ser la fuente de verdad.
+                </p>
+              )}
+              <input
+                type="text"
+                className="GU-formInput"
+                placeholder="Buscar cliente (nombre, razón social o NIT)…"
+                value={filtroClientes}
+                onChange={e => setFiltroClientes(e.target.value)}
+                disabled={guardandoClientes}
+              />
+              <div className="GU-alcance-lista">
+                {clientesSiscore.length === 0 && (
+                  <p className="GU-notif-mc-opcion-desc">No se pudo cargar el catálogo clientes_siscore; recargue la página.</p>
+                )}
+                {clientesFiltrados().map(c => {
+                  const checked = clientesSel.includes(c.nit);
+                  return (
+                    <label key={c.id} className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={guardandoClientes}
+                        onChange={() => toggleClienteSiscore(c.nit)}
+                      />
+                      <div className="GU-notif-mc-opcion-info">
+                        <span className="GU-notif-mc-opcion-label">{c.razon || c.entidad}</span>
+                        <span className="GU-notif-mc-opcion-desc">{c.entidad} — NIT {c.nit}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+                {clientesSiscore.length > 0 && clientesFiltrados().length === 0 && (
+                  <p className="GU-notif-mc-opcion-desc">Ningún cliente coincide con «{filtroClientes}».</p>
+                )}
+              </div>
+              {clientesSel.length > 0 && (
+                <p className="GU-notif-mc-opcion-desc">{clientesSel.length} cliente(s) seleccionado(s).</p>
+              )}
+              {errorClientes && <p className="GU-notif-mc-feedback--err">{errorClientes}</p>}
+              <div className="GU-alcance-acciones">
+                <button className="GU-btnCancelar" onClick={() => setModalClientes(null)} disabled={guardandoClientes}>
+                  Cancelar
+                </button>
+                <button className="GU-btnGuardar" onClick={guardarClientes} disabled={guardandoClientes}>
+                  <FaSave /> {guardandoClientes ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -55,6 +55,9 @@ const MedicalCareP: React.FC = () => {
 
   // Verificar si el usuario puede ver configuración (ADMIN o CONTROL)
   const puedeVerConfig = perfil === 'ADMIN' || perfil === 'CONTROL';
+  // (2026-10-29) Novedades Justificadas OT: gestión del Excel de guías con
+  // causal/justificación que alimenta el segmento «Justificadas» del OT.
+  const puedeNovedadesOT = ['ADMIN', 'COORDINADOR', 'CONTROL', 'OPERATIVO'].includes(perfil);
 
   useEffect(() => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
@@ -408,6 +411,15 @@ const MedicalCareP: React.FC = () => {
               >
                 <FaFilter /> Solicitud de Vehículos
               </button>
+              {puedeNovedadesOT && (
+                <button
+                  className="MC-welcomeBtn MC-btnOcupacion"
+                  onClick={() => router.push('/NovedadesOT')}
+                  title="Subir guías con causal + justificación: pasan al segmento «Justificadas» del On Time"
+                >
+                  🧾 Novedades OT Justificadas
+                </button>
+              )}
               {puedeVerConfig && (
                 <>
                   <button

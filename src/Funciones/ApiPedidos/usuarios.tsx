@@ -124,6 +124,33 @@ export const actualizarClientesAprobacion = async (
   return res.data;
 };
 
+// (2026-10-29) Clientes asignables del catálogo clientes_siscore (NITs) que el
+// usuario puede ver — aplicable a CUALQUIER perfil. El backend deriva de aquí
+// los portales clásicos (clientes: KABI/MEDICAL_CARE).
+export const actualizarClientesSiscore = async (
+  id: string,
+  clientes_siscore: string[]
+): Promise<{ mensaje: string; clientes_siscore: string[]; clientes: string[] }> => {
+  const res = await axios.patch<{ mensaje: string; clientes_siscore: string[]; clientes: string[] }>(
+    `${BASE_URL}/${id}/clientes-siscore`,
+    { clientes_siscore }
+  );
+  return res.data;
+};
+
+// Catálogo clientes_siscore para poblar el selector de asignación
+export interface ClienteSiscore {
+  id: string;
+  entidad: string;
+  razon: string;
+  nit: string;
+}
+
+export const obtenerClientesSiscore = async (): Promise<ClienteSiscore[]> => {
+  const res = await axios.get<ClienteSiscore[]>(`${API_BASE}/clientes-siscore/`);
+  return res.data;
+};
+
 // Login de usuario
 export const loginUsuario = async (
   usuario: string,

@@ -92,6 +92,9 @@ const LoginUsuario: React.FC = () => {
       // CLIENTE_ESTUDIOS es cliente externo del portal de Estudios de
       // Seguridad: jamás entra a la Torre de Control ni a /revision.
       if (perfilCookie === 'CLIENTE_ESTUDIOS') { router.replace('/PortalSeguridad'); return; }
+      // CLIENTE (2026-10-29) es cliente externo de indicadores: solo ve su
+      // portal «Mis Indicadores» con los clientes que tiene asignados.
+      if (perfilCookie === 'CLIENTE') { router.replace('/indicadores/mis-clientes'); return; }
       // PADRINO (2026-10-15): su único módulo es Seguridad — vuelve directo a
       // /revision, sin pasar por el selector de portales.
       if (perfilCookie === 'PADRINO') { router.replace('/revision'); return; }
@@ -144,6 +147,18 @@ const LoginUsuario: React.FC = () => {
       // sin pasar por el selector de portales (no ve nada de la Torre).
       if (perfilUpper === 'CLIENTE_ESTUDIOS') {
         setTimeout(() => router.replace('/PortalSeguridad'), 200);
+        return;
+      }
+
+      // CLIENTE (2026-10-29): cliente externo de indicadores → directo a su
+      // portal «Mis Indicadores» (solo los clientes que tiene asignados),
+      // sin pasar por el selector de portales.
+      if (perfilUpper === 'CLIENTE') {
+        // El backend rellena clientes=['KABI'] por default cuando la lista va
+        // vacía: pisarla para no dejar un portal clásico colgado en cookies.
+        document.cookie = `clientesPedidosCookie=MIS_INDICADORES; path=/; ${expires}`;
+        document.cookie = `clientePedidosCookie=MIS_INDICADORES; path=/; ${expires}`;
+        setTimeout(() => router.replace('/indicadores/mis-clientes'), 200);
         return;
       }
 
