@@ -262,7 +262,11 @@ const OtrosCostosP: React.FC = () => {
   // ── Permisos (frontend; el backend vuelve a validar) ─────────────────────
   const puedeCrear = perfil === 'ADMIN' || perfil === 'OPERATIVO' || perfil === 'DESPACHADOR';
   const puedePagar = perfil === 'ADMIN' || perfil === 'FINANCIERO';
-  const puedeAnular = perfil === 'ADMIN';
+  // Anular: ADMIN sobre cualquier solicitud (no anulada/pagada); OPERATIVO sólo
+  // sobre SUS PROPIAS en borrador o devueltas (el backend re-valida igual).
+  const puedeAnular = (it: { usuario_registro?: string; estado: string }) =>
+    (perfil === 'ADMIN' && it.estado !== 'anulado' && it.estado !== 'pagado') ||
+    (perfil === 'OPERATIVO' && it.usuario_registro === usuario && ['borrador', 'devuelto'].includes(it.estado));
   const puedeAprobar = (valor: number) =>
     perfil === 'ADMIN' || perfil === 'CONTROL' || (perfil === 'COORDINADOR' && valor <= LIMITE_COORDINADOR);
   const puedeRevision = perfil === 'ADMIN' || perfil === 'CONTROL' || perfil === 'COORDINADOR';
@@ -1005,10 +1009,11 @@ const OtrosCostosP: React.FC = () => {
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="OC-btnAction" title="Detalle" style={{ background: '#334155' }} onClick={() => abrirDetalle(it)}><FaEye /></button>
                       {puedeEditar(it) && <button className="OC-btnAction" title="Editar" style={{ background: '#2563eb' }} onClick={() => abrirEditar(it)}><FaEdit /></button>}
-                      {/* Anular directo desde la fila (2026-10-27): misma regla del
-                          modal — solo ADMIN, no pagadas ni ya anuladas. Pide motivo
-                          y la mueve a anulados_otros_costos. */}
-                      {puedeAnular && it.estado !== 'anulado' && it.estado !== 'pagado' && (
+                      {/* Anular directo desde la fila (2026-10-27): ADMIN sobre
+                          cualquiera no pagada/anulada; OPERATIVO sólo sus propias
+                          borradores/devueltas. Pide motivo y la mueve a
+                          anulados_otros_costos. */}
+                      {puedeAnular(it) && (
                         <button className="OC-btnAction" title="Anular solicitud" style={{ background: '#b91c1c' }} onClick={() => onAnular(it)}><FaBan /></button>
                       )}
                       {puedeMarcarTramite && it.estado === 'aprobado' && it.tramite_vulcano !== 'ok' && <button className="OC-btnAction" title="Marcar trámite Vulcano OK" style={{ background: '#0d9488' }} onClick={() => onTramiteVulcano(it)}><FaCheck /></button>}
@@ -1163,7 +1168,7 @@ const OtrosCostosP: React.FC = () => {
                 <button className="OC-btn OC-btnGhost" onClick={() => onTramiteVulcano(detalle)}><FaUndo /> Revertir trámite</button>
               )}
               {puedePagar && detalle.estado === 'aprobado' && detalle.tramite_vulcano === 'ok' && <button className="OC-btn OC-btnNew" onClick={() => onPagar(detalle)}><FaMoneyBillWave /> Registrar pago</button>}
-              {puedeAnular && detalle.estado !== 'anulado' && detalle.estado !== 'pagado' && <button className="OC-btn OC-btnGhost" style={{ color: '#b91c1c' }} onClick={() => onAnular(detalle)}><FaBan /> Anular</button>}
+              {puedeAnular(detalle) && <button className="OC-btn OC-btnGhost" style={{ color: '#b91c1c' }} onClick={() => onAnular(detalle)}><FaBan /> Anular</button>}
             </div>
           </div>
         </div>
