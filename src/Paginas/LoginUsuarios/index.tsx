@@ -152,13 +152,29 @@ const LoginUsuario: React.FC = () => {
 
       // CLIENTE (2026-10-29): cliente externo de indicadores → directo a su
       // portal «Mis Indicadores» (solo los clientes que tiene asignados),
-      // sin pasar por el selector de portales.
+      // sin pasar por el selector de portales. (2026-10-30) Si tiene UN solo
+      // cliente asignado CON dashboard publicado, entra DERECHO al tablero
+      // sin pasar por el panel de selección.
       if (perfilUpper === 'CLIENTE') {
         // El backend rellena clientes=['KABI'] por default cuando la lista va
         // vacía: pisarla para no dejar un portal clásico colgado en cookies.
         document.cookie = `clientesPedidosCookie=MIS_INDICADORES; path=/; ${expires}`;
         document.cookie = `clientePedidosCookie=MIS_INDICADORES; path=/; ${expires}`;
-        setTimeout(() => router.replace('/indicadores/mis-clientes'), 200);
+        let ruta = '/indicadores/mis-clientes';
+        try {
+          const rMis = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/mis-indicadores?usuario=${encodeURIComponent(res.usuario.usuario)}`
+          );
+          const jMis = await rMis.json().catch(() => null);
+          const conDash = (jMis?.data?.clientes || []).filter(
+            (c: { cliente_id?: string | null }) => c.cliente_id
+          );
+          if (conDash.length === 1) ruta = `/indicadores/mis-clientes/${conDash[0].cliente_id}`;
+        } catch { /* sin respuesta → al panel, que muestra la asignación */ }
+        // Confeti de bienvenida — mismo del selector de portales (800ms para
+        // que se vea antes de navegar).
+        confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
+        setTimeout(() => router.replace(ruta), 800);
         return;
       }
 

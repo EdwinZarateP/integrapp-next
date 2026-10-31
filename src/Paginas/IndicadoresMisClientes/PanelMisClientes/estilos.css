@@ -125,25 +125,75 @@
 .MC-dropItemDanger:hover { background: #fef2f2; }
 
 /* ── Panel ──────────────────────────────────────────────── */
+/* El selector de clientes se centra VERTICALMENTE entre header y footer
+   (margin:auto del hijo dentro del flex) para que la página no quede
+   amontonada arriba con un vacío enorme abajo. */
 .MC-main {
   flex: 1;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2.2rem 1.2rem 3rem;
+  padding: 2rem 1.2rem;
+  display: flex;
+}
+
+.MC-selector {
+  margin: auto; /* centra el bloque en el alto disponible */
+  width: 100%;
+}
+
+.MC-intro {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.MC-introTitulo {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #0f1928;
+  letter-spacing: -0.3px;
 }
 
 .MC-subtitulo {
   text-align: center;
   color: #64748b;
-  font-size: 0.95rem;
-  margin-bottom: 1.6rem;
+  font-size: 0.98rem;
+  margin-top: 0.35rem;
 }
+
+/* Estados (cargando / error / sin clientes) como tarjeta centrada */
+.MC-estado {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.MC-estado--error { border-color: #fecaca; color: #b91c1c; }
+
+.MC-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid #e2e8f0;
+  border-top-color: #e8a000;
+  animation: MC-girar 0.8s linear infinite;
+}
+@keyframes MC-girar { to { transform: rotate(360deg); } }
 
 .MC-clientesGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1.2rem;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.4rem;
 }
 
 .MC-clienteCard {
@@ -151,11 +201,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.8rem;
+  gap: 1rem;
+  min-height: 230px;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 1.8rem 1.2rem;
+  padding: 1.6rem 1.3rem 1.5rem;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
@@ -164,10 +215,12 @@
   box-shadow: 0 10px 26px rgba(15, 25, 40, 0.12);
   border-color: #e8a000;
 }
+.MC-clienteCard:hover .MC-clienteBtn { background: #e8a000; }
 
 .MC-clienteCard--pronto {
   cursor: default;
-  opacity: 0.65;
+  border-style: dashed;
+  background: #fbfcfe;
 }
 .MC-clienteCard--pronto:hover {
   transform: none;
@@ -188,10 +241,13 @@
 }
 .MC-clienteIcono--pronto { background: #e2e8f0; color: #64748b; }
 
-/* Logo del cliente (mismo registro que el panel interno PC-clienteLogoWrap) */
+/* Logo del cliente (mismo registro que el panel interno PC-clienteLogoWrap).
+   flex:1 empuja el CTA al borde inferior → tarjetas de distinto contenido
+   quedan alineadas. */
 .MC-clienteLogoWrap {
   width: 100%;
-  min-height: 110px;
+  min-height: 120px;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -205,18 +261,43 @@
   line-height: 1.3;
 }
 
+/* CTA como botón píldora (antes era un texto suelto que se perdía) */
 .MC-clienteBtn {
   font-size: 0.82rem;
   font-weight: 700;
-  color: #b26a00;
+  color: #fff;
+  background: #0f1928;
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  transition: background 0.15s;
 }
 
+/* Badge de dashboard en preparación */
 .MC-clientePronto {
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: #64748b;
+  background: #eef2f7;
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Header sin apiñamiento: el título vive en el contenido; queda logo + usuario */
+  .MC-headerInner { gap: 0.5rem; padding: 0.5rem 0.8rem; }
+  .MC-brandName { font-size: 1rem; }
+  .MC-titulo { display: none; }
+  .MC-userPerfil { display: none; }
+
+  .MC-main { padding: 1.2rem 0.9rem 1.6rem; }
+  .MC-intro { margin-bottom: 1.4rem; }
+  .MC-introTitulo { font-size: 1.4rem; }
+  .MC-clientesGrid { grid-template-columns: 1fr; gap: 1rem; }
+  .MC-clienteCard { min-height: 190px; }
+  .MC-clienteLogoWrap { min-height: 100px; }
 }
 
 /* ── Footer ─────────────────────────────────────────────── */

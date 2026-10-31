@@ -12,7 +12,9 @@
 
 /* ── Header ─────────────────────────────────────────────── */
 .DC-header {
-  background: #0f1928;
+  /* (2026-10-30) Fondo negro + acento verde #98C74C (antes navy #0f1928 y
+     naranja #e8a000) — pedido de branding para el portal Mis Indicadores. */
+  background: #000;
   color: #fff;
   position: sticky;
   top: 0;
@@ -20,10 +22,11 @@
   box-shadow: 0 2px 12px rgba(15, 25, 40, 0.35);
 }
 
+/* (2026-10-30) Header a TODO el ancho en pantallas grandes (antes centrado a
+   1200px) — mismo look que /PanelConductores: logo pegado a la izquierda. */
 .DC-headerInner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0.6rem 1.2rem;
+  width: 100%;
+  padding: 0.6rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,7 +47,7 @@
 .DC-brand:hover { background: rgba(255, 255, 255, 0.08); }
 
 .DC-brandName { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; color: #fff; }
-.DC-brandAccent { color: #e8a000; }
+.DC-brandAccent { color: #98C74C; }
 
 /* Nombre del cliente, centrado en el header (sin logo) */
 .DC-logoCliente {
@@ -83,7 +86,7 @@
 }
 .DC-userBtn:hover { background: rgba(255, 255, 255, 0.12); }
 
-.DC-userIcon { font-size: 1.4rem; color: #e8a000; }
+.DC-userIcon { font-size: 1.4rem; color: #98C74C; }
 .DC-userInfo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .DC-userName { font-size: 0.82rem; font-weight: 700; }
 .DC-userPerfil { font-size: 0.68rem; color: #b9c2d0; }
@@ -126,7 +129,9 @@
 .DC-dropItemDanger svg { color: #dc2626; }
 .DC-dropItemDanger:hover { background: #fef2f2; }
 
-/* ── Filtros (Año / Mes, estilo Power BI) ───────────────── */
+/* ── Filtros (Año / Mes / Cliente) + breadcrumb de período ──
+   (rediseño UX 2026-10-30: una fila en escritorio, panel plegable en
+   grid de 2 columnas en móvil, navegación de período tipo breadcrumb) */
 .DC-filtrosSection {
   background: #fff;
   border-bottom: 1px solid #e5e9f0;
@@ -135,38 +140,72 @@
   z-index: 40;
 }
 
-/* (2026-10-29) Botón mostrar/ocultar filtros: SOLO móvil (desktop no lo
-   renderiza visualmente y la barra siempre está visible). Badge con el nº de
-   filtros activos para que ocultar no pierda información. */
+/* Botón plegable de filtros: SOLO móvil (desktop no lo renderiza y la
+   barra siempre está visible). Contraído muestra un resumen discreto. */
 .DC-filtrosToggle {
   display: none;
 }
-.DC-filtrosToggleBadge {
-  background: #2a78d6;
-  color: #fff;
-  border-radius: 999px;
-  min-width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  font-weight: 800;
-  padding: 0 5px;
+.DC-filtrosResumen {
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .DC-filtrosToggleFlecha { transition: transform 200ms ease-out; }
 
-/* Migas de navegación de filtros: cada filtro aplicado como chip borrable */
-.DC-migas {
+/* Breadcrumb de período: niveles anteriores clicables (volver), último =
+   ubicación actual. Discreto: texto pequeño, sin cajas. */
+.DC-breadcrumb {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1.5rem 0.6rem;
+  padding: 0.3rem 1.2rem 0.55rem;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+}
+.DC-bcRuta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.DC-bcLink {
+  background: none;
+  border: none;
+  padding: 2px;
+  font: inherit;
+  font-weight: 600;
+  color: #2a78d6;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.DC-bcLink:hover { text-decoration: underline; }
+.DC-bcSep { color: #94a3b8; user-select: none; }
+.DC-bcActual {
+  color: #0f1928;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.DC-bcChips { display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem; }
+.DC-bcChips::before {
+  content: '';
+  width: 1px;
+  height: 14px;
+  background: #d7dde8;
+  margin-right: 0.1rem;
 }
 
+/* Chips de filtros no-período (cliente / trazabilidad) — removibles */
 .DC-miga {
   display: inline-flex;
   align-items: center;
@@ -179,6 +218,9 @@
   font-weight: 600;
   color: #0f1928;
   cursor: pointer;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
   transition: background 0.15s, border-color 0.15s;
 }
 
@@ -198,6 +240,672 @@
 /* Ítems de leyenda con tooltip (title) en vez de paréntesis */
 .DC-leyendaItem { cursor: help; border-bottom: 1px dotted #b6c2d2; }
 
+/* (2026-10-30, rediseño UX) Leyenda del OT = FILTRO de estados, en chips
+   compactos: punto de color + texto normal (sin subrayados permanentes).
+   Activo con filtro = borde y tinte de su color; inactivo = atenuado. En
+   móvil colapsable con resumen (toggle solo visible ≤768px). */
+.DC-otLeyendaToggle { display: none; }
+.DC-otLeyendaChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.DC-otChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.24rem 0.65rem;
+  min-height: 26px;
+  border-radius: 999px;
+  border: 1px solid #d7dde8;
+  background: #fff;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+}
+.DC-otChip:hover { border-color: #94a3b8; }
+.DC-otChip:focus-visible { outline: 2px solid #2a78d6; outline-offset: 2px; }
+.DC-otChipPunto { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.DC-otChipOff { opacity: 0.42; }
+
+/* Franja de instrucciones (separadas de los estados): resumen del filtro a la
+   izquierda + acción de barra a la derecha; mutua, una sola línea. */
+.DC-otLeyendaInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: #8aa0b8;
+  margin: 0;
+}
+.DC-otLeyendaInfo > span:last-child { text-align: right; }
+.DC-otLeyendaTodo {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  color: #2a78d6;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.DC-otLeyendaTodo:hover { color: #1d4f8c; }
+
+/* Contexto del gráfico (antes metido en la leyenda) */
+.DC-otCtx { font-size: 0.7rem; color: #8aa0b8; font-weight: 600; }
+
+.DC-otLeyenda { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.35rem 0 0.55rem; }
+
+/* ── (2026-10-30) Portal de clientes (modoExterno): tema OSCURO + ancho
+   completo. Solo aplica con .DC-portalOscuro en la raíz — el dashboard
+   interno no cambia. ─────────────────────────────────────────── */
+.DC-portalOscuro {
+  background: linear-gradient(180deg, #070d18 0%, #0b1526 55%, #0a121f 100%);
+  color: #dbe4f0;
+}
+
+/* Ancho completo: la página usa todo el ancho disponible; las tarjetas se
+   separan con un gap uniforme (IG-graficoContainer no trae margen propio en
+   escritorio). */
+.DC-portalOscuro .DC-main {
+  width: 100%;
+  max-width: none;
+  padding: 1.4rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+/* (2026-10-30) Ciudad y destinatario LADO A LADO en pantallas grandes;
+   apilados por debajo de 1200px (cada gráfico necesita ~550px legibles).
+   Alturas IGUALES (stretch) con scroll interno en cada tarjeta. */
+.DC-portalGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.4rem;
+  align-items: stretch;
+}
+@media (min-width: 1200px) {
+  .DC-portalGrid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Scroll INTERNO del OT-por-campo: la lista completa vive dentro de la
+   tarjeta (altura acotada) y la página no crece con ella. */
+.DC-otCampoScroll {
+  flex: 1;
+  min-height: 0;
+  max-height: 560px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 8px;
+}
+/* Scrollbar discreta acorde al tema oscuro (Chromium) */
+.DC-otCampoScroll::-webkit-scrollbar { width: 8px; }
+.DC-otCampoScroll::-webkit-scrollbar-thumb { background: #2c3d5c; border-radius: 999px; }
+.DC-otCampoScroll::-webkit-scrollbar-thumb:hover { background: #3d5378; }
+.DC-otCampoScroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Tarjetas de gráficos oscuras */
+.DC-portalOscuro .IG-graficoContainer {
+  background: #101a2c;
+  border: 1px solid #1e2b45;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+.DC-portalOscuro .IG-graficoTitulo,
+.DC-portalOscuro .DC-guiaTitulo { color: #eaf1f9; }
+.DC-portalOscuro .IG-graficoSub { color: #9fb0c7; }
+.DC-portalOscuro .IG-sinDatos { color: #9fb0c7; }
+
+/* Barra de filtros y navegación */
+.DC-portalOscuro .DC-filtrosSection { background: #0b1322; border-bottom-color: #1b2942; }
+.DC-portalOscuro .DC-filtroGrupo > label { color: #7d8ea8; }
+.DC-portalOscuro .DC-dropdownFiltroBtn {
+  background: #0f1a2e; border-color: #2a3a58; color: #e7eef7;
+}
+.DC-portalOscuro .DC-dropdownFiltroBtn:hover { border-color: #98c74c; }
+.DC-portalOscuro .DC-botonActualizar { background: #98c74c; color: #0b1526; }
+.DC-portalOscuro .DC-botonActualizar:hover { background: #7fb03a; }
+.DC-portalOscuro .DC-breadcrumb { color: #c6d2e4; }
+.DC-portalOscuro .DC-bcActual { color: #eaf1f9; }
+.DC-portalOscuro .DC-bcLink { color: #7cb0ff; }
+.DC-portalOscuro .DC-bcSep { color: #566a89; }
+.DC-portalOscuro .DC-miga { background: #16233c; border-color: #2c3d5c; color: #dbe4f0; }
+.DC-portalOscuro .DC-miga:hover { background: #3a1d24; border-color: #6b2c33; }
+
+/* Toggle Mensual/Diario y botón Excel */
+.DC-portalOscuro .IG-toggleBtn {
+  background: #0f1a2e; color: #c9d6e8; border: 1px solid #2a3a58;
+}
+.DC-portalOscuro .IG-toggleBtnActivo { background: #98c74c; color: #0b1526; border-color: #98c74c; }
+
+/* Leyenda del OT */
+.DC-portalOscuro .DC-otLeyendaToggle { background: #0f1a2e; border-color: #22314e; color: #dbe4f0; }
+.DC-portalOscuro .DC-otLeyendaResumen { color: #7d8ea8; }
+.DC-portalOscuro .DC-otChip { background: #0f1a2e; border-color: #2a3a58; color: #d7e2f0; }
+.DC-portalOscuro .DC-otChip:hover { border-color: #46587c; }
+.DC-portalOscuro .DC-otLeyendaInfo { color: #7d8ea8; }
+.DC-portalOscuro .DC-otLeyendaTodo { color: #7cb0ff; }
+.DC-portalOscuro .DC-otCtx { color: #7d8ea8; }
+
+/* Detalle del día (tabla) */
+.DC-portalOscuro .DC-detalleDia { border-top-color: #1e2b45; }
+.DC-portalOscuro .DC-detalleDiaTitulo { color: #eaf1f9; }
+.DC-portalOscuro .DC-detalleDiaCerrar { background: #16233c; border-color: #2c3d5c; color: #dbe4f0; }
+.DC-portalOscuro .DC-detalleDiaTabla { border-color: #1e2b45; }
+
+/* Textos de recharts (ejes y etiquetas llevan fills claros pensados para
+   fondo blanco — se invierten con !important porque van inline) */
+.DC-portalOscuro .recharts-cartesian-axis text,
+.DC-portalOscuro .DC-detalleDiaTabla text { fill: #9fb0c7; }
+.DC-portalOscuro .recharts-label-list text { fill: #eaf1f9 !important; }
+.DC-portalOscuro .recharts-cartesian-grid line { stroke: #1e2b45; }
+
+/* Skeleton acorde al tema */
+.DC-portalOscuro .DC-skelCard { background: #101a2c; border: 1px solid #1e2b45; }
+.DC-portalOscuro .DC-skel { background: linear-gradient(90deg, #16233c 25%, #1f3050 50%, #16233c 75%); }
+
+/* ── (2026-10-30) Lista táctil del OT-por-campo (SOLO móvil): nombre a la
+   izquierda, % a la derecha y barra a ANCHO COMPLETO debajo con la misma
+   escala 0-100 del gráfico de escritorio. Tocar una fila despliega su
+   detalle. Colores directos del tema oscuro del portal. ── */
+/* Los flex/grid items no encogen por debajo de su contenido por defecto:
+   sin esto, un nombre largo en nowrap desborda la página en móvil. */
+.DC-portalGrid > .IG-graficoContainer { min-width: 0; }
+.DC-otCampoLista { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.2rem; min-width: 0; }
+.DC-otCampoFila { max-width: 100%; }
+.DC-otCampoFila {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0.35rem 0.2rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  min-height: 44px; /* área táctil cómoda */
+}
+.DC-otCampoFila:active { background: rgba(148, 163, 184, 0.1); }
+.DC-otCampoFilaTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0; /* eslabón para que el ellipsis del nombre pueda encoger */
+}
+.DC-otCampoNombre {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #d7e2f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  min-width: 0;
+}
+.DC-otCampoPct { font-size: 0.84rem; font-weight: 800; flex: none; font-variant-numeric: tabular-nums; }
+.DC-otCampoPista {
+  display: block;
+  width: 100%; /* stretch dentro de <button> no aplica solo */
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  overflow: hidden;
+}
+.DC-otCampoBarra { display: block; height: 100%; border-radius: 999px; }
+.DC-otCampoDetalle { font-size: 0.72rem; color: #7d8ea8; text-align: left; }
+
+/* ── (2026-10-30) Pestañas del portal: Gerenciales / Operación ── */
+.DC-pestanas {
+  display: flex;
+  gap: 0.4rem;
+  background: #0f1a2e;
+  border: 1px solid #22314e;
+  border-radius: 12px;
+  padding: 0.35rem;
+}
+.DC-pestanaBtn {
+  flex: 1;
+  min-height: 42px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #9fb0c7;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.DC-pestanaBtn:hover { color: #dbe4f0; }
+.DC-pestanaBtnActiva {
+  background: #98c74c;
+  color: #0b1526;
+}
+
+/* ── (2026-10-30) Vista Operación: consulta de guía en Siscore ── */
+.DC-opBusqueda {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.8rem 0 1rem;
+}
+.DC-opInput {
+  flex: 1;
+  min-width: 180px;
+  background: #0f1a2e;
+  border: 1px solid #2a3a58;
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: #e7eef7;
+  min-height: 42px;
+}
+.DC-opInput::placeholder { color: #5b6b85; }
+.DC-opInput:focus { outline: none; border-color: #98c74c; background: #0b1526; }
+.DC-opBtn {
+  background: #98c74c;
+  color: #0b1526;
+  border: none;
+  border-radius: 8px;
+  padding: 0 1.3rem;
+  min-height: 42px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.DC-opBtn:hover { background: #7fb03a; }
+.DC-opBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.DC-opBtn:focus-visible, .DC-pestanaBtn:focus-visible, .DC-opInput:focus-visible {
+  outline: 2px solid #2a78d6;
+  outline-offset: 2px;
+}
+.DC-opCargando { color: #9fb0c7; font-size: 0.85rem; }
+.DC-opError { color: #fca5a5; font-size: 0.85rem; font-weight: 600; }
+
+.DC-opResultado { display: flex; flex-direction: column; gap: 0.9rem; }
+
+/* (2026-10-30, v2) RESUMEN: destino (principal) + estado actual (badge) —
+   escritorio en fila (nombre a la izq., estado a la der.), móvil apilado. */
+.DC-opResumen {
+  display: flex;
+  align-items: stretch;
+  gap: 1rem;
+  background: linear-gradient(135deg, #12233c 0%, #0f1a2e 100%);
+  border: 1px solid #2c3d5c;
+  border-left: 4px solid #98c74c;
+  border-radius: 12px;
+  padding: 0.85rem 1.1rem;
+}
+.DC-opResumenDestino {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.DC-opEstadoActual {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.3rem;
+  padding-left: 1rem;
+  border-left: 1px solid #2c3d5c;
+  text-align: right;
+  max-width: 45%;
+}
+.DC-opEstadoLabel {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #7d8ea8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.DC-opEstadoChip {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.DC-opEstadoChipOk { background: rgba(152, 199, 76, 0.18); border: 1px solid #98c74c80; color: #c9e89a; }
+.DC-opEstadoChipCurso { background: rgba(237, 161, 0, 0.16); border: 1px solid #eda10080; color: #f5c667; }
+.DC-opEstadoFecha {
+  font-size: 0.7rem;
+  color: #7d8ea8;
+  font-variant-numeric: tabular-nums;
+}
+.DC-opDestacadoTitulo {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #98c74c;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.DC-opDestacadoNombre {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #eaf1f9;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.DC-opDestacadoChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
+}
+.DC-opChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #16233c;
+  border: 1px solid #2c3d5c;
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #dbe4f0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.DC-opChipCiudad { background: rgba(152, 199, 76, 0.16); border-color: #98c74c80; color: #c9e89a; }
+.DC-opChipPlaca { background: rgba(42, 120, 214, 0.16); border-color: #2a78d680; color: #a9c9f5; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+
+/* (2026-10-30) Novedad JUSTIFICADA de la guía (Mongo /NovedadesOT): panel
+   morado — mismo color del segmento «Justificadas» del gráfico OT. */
+.DC-opJustificada {
+  background: rgba(74, 58, 167, 0.14);
+  border: 1px solid #4a3aa780;
+  border-left: 4px solid #4a3aa7;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.DC-opJustificadaTitulo {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #c3b8f0;
+}
+.DC-opJustificadaTexto {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #dbe4f0;
+  overflow-wrap: anywhere;
+}
+.DC-opJustificadaPor {
+  font-size: 0.72rem;
+  color: #7d8ea8;
+}
+
+/* (2026-10-30) Otras guías del mismo vehículo (misma placa, mismo día de
+   emisión): listado aparte al pie — tocar una fila la consulta. */
+.DC-opCompaneras { display: flex; flex-direction: column; gap: 0.4rem; }
+.DC-opCompanerasSub { margin: 0; font-size: 0.72rem; color: #7d8ea8; }
+.DC-opCompanerasLista { display: flex; flex-direction: column; gap: 0.4rem; }
+.DC-opCompanera {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  background: #0f1a2e;
+  border: 1px solid #22314e;
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 42px;
+}
+.DC-opCompanera:hover { border-color: #46587c; background: #122036; }
+.DC-opCompaneraGuia {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #e7eef7;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.DC-opCompaneraDest {
+  font-size: 0.78rem;
+  color: #9fb0c7;
+  flex: 1;
+  min-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.DC-opGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem 1rem;
+}
+.DC-opCampo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.DC-opCampoTitulo {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7d8ea8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.DC-opCampoValor {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e7eef7;
+  overflow-wrap: anywhere;
+}
+.DC-opMovTitulo { font-size: 0.9rem; font-weight: 800; color: #dbe4f0; margin: 0.3rem 0 0; }
+
+/* (2026-10-30, v2) Trayectoria = LÍNEA DE TIEMPO HORIZONTAL en TODOS los
+   dispositivos. La CAJA 📦 es el marcador que avanza sobre la línea (verde
+   tenue = recorrido completado); el ÚLTIMO paso es el estado actual (caja
+   mayor con halo, título en blanco). Título arriba con ALTO FIJO (los puntos
+   quedan perfectamente alineados; nombres largos en varias líneas, hasta 3,
+   con el nombre completo en el title), fecha debajo del marcador. Móvil:
+   scroll-snap dentro del contenedor mostrando ~1.8 pasos, arranca en el
+   estado más reciente (JS); escritorio: los pasos se estiran si caben. */
+.DC-opTimeline {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.6rem 0.4rem 0.8rem;
+  justify-content: flex-start;
+}
+.DC-opTimeline::-webkit-scrollbar { height: 8px; }
+.DC-opTimeline::-webkit-scrollbar-thumb { background: #2c3d5c; border-radius: 999px; }
+.DC-opTlPaso {
+  flex: 1 0 175px;
+  min-width: 175px;
+  max-width: 240px;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+  padding: 0 0.5rem;
+}
+.DC-opTlTitulo {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #c6d2e4;
+  line-height: 1.25;
+  /* Alto fijo: garantiza que TODOS los marcadores queden sobre la misma
+     línea sin importar cuántas líneas ocupe el nombre (máx 4 — mensajes
+     largos como «PEDIDO EN STAGE, EN PROCESO DE ACONDICIONAMIENTO» no se
+     cortan; el completo vive en el title del paso). */
+  height: 4.1em;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  -webkit-box-pack: center;
+  -webkit-box-align: end;
+}
+/* Marca: la caja que avanza — centrada sobre la línea continua */
+.DC-opTlMarca {
+  position: relative;
+  width: 100%;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Línea continua verde tenue (recorrido completado) de borde a borde del
+   paso — el fondo de la caja la corta al pasar por debajo. */
+.DC-opTlMarca::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: rgba(152, 199, 76, 0.35);
+}
+.DC-opTlPaso:first-child .DC-opTlMarca::before { left: 50%; }
+.DC-opTlPaso:last-child .DC-opTlMarca::before { right: 50%; }
+.DC-opTlCaja {
+  font-size: 15px;
+  line-height: 1;
+  background: #101a2c; /* corta la línea bajo la caja */
+  padding: 2px;
+  border-radius: 7px;
+  filter: drop-shadow(0 0 0 rgba(152, 199, 76, 0));
+}
+/* ÚLTIMO paso = estado actual: caja mayor con halo verde, textos brillantes */
+.DC-opTlPaso:last-child .DC-opTlCaja {
+  font-size: 21px;
+  box-shadow: 0 0 0 4px rgba(152, 199, 76, 0.3);
+  border-radius: 9px;
+}
+.DC-opTlPaso:last-child .DC-opTlTitulo {
+  color: #fff;
+  font-weight: 800;
+}
+.DC-opTlFecha {
+  font-size: 0.7rem;
+  color: #7d8ea8;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.DC-opTlPaso:last-child .DC-opTlFecha { color: #b9c8dd; font-weight: 700; }
+.DC-opTlHint {
+  font-size: 0.7rem;
+  color: #7d8ea8;
+  text-align: right;
+  margin: 0;
+}
+.DC-opSinMov { color: #7d8ea8; font-size: 0.85rem; }
+
+/* (2026-10-30) Trayectoria VERTICAL — SOLO móvil: cajas 📦 a la izquierda
+   sobre una línea vertical continua; nombre + fecha a la derecha; el último
+   evento (estado actual) destacado en verde. Compacta, sin cards por evento. */
+.DC-opTlVert {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0 0 0 0.2rem;
+  display: flex;
+  flex-direction: column;
+}
+.DC-opTlV {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 0 0.65rem;
+  position: relative;
+  padding-bottom: 0.85rem;
+}
+/* Línea vertical continua detrás de las cajas */
+.DC-opTlV::before {
+  content: '';
+  position: absolute;
+  left: 15px; /* centro de la columna de marca */
+  top: 4px;
+  bottom: -4px;
+  width: 2px;
+  background: rgba(152, 199, 76, 0.3);
+}
+.DC-opTlV:first-child::before { top: 18px; }
+.DC-opTlV:last-child::before { bottom: auto; height: 0; }
+.DC-opTlVMarca {
+  grid-column: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: #101a2c; /* corta la línea bajo la caja */
+  z-index: 1;
+  padding: 3px 0;
+  height: 100%;
+}
+.DC-opTlCaja { font-size: 15px; line-height: 1; }
+.DC-opTlVCuerpo {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  padding-top: 1px;
+}
+.DC-opTlVTitulo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #c6d2e4;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.DC-opTlVFecha {
+  font-size: 0.7rem;
+  color: #7d8ea8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Último evento = estado actual */
+.DC-opTlVActual .DC-opTlCaja {
+  font-size: 20px;
+  filter: drop-shadow(0 0 6px rgba(152, 199, 76, 0.55));
+}
+.DC-opTlVActual .DC-opTlVTitulo {
+  color: #fff;
+  font-weight: 800;
+}
+.DC-opTlVActual .DC-opTlVFecha { color: #b9c8dd; font-weight: 700; }
+.DC-opTracking {
+  align-self: flex-start;
+  color: #7cb0ff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: underline dotted;
+}
+.DC-opTracking:hover { color: #a5c8ff; }
+
+/* ── Tacómetro del OT (SVG estilo velocímetro) ── */
+.DC-gaugeWrap { max-width: 560px; margin: 0 auto; }
+.DC-tacometro { width: 100%; height: auto; display: block; }
+.DC-gaugeSub { font-size: 0.8rem; color: #7d8ea8; margin: 0.4rem 0 0; text-align: center; }
+.DC-portalOscuro .DC-gaugeSub { color: #9fb0c7; }
+
 /* (2026-10-29) Chip de guía con novedad justificada (morado, del segmento
    «Justificadas» del OT) — el detalle viaja en el title del chip. */
 .DC-guiaChipJustificada {
@@ -208,18 +916,107 @@
 
 .DC-leyendaHint { color: #8aa0b8; font-size: 0.75rem; }
 
+/* (2026-10-30) Detalle del día en MODAL: overlay oscuro + tarjeta centrada
+   (cierre con ✕, clic en el fondo o Escape). Funciona en ambos temas. */
+.DC-modalFondo {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 9, 17, 0.62);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.DC-modalCard {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  width: min(1000px, 96vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: DC-modalEntra 0.22s ease-out;
+}
+@keyframes DC-modalEntra {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+.DC-portalOscuro .DC-modalCard { background: #101a2c; border-color: #22314e; }
+@media (prefers-reduced-motion: reduce) {
+  .DC-modalCard { animation: none; }
+}
+
+/* Detalle del día (contenido del modal): tabla de guías del día+segmento. */
+.DC-detalleDia { padding: 0.9rem 1.1rem 1.1rem; }
+.DC-detalleDiaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.DC-detalleDiaTitulo {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f1928;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.DC-detalleDiaN { color: #64748b; font-weight: 600; font-size: 0.78rem; }
+.DC-detalleDiaAcciones { display: flex; align-items: center; gap: 0.5rem; }
+.DC-detalleDiaCerrar {
+  background: #eef2f7;
+  border: 1px solid #d3dce8;
+  border-radius: 8px;
+  height: 32px;
+  min-width: 32px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #475569;
+}
+.DC-detalleDiaCerrar:hover { background: #fde8e8; border-color: #e3a1a1; color: #b91c1c; }
+.DC-detalleDiaCargando { color: #64748b; font-size: 0.85rem; }
+.DC-detalleDiaTabla {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(85vh - 9rem);
+  overflow: auto;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+}
+/* La tabla usa texto oscuro: en el portal oscuro el área de tabla va con
+   fondo claro para que siga legible dentro del modal. */
+.DC-portalOscuro .DC-detalleDiaTabla { background: #fff; }
+.DC-detalleDiaTabla .IG-tabla { margin: 0; }
+.DC-detalleDiaTabla thead { position: sticky; top: 0; z-index: 1; }
+
+/* Panel de filtros: UNA fila en escritorio (Filtrar pegado a la derecha);
+   en móvil pasa a grid (media query de abajo). */
 .DC-filtrosPanel {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0.7rem 1.2rem;
+  padding: 0.55rem 1.2rem;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
-.DC-filtroGrupo { display: flex; align-items: center; gap: 0.45rem; }
-.DC-filtroGrupo > label { font-size: 0.82rem; font-weight: 700; color: #475569; }
+.DC-filtroGrupo { display: flex; align-items: center; gap: 0.45rem; position: relative; }
+.DC-filtroGrupo > label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
 
 .DC-dropdownFiltro { position: relative; }
 
@@ -227,18 +1024,28 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: #f1f4f8;
+  background: #fff;
   border: 1px solid #d7dde8;
   border-radius: 8px;
-  padding: 0.38rem 0.7rem;
+  height: 36px;
+  padding: 0 0.7rem;
   font-size: 0.82rem;
   font-weight: 600;
   color: #0f1928;
   cursor: pointer;
-  min-width: 120px;
+  min-width: 118px;
   justify-content: space-between;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.DC-dropdownFiltroBtn:hover { border-color: #e8a000; }
+.DC-dropdownFiltroBtn:hover { border-color: #2a78d6; }
+.DC-dropdownFiltroBtn:focus-visible,
+.DC-filtrosToggle:focus-visible,
+.DC-botonActualizar:focus-visible,
+.DC-bcLink:focus-visible,
+.DC-miga:focus-visible {
+  outline: 2px solid #2a78d6;
+  outline-offset: 2px;
+}
 
 .DC-dropdownFiltroTexto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 .DC-dropdownFiltroFlecha { color: #94a3b8; font-size: 0.7rem; }
@@ -270,17 +1077,19 @@
   border-radius: 6px;
 }
 .DC-dropdownFiltroItem:hover { background: #f1f4f8; }
-.DC-dropdownFiltroItem.seleccionado { background: #fff7e0; color: #92600a; }
+.DC-dropdownFiltroItem.seleccionado { background: #eaf2fd; color: #1d4f8c; }
 
 .DC-botonActualizar {
   background: #0f1928;
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 0.45rem 1rem;
+  height: 36px;
+  padding: 0 1.1rem;
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
+  margin-left: auto;
   transition: background 0.15s;
 }
 .DC-botonActualizar:hover { background: #1e3a5f; }
@@ -427,6 +1236,15 @@
   100% { background-position: 400px 0; }
 }
 
+/* (2026-10-30) Dial del skeleton del tacómetro: círculo grande shimmer
+   (usa .DC-skel para el brillo; aquí solo la forma). */
+.DC-skelDial {
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  margin: 1.1rem auto 0.5rem;
+}
+
 .DC-skel {
   background: #e9edf3;
   background-image: linear-gradient(90deg, #e9edf3 0%, #f5f7fa 40%, #e9edf3 80%);
@@ -499,6 +1317,19 @@
 @keyframes DC-swapEntra {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* (2026-10-30) Scroll horizontal de los gráficos OT en móvil: el hijo lleva
+   minWidth (una barra = su espacio, calculado en el componente) y este
+   contenedor desliza en vez de amontonar las barras. En escritorio el hijo no
+   trae minWidth → no hay scroll. ⚠️ A nivel raíz, NO dentro de un @media. */
+.DC-scrollOT {
+  overflow-x: auto;
+  /* SOLO horizontal: el alto es fijo (320) — sin overflow-y el navegador lo
+     deja en auto implícito y la animación de entrada (translateY) puede
+     mostrar un scrollbar vertical fugaz. */
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Trazabilidad (búsqueda guía/consecutivo) sobre el informe ── */
@@ -884,6 +1715,86 @@
   overflow-wrap: anywhere;
 }
 
+/* (2026-10-30, v2) Filtro «Cliente final»: buscador tipo píldora con icono y
+   ✕, estados discretos y opciones multi-selección. */
+.DC-destLista { min-width: 300px; max-height: 340px; }
+.DC-destBuscar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f1f4f8;
+  border: 1px solid #d7dde8;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem 0.15rem 0.9rem;
+  margin-bottom: 0.45rem;
+}
+.DC-destBuscar:focus-within { border-color: #98c74c; background: #fff; }
+.DC-destBuscar span[aria-hidden] { font-size: 0.85rem; opacity: 0.7; }
+.DC-destBuscar input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: inherit;
+  min-height: 38px;
+}
+.DC-destBuscar input::placeholder { color: #94a3b8; }
+.DC-destBuscarX {
+  background: #e2e8f0;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 0.65rem;
+  cursor: pointer;
+  color: #475569;
+  flex: none;
+}
+.DC-destBuscarX:hover { background: #cbd5e1; }
+.DC-destEstado {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  padding: 0.5rem 0.55rem 0.35rem;
+  text-align: center;
+}
+.DC-destLista .DC-dropdownFiltroItem { white-space: normal; }
+.DC-destLimpiar {
+  background: none;
+  border: none;
+  border-top: 1px solid #e5e9f0;
+  padding: 0.5rem 0.55rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #b91c1c;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.DC-destLimpiar:hover { text-decoration: underline; }
+
+/* Portal oscuro: TODAS las listas de filtros (año/mes/grupo/cliente final)
+   pasan a tema oscuro — antes flotaba un panel blanco sobre el portal. */
+.DC-portalOscuro .DC-dropdownFiltroLista {
+  background: #0f1a2e;
+  border-color: #2a3a58;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55);
+}
+.DC-portalOscuro .DC-dropdownFiltroItem { color: #d7e2f0; }
+.DC-portalOscuro .DC-dropdownFiltroItem:hover { background: #16233c; }
+.DC-portalOscuro .DC-dropdownFiltroItem.seleccionado { background: rgba(152, 199, 76, 0.15); color: #c9e89a; }
+.DC-portalOscuro .DC-destBuscar { background: #0b1526; border-color: #2a3a58; }
+.DC-portalOscuro .DC-destBuscar:focus-within { background: #0b1526; border-color: #98c74c; }
+.DC-portalOscuro .DC-destBuscar input { color: #e7eef7; }
+.DC-portalOscuro .DC-destBuscar input::placeholder { color: #5b6b85; }
+.DC-portalOscuro .DC-destBuscarX { background: #16233c; color: #9fb0c7; }
+.DC-portalOscuro .DC-destEstado { color: #7d8ea8; }
+.DC-portalOscuro .DC-destLimpiar { border-top-color: #22314e; }
+.DC-portalOscuro .DC-clienteOpcion { color: #9fb0c7; }
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .DC-headerInner { flex-wrap: wrap; }
@@ -891,24 +1802,109 @@
   .DC-nombreCliente { font-size: 1.1rem; }
   .DC-userInfo { display: none; }
   .DC-filtrosSection { position: static; }
+
+  /* Toggle plegable: fila compacta con el resumen cuando está contraído */
   .DC-filtrosToggle {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
     width: 100%;
-    background: #f1f5f9;
+    min-height: 42px;
+    background: #fff;
     color: #0f1928;
     border: none;
     border-bottom: 1px solid #e5e9f0;
-    padding: 0.6rem 1rem;
+    padding: 0.45rem 0.9rem;
     font-size: 0.85rem;
     font-weight: 700;
     cursor: pointer;
   }
-  .DC-filtrosToggle:active { background: #e2e8f0; }
+  .DC-filtrosToggle:active { background: #f1f4f8; }
   .DC-filtrosToggleFlecha { margin-left: auto; }
-  .DC-filtrosOcultos { display: none; }
+
+  /* Panel plegado en GRID: Año+Mes en 2 columnas, Cliente y Filtrar a ancho
+     completo. Etiqueta arriba del control, controles a altura táctil (42px). */
+  .DC-filtrosPanel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem 0.6rem;
+    padding: 0.7rem 0.9rem 0.8rem;
+  }
+  /* Después del display:grid del panel — el estado oculto debe ganar. */
+  .DC-filtrosPanel.DC-filtrosOcultos { display: none; }
+  .DC-filtroGrupo { flex-direction: column; align-items: stretch; gap: 0.25rem; }
+  
+
+.DC-filtroCliente,
+  .DC-filtroDestFinal,
+  .DC-botonActualizar { grid-column: 1 / -1; }
+  .DC-dropdownFiltroBtn,
+  .DC-botonActualizar { height: 42px; width: 100%; }
+  .DC-botonActualizar { margin-left: 0; }
+  .DC-dropdownFiltroTexto { max-width: none; }
+
+  /* Breadcrumb: compacto, sin desbordes (envuelve con separadores propios) */
+  .DC-breadcrumb { padding: 0.3rem 0.9rem 0.55rem; font-size: 0.78rem; gap: 0.35rem; }
+  .DC-bcChips { width: 100%; }
+  .DC-bcChips::before { display: none; }
+  .DC-bcChips .DC-miga { max-width: 100%; }
+
+  /* Leyenda del OT: colapsable con resumen; chips a altura táctil */
+  .DC-otLeyendaToggle {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 34px;
+    background: #f8fafc;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    padding: 0.25rem 0.7rem;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+  }
+  .DC-otLeyendaResumen { color: #64748b; font-weight: 600; font-size: 0.72rem; }
+  .DC-otLeyendaFlecha { margin-left: auto; transition: transform 200ms ease-out; }
+  .DC-otLeyendaToggle:active { background: #eef2f7; }
+  /* Después del display:flex de los chips — el estado oculto debe ganar. */
+  .DC-otLeyendaChips.DC-otLeyendaOcultos { display: none; }
+  .DC-otChip { min-height: 30px; padding: 0.28rem 0.7rem; font-size: 0.74rem; }
+
+  /* Trazabilidad: envolver en pantallas angostas (el botón «Buscar» se
+     salía del viewport en ≤330px) */
+  .DC-trazaBarra { flex-wrap: wrap; padding: 0.7rem 0.9rem 0; }
+  .DC-trazaInput { min-width: 140px; }
+
+  /* Scroll interno del OT-por-campo: en móvil ocupa ~60% de la pantalla */
+  .DC-otCampoScroll { max-height: 60vh; }
+
+  /* (2026-10-30) Trayectoria en móvil: ~1.7 pasos visibles (indica que hay
+     más), scroll-snap táctil DENTRO del contenedor — la página nunca hace
+     scroll horizontal. Arranca en el estado más reciente (JS). */
+  .DC-opTlPaso { flex: 0 0 44vw; min-width: 44vw; max-width: 48vw; }
+  .DC-opDestacadoNombre { font-size: 1.1rem; }
+  .DC-opTlHint { text-align: center; }
+
+  /* Resumen en móvil: apilado — estado actual como fila debajo del destino */
+  .DC-opResumen { flex-direction: column; gap: 0.6rem; }
+  .DC-opEstadoActual {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-left: none;
+    border-top: 1px solid #2c3d5c;
+    padding: 0.6rem 0 0;
+    max-width: none;
+    text-align: left;
+  }
+
   .DC-main { width: 94%; padding-top: 1.2rem; }
   .DC-guiaTiles { display: none; }
   .DC-guiaCeldaVeh { max-width: 150px; }
 }
+
+/* recarga */

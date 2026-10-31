@@ -30,6 +30,45 @@ const SkeletonGrafico: React.FC<{ bajo?: boolean }> = ({ bajo }) => (
   </div>
 );
 
+/** Skeleton del tacómetro del portal: título + subtítulo + dial shimmer
+ * (semicírculo grande que anticipa el velocímetro). */
+const SkeletonTacometro: React.FC = () => (
+  <div className="DC-skelCard">
+    <div className="DC-skel DC-skelTitulo" />
+    <div className="DC-skel DC-skelSub" />
+    <div className="DC-skel DC-skelDial" />
+  </div>
+);
+
+/** Buscador de destinatarios con estado PROPIO: cada tecla re-renderiza
+ * solo este componente (antes escribía en el estado del dashboard y cada
+ * letra re-renderizaba TODOS los gráficos — se sentía lento). Avisa al padre
+ * ya debounced (350 ms) con el texto estable. */
+const InputDestinatario: React.FC<{ onEstable: (v: string) => void }> = ({ onEstable }) => {
+  const [texto, setTexto] = useState('');
+  const onEstableRef = useRef(onEstable);
+  onEstableRef.current = onEstable;
+  useEffect(() => {
+    const t = setTimeout(() => onEstableRef.current(texto), 350);
+    return () => clearTimeout(t);
+  }, [texto]);
+  return (
+    <div className="DC-destBuscar">
+      <span aria-hidden="true">🔎</span>
+      <input
+        type="text"
+        placeholder="Buscar destinatario (mín. 5 letras)"
+        value={texto}
+        onChange={e => setTexto(e.target.value)}
+        autoFocus
+      />
+      {texto && (
+        <button type="button" className="DC-destBuscarX" onClick={() => setTexto('')} title="Limpiar búsqueda">✕</button>
+      )}
+    </div>
+  );
+};
+
 type SerieCajas = { periodo: string; cajas: number; vehiculos: number };
 
 type ApiResponse = {
@@ -50,6 +89,10 @@ type FilaGuia = {
   kilos: number | null;
   estado: string | null;        // canónico; null si el TMS trajo basura
   estado_crudo: string | null;  // valor original del TMS (diagnóstico/export)
+  // (2026-10-30) Novedad del TMS (columna `novedad` de informe_guias_tms):
+  // texto crudo del evento («ENTREGA DIGITALIZADA», «REHUSADO»…). Distinta de
+  // la novedad JUSTIFICADA (novedades_ot) — viaja aparte para el Excel.
+  novedad_tms?: string | null;
   fecha_emision: string | null;
   fecha_entrega: string | null;
   fecha_digitalizacion: string | null;
@@ -63,7 +106,8 @@ type FilaGuia = {
   dias_habiles: number | null;
   ot: number | null;
   // (2026-10-29) Novedad justificada (gestión en /NovedadesOT): si existe, la
-  // guía cuenta en el segmento «Justificadas» y se excluye del % OT.
+  // guía cuenta en el segmento «Cumplieron con novedad» y suma al % OT como
+  // cumplida (numerador y denominador).
   novedad?: {
     causal: string;
     justificacion: string;
@@ -82,6 +126,7 @@ type ResumenGuias = {
   por_estado: Record<string, number>;
   ot_cumplen: number;
   ot_no_cumplen: number;
+  ot_justificadas: number;
   ot_no_evaluables: number;
   ot_pct: number | null;
 };
@@ -105,18 +150,46 @@ type BucketOT = {
   total: number;
 };
 
+// (2026-10-30) ¿Viewport móvil? — para elegir el render adaptado de los
+// gráficos OT-por-campo (lista táctil en móvil, recharts en escritorio).
+const useEsMovil = () => {
+  const [es, setEs] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const fn = () => setEs(mq.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, []);
+  return es;
+};
+
 // Definición única de los segmentos del gráfico OT (orden de la pila, color,
 // etiqueta y explicación para title/tooltip) — barras, leyenda y tooltip.
 const SEGMENTOS_OT: { clave: keyof BucketOT; color: string; etiqueta: string; explica: string }[] = [
   { clave: 'cumplieron', color: '#15803d', etiqueta: 'Cumplieron', explica: 'ENTREGADO en fecha ≤ fecha promesa (días hábiles)' },
   { clave: 'noCumplieron', color: '#b91c1c', etiqueta: 'No cumplieron', explica: 'ENTREGADO después de la fecha promesa' },
-  { clave: 'justificadas', color: '#4a3aa7', etiqueta: 'Justificadas', explica: 'Con novedad justificada (causal + justificación cargados en Novedades OT): excluidas del % OT' },
+  { clave: 'justificadas', color: '#4a3aa7', etiqueta: 'Cumplieron con novedad', explica: 'Con novedad justificada (causal + justificación cargados en Novedades OT): cuentan como cumplidas en el % OT' },
   { clave: 'en_distribucion', color: '#eda100', etiqueta: 'En distribución', explica: 'Estado TMS: En distribucion' },
   { clave: 'transito', color: '#2a78d6', etiqueta: 'Tránsito Nacional', explica: 'Estado TMS: Transito Nacional' },
   { clave: 'pendiente', color: '#94a3b8', etiqueta: 'Pendiente', explica: 'Estado TMS: PENDIENTE' },
   { clave: 'con_novedad', color: '#eb6834', etiqueta: 'Con novedad', explica: 'Entrega con novedad reportada (el bot sigue actualizándola)' },
   { clave: 'sin_info', color: '#cbd5e1', etiqueta: 'Sin info', explica: 'Sin estado servible del TMS, o ENTREGADO sin fecha de entrega (no evaluable)' },
 ];
+
+// (2026-10-30) OT agregado por un campo PG (ciudad_destino / destinatario)
+// para las barras horizontales del portal de clientes — mismos conteos del
+// % OT (justificadas cuentan como cumplidas).
+type OTPorCampo = {
+  clave: string;
+  cumplieron: number;
+  no_cumplieron: number;
+  justificadas: number;
+  evaluables: number;
+  total: number;
+  pct: number;
+};
 
 type InformeGuiasResponse = {
   success: boolean;
@@ -127,6 +200,8 @@ type InformeGuiasResponse = {
     resumen: ResumenGuias;
     serie_mensual?: BucketOT[];
     serie_diaria?: BucketOT[];
+    ot_por_ciudad?: OTPorCampo[];
+    ot_por_destinatario?: OTPorCampo[];
     paginacion?: PaginacionGuias;
     advertencia?: string | null;
   };
@@ -243,6 +318,58 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // navegador con TODAS las filas del período).
   const [serieOTMensual, setSerieOTMensual] = useState<BucketOT[]>([]);
   const [serieOTDiaria, setSerieOTDiaria] = useState<BucketOT[]>([]);
+  // (2026-10-30) OT por ciudad destino / destinatario (barras horizontales
+  // del portal de clientes) — llegan en el mismo fetch de /guias.
+  const [otPorCiudad, setOtPorCiudad] = useState<OTPorCampo[]>([]);
+  const [otPorDestinatario, setOtPorDestinatario] = useState<OTPorCampo[]>([]);
+  // Fila expandida de la lista móvil de OT-por-campo (`<idCampo>|<clave>`).
+  const [filaCampoAbierta, setFilaCampoAbierta] = useState<string | null>(null);
+  const esMovil = useEsMovil();
+
+  // (2026-10-30) Pestañas del portal de clientes: «Gerenciales» (todos los
+  // gráficos) y «Operación» (consulta de guía en Siscore por SOAP — el
+  // mismo servicio del bot de WhatsApp).
+  const [pestanaPortal, setPestanaPortal] = useState<'gerenciales' | 'operacion'>('gerenciales');
+  const [inputGuiaOp, setInputGuiaOp] = useState('');
+  const [tlHayMas, setTlHayMas] = useState(false);
+  const tlRef = useRef<HTMLDivElement | null>(null);
+  const [consultandoGuiaOp, setConsultandoGuiaOp] = useState(false);
+  const [errorGuiaOp, setErrorGuiaOp] = useState<string | null>(null);
+  const [resultadoGuiaOp, setResultadoGuiaOp] = useState<any>(null);
+
+  // Timeline de la trayectoria: SIEMPRE horizontal. Arranca posicionada en
+  // el estado MÁS RECIENTE (final del recorrido; los movimientos vienen en
+  // orden cronológico) y muestra la pista «Desliza…» solo cuando hay más
+  // pasos que ancho visible (re-evaluado al cambiar de resultado o de tamaño).
+  useEffect(() => {
+    const el = tlRef.current;
+    if (!el) return;
+    el.scrollLeft = el.scrollWidth;
+    setTlHayMas(el.scrollWidth - el.clientWidth > 8);
+  }, [resultadoGuiaOp, esMovil]);
+
+  const consultarGuiaSiscore = async (guiaDirecta?: string) => {
+    const g = (guiaDirecta ?? inputGuiaOp).trim();
+    if (!g || consultandoGuiaOp) return;
+    setConsultandoGuiaOp(true);
+    setErrorGuiaOp(null);
+    setResultadoGuiaOp(null);
+    try {
+      const params = new URLSearchParams({ guia: g });
+      if (modoExterno) {
+        const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2];
+        if (u) params.set('usuario', u);
+      }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/consulta-guia?${params.toString()}`);
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j?.success) throw new Error(j?.detail || 'No se pudo consultar la guía en este momento');
+      setResultadoGuiaOp(j.data);
+    } catch (err) {
+      setErrorGuiaOp(err instanceof Error ? err.message : 'No se pudo consultar la guía en este momento');
+    } finally {
+      setConsultandoGuiaOp(false);
+    }
+  };
   // Paginación de la tabla (la 1ª página viaja en /guias; el resto en /filas).
   const [paginacionGuias, setPaginacionGuias] = useState<PaginacionGuias | null>(null);
   const [cargandoMasGuias, setCargandoMasGuias] = useState(false);
@@ -350,6 +477,20 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     () => (typeof window === 'undefined' ? true : window.innerWidth > 768)
   );
 
+  // Zoom de día del OT (2026-10-30): 'YYYY-MM-DD' del día drill-down en la
+  // vista diaria. Desde la v5 NO es solo visual: con `dia` el backend
+  // recalcula todo el payload para ese día (ver obtenerInformeGuias).
+  const [diaOT, setDiaOT] = useState<string | null>(null);
+
+  // (2026-10-30) Filtro «Cliente final» (destinatario del TMS): autocomplete
+  // desde la 5ª letra + multi-selección; se aplica con «Filtrar».
+  const [destDropdownAbierto, setDestDropdownAbierto] = useState(false);
+  const [busquedaDest, setBusquedaDest] = useState('');
+  const [opcionesDest, setOpcionesDest] = useState<string[]>([]);
+  const [cargandoDest, setCargandoDest] = useState(false);
+  const [destSel, setDestSel] = useState<string[]>([]);       // borrador
+  const [destAplicado, setDestAplicado] = useState<string[]>([]); // los que viajan
+
   // Filtros aplicados (los que realmente se consultan)
   const [filtrosAplicados, setFiltrosAplicados] = useState({
     anios: [new Date().getFullYear()] as number[],
@@ -389,6 +530,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const construirParamsGuias = () => {
     const params = construirParams();
     if (grupoAplicado) params.set('grupo', grupoAplicado);
+    destAplicado.forEach(d => params.append('destinatario', d));
     if (modoExterno) {
       const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2];
       if (u) params.set('usuario', u);
@@ -425,7 +567,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     setCargandoGuias(true);
     setErrorGuias(null);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/guias?${construirParamsGuias().toString()}`);
+      // (2026-10-30) Zoom de día: con `dia` el backend recalcula todo el
+      // payload para las guías emitidas ese día (resumen, series y OT por
+      // ciudad/destinatario) — así el portal entero sigue al día del zoom.
+      const paramsGuias = construirParamsGuias();
+      if (diaOT) paramsGuias.set('dia', diaOT);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/guias?${paramsGuias.toString()}`);
       if (!response.ok) throw new Error('Error al obtener el informe de guías');
       const data: InformeGuiasResponse = await response.json();
       if (data.success && data.data) {
@@ -434,6 +581,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
         setResumenGuias(data.data.resumen || null);
         setSerieOTMensual(data.data.serie_mensual || []);
         setSerieOTDiaria(data.data.serie_diaria || []);
+        setOtPorCiudad(data.data.ot_por_ciudad || []);
+        setOtPorDestinatario(data.data.ot_por_destinatario || []);
         setPaginacionGuias(data.data.paginacion || null);
         setAdvertenciaGuias(data.data.advertencia || null);
       } else {
@@ -554,13 +703,50 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trazaUsoActiva]);
 
+  // Autocomplete de destinatarios: el texto ya llega DEBOUNCED desde
+  // InputDestinatario (estado local — las teclas no re-renderizan el
+  // dashboard); acá solo se consulta (>= 5 letras, ~4ms con la caché).
+  useEffect(() => {
+    if (!destDropdownAbierto) return;
+    const q = busquedaDest.trim();
+    if (q.length < 5) {
+      setOpcionesDest([]);
+      setCargandoDest(false);
+      return;
+    }
+    let vigente = true;
+    // «Buscando…» solo si la búsqueda tarda de verdad (>250ms): con la caché
+    // en memoria la respuesta es de ms y el texto no debe parpadear.
+    const tCargando = setTimeout(() => { if (vigente) setCargandoDest(true); }, 250);
+    (async () => {
+      try {
+        const params = new URLSearchParams({ q });
+        if (modoExterno) {
+          const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2];
+          if (u) params.set('usuario', u);
+        }
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/destinatarios?${params.toString()}`);
+        const j = await res.json().catch(() => null);
+        if (vigente) setOpcionesDest(j?.data?.destinatarios || []);
+      } catch {
+        if (vigente) setOpcionesDest([]);
+      } finally {
+        clearTimeout(tCargando);
+        if (vigente) setCargandoDest(false);
+      }
+    })();
+    return () => { vigente = false; clearTimeout(tCargando); };
+  }, [busquedaDest, destDropdownAbierto, clienteId, modoExterno]);
+
   // El informe de guías viaja junto con /cajas desde la CARGA INICIAL (el
   // gráfico On Time lo necesita) — salvo cuando hay trazabilidad activa, que
-  // es una consulta aparte del usuario.
+  // es una consulta aparte del usuario. (2026-10-30) El ZOOM DE DÍA del
+  // portal también re-consulta: con `dia` el backend recalcula TODO el
+  // payload para ese día (resumen, series y OT por ciudad/destinatario).
   useEffect(() => {
     if (cliente && !trazaActiva) obtenerInformeGuias();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtrosAplicados, clienteId]);
+  }, [filtrosAplicados, clienteId, diaOT, destAplicado]);
 
   const alternarInforme = () => {
     setInformeAbierto(o => !o);
@@ -588,7 +774,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
 
   const aplicarFiltros = () => {
     setGrupoAplicado(grupoSeleccionado);
+    setDestAplicado(destSel);
     setFiltrosAplicados({ anios: aniosSeleccionados, meses: mesesSeleccionados });
+  };
+
+  // Quitar el filtro de cliente final (miga): limpia borrador y aplicado.
+  const quitarDestMiga = () => {
+    setDestSel([]);
+    setDestAplicado([]);
   };
 
   // Quitar el grupo de las migas: sincroniza el dropdown y re-consulta (pisa
@@ -600,19 +793,49 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     setFiltrosAplicados(prev => ({ ...prev }));
   };
 
-  // Migas de navegación: cada filtro aplicado se ve como chip borrable; quitar
-  // uno lo aplica DE INMEDIATO (sin pasar por "Filtrar") y sincroniza los
-  // dropdowns. Sin años/meses → todo el histórico (mismo contrato del backend).
-  const quitarAnioMiga = (a: number) => {
-    const anios = filtrosAplicados.anios.filter(x => x !== a);
-    setAniosSeleccionados(anios);
-    setFiltrosAplicados(prev => ({ ...prev, anios }));
+  // ── Breadcrumb de período (2026-10-30 rediseño UX) ──
+  // La navegación reemplazó a las migas-chip de año/mes/día: la ruta
+  // «Histórico › 2026 › Septiembre › 25 de septiembre» vuelve a cada nivel
+  // (cada nivel anterior es clicable, el último es la ubicación actual).
+  // Todos aplican DE INMEDIATO (sin pasar por «Filtrar») y sincronizan los
+  // dropdowns; sin años/meses → todo el histórico (mismo contrato backend).
+  const irAHistorico = () => {
+    setAniosSeleccionados([]);
+    setMesesSeleccionados([]);
+    setFiltrosAplicados({ anios: [], meses: [] });
+    setDiaOT(null);
+    setVistaOT('mensual');
   };
-  const quitarMesMiga = (m: number) => {
-    const meses = filtrosAplicados.meses.filter(x => x !== m);
-    setMesesSeleccionados(meses);
-    setFiltrosAplicados(prev => ({ ...prev, meses }));
+  const irAlAnio = () => {
+    setMesesSeleccionados([]);
+    setFiltrosAplicados(prev => ({ ...prev, meses: [] }));
+    setDiaOT(null);
+    setVistaOT('mensual');
   };
+  const irAlMes = () => {
+    setDiaOT(null);
+    setVistaOT('diaria');
+  };
+
+  // Etiquetas cortas de la ruta (multi-selección → «3 años» / «3 meses»).
+  const lblAnios = filtrosAplicados.anios.length === 1
+    ? String(filtrosAplicados.anios[0])
+    : `${filtrosAplicados.anios.length} años`;
+  const lblMeses = filtrosAplicados.meses.length === 1
+    ? MESES.find(m => m.valor === filtrosAplicados.meses[0])?.nombre ?? 'Mes'
+    : `${filtrosAplicados.meses.length} meses`;
+
+  // Resumen discreto de los filtros aplicados (se ve en el toggle de filtros
+  // contraído en móvil).
+  const resumenFiltros = useMemo(() => {
+    const p: string[] = [];
+    if (filtrosAplicados.anios.length > 0) p.push(lblAnios);
+    if (filtrosAplicados.meses.length > 0) p.push(lblMeses);
+    if (grupoAplicado) p.push(grupoAplicado);
+    if (trazaActiva) p.push('🔎 traza');
+    return p.length ? p.join(' · ') : 'Sin filtros';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtrosAplicados, grupoAplicado, trazaActiva, lblAnios, lblMeses]);
 
   // ── Serie OT por período ──
   // Desde 2026-10-29 los buckets los agrega el BACKEND sobre la pasada
@@ -626,9 +849,63 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     [vistaOT, serieOTDiaria, serieOTMensual]
   );
 
+  // Bucket del día en zoom (si el filtro cambió y el día ya no existe, cae a
+  // null y el gráfico vuelve solo a la vista diaria).
+  const bucketDiaOT = useMemo(
+    () => (diaOT ? serieOTDiaria.find(b => b.periodo === diaOT) ?? null : null),
+    [diaOT, serieOTDiaria]
+  );
+
+  // Filtro de leyenda del OT (2026-10-30): los términos de la leyenda son
+  // seleccionables — uno o varios — y el gráfico muestra SOLO esos segmentos
+  // (barras, tooltip, etiqueta de total y zoom de día). Set vacío = todos.
+  // Como el zoom de día, es puramente visual: persiste al cambiar Mensual ↔
+  // Diario ↔ Día y NO viaja en ningún fetch (la base no cambia).
+  const [segSelOT, setSegSelOT] = useState<Set<string>>(new Set());
+  // Leyenda del OT plegable en MÓVIL (desktop siempre visible) — mismo patrón
+  // que filtrosAbiertos.
+  const [leyendaOTAbierta, setLeyendaOTAbierta] = useState(
+    () => (typeof window === 'undefined' ? true : window.innerWidth > 768)
+  );
+  const alternarSegmentoOT = (clave: string) => {
+    setSegSelOT(prev => {
+      const s = new Set(prev);
+      if (s.has(clave)) s.delete(clave); else s.add(clave);
+      return s;
+    });
+  };
+  const segActivosOT = useMemo(
+    () => SEGMENTOS_OT.filter(s => segSelOT.size === 0 || segSelOT.has(s.clave as string)),
+    [segSelOT]
+  );
+  // Datos con el total de la selección (para la etiqueta encima de la pila).
+  const dataOTVis = useMemo(
+    () =>
+      dataOT.map(b => ({
+        ...b,
+        totalSel: segActivosOT.reduce((acc, s) => acc + (b[s.clave] as number), 0),
+      })),
+    [dataOT, segActivosOT]
+  );
+
+  // Filas del gráfico horizontal del día: un segmento >0 por barra (respeta
+  // el filtro de leyenda).
+  const segmentosDiaOT = useMemo(
+    () =>
+      bucketDiaOT
+        ? SEGMENTOS_OT
+            .filter(s => segSelOT.size === 0 || segSelOT.has(s.clave as string))
+            .map(s => ({ etiqueta: s.etiqueta, color: s.color, cantidad: bucketDiaOT[s.clave] as number }))
+            .filter(s => s.cantidad > 0)
+        : [],
+    [bucketDiaOT, segSelOT]
+  );
+
   // Clic en una barra mensual del OT → APLICA el filtro real de ese mes (Año+Mes
   // quedan marcados en los dropdowns y viajan en el fetch — sin estado paralelo
   // de zoom) y pasa a la vista diaria, que llega ya acotada del backend.
+  // Clic en una barra DIARIA → zoom de ese día: barras horizontales con sus
+  // segmentos (sin fetch, todo sale de la serie diaria).
   const clicBarraOT = (estado: any) => {
     const periodo = String(estado?.activeLabel ?? '');
     if (vistaOT === 'mensual' && /^\d{4}-\d{2}$/.test(periodo)) {
@@ -637,14 +914,24 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       setMesesSeleccionados([m]);
       setFiltrosAplicados({ anios: [a], meses: [m] });
       setVistaOT('diaria');
+      setDiaOT(null);
+    } else if (vistaOT === 'diaria' && /^\d{4}-\d{2}-\d{2}$/.test(periodo)) {
+      setDiaOT(periodo);
     }
   };
-  const alternarVistaOT = (v: 'mensual' | 'diaria') => setVistaOT(v);
+  const alternarVistaOT = (v: 'mensual' | 'diaria') => {
+    setVistaOT(v);
+    setDiaOT(null);
+  };
 
-  // % OT por período para etiqueta y tooltip — SIEMPRE sobre evaluables
-  // (entregadas con promesa), no sobre el total del período.
-  const pctOT = (d: { cumplieron: number; evaluables: number }) =>
-    d.evaluables > 0 ? Math.round((d.cumplieron / d.evaluables) * 100) : null;
+  // % OT por período para etiqueta y tooltip — evaluables + JUSTIFICADAS:
+  // las justificadas cuentan como cumplidas (numerador y denominador).
+  const pctOT = (d: { cumplieron: number; justificadas: number; evaluables: number }) => {
+    const base = d.evaluables + d.justificadas;
+    // 1 decimal (2026-10-30: antes redondeaba a entero y el gráfico de meta
+    // mostraba "79,0" — un decimal falso sobre un entero).
+    return base > 0 ? Math.round(((d.cumplieron + d.justificadas) / base) * 1000) / 10 : null;
+  };
 
   // ── Uso de vehículos: agregaciones de los 4 niveles del drill-down ──
   // Todas se calculan en el frontend desde las filas de /uso-vehiculos.
@@ -815,25 +1102,413 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   }, [filtrosAplicados]);
 
   // Tooltip del gráfico OT: período, cada estado con su conteo (solo >0 para
-  // no llenar de ceros) y el pie con evaluables / % OT / total.
+  // no llenar de ceros; solo los segmentos del filtro de leyenda) y el pie con
+  // evaluables / % OT / total — con leyenda filtrada: Selección de Total y el
+  // % OT recalculado sobre los segmentos OT seleccionados.
+  // ── (2026-10-30) Portal de clientes: gauge del OT + barras por campo ──
+  // Color del % OT por umbral (gauge y barras): ≥90 verde, ≥75 ámbar, <75 rojo.
+  const colorOT = (pct: number) => (pct >= 90 ? '#15803d' : pct >= 75 ? '#eda100' : '#b91c1c');
+
+  // % del gauge: el del DÍA en zoom si hay, si no el del período filtrado
+  // (resumen.ot_pct — justificadas cuentan como cumplidas).
+  const gaugeOT = useMemo(() => {
+    if (diaOT && bucketDiaOT) {
+      // 1 decimal (mismo formato del resumen): redondeo a décimas, no enteros.
+      const b = bucketDiaOT;
+      const base = b.evaluables + b.justificadas;
+      const pct = base > 0 ? Math.round(((b.cumplieron + b.justificadas) / base) * 1000) / 10 : null;
+      return {
+        pct,
+        cumplidas: pct != null ? bucketDiaOT.cumplieron + bucketDiaOT.justificadas : null,
+        evaluables: bucketDiaOT.evaluables + bucketDiaOT.justificadas,
+        alcance: format(parseISO(diaOT), "d 'de' MMMM yyyy", { locale: es }),
+      };
+    }
+    return {
+      pct: resumenGuias?.ot_pct ?? null,
+      cumplidas: resumenGuias ? resumenGuias.ot_cumplen + resumenGuias.ot_justificadas : null,
+      evaluables: resumenGuias ? resumenGuias.ot_cumplen + resumenGuias.ot_no_cumplen + resumenGuias.ot_justificadas : null,
+      alcance: rangoFiltros,
+    };
+  }, [diaOT, bucketDiaOT, resumenGuias, rangoFiltros]);
+
+  // (2026-10-30) Gráfico «On Time vs meta»: barra por período con el %
+  // de cumplimiento (misma fórmula del tacómetro), ReferenceLine punteada
+  // en la META 96% y barras ROJAS por debajo de ella (verdes al alcanzarla).
+  // Comparte vista Mensual/Diario y serie con el gráfico OT principal.
+  const META_OT = 96;
+  const dataOTMeta = useMemo(
+    () => dataOT.map(b => ({
+      periodo: b.periodo,
+      pct: pctOT(b),
+      cumplidas: b.cumplieron + b.justificadas,
+      evaluables: b.evaluables + b.justificadas,
+    })),
+    [dataOT]
+  );
+  // (2026-10-30) Ancho mínimo de los gráficos OT en MÓVIL: cada barra necesita
+  // su espacio (mensual ~72px para la etiqueta del mes, diario ~26px) — si no
+  // caben en el viewport, el contenedor (.DC-scrollOT) hace scroll horizontal
+  // en vez de amontonarlas. En escritorio no aplica (undefined → ancho normal).
+  const anchoMinOT = (nBarras: number): number | undefined => {
+    if (!esMovil) return undefined;
+    const porBarra = vistaOT === 'diaria' ? 26 : 72;
+    return Math.min(Math.max(nBarras * porBarra, 320), 6000);
+  };
+  // (2026-10-30) Etiqueta % DIAGONAL dentro de cada barra del «On Time vs
+  // meta»: rotada -45° (de izquierda a derecha, de abajo hacia arriba),
+  // centrada en la barra, blanca — se lee sobre el rojo/verde de la barra y
+  // sobre el fondo oscuro de la tarjeta si sobresale. Barra muy baja (<40px)
+  // → no se pinta (queda el tooltip).
+  const etiquetaVerticalMeta = (props: any) => {
+    const { x, y, width, height, value } = props;
+    if (value == null || height < 40) return null;
+    const cx = Number(x) + Number(width) / 2;
+    const cy = Number(y) + Number(height) / 2;
+    return (
+      <text
+        x={cx}
+        y={cy}
+        transform={`rotate(-45 ${cx} ${cy})`}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#fff"
+        fontSize={13}
+        fontWeight={700}
+      >
+        {`${Number(value).toFixed(1).replace('.', ',')}%`}
+      </text>
+    );
+  };
+  const tooltipOTMeta = (props: any) => {
+    if (!props.active || !props.payload?.length) return null;
+    const d = props.payload[0].payload as { periodo: string; pct: number | null; cumplidas: number; evaluables: number };
+    const fechaTxt = vistaOT === 'diaria'
+      ? format(parseISO(d.periodo), "d 'de' MMMM yyyy", { locale: es })
+      : format(parseISO(d.periodo + '-01'), 'MMMM yyyy', { locale: es });
+    const delta = d.pct != null ? d.pct - META_OT : null;
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{fechaTxt} <span style={{ color: '#8aa0b8' }}>(emisión)</span></p>
+        {d.pct != null && (
+          <p><b>{d.pct.toFixed(1).replace('.', ',')}%</b> OT · {delta != null ? (delta >= 0 ? `+${delta.toFixed(1).replace('.', ',')}` : delta.toFixed(1).replace('.', ',')) : ''} vs meta 96%</p>
+        )}
+        <p className="IG-tooltipSerieSub">
+          {formatearEntero(d.cumplidas)} de {formatearEntero(d.evaluables)} guías evaluables
+        </p>
+      </div>
+    );
+  };
+  const graficoOTMeta = () => (
+    <div className="IG-graficoContainer DC-metaCard">
+      <div className="IG-graficoHeader">
+        <div className="IG-graficoTituloWrap">
+          <h2 className="IG-graficoTitulo">
+            🎯 On Time vs meta
+            <span className="IG-graficoBadge">{vistaOT === 'diaria' ? 'Diario' : 'Mensual'}</span>
+            <span className="IG-graficoBadge DC-badgeRango">{rangoFiltros}</span>
+          </h2>
+        </div>
+        <div className="IG-graficoAcciones">
+          <div className="IG-toggleGrupo" role="group" aria-label="Vista On Time vs meta">
+            <button className={`IG-toggleBtn ${vistaOT === 'mensual' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => alternarVistaOT('mensual')}>Mensual</button>
+            <button className={`IG-toggleBtn ${vistaOT === 'diaria' ? 'IG-toggleBtnActivo' : ''}`} onClick={() => alternarVistaOT('diaria')}>Diario</button>
+          </div>
+        </div>
+      </div>
+      <div className="DC-scrollOT">
+      <div className="DC-swapOT" key={`meta-${vistaOT}`} style={{ width: '100%', height: 320, minWidth: anchoMinOT(dataOTMeta.length) }}>
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart
+            data={dataOTMeta}
+            margin={{ top: 24, right: 16, left: 8, bottom: 10 }}
+            /* Mismo clic que el OT por período: barra mensual → aplica Año+Mes
+               y salta a Diario; barra diaria → zoom de ese día. */
+            onClick={clicBarraOT}
+            style={{ cursor: 'pointer' }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="periodo"
+              tickFormatter={(v: string) => {
+                try {
+                  return vistaOT === 'diaria'
+                    ? format(parseISO(v), 'd MMM', { locale: es })
+                    : format(parseISO(v + '-01'), 'MMM yy', { locale: es });
+                } catch { return v; }
+              }}
+              tick={{ fontSize: 11 }}
+              angle={vistaOT === 'diaria' ? -90 : 0}
+              textAnchor={vistaOT === 'diaria' ? 'end' : 'middle'}
+              height={vistaOT === 'diaria' ? 60 : 30}
+            />
+            <YAxis domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} tick={{ fontSize: 11 }} width={54} />
+            <Tooltip content={tooltipOTMeta} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
+            <ReferenceLine
+              y={META_OT}
+              stroke="#98c74c"
+              strokeDasharray="6 4"
+              /* Etiqueta ARRIBA de la línea (dy negativo), pegada al extremo
+                 derecho — antes quedaba debajo y se perdía. */
+              label={{ value: `Meta ${META_OT}%`, fill: '#98c74c', fontSize: 11, fontWeight: 700, position: 'insideTopRight', dy: -14, dx: -6 }}
+            />
+            <Bar
+              dataKey="pct"
+              name="% OT"
+              radius={[4, 4, 0, 0]}
+              isAnimationActive={ANIM_BARRAS.isAnimationActive}
+              animationDuration={ANIM_BARRAS.animationDuration}
+              animationEasing={ANIM_BARRAS.animationEasing}
+            >
+              {dataOTMeta.map(d => (
+                <Cell key={d.periodo} fill={d.pct == null ? '#334155' : d.pct < META_OT ? '#b91c1c' : '#15803d'} />
+              ))}
+              <LabelList dataKey="pct" content={etiquetaVerticalMeta} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      </div>
+    </div>
+  );
+
+  // Tacómetro del OT (2026-10-30): SVG puro estilo velocímetro de vehículo —
+  // dial de 240° con pista, ticks mayores/menores con cifras (0..100), arco de
+  // avance con color por umbral, aguja con cubo central y % grande al pie.
+  const TacometroOT = ({ pct }: { pct: number | null }) => {
+    const cx = 160, cy = 150, r = 118;
+    const A0 = 210, A1 = -30; // ángulos matemáticos: entrada/fin del dial
+    const ang = (v: number) => A0 + (Math.max(0, Math.min(100, v)) / 100) * (A1 - A0);
+    const pt = (v: number, radio: number) => {
+      const a = (ang(v) * Math.PI) / 180;
+      return [cx + radio * Math.cos(a), cy - radio * Math.sin(a)] as const;
+    };
+    const arco = (v0: number, v1: number, radio: number) => {
+      const [x0, y0] = pt(v0, radio);
+      const [x1, y1] = pt(v1, radio);
+      const large = Math.abs(ang(v1) - ang(v0)) > 180 ? 1 : 0;
+      return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radio} ${radio} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+    };
+    const val = pct ?? 0;
+    const color = pct != null ? colorOT(pct) : '#334155';
+    const [nx, ny] = pt(val, r - 34);
+    // % con UN decimal y coma (85,4%) — igual que el resumen del backend.
+    const txt = pct != null ? `${pct.toFixed(1).replace('.', ',')}%` : '—';
+    // (2026-10-30) viewBox ajustado al contenido real del dial: antes era
+    // "0 0 320 210" (dejaba ~35px vacíos por lado y el dial ocupaba solo el
+    // 79% del ancho); ahora lo llena y con alto para las cifras 0/100.
+    return (
+      <svg viewBox="26 0 272 232" className="DC-tacometro" role="img" aria-label={`On Time ${txt}`}>
+        {/* pista del dial */}
+        <path d={arco(0, 100, r)} fill="none" stroke="#22314e" strokeWidth={16} />
+        {/* avance */}
+        {val > 0 && (
+          <path d={arco(0, val, r)} fill="none" stroke={color} strokeWidth={16} strokeLinecap="round" />
+        )}
+        {/* ticks mayores con cifra */}
+        {[0, 25, 50, 75, 100].map(t => {
+          const [x1, y1] = pt(t, r - 12);
+          const [x2, y2] = pt(t, r - 26);
+          const [tx, ty] = pt(t, r + 20);
+          return (
+            <g key={t}>
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#566a89" strokeWidth={2.5} />
+              <text x={tx} y={ty + 4} textAnchor="middle" fontSize={11} fill="#7d8ea8">{t}</text>
+            </g>
+          );
+        })}
+        {/* ticks menores */}
+        {[10, 20, 30, 40, 60, 70, 80, 90].map(t => {
+          const [x1, y1] = pt(t, r - 12);
+          const [x2, y2] = pt(t, r - 21);
+          return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a4c6b" strokeWidth={1.5} />;
+        })}
+        {/* aguja + cubo */}
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth={4} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={9} fill="#0b1526" stroke={color} strokeWidth={3} />
+        {/* cifra central */}
+        <text x={cx} y={cy + 54} textAnchor="middle" fontSize={34} fontWeight={800} fill={color}>
+          {txt}
+        </text>
+      </svg>
+    );
+  };
+
+  // Tooltip compartido de las barras OT por campo (ciudad/destinatario).
+  // Fecha de un movimiento de la trayectoria: ISO → dd/mm/aaaa hh:mm
+  // (las fechas de la línea de tiempo se mostraban en ISO).
+  const fechaMov = (v?: string) => {
+    if (!v) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}))?/.exec(String(v).trim());
+    if (!m) return String(v);
+    return `${m[3]}/${m[2]}/${m[1]}${m[4] ? ` ${m[4]}` : ''}`;
+  };
+
+  const tooltipOTCampo = (props: any) => {
+    if (!props.active || !props.payload?.length) return null;
+    const d = props.payload[0].payload as OTPorCampo;
+    return (
+      <div className="IG-tooltipSerie">
+        <p className="IG-tooltipSerieFecha">{d.clave}</p>
+        <p>Cumplieron: <b>{formatearEntero(d.cumplieron)}</b></p>
+        <p>Cumplieron con novedad: <b>{formatearEntero(d.justificadas)}</b></p>
+        <p>No cumplieron: <b>{formatearEntero(d.no_cumplieron)}</b></p>
+        <p className="IG-tooltipSerieSub">
+          {d.pct}% OT · {formatearEntero(d.cumplieron + d.justificadas)} de {formatearEntero(d.evaluables)} evaluables · {formatearEntero(d.total)} guías
+        </p>
+      </div>
+    );
+  };
+
+  // Gráfico de barras horizontales del OT por campo (una por grupo, % como
+  // longitud y etiqueta; color por umbral). data llega ordenada por volumen.
+  const graficoOTCampo = (titulo: string, data: OTPorCampo[], idCampo: string) => (
+    <div className="IG-graficoContainer">
+      {data.length > 0 ? (
+        <>
+          <div className="IG-graficoHeader">
+            <div className="IG-graficoTituloWrap">
+              <h2 className="IG-graficoTitulo">
+                {titulo}
+                <span className="IG-graficoBadge DC-badgeRango">{rangoFiltros}</span>
+              </h2>
+            </div>
+          </div>
+          {/* Subtítulo corto; la explicación completa viaja en el title (ⓘ). */}
+          <p
+            className="IG-graficoSub"
+            title="% OT del período filtrado con las justificadas contando como cumplidas · todas las opciones · de la mayor a la menor cumplimiento"
+          >
+            De mayor a menor cumplimiento <span aria-hidden="true">ⓘ</span>
+            {esMovil ? ' · toca una fila para su detalle' : ''}
+          </p>
+          {/* Scroll INTERNO con altura acotada: las dos tarjetas quedan
+              iguales y la página no crece con la lista completa. */}
+          <div className="DC-otCampoScroll">
+          {esMovil ? (
+            <div className="DC-otCampoLista">
+              {data.map(d => {
+                const key = `${idCampo}|${d.clave}`;
+                const abierta = filaCampoAbierta === key;
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    className="DC-otCampoFila"
+                    onClick={() => setFilaCampoAbierta(abierta ? null : key)}
+                    aria-expanded={abierta}
+                  >
+                    <span className="DC-otCampoFilaTop">
+                      <span className="DC-otCampoNombre" title={d.clave}>{d.clave}</span>
+                      <span className="DC-otCampoPct" style={{ color: colorOT(d.pct) }}>
+                        {d.pct.toFixed(1).replace('.', ',')}%
+                      </span>
+                    </span>
+                    {/* Pista 0-100 completa + barra proporcional (misma escala
+                        que el eje del gráfico de escritorio). */}
+                    <span className="DC-otCampoPista">
+                      <span className="DC-otCampoBarra" style={{ width: `${Math.max(d.pct, 1)}%`, background: colorOT(d.pct) }} />
+                    </span>
+                    {abierta && (
+                      <span className="DC-otCampoDetalle">
+                        Cumplieron {formatearEntero(d.cumplieron)} · Con novedad {formatearEntero(d.justificadas)} · No cumplieron {formatearEntero(d.no_cumplieron)} · {formatearEntero(d.total)} guías ({formatearEntero(d.evaluables)} evaluables)
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+          // Escritorio: TODAS las opciones (scroll); filas más compactas cuando
+          // la lista es larga para no estirar el gráfico innecesariamente.
+          <div style={{ width: '100%', height: Math.max(220, data.length * (data.length > 60 ? 26 : 34) + 40) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} layout="vertical" margin={{ top: 8, right: 56, left: 8, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  tickFormatter={(v: number) => `${v}%`}
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="clave"
+                  width={190}
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(v: string) => (v.length > 26 ? `${v.slice(0, 25)}…` : v)}
+                />
+                <Tooltip content={tooltipOTCampo} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
+                <Bar
+                  dataKey="pct"
+                  name="% OT"
+                  radius={[0, 4, 4, 0]}
+                  isAnimationActive={ANIM_BARRAS.isAnimationActive}
+                  animationDuration={ANIM_BARRAS.animationDuration}
+                  animationEasing={ANIM_BARRAS.animationEasing}
+                >
+                  {data.map(d => (
+                    <Cell key={`${idCampo}-${d.clave}`} fill={colorOT(d.pct)} />
+                  ))}
+                  <LabelList
+                    dataKey="pct"
+                    position="right"
+                    offset={12}
+                    formatter={(v: number) => `${v}%`}
+                    style={{ fill: '#0f1928', fontSize: 11, fontWeight: 700 }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          )}
+          </div>
+        </>
+      ) : (
+        <div className="IG-sinDatos"><p>No hay guías evaluables para desagregar en el período</p></div>
+      )}
+    </div>
+  );
+
   const tooltipOT = (props: any) => {
     if (!props.active || !props.payload || !props.payload.length) return null;
     const d = props.payload[0].payload as BucketOT;
     const fechaTxt = vistaOT === 'diaria'
       ? format(parseISO(d.periodo), "d 'de' MMMM yyyy", { locale: es })
       : format(parseISO(d.periodo + '-01'), 'MMMM yyyy', { locale: es });
-    const pct = pctOT(d);
+    const filtrando = segSelOT.size > 0;
+    const selTotal = filtrando ? segActivosOT.reduce((a, s) => a + (d[s.clave] as number), 0) : 0;
+    let pct: number | null;
+    if (!filtrando) {
+      pct = pctOT(d);
+    } else {
+      // % OT solo sobre los segmentos OT de la selección (cumplieron /
+      // noCumplieron / justificadas); si la selección no toca evaluables,
+      // no se muestra (no aplica a lo que se está viendo).
+      const c = segSelOT.has('cumplieron') ? d.cumplieron : 0;
+      const n = segSelOT.has('noCumplieron') ? d.noCumplieron : 0;
+      const j = segSelOT.has('justificadas') ? d.justificadas : 0;
+      const base = c + n + j;
+      pct = c + n > 0 ? Math.round(((c + j) / base) * 1000) / 10 : null;
+    }
     return (
       <div className="IG-tooltipSerie">
         <p className="IG-tooltipSerieFecha">{fechaTxt} <span style={{ color: '#8aa0b8' }}>(emisión)</span></p>
-        {SEGMENTOS_OT.map(s => (d[s.clave] as number) > 0 ? (
+        {segActivosOT.map(s => (d[s.clave] as number) > 0 ? (
           <p key={s.clave}>
             <span className="IG-tooltipEtapa" style={{ background: s.color }} />{s.etiqueta}: <b>{formatearEntero(d[s.clave] as number)}</b>
           </p>
         ) : null)}
-        <p className="IG-tooltipSerieSub">
-          Evaluables: {formatearEntero(d.evaluables)}{pct != null ? ` · ${pct}% OT` : ''} · Total: {formatearEntero(d.total)}
-        </p>
+        {filtrando ? (
+          <p className="IG-tooltipSerieSub">
+            Selección: {formatearEntero(selTotal)} de {formatearEntero(d.total)}{pct != null ? ` · ${pct.toFixed(1).replace('.', ',')}% OT` : ''}
+          </p>
+        ) : (
+          <p className="IG-tooltipSerieSub">
+            Evaluables: {formatearEntero(d.evaluables + d.justificadas)} (con novedad cuentan como cumplidas){pct != null ? ` · ${pct.toFixed(1).replace('.', ',')}% OT` : ''} · Total: {formatearEntero(d.total)}
+          </p>
+        )}
       </div>
     );
   };
@@ -960,6 +1635,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     'Piezas': f.piezas ?? '',
     'Kilos': f.kilos ?? '',
     'Estado': f.estado ?? '',
+    'Novedad TMS': f.novedad_tms ?? '',
     'Estado Crudo': f.estado_crudo && !f.estado ? f.estado_crudo : '',
     'F. Conteo OT': formatearFecha(f.fecha_entrega || f.fecha_emision),
     'F. Emisión': f.fecha_emision ? formatearFecha(f.fecha_emision) : '',
@@ -992,7 +1668,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       const ws = XLSX.utils.json_to_sheet(datos);
       ws['!cols'] = [
         { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
-        { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+        { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 14 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 },
         { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
         { wch: 20 }, { wch: 40 }, { wch: 18 },
       ];
@@ -1005,45 +1682,150 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     }
   };
 
+  // Segmento OT de una fila de guía — ESPEJO del _serie_ot del backend (mismo
+  // orden de prioridad: novedad > ot > estado) para filtrar el Excel del OT
+  // por el filtro de leyenda activo y para el detalle del día.
+  const segmentoDeFila = (f: FilaGuia): string => {
+    if (f.novedad) return 'justificadas';
+    if (f.ot === 1) return 'cumplieron';
+    if (f.ot === 0) return 'noCumplieron';
+    switch (f.estado) {
+      case 'CON NOVEDAD': return 'con_novedad';
+      case 'En distribucion': return 'en_distribucion';
+      case 'Transito Nacional': return 'transito';
+      case 'PENDIENTE': return 'pendiente';
+      default: return 'sin_info';
+    }
+  };
+
+  // ── Detalle del día (2026-10-30) ──
+  // Clic en una barra-segmento del gráfico de día → tabla con las guías de
+  // ese día + segmento (para leerlas) + export Excel. La base del día se
+  // consulta UNA vez por día (cache `diaCacheOT`: fetch del período completo
+  // y recorte client-side por fecha_emisión) y el recorte por segmento es
+  // local. Clic en la barra activa cierra el detalle.
+  const [detalleSegOT, setDetalleSegOT] = useState<string | null>(null);
+  const [filasDiaOT, setFilasDiaOT] = useState<FilaGuia[]>([]);
+  const [diaCacheOT, setDiaCacheOT] = useState<string | null>(null);
+  const [cargandoDetalleOT, setCargandoDetalleOT] = useState(false);
+
+  const filasDetalleDia = useMemo(
+    () => (detalleSegOT ? filasDiaOT.filter(f => segmentoDeFila(f) === detalleSegOT) : []),
+    [detalleSegOT, filasDiaOT]
+  );
+
+  const abrirDetalleSegmento = async (etiqueta: string) => {
+    const seg = SEGMENTOS_OT.find(s => s.etiqueta === etiqueta);
+    if (!seg || !diaOT) return;
+    const clave = seg.clave as string;
+    setDetalleSegOT(prev => (prev === clave ? null : clave)); // toggle al clicar la activa
+    if (diaCacheOT === diaOT) return;
+    setCargandoDetalleOT(true);
+    try {
+      const { filas } = await obtenerFilasGuias(new URLSearchParams({ pagina: '1', limite: '30000' }));
+      setFilasDiaOT(filas.filter(f => (f.fecha_emision || '').startsWith(diaOT)));
+      setDiaCacheOT(diaOT);
+    } catch (err) {
+      setErrorGuias(err instanceof Error ? err.message : 'Error al cargar el detalle del día');
+      setDetalleSegOT(null);
+    } finally {
+      setCargandoDetalleOT(false);
+    }
+  };
+
+  const exportarDetalleDia = () => {
+    const seg = SEGMENTOS_OT.find(s => s.clave === detalleSegOT);
+    if (!seg || !filasDetalleDia.length) return;
+    const datos = filasDetalleDia.map(filaGuiaAExport);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(datos);
+    ws['!cols'] = [
+      { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
+      { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 14 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
+      { wch: 20 }, { wch: 40 }, { wch: 18 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
+    XLSX.writeFile(wb, `detalle_ot_${clienteId}_${diaOT}_${seg.etiqueta.toLowerCase().replace(/[^a-z0-9]+/g, '-')}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
+  // Cambiar de día / salir del zoom o re-filtrar cierra el detalle y anula la
+  // cache (la base consultada corresponde al filtro vigente). El detalle vive
+  // en un MODAL: Escape también lo cierra.
+  useEffect(() => {
+    if (!detalleSegOT) return;
+    const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') setDetalleSegOT(null); };
+    window.addEventListener('keydown', fn);
+    return () => window.removeEventListener('keydown', fn);
+  }, [detalleSegOT]);
+  useEffect(() => { setDetalleSegOT(null); }, [diaOT]);
+  useEffect(() => { setDetalleSegOT(null); setDiaCacheOT(null); setFilasDiaOT([]); }, [filtrosAplicados, grupoAplicado]);
+
   // Export Excel (.xlsx) del gráfico «On Time por período»: 2 hojas —
-  // ① «On Time»: la serie de la VISTA ACTIVA (mensual/diaria) con el % OT por
-  // período; ② «Guías»: la BASE completa del filtro vigente (año/mes/grupo —
-  // un fetch a /guias/filas con limite=30000, sin trazabilidad: el gráfico
-  // siempre es del período). Mismas columnas que el export del informe.
+  // ① «On Time»: la serie de la VISTA ACTIVA con el % OT por período;
+  // ② «Guías»: la base del ALCANCE VISIBLE. (2026-10-30) El export respeta
+  // TODO lo filtrado en pantalla: año/mes/grupo (viajan en el fetch), el ZOOM
+  // DE DÍA (si hay un día en el breadcrumb, solo ese día) y el FILTRO DE
+  // LEYENDA (solo los segmentos seleccionados — columnas de la hoja ① y filas
+  // de la ②). Sin trazabilidad: el gráfico siempre es del período.
   const exportarOTExcel = async () => {
     if (exportandoOT) return;
     setExportandoOT(true);
     try {
-      const hojaOT = dataOT.map(b => ({
-        'Período': b.periodo,
-        'Cumplieron': b.cumplieron,
-        'No cumplieron': b.noCumplieron,
-        'Justificadas': b.justificadas,
-        'En distribución': b.en_distribucion,
-        'Tránsito Nacional': b.transito,
-        'Pendiente': b.pendiente,
-        'Con novedad': b.con_novedad,
-        'Sin info': b.sin_info,
-        'Evaluables': b.evaluables,
-        'Total': b.total,
-        '% OT': b.evaluables > 0 ? Math.round((b.cumplieron / b.evaluables) * 100) : '',
-      }));
+      const diaZoom = diaOT && bucketDiaOT ? diaOT : null;
+      const filtrandoSeg = segSelOT.size > 0;
+
+      // Conteo de un bucket RESTRINGIDO a la selección de leyenda (sin
+      // selección = valores completos) — misma regla de % OT del tooltip.
+      const resumenSel = (b: BucketOT) => {
+        const sel = (clave: string) =>
+          !filtrandoSeg || segSelOT.has(clave) ? (b[clave as keyof BucketOT] as number) : 0;
+        const c = sel('cumplieron'), n = sel('noCumplieron'), j = sel('justificadas');
+        const evaluables = c + n + j;
+        return {
+          sel,
+          evaluables,
+          total: SEGMENTOS_OT.reduce((a, s) => a + sel(s.clave as string), 0),
+          pct: c + n > 0 ? Math.round(((c + j) / evaluables) * 1000) / 10 : null,
+        };
+      };
+
+      // ① Hoja «On Time»: filas de la vista activa (día en zoom → UNA fila).
+      const bucketsHoja: BucketOT[] = diaOT && bucketDiaOT ? [bucketDiaOT] : dataOT;
+      const hojaOT = bucketsHoja.map(b => {
+        const r = resumenSel(b);
+        const fila: Record<string, string | number> = { 'Período': b.periodo };
+        for (const s of segActivosOT) fila[s.etiqueta] = r.sel(s.clave as string);
+        fila['Evaluables'] = r.evaluables;
+        fila['Total'] = r.total;
+        fila['% OT'] = r.pct ?? '';
+        return fila;
+      });
+
+      // ② Hoja «Guías»: base del filtro vigente, recortada al día del zoom y
+      // a los segmentos de la leyenda (client-side: la API no conoce día ni
+      // segmentos).
       const { filas } = await obtenerFilasGuias(new URLSearchParams({ pagina: '1', limite: '30000' }));
-      const hojaGuias = filas.map(filaGuiaAExport);
+      let filasHoja = filas;
+      if (diaZoom) filasHoja = filasHoja.filter(f => (f.fecha_emision || '').startsWith(diaZoom));
+      if (filtrandoSeg) filasHoja = filasHoja.filter(f => segSelOT.has(segmentoDeFila(f)));
+      const hojaGuias = filasHoja.map(filaGuiaAExport);
 
       const wb = XLSX.utils.book_new();
       const wsOT = XLSX.utils.json_to_sheet(hojaOT);
-      wsOT['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 15 }, { wch: 11 }, { wch: 10 }, { wch: 12 }, { wch: 9 }, { wch: 11 }, { wch: 8 }, { wch: 7 }];
+      wsOT['!cols'] = [{ wch: 12 }, ...segActivosOT.map(() => ({ wch: 13 })), { wch: 11 }, { wch: 8 }, { wch: 7 }];
       XLSX.utils.book_append_sheet(wb, wsOT, 'On Time');
       const wsGuias = XLSX.utils.json_to_sheet(hojaGuias);
       wsGuias['!cols'] = [
         { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
-        { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+        { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 14 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 },
         { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
         { wch: 20 }, { wch: 40 }, { wch: 18 },
       ];
       XLSX.utils.book_append_sheet(wb, wsGuias, 'Guías');
-      XLSX.writeFile(wb, `on_time_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      XLSX.writeFile(wb, `on_time_${clienteId}${diaZoom ? `_${diaZoom}` : ''}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     } catch (err) {
       setErrorGuias(err instanceof Error ? err.message : 'Error al exportar el On Time');
     } finally {
@@ -1312,8 +2094,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     );
   }
 
+  // (2026-10-30) Portal externo: título de la pestaña «TMS <cliente>».
+  useEffect(() => {
+    if (cliente) document.title = modoExterno ? `TMS ${cliente.nombre}` : cliente.nombre;
+  }, [cliente, modoExterno]);
+
   return (
-    <div className="DC-container">
+    // modoExterno (portal Mis Indicadores): tema OSCURO + ancho completo.
+    <div className={modoExterno ? 'DC-container DC-portalOscuro' : 'DC-container'}>
       {/* Header */}
       <header className="DC-header">
         <div className="DC-headerInner">
@@ -1323,7 +2111,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           </button>
 
           <div className="DC-logoCliente">
-            <span className="DC-nombreCliente">{cliente.nombre}</span>
+            <span className="DC-nombreCliente">{modoExterno ? `TMS ${cliente.nombre}` : cliente.nombre}</span>
           </div>
 
           <div className="DC-userZone" ref={menuRef}>
@@ -1358,10 +2146,15 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
         </div>
       </header>
 
-      {/* Filtros */}
+      {/* Filtros + breadcrumb de período (rediseño UX 2026-10-30):
+          - Escritorio: UNA fila (Año · Mes · Cliente · Filtrar a la derecha).
+          - Móvil: panel plegable compacto (Año/Mes en 2 columnas, Cliente y
+            Filtrar a ancho completo); contraído muestra un resumen discreto.
+          - Debajo, SIEMPRE visible, el breadcrumb de navegación «Histórico ›
+            2026 › Septiembre › día»: niveles anteriores clicables para
+            volver, último = ubicación actual. Cliente/trazabilidad siguen
+            como chips (filtros, no navegación). */}
       <div className="DC-filtrosSection">
-        {/* (2026-10-29) Mostrar/ocultar filtros en móvil — badge con el nº de
-            filtros activos; las migas quedan SIEMPRE visibles debajo. */}
         <button
           className="DC-filtrosToggle"
           onClick={() => {
@@ -1371,18 +2164,16 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
             setDropdownGrupoAbierto(false);
           }}
           aria-expanded={filtrosAbiertos}
+          aria-controls="dc-filtros-panel"
         >
-          <span>⚙ Filtros</span>
-          {filtrosAplicados.anios.length + filtrosAplicados.meses.length + (grupoAplicado ? 1 : 0) + (trazaActiva ? 1 : 0) > 0 && (
-            <span className="DC-filtrosToggleBadge">
-              {filtrosAplicados.anios.length + filtrosAplicados.meses.length + (grupoAplicado ? 1 : 0) + (trazaActiva ? 1 : 0)}
-            </span>
-          )}
+          <span aria-hidden="true">⚙</span>
+          <span>Filtros</span>
+          {!filtrosAbiertos && <span className="DC-filtrosResumen">{resumenFiltros}</span>}
           <span className="DC-filtrosToggleFlecha" style={{ transform: filtrosAbiertos ? 'rotate(180deg)' : 'none' }}>▾</span>
         </button>
-        <div className={`DC-filtrosPanel ${filtrosAbiertos ? '' : 'DC-filtrosOcultos'}`}>
+        <div id="dc-filtros-panel" className={`DC-filtrosPanel ${filtrosAbiertos ? '' : 'DC-filtrosOcultos'}`}>
           {/* Año */}
-          <div className="DC-filtroGrupo" style={{ position: 'relative' }}>
+          <div className="DC-filtroGrupo DC-filtroAnio">
             <label>Año:</label>
             <div className="DC-dropdownFiltro">
               <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); }}>
@@ -1417,7 +2208,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           </div>
 
           {/* Mes */}
-          <div className="DC-filtroGrupo" style={{ position: 'relative' }}>
+          <div className="DC-filtroGrupo DC-filtroMes">
             <label>Mes:</label>
             <div className="DC-dropdownFiltro">
               <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); setDropdownGrupoAbierto(false); }}>
@@ -1457,8 +2248,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
               nombre con que el TMS registra cada parte del grupo (llega del
               backend en /guias). Oculto si el cliente no tiene sub-grupos. */}
           {gruposCliente.length > 1 && (
-            <div className="DC-filtroGrupo" style={{ position: 'relative' }}>
-              <label>Cliente:</label>
+            <div className="DC-filtroGrupo DC-filtroCliente">
+              <label title="Sub-grupo del cliente en el TMS (Fresenius Kabi / FK Servicio Técnico)">Cliente interno:</label>
               <div className="DC-dropdownFiltro">
                 <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownGrupoAbierto(!dropdownGrupoAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); }}>
                   <span className="DC-dropdownFiltroTexto">{grupoSeleccionado ?? 'Todos'}</span>
@@ -1482,38 +2273,139 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
             </div>
           )}
 
-          <button className="DC-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); }}>
+          {/* (2026-10-30) Cliente final = destinatario del TMS: autocomplete
+              desde la 5ª letra + multi-selección; se aplica con Filtrar. */}
+          <div className="DC-filtroGrupo DC-filtroDestFinal">
+            <label title="Destinatario de la guía en el TMS">Cliente final:</label>
+            <div className="DC-dropdownFiltro">
+              <button
+                className="DC-dropdownFiltroBtn"
+                onClick={() => {
+                  setDestDropdownAbierto(o => !o);
+                  setDropdownAnioAbierto(false);
+                  setDropdownMesAbierto(false);
+                  setDropdownGrupoAbierto(false);
+                }}
+              >
+                <span className="DC-dropdownFiltroTexto">
+                  {destSel.length === 0
+                    ? 'Todos'
+                    : destSel.length === 1
+                      ? (destSel[0].length > 18 ? `${destSel[0].slice(0, 17)}…` : destSel[0])
+                      : `${destSel.length} seleccionados`}
+                </span>
+                <span className="DC-dropdownFiltroFlecha">▾</span>
+              </button>
+              {destDropdownAbierto && (
+                <div className="DC-dropdownFiltroLista DC-destLista">
+                  <InputDestinatario onEstable={setBusquedaDest} />
+                  {cargandoDest && <div className="DC-destEstado">Buscando…</div>}
+                  {busquedaDest.trim().length < 5 && !cargandoDest && (
+                    <div className="DC-destEstado">Escribe al menos 5 letras para ver los destinatarios</div>
+                  )}
+                  {opcionesDest.map(op => (
+                    <label key={op} className={`DC-dropdownFiltroItem ${destSel.includes(op) ? 'seleccionado' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={destSel.includes(op)}
+                        onChange={() => {
+                          setDestSel(prev => prev.includes(op) ? prev.filter(x => x !== op) : [...prev, op]);
+                        }}
+                      />
+                      {op}
+                    </label>
+                  ))}
+                  {busquedaDest.trim().length >= 5 && !cargandoDest && opcionesDest.length === 0 && (
+                    <div className="DC-clienteOpcion">Sin resultados para «{busquedaDest.trim()}»</div>
+                  )}
+                  {destSel.length > 0 && (
+                    <button type="button" className="DC-destLimpiar" onClick={() => setDestSel([])}>
+                      ✕ Limpiar selección ({destSel.length})
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button className="DC-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); setDestDropdownAbierto(false); }}>
             Filtrar
           </button>
         </div>
 
-        {/* Migas de navegación: cada filtro aplicado (años, meses — incluido el
-            mes del clic en una barra del OT —, trazabilidad) como chip borrable;
-            quitarlo re-filtra al instante. */}
-        {(filtrosAplicados.anios.length > 0 || filtrosAplicados.meses.length > 0 || trazaActiva || grupoAplicado) && (
-          <div className="DC-migas">
-            {filtrosAplicados.anios.map(a => (
-              <button key={`miga-a-${a}`} className="DC-miga" onClick={() => quitarAnioMiga(a)} title="Quitar este filtro">
-                Año {a} <span className="DC-migaX">✕</span>
-              </button>
-            ))}
-            {filtrosAplicados.meses.map(m => (
-              <button key={`miga-m-${m}`} className="DC-miga" onClick={() => quitarMesMiga(m)} title="Quitar este filtro">
-                {MESES.find(x => x.valor === m)?.nombre ?? `Mes ${m}`} <span className="DC-migaX">✕</span>
-              </button>
-            ))}
-            {grupoAplicado && (
-              <button className="DC-miga" onClick={quitarGrupoMiga} title="Volver a ver todos los sub-grupos del cliente">
-                👥 {grupoAplicado} <span className="DC-migaX">✕</span>
-              </button>
+        {/* Breadcrumb de período — SIEMPRE visible (ubicación actual clara):
+            raíz «Histórico» › años › meses › día en zoom. Los niveles
+            anteriores son clicables (volver); el último va resaltado y sin
+            acción. Los filtros NO-período (cliente, trazabilidad) van después
+            del divisor como chips removibles. */}
+        <nav className="DC-breadcrumb" aria-label="Período activo">
+          <ol className="DC-bcRuta">
+            {(filtrosAplicados.anios.length > 0 || filtrosAplicados.meses.length > 0 || (diaOT && bucketDiaOT)) ? (
+              <li>
+                <button type="button" className="DC-bcLink" onClick={irAHistorico} title="Volver a todo el histórico">
+                  Histórico
+                </button>
+                <span className="DC-bcSep" aria-hidden="true">›</span>
+              </li>
+            ) : (
+              <li><span className="DC-bcActual" aria-current="page">Todo el histórico</span></li>
             )}
-            {trazaActiva && (
-              <button className="DC-miga" onClick={limpiarTraza} title="Quitar la trazabilidad">
-                🔎 {trazaActiva} <span className="DC-migaX">✕</span>
-              </button>
+            {filtrosAplicados.anios.length > 0 && (
+              <li>
+                {(filtrosAplicados.meses.length > 0 || (diaOT && bucketDiaOT)) ? (
+                  <>
+                    <button type="button" className="DC-bcLink" onClick={irAlAnio} title="Volver a todos los meses de este año">
+                      {lblAnios}
+                    </button>
+                    <span className="DC-bcSep" aria-hidden="true">›</span>
+                  </>
+                ) : (
+                  <span className="DC-bcActual" aria-current="page">{lblAnios}</span>
+                )}
+              </li>
             )}
-          </div>
-        )}
+            {filtrosAplicados.meses.length > 0 && (
+              <li>
+                {diaOT && bucketDiaOT ? (
+                  <>
+                    <button type="button" className="DC-bcLink" onClick={irAlMes} title="Volver a la vista diaria del mes">
+                      {lblMeses}
+                    </button>
+                    <span className="DC-bcSep" aria-hidden="true">›</span>
+                  </>
+                ) : (
+                  <span className="DC-bcActual" aria-current="page">{lblMeses}</span>
+                )}
+              </li>
+            )}
+            {diaOT && bucketDiaOT && (
+              <li>
+                <span className="DC-bcActual" aria-current="page">
+                  <span aria-hidden="true">📅</span> {format(parseISO(diaOT), "d 'de' MMMM", { locale: es })}
+                </span>
+              </li>
+            )}
+          </ol>
+          {(grupoAplicado || trazaActiva || destAplicado.length > 0) && (
+            <div className="DC-bcChips">
+              {grupoAplicado && (
+                <button type="button" className="DC-miga" onClick={quitarGrupoMiga} title="Quitar el filtro de cliente interno">
+                  👥 {grupoAplicado} <span className="DC-migaX">✕</span>
+                </button>
+              )}
+              {destAplicado.length > 0 && (
+                <button type="button" className="DC-miga" onClick={quitarDestMiga} title="Quitar el filtro de cliente final">
+                  🎭 {destAplicado.length === 1 ? (destAplicado[0].length > 22 ? `${destAplicado[0].slice(0, 21)}…` : destAplicado[0]) : `${destAplicado.length} clientes finales`} <span className="DC-migaX">✕</span>
+                </button>
+              )}
+              {trazaActiva && (
+                <button type="button" className="DC-miga" onClick={limpiarTraza} title="Quitar la trazabilidad">
+                  🔎 {trazaActiva} <span className="DC-migaX">✕</span>
+                </button>
+              )}
+            </div>
+          )}
+        </nav>
       </div>
 
       {/* Contenido */}
@@ -1530,6 +2422,259 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           </div>
         ) : (
           <>
+            {/* (2026-10-30) Pestañas del portal: «Gerenciales» (gráficos)
+                y «Operación» (consulta de guía en Siscore). */}
+            {modoExterno && (
+              <div className="DC-pestanas" role="tablist" aria-label="Secciones del portal">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={pestanaPortal === 'gerenciales'}
+                  className={`DC-pestanaBtn ${pestanaPortal === 'gerenciales' ? 'DC-pestanaBtnActiva' : ''}`}
+                  onClick={() => setPestanaPortal('gerenciales')}
+                >
+                  📊 Gerenciales
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={pestanaPortal === 'operacion'}
+                  className={`DC-pestanaBtn ${pestanaPortal === 'operacion' ? 'DC-pestanaBtnActiva' : ''}`}
+                  onClick={() => setPestanaPortal('operacion')}
+                >
+                  🚛 Operación
+                </button>
+              </div>
+            )}
+
+            {/* (2026-10-30) Vista OPERACIÓN: consulta de guía en Siscore por
+                SOAP — mismo servicio del bot de WhatsApp. */}
+            {modoExterno && pestanaPortal === 'operacion' && (
+              <div className="IG-graficoContainer DC-opCard">
+                <div className="IG-graficoHeader">
+                  <div className="IG-graficoTituloWrap">
+                    <h2 className="IG-graficoTitulo">🔎 Consulta de guía</h2>
+                  </div>
+                </div>
+                <p className="IG-graficoSub">Toda la información y el estado actual de tus guías</p>
+                <div className="DC-opBusqueda">
+                  <input
+                    className="DC-opInput"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Número de guía (ej: 7220123268)"
+                    value={inputGuiaOp}
+                    onChange={e => setInputGuiaOp(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && consultarGuiaSiscore()}
+                    disabled={consultandoGuiaOp}
+                  />
+                  <button type="button" className="DC-opBtn" onClick={() => consultarGuiaSiscore()} disabled={consultandoGuiaOp || !inputGuiaOp.trim()}>
+                    {consultandoGuiaOp ? 'Consultando…' : 'Consultar'}
+                  </button>
+                </div>
+                {consultandoGuiaOp && <p className="DC-opCargando">Buscando la guía…</p>}
+                {errorGuiaOp && <p className="DC-opError">❗ {errorGuiaOp}</p>}
+                {resultadoGuiaOp && !resultadoGuiaOp.exists && (
+                  <div className="IG-sinDatos"><p>La guía <b>{resultadoGuiaOp.guia}</b> no fue encontrada. Verifica el número e intenta de nuevo</p></div>
+                )}
+                {resultadoGuiaOp?.exists && resultadoGuiaOp.data && (() => {
+                  const d = resultadoGuiaOp.data;
+                  const movimientos: { FecMov?: string; DetalleMov?: string; Tipo_Movimiento?: string }[] = d.Movimientos || [];
+                  const campo = (titulo: string, valor: string | number | null | undefined) => (
+                    <div className="DC-opCampo">
+                      <span className="DC-opCampoTitulo">{titulo}</span>
+                      <span className="DC-opCampoValor">{valor != null && String(valor).trim() !== '' ? String(valor) : '—'}</span>
+                    </div>
+                  );
+                  const ciudad = d.CiuDes || resultadoGuiaOp.ciudad_destino_tms;
+                  const esEntregada = String(d.Estado || '').toUpperCase().includes('ENTREGA');
+                  return (
+                    <div className="DC-opResultado">
+                      {/* RESUMEN: destino (principal) + ESTADO ACTUAL en badge
+                          (lo primero que el cliente quiere saber). */}
+                      <div className="DC-opResumen">
+                        <div className="DC-opResumenDestino">
+                          <span className="DC-opDestacadoTitulo">📥 Destino</span>
+                          <span className="DC-opDestacadoNombre">{d.NomDes || '—'}</span>
+                          <div className="DC-opDestacadoChips">
+                            {ciudad && <span className="DC-opChip DC-opChipCiudad">📍 {ciudad}</span>}
+                            {resultadoGuiaOp.placa && <span className="DC-opChip DC-opChipPlaca" title="Vehículo que transportó la guía (TMS)">🚛 {resultadoGuiaOp.placa}</span>}
+                            {d.quienrecibe && <span className="DC-opChip">Recibió: {d.quienrecibe}</span>}
+                          </div>
+                        </div>
+                        <div className="DC-opEstadoActual">
+                          <span className="DC-opEstadoLabel">Estado actual</span>
+                          <span className={`DC-opEstadoChip ${esEntregada ? 'DC-opEstadoChipOk' : 'DC-opEstadoChipCurso'}`}>
+                            {d.Estado || '—'}
+                          </span>
+                          {d.FecEst && (
+                            <span className="DC-opEstadoFecha">
+                              {formatearFecha(String(d.FecEst).slice(0, 10)).replaceAll('-', '/')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* (2026-10-30) Novedad JUSTIFICADA de la guía (Mongo,
+                          /NovedadesOT): panel morado con causal, justificación
+                          y quién la registró. */}
+                      {resultadoGuiaOp.justificada && (
+                        <div className="DC-opJustificada">
+                          <span className="DC-opJustificadaTitulo">
+                            🚧 {resultadoGuiaOp.justificada.causal}
+                          </span>
+                          {resultadoGuiaOp.justificada.justificacion && (
+                            <p className="DC-opJustificadaTexto">{resultadoGuiaOp.justificada.justificacion}</p>
+                          )}
+                          {(resultadoGuiaOp.justificada.nombre || resultadoGuiaOp.justificada.fecha) && (
+                            <span className="DC-opJustificadaPor">
+                              Registró: {resultadoGuiaOp.justificada.nombre || '—'}
+                              {resultadoGuiaOp.justificada.fecha ? ` · ${formatearFecha(String(resultadoGuiaOp.justificada.fecha).slice(0, 10))}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Línea de tiempo: la PROTAGONISTA del resultado */}
+                      <h3 className="DC-opMovTitulo">🧭 Trayectoria de la guía</h3>
+                      {movimientos.length > 0 ? (
+                        esMovil ? (
+                          /* MÓVIL: timeline VERTICAL — sin scroll horizontal:
+                             puntos (cajas) a la izquierda, nombre + fecha a la
+                             derecha, línea vertical continua; el último
+                             (estado actual) destacado en verde. */
+                          <ul className="DC-opTlVert">
+                            {movimientos.map((m, i) => (
+                              <li
+                                key={i}
+                                className={`DC-opTlV ${i === movimientos.length - 1 ? 'DC-opTlVActual' : ''}`}
+                              >
+                                <span className="DC-opTlVMarca" aria-hidden="true">
+                                  <span className="DC-opTlCaja">📦</span>
+                                </span>
+                                <span className="DC-opTlVCuerpo">
+                                  <span className="DC-opTlVTitulo">
+                                    {m.DetalleMov || m.Tipo_Movimiento || 'Movimiento'}
+                                  </span>
+                                  <span className="DC-opTlVFecha">{fechaMov(m.FecMov)}</span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          /* ESCRITORIO: tracking HORIZONTAL uniforme con scroll
+                             interno si hay muchos eventos; último destacado. */
+                          <>
+                          <div className="DC-opTimeline" ref={tlRef}>
+                            {movimientos.map((m, i) => (
+                              <div
+                                key={i}
+                                className="DC-opTlPaso"
+                                title={m.DetalleMov || m.Tipo_Movimiento || ''}
+                              >
+                                <span className="DC-opTlTitulo">
+                                  {m.DetalleMov || m.Tipo_Movimiento || 'Movimiento'}
+                                </span>
+                                {/* La CAJA avanza sobre la línea: es el marcador
+                                    del recorrido; la última es el estado actual. */}
+                                <span className="DC-opTlMarca" aria-hidden="true">
+                                  <span className="DC-opTlCaja">📦</span>
+                                </span>
+                                <span className="DC-opTlFecha">{fechaMov(m.FecMov)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {tlHayMas && (
+                            <p className="DC-opTlHint" aria-hidden="true">← Desliza para ver el recorrido completo</p>
+                          )}
+                          </>
+                        )
+                      ) : (
+                        <p className="DC-opSinMov">Sin movimientos registrados</p>
+                      )}
+
+                      <h3 className="DC-opMovTitulo">📄 Datos de la guía</h3>
+                      <div className="DC-opGrid">
+                        {campo('Guía', resultadoGuiaOp.guia)}
+                        {campo('Cliente', d.Nombre_cliente)}
+                        {campo('Servicio', d.Servicio)}
+                        {campo('📦 Piezas', d.NumPie)}
+                        {campo('Fecha envío', d.FecEnv ? formatearFecha(String(d.FecEnv).slice(0, 10)) : null)}
+                        {campo('Origen', [d.NomRem, d.CiuRem].filter(Boolean).join(' · '))}
+                      </div>
+                      {/* Otras guías del mismo vehículo emitidas el mismo
+                          día (remesa compañera, solo visible en el TMS).
+                          Tocar una la consulta. */}
+                      {resultadoGuiaOp.placa && resultadoGuiaOp.misma_placa?.length > 0 && (
+                        <div className="DC-opCompaneras">
+                          <h3 className="DC-opMovTitulo">🚛 Otras guías del vehículo {resultadoGuiaOp.placa}</h3>
+                          <p className="DC-opCompanerasSub">Emitidas el mismo día — viajaron en la misma remesa</p>
+                          <div className="DC-opCompanerasLista">
+                            {resultadoGuiaOp.misma_placa.map((cp: { guia: string; destinatario?: string; ciudad_destino?: string; estado?: string | null }) => (
+                              <button
+                                type="button"
+                                key={cp.guia}
+                                className="DC-opCompanera"
+                                onClick={() => { setInputGuiaOp(cp.guia); consultarGuiaSiscore(cp.guia); }}
+                                title="Consultar esta guía"
+                              >
+                                <span className="DC-opCompaneraGuia">{cp.guia}</span>
+                                <span className="DC-opCompaneraDest">
+                                  {cp.destinatario || '—'}{cp.ciudad_destino ? ` · ${cp.ciudad_destino}` : ''}
+                                </span>
+                                {cp.estado
+                                  ? <span className={`DC-guiaChip ${claseChipEstado(cp.estado)}`}>{cp.estado}</span>
+                                  : <span className="DC-opCompaneraDest">—</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {resultadoGuiaOp.tracking_url && (
+                        <a className="DC-opTracking" href={resultadoGuiaOp.tracking_url} target="_blank" rel="noopener noreferrer">
+                          🔗 Seguimiento en línea
+                        </a>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* (2026-10-30) Gauge tipo velocímetro del OT — lo PRIMERO del
+                portal de clientes: % de cumplimiento del alcance visible (el
+                día en zoom si lo hay; si no, el período filtrado). Arco con
+                color por umbral (≥90 verde / ≥75 ámbar / <75 rojo) y cifra
+                central con el detalle cumplidas/evaluables. */}
+            {modoExterno && pestanaPortal === 'gerenciales' && (cargandoGuias ? (
+              <div className="DC-portalGrid">
+                <SkeletonTacometro />
+                <SkeletonGrafico bajo />
+              </div>
+            ) : (
+              <div className="DC-portalGrid">
+              <div className="IG-graficoContainer DC-gaugeCard">
+                <div className="IG-graficoHeader">
+                  <div className="IG-graficoTituloWrap">
+                    <h2 className="IG-graficoTitulo">
+                      🎯 On Time
+                      <span className="IG-graficoBadge DC-badgeRango">{gaugeOT.alcance}</span>
+                    </h2>
+                  </div>
+                </div>
+                <div className="DC-gaugeWrap">
+                  <TacometroOT pct={gaugeOT.pct} />
+                  <p className="DC-gaugeSub">
+                    {gaugeOT.evaluables
+                      ? `${formatearEntero(gaugeOT.cumplidas ?? 0)} de ${formatearEntero(gaugeOT.evaluables)} guías cumplidas`
+                      : 'sin guías evaluables'}
+                  </p>
+                </div>
+            </div>
+              {graficoOTMeta()}
+              </div>
+            ))}
+
             {/* Cantidad de cajas — misma lógica/look que el gráfico de cajas por
                 etapa de Costo de Operación, pero acotado a este cliente y a la
                 media milla (pedidos_completados). Toggle Mensual/Diario propio.
@@ -1691,7 +2836,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                 (SEGMENTOS_OT): ENTREGADO partido en cumplieron/no cumplieron
                 + En distribución / Tránsito / Pendiente / Con novedad / Sin
                 info. */}
-            {cargandoGuias ? (
+            {(!modoExterno || pestanaPortal === 'gerenciales') && (cargandoGuias ? (
               <SkeletonGrafico bajo />
             ) : (
               <div className="IG-graficoContainer">
@@ -1701,13 +2846,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                       <div className="IG-graficoTituloWrap">
                         <h2 className="IG-graficoTitulo">
                           🎯 On Time por período
-                          <span className="IG-graficoBadge">{vistaOT === 'diaria' ? 'Diario' : 'Mensual'}</span>
+                          <span className="IG-graficoBadge">{diaOT && bucketDiaOT ? 'Día' : vistaOT === 'diaria' ? 'Diario' : 'Mensual'}</span>
                           <span className="IG-graficoBadge DC-badgeRango">{rangoFiltros}</span>
-                          {resumenGuias?.ot_pct != null && (
-                            <span className="DC-badgeSobreMedia" title="Guías entregadas dentro de la fecha promesa (total del período filtrado)">
-                              {resumenGuias.ot_pct}% OT total
-                            </span>
-                          )}
                         </h2>
                       </div>
                       <div className="IG-graficoAcciones">
@@ -1726,36 +2866,149 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                         </div>
                       </div>
                     </div>
-                    {/* Leyenda: un punto por segmento (la división real de
-                        estados del TMS) — cada término explica su significado
-                        al pasar el mouse (title). Guías por FECHA DE EMISIÓN. */}
-                    <p className="IG-graficoSub">
-                      {SEGMENTOS_OT.map((s, i) => (
-                        <span key={s.clave}>
-                          {i > 0 && '    '}
-                          <span className="DC-leyendaItem" title={s.explica}>
-                            <span style={{ color: s.color }}>●</span> <b>{s.etiqueta}</b>
-                          </span>
+                    {/* Leyenda interactiva (rediseño UX 2026-10-30): estados
+                        como chips compactos — tap para filtrar (multi). Chip
+                        activo = tinte de su color; inactivo = atenuado. En
+                        móvil colapsable con resumen; en desktop siempre
+                        visible. Instrucciones SEPARADAS: esta franja solo
+                        resume el filtro (izq.) y la acción de barra (der.);
+                        «por fecha de emisión» pasó al header (DC-otCtx). */}
+                    <div className="DC-otLeyenda">
+                      <button
+                        type="button"
+                        className="DC-otLeyendaToggle"
+                        onClick={() => setLeyendaOTAbierta(a => !a)}
+                        aria-expanded={leyendaOTAbierta}
+                        aria-controls="dc-ot-leyenda"
+                      >
+                        <span aria-hidden="true">▤</span> Estados
+                        <span className="DC-otLeyendaResumen">
+                          {segSelOT.size > 0 ? `${segActivosOT.length} de ${SEGMENTOS_OT.length} visibles` : `${SEGMENTOS_OT.length} en total`}
                         </span>
-                      ))}
-                      <span className="DC-leyendaHint"> · por fecha de emisión{vistaOT === 'mensual' ? ' · clic en una barra → sus días' : ''}</span>
-                    </p>
-                    {/* key por vista/filtros aplicados (incluido el sub-grupo):
-                        al cambiar (vista, clic en barra, migas) se re-monta y
-                        entra con la animación DC-swapOT (fade+slide) + barras
-                        creciendo. */}
+                        <span className="DC-otLeyendaFlecha" style={{ transform: leyendaOTAbierta ? 'rotate(180deg)' : 'none' }}>▾</span>
+                      </button>
+                      <div id="dc-ot-leyenda" className={`DC-otLeyendaChips ${leyendaOTAbierta ? '' : 'DC-otLeyendaOcultos'}`}>
+                        {SEGMENTOS_OT.map(s => {
+                          const activo = segSelOT.size === 0 || segSelOT.has(s.clave as string);
+                          const sel = segSelOT.size > 0 && activo;
+                          return (
+                            <button
+                              key={s.clave}
+                              type="button"
+                              className={`DC-otChip ${!activo ? 'DC-otChipOff' : ''}`}
+                              style={sel ? { borderColor: `${s.color}80`, background: `${s.color}14` } : undefined}
+                              onClick={() => alternarSegmentoOT(s.clave as string)}
+                              title={`${s.explica}
+${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para combinar)'}`}
+                            >
+                              <span className="DC-otChipPunto" style={{ background: s.color }} aria-hidden="true" />
+                              {s.etiqueta}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="DC-otLeyendaInfo">
+                        {segSelOT.size > 0 ? (
+                          <button type="button" className="DC-otLeyendaTodo" onClick={() => setSegSelOT(new Set())} title="Volver a ver todos los estados">
+                            ↺ Ver todos
+                          </button>
+                        ) : (
+                          <span>Toca un estado para filtrar</span>
+                        )}
+                        <span className="DC-otLeyendaBarra">
+                          {diaOT && bucketDiaOT
+                            ? 'Toca una barra para ver sus guías'
+                            : vistaOT === 'mensual'
+                              ? 'Toca una barra para ver sus días'
+                              : 'Toca un día para ver su detalle'}
+                        </span>
+                      </div>
+                    </div>
+                    {/* key por vista/filtros aplicados (incluido el sub-grupo y
+                        el zoom de día): al cambiar (vista, clic en barra, migas)
+                        se re-monta y entra con la animación DC-swapOT
+                        (fade+slide) + barras creciendo. */}
+                    <div className="DC-scrollOT">
                     <div
-                      key={`${vistaOT}-${filtrosAplicados.anios.join(',')}|${filtrosAplicados.meses.join(',')}|${grupoAplicado ?? ''}`}
+                      key={`${vistaOT}-${diaOT ?? ''}-${[...segSelOT].sort().join(',')}|${filtrosAplicados.anios.join(',')}|${filtrosAplicados.meses.join(',')}|${grupoAplicado ?? ''}`}
                       className="DC-swapOT"
-                      style={{ width: '100%', height: 320 }}
+                      style={{ width: '100%', height: 320, minWidth: diaOT ? undefined : anchoMinOT(dataOTVis.length) }}
                     >
-                      <ResponsiveContainer width="100%" height={320}>
-                        <BarChart
-                          data={dataOT}
-                          margin={{ top: 24, right: 20, left: 20, bottom: 10 }}
-                          onClick={clicBarraOT}
-                          style={vistaOT === 'mensual' ? { cursor: 'pointer' } : undefined}
-                        >
+                      {diaOT && bucketDiaOT ? (
+                        /* Zoom de día: barras HORIZONTALES, una por segmento
+                           >0 del día (mismo orden y color de la pila). Clic en
+                           una barra → tabla de detalle con las guías de ese
+                           día+segmento (clic en la activa la cierra). */
+                        <ResponsiveContainer width="100%" height={320}>
+                          <BarChart
+                            data={segmentosDiaOT}
+                            layout="vertical"
+                            margin={{ top: 16, right: 48, left: 16, bottom: 8 }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                              type="number"
+                              allowDecimals={false}
+                              tickFormatter={(v: number) => formatearEntero(v)}
+                              tick={{ fontSize: 11 }}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="etiqueta"
+                              width={130}
+                              tick={{ fontSize: 12 }}
+                            />
+                            <Tooltip
+                              content={(props: any) => {
+                                if (!props.active || !props.payload?.length) return null;
+                                const s = props.payload[0].payload as { etiqueta: string; cantidad: number };
+                                const pctDia = bucketDiaOT.total > 0 ? Math.round((s.cantidad / bucketDiaOT.total) * 100) : null;
+                                const pct = pctOT(bucketDiaOT);
+                                return (
+                                  <div className="IG-tooltipSerie">
+                                    <p className="IG-tooltipSerieFecha">
+                                      {format(parseISO(diaOT), "d 'de' MMMM yyyy", { locale: es })} <span style={{ color: '#8aa0b8' }}>(emisión)</span>
+                                    </p>
+                                    <p><b>{s.etiqueta}</b>: {formatearEntero(s.cantidad)}{pctDia != null ? ` (${pctDia}% del día)` : ''}</p>
+                                    <p className="IG-tooltipSerieSub">
+                                      Guías del día: {formatearEntero(bucketDiaOT.total)} · % OT: {pct ?? '—'}
+                                    </p>
+                                  </div>
+                                );
+                              }}
+                              cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }}
+                            />
+                            <Bar
+                              dataKey="cantidad"
+                              name="Guías"
+                              radius={[0, 4, 4, 0]}
+                              onClick={(data: any) => abrirDetalleSegmento(String(data?.payload?.etiqueta ?? ''))}
+                              isAnimationActive={ANIM_BARRAS.isAnimationActive}
+                              animationDuration={ANIM_BARRAS.animationDuration}
+                              animationEasing={ANIM_BARRAS.animationEasing}
+                            >
+                              {segmentosDiaOT.map(s => (
+                                <Cell key={s.etiqueta} fill={s.color} />
+                              ))}
+                              <LabelList
+                                dataKey="cantidad"
+                                position="right"
+                                offset={8}
+                                formatter={(v: number) => (v > 0 ? `${v}` : '')}
+                                style={{ fill: '#0f1928', fontSize: 11, fontWeight: 700 }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={320}>
+                          <BarChart
+                            data={dataOTVis}
+                            margin={{ top: 24, right: 20, left: 20, bottom: 10 }}
+                            onClick={clicBarraOT}
+                            style={{ cursor: 'pointer' }}
+                          >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis
                             dataKey="periodo"
@@ -1773,7 +3026,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           />
                           <YAxis tickFormatter={(v: number) => formatearEntero(v)} width={60} allowDecimals={false} />
                           <Tooltip content={tooltipOT} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
-                          {SEGMENTOS_OT.map((s, i) => (
+                          {segActivosOT.map((s, i) => (
                             <Bar
                               key={s.clave}
                               dataKey={s.clave as string}
@@ -1784,9 +3037,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                               animationDuration={ANIM_BARRAS.animationDuration}
                               animationEasing={ANIM_BARRAS.animationEasing}
                             >
-                              {i === SEGMENTOS_OT.length - 1 && (
+                              {i === segActivosOT.length - 1 && (
                                 <LabelList
-                                  dataKey="total"
+                                  dataKey="totalSel"
                                   position="top"
                                   offset={10}
                                   formatter={(v: number) => (v > 0 ? `${v}` : '')}
@@ -1797,7 +3050,115 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           ))}
                         </BarChart>
                       </ResponsiveContainer>
+                      )}
                     </div>
+                    </div>
+
+                    {/* Detalle del día (2026-10-30): tabla con las guías del
+                        día + segmento cuya barra se clicó — misma info que el
+                        informe (chips de estado/OT/novedad) + export Excel de
+                        SOLO esas filas. Clic en la barra activa o ✕ la cierra. */}
+                    {diaOT && bucketDiaOT && detalleSegOT && (() => {
+                      const seg = SEGMENTOS_OT.find(s => s.clave === detalleSegOT)!;
+                      return (
+                        /* Modal del detalle del día: overlay + tarjeta centrada
+                           (cierre con ✕, clic en el fondo o Escape). */
+                        <div className="DC-modalFondo" onClick={() => setDetalleSegOT(null)}>
+                        <div
+                          className="DC-modalCard DC-detalleDia"
+                          role="dialog"
+                          aria-modal="true"
+                          aria-label={`Detalle del día: ${seg.etiqueta}`}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <div className="DC-detalleDiaHeader">
+                            <h3 className="DC-detalleDiaTitulo">
+                              <span className="IG-tooltipEtapa" style={{ background: seg.color }} />
+                              {seg.etiqueta} · {format(parseISO(diaOT), "d 'de' MMMM yyyy", { locale: es })}
+                              <span className="DC-detalleDiaN">
+                                {cargandoDetalleOT ? 'cargando…' : `${formatearEntero(filasDetalleDia.length)} guías`}
+                              </span>
+                            </h3>
+                            <div className="DC-detalleDiaAcciones">
+                              <button
+                                className="DC-botonExcelOT"
+                                onClick={exportarDetalleDia}
+                                disabled={!filasDetalleDia.length}
+                                title="Descargar estas guías en Excel (mismas columnas que el informe)"
+                              >
+                                <span className="DC-iconoExcel" aria-hidden="true">X</span> Excel
+                              </button>
+                              <button className="DC-detalleDiaCerrar" onClick={() => setDetalleSegOT(null)} title="Cerrar el detalle">
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                          {!cargandoDetalleOT && (
+                            filasDetalleDia.length === 0 ? (
+                              <div className="IG-sinDatos"><p>No hay guías en este segmento para el día</p></div>
+                            ) : (
+                              <div className="DC-detalleDiaTabla">
+                                <table className="IG-tabla">
+                                  <thead>
+                                    <tr>
+                                      <th>Guía</th>
+                                      <th>Destino</th>
+                                      <th>Destinatario</th>
+                                      <th>F. Emisión</th>
+                                      <th>Estado</th>
+                                      <th>F. Entrega</th>
+                                      <th title="Fecha límite: la de CITA si es válida; si no, emisión + promesa del destino (días hábiles)">F. Promesa</th>
+                                      <th title="Días hábiles transcurridos (sin sáb/dom/festivos)">Días háb.</th>
+                                      <th title="1 = entregada dentro de la fecha promesa; 0 = tarde; — = no evaluable">OT</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {filasDetalleDia.map(f => (
+                                      <tr key={f.guia}>
+                                        <td className="DC-guiaCeldaNum">{f.guia}</td>
+                                        <td className="DC-guiaCeldaDest">{f.ciudad_destino || '—'}</td>
+                                        <td className="DC-guiaCeldaDest">{f.destinatario ?? '—'}</td>
+                                        <td>{formatearFecha(f.fecha_emision).replaceAll('-', '/')}</td>
+                                        <td>
+                                          {f.novedad ? (
+                                            <span
+                                              className="DC-guiaChip DC-guiaChipJustificada"
+                                              title={`Novedad reportada — causal: ${f.novedad.causal}. ${f.novedad.justificacion}${f.novedad.nombre || f.novedad.usuario ? ` (registró: ${f.novedad.nombre || f.novedad.usuario})` : ''}`}
+                                            >
+                                              💬 {f.novedad.causal}
+                                            </span>
+                                          ) : f.estado ? (
+                                            <span className={`DC-guiaChip ${claseChipEstado(f.estado)}`}>{f.estado}</span>
+                                          ) : (
+                                            <span title={`Estado original del TMS: ${f.estado_crudo || '(vacío)'}`}>—</span>
+                                          )}
+                                        </td>
+                                        <td>{formatearFecha(f.fecha_entrega).replaceAll('-', '/')}</td>
+                                        <td>
+                                          {f.fecha_promesa
+                                            ? <span title={f.origen_promesa === 'CITA' ? 'Promesa: fecha de cita' : 'Promesa: emisión + días del destino (hábiles)'}>
+                                                {formatearFecha(f.fecha_promesa).replaceAll('-', '/')}
+                                                {f.origen_promesa === 'CITA' && <span className="DC-guiaOrigPromesa DC-guiaOrigPromesaCita"> cita</span>}
+                                              </span>
+                                            : '—'}
+                                        </td>
+                                        <td className="DC-guiaCeldaNum">{f.dias_habiles ?? '—'}</td>
+                                        <td>
+                                          {f.ot === null
+                                            ? '—'
+                                            : <span className={`DC-guiaChip ${f.ot === 1 ? 'DC-guiaChipOTSi' : 'DC-guiaChipOTNo'}`}>{f.ot === 1 ? '✓ 1' : '✗ 0'}</span>}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )
+                          )}
+                        </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 ) : (
                   <div className="IG-sinDatos">
@@ -1805,7 +3166,25 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                   </div>
                 )}
               </div>
-            )}
+            ))}
+
+            {/* (2026-10-30) OT desagregado por campo del TMS — barras
+                horizontales del período filtrado: ciudad_destino y
+                destinatario (top 12 por guías evaluables; % como longitud,
+                color por umbral). Solo en el portal de clientes. */}
+            {/* Lado a lado en pantallas grandes (grid 2 columnas ≥1200px,
+                apilados abajo de ese ancho). */}
+            {modoExterno && pestanaPortal === 'gerenciales' && (cargandoGuias ? (
+              <div className="DC-portalGrid">
+                <SkeletonGrafico bajo />
+                <SkeletonGrafico bajo />
+              </div>
+            ) : (
+              <div className="DC-portalGrid">
+                {graficoOTCampo('🗺 On Time por ciudad de destino', otPorCiudad, 'ciudad')}
+                {graficoOTCampo('🏥 On Time por destinatario', otPorDestinatario, 'dest')}
+              </div>
+            ))}
 
             {/* 🚛 Uso de vehículos solicitados — drill-down: promedio % de uso
                 por tipo solicitado → evolución por período → destino → tabla
@@ -2083,9 +3462,13 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
               </div>
             ))}
 
-            {/* Informe de guías TMS — colapsable. planilla_siscore (Mongo, media
-                milla) == guia (PostgreSQL informe_guias_tms); puede traer varias
-                guías por coma → una fila por guía. Fetch perezoso al abrir. */}
+            {/* Informe de guías TMS — SOLO dashboard interno (2026-10-30: en el
+                portal de clientes se quitó; su fetch sigue siendo el que
+                alimenta las series del gráfico OT). Colapsable.
+                planilla_siscore (Mongo, media milla) == guia (PostgreSQL
+                informe_guias_tms); puede traer varias guías por coma → una
+                fila por guía. Fetch perezoso al abrir. */}
+            {!modoExterno && (
             <section className="DC-guiaSeccion">
               {/* Trazabilidad: guía, planilla o destinatario (parcial) → el
                   backend busca en TODO el histórico (ignora año/mes) y
@@ -2130,7 +3513,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                     </div>
                     <div
                       className="DC-guiaTile DC-guiaTileOT"
-                      title={`On Time: ${resumenGuias.ot_cumplen}/${resumenGuias.ot_cumplen + resumenGuias.ot_no_cumplen} guías entregadas dentro de la fecha promesa (días hábiles, sin sáb/dom/festivos)`}
+                      title={`On Time: ${resumenGuias.ot_cumplen + resumenGuias.ot_justificadas}/${resumenGuias.ot_cumplen + resumenGuias.ot_no_cumplen + resumenGuias.ot_justificadas} guías cumplidas (dentro de la fecha promesa en días hábiles + justificadas)`}
                     >
                       <span className="DC-guiaTileValor">
                         {resumenGuias.ot_pct != null ? `${resumenGuias.ot_pct}%` : '—'}
@@ -2207,9 +3590,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                                   {f.novedad ? (
                                     <span
                                       className="DC-guiaChip DC-guiaChipJustificada"
-                                      title={`Novedad justificada — causal: ${f.novedad.causal}. ${f.novedad.justificacion}${f.novedad.nombre || f.novedad.usuario ? ` (registró: ${f.novedad.nombre || f.novedad.usuario})` : ''}`}
+                                      title={`Novedad reportada — causal: ${f.novedad.causal}. ${f.novedad.justificacion}${f.novedad.nombre || f.novedad.usuario ? ` (registró: ${f.novedad.nombre || f.novedad.usuario})` : ''}`}
                                     >
-                                      💬 JUSTIFICADA · {f.novedad.causal}
+                                      💬 {f.novedad.causal}
                                     </span>
                                   ) : f.estado ? (
                                     <span className={`DC-guiaChip ${claseChipEstado(f.estado)}`}>{f.estado}</span>
@@ -2271,6 +3654,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                 </div>
               )}
             </section>
+            )}
           </>
         )}
       </main>

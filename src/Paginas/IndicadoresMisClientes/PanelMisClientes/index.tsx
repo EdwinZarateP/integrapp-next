@@ -131,22 +131,29 @@ const PanelMisClientes: React.FC = () => {
         </div>
       </header>
 
-      {/* Panel de clientes asignados */}
+      {/* Panel de clientes asignados (centrado verticalmente entre header y footer) */}
       <main className="MC-main">
-        <p className="MC-subtitulo">Elegí un cliente para ver sus indicadores de servicio</p>
-
-        {cargando ? (
-          <div className="IG-sinDatos"><p>Cargando sus clientes…</p></div>
-        ) : error ? (
-          <div className="IG-sinDatos">
-            <p>{error}</p>
-          </div>
-        ) : clientes.length === 0 ? (
-          <div className="IG-sinDatos">
-            <p>No tiene clientes asignados. Solicite al administrador que asigne sus clientes desde Gestión de Usuarios.</p>
-          </div>
-        ) : (
-          <div className="MC-clientesGrid">
+        <div className="MC-selector">
+          {cargando ? (
+            <div className="MC-estado">
+              <span className="MC-spinner" aria-hidden />
+              <p>Cargando sus clientes…</p>
+            </div>
+          ) : error ? (
+            <div className="MC-estado MC-estado--error">
+              <p>{error}</p>
+            </div>
+          ) : clientes.length === 0 ? (
+            <div className="MC-estado">
+              <p>No tiene clientes asignados. Solicite al administrador que asigne sus clientes desde Gestión de Usuarios.</p>
+            </div>
+          ) : (
+            <>
+              <div className="MC-intro">
+                <h2 className="MC-introTitulo">Elegí un cliente</h2>
+                <p className="MC-subtitulo">para ver sus indicadores de servicio</p>
+              </div>
+              <div className="MC-clientesGrid">
             {clientes.map(c => {
               const nombre = c.razon || c.entidad || c.nit;
               // Logo del registro interno (mismo del panel /indicadores/clientes);
@@ -189,8 +196,10 @@ const PanelMisClientes: React.FC = () => {
                 </div>
               );
             })}
-          </div>
-        )}
+              </div>
+            </>
+          )}
+        </div>
       </main>
 
       {/* Footer */}

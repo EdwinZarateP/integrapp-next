@@ -65,6 +65,14 @@ export default function NovedadesOTP() {
   const inputArchivo = useRef<HTMLInputElement>(null);
   const LIMITE = 50;
 
+  // Modal de registro manual / edición (2026-10-30): null = cerrado.
+  const [modal, setModal] = useState<{ novedad: Novedad | null } | null>(null);
+  const [mGuia, setMGuia] = useState('');
+  const [mCausal, setMCausal] = useState('');
+  const [mJust, setMJust] = useState('');
+  const [mError, setMError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
   useEffect(() => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     const p = (document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '').toUpperCase();
@@ -150,6 +158,46 @@ export default function NovedadesOTP() {
     }
   };
 
+  const abrirModal = (nov: Novedad | null) => {
+    setModal({ novedad: nov });
+    setMGuia(nov?.guia || '');
+    setMCausal(nov?.causal || '');
+    setMJust(nov?.justificacion || '');
+    setMError('');
+  };
+
+  const cerrarModal = () => setModal(null);
+
+  // Escape cierra el modal (mismo patrón del detalle de día del dashboard).
+  useEffect(() => {
+    if (!modal) return;
+    const alTeclear = (e: KeyboardEvent) => { if (e.key === 'Escape') cerrarModal(); };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [modal]);
+
+  const guardarManual = async () => {
+    if (guardando) return;
+    setGuardando(true);
+    setMError('');
+    try {
+      const r = await fetch(`${API}/novedades-ot/guardar?usuario=${encodeURIComponent(usuario)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guia: mGuia, causal: mCausal, justificacion: mJust }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || 'Error al guardar');
+      cerrarModal();
+      // La lista ordena por updated_at desc → la guía queda de primeras.
+      consultar(1, q);
+    } catch (err) {
+      setMError(err instanceof Error ? err.message : 'Error al guardar');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   if (autorizado === null) return <div className="NV-pagina"><p className="NV-cargando">Cargando…</p></div>;
 
   if (!autorizado) {
@@ -195,6 +243,9 @@ export default function NovedadesOTP() {
             {subiendo ? 'Subiendo…' : '⬆ Subir Excel'}
             <input ref={inputArchivo} type="file" accept=".xlsx" onChange={subirExcel} disabled={subiendo} hidden />
           </label>
+          <button className="NV-boton" onClick={() => abrirModal(null)} disabled={subiendo}>
+            ＋ Nueva justificación
+          </button>
           <a
             className="NV-boton"
             href={`${API}/novedades-ot/plantilla`}
@@ -276,7 +327,8 @@ export default function NovedadesOTP() {
                           )}
                         </td>
                         <td className="NV-fecha">{fmtFecha(n.updated_at)}</td>
-                        <td>
+                        <td className="NV-accionesFila">
+                          <button className="NV-editar" onClick={() => abrirModal(n)} title="Editar justificación">✏️</button>
                           <button className="NV-borrar" onClick={() => borrar(n)} title="Eliminar (queda en auditoría)">🗑</button>
                         </td>
                       </tr>
@@ -295,6 +347,57 @@ export default function NovedadesOTP() {
           </>
         )}
       </section>
+
+      {modal && (
+        <div className="NV-modalFondo" onClick={e => { if (e.target === e.currentTarget) cerrarModal(); }}>
+          <div className="NV-modalCard">
+            <div className="NV-modalTitulo">
+              <h3>{modal.novedad ? `Editar justificación · ${modal.novedad.guia}` : 'Nueva justificación'}</h3>
+              <button className="NV-modalCerrar" onClick={cerrarModal} title="Cerrar (Escape)">✕</button>
+            </div>
+            <label className="NV-campo">
+              Guía
+              <input
+                value={mGuia}
+                onChange={e => setMGuia(e.target.value)}
+                placeholder="Número de guía del TMS"
+                disabled={!!modal.novedad}
+                autoFocus={!modal.novedad}
+              />
+              {modal.novedad && (
+                <span className="NV-campoHint">La guía identifica la justificación (upsert) — para cambiarla, elimina y crea una nueva.</span>
+              )}
+            </label>
+            <label className="NV-campo">
+              Causal
+              <select value={mCausal} onChange={e => setMCausal(e.target.value)}>
+                <option value="">Seleccione un causal…</option>
+                {causales.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="NV-campo">
+              Justificación
+              <textarea
+                value={mJust}
+                onChange={e => setMJust(e.target.value)}
+                placeholder="Motivo por el que la guía queda justificada (p. ej. reagenda de cita por el cliente)"
+                rows={4}
+              />
+            </label>
+            {mError && <p className="NV-error">❌ {mError}</p>}
+            <div className="NV-modalAcciones">
+              <button className="NV-boton" onClick={cerrarModal} disabled={guardando}>Cancelar</button>
+              <button
+                className="NV-boton NV-botonPrimario"
+                onClick={guardarManual}
+                disabled={guardando || !mGuia.trim() || !mCausal || !mJust.trim()}
+              >
+                {guardando ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
