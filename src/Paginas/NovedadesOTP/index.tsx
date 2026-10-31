@@ -253,6 +253,15 @@ export default function NovedadesOTP() {
           >
             ⬇ Plantilla
           </a>
+          {/* Export de TODA la base (genera el backend con openpyxl): guía,
+              causal, justificación + quién registró/actualizó y cuándo. */}
+          <a
+            className="NV-boton"
+            href={`${API}/novedades-ot/exportar?usuario=${encodeURIComponent(usuario)}`}
+            title="Descarga TODAS las justificaciones activas en Excel"
+          >
+            ⬇ Excel
+          </a>
         </div>
 
         {resultado && (() => {

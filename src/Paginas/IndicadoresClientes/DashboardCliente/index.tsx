@@ -1108,6 +1108,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // ── (2026-10-30) Portal de clientes: gauge del OT + barras por campo ──
   // Color del % OT por umbral (gauge y barras): ≥90 verde, ≥75 ámbar, <75 rojo.
   const colorOT = (pct: number) => (pct >= 90 ? '#15803d' : pct >= 75 ? '#eda100' : '#b91c1c');
+  // (2026-10-30) Escala alineada a la META (96): la usan el tacómetro On Time
+  // y las barras del «On Time vs meta». Distinta de colorOT (ciudad/destinatario).
+  const colorMetaOT = (pct: number) => (pct >= 96 ? '#15803d' : pct >= 90 ? '#ea580c' : '#b91c1c');
 
   // % del gauge: el del DÍA en zoom si hay, si no el del período filtrado
   // (resumen.ot_pct — justificadas cuentan como cumplidas).
@@ -1155,21 +1158,23 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     const porBarra = vistaOT === 'diaria' ? 26 : 72;
     return Math.min(Math.max(nBarras * porBarra, 320), 6000);
   };
-  // (2026-10-30) Etiqueta % DIAGONAL dentro de cada barra del «On Time vs
-  // meta»: rotada -45° (de izquierda a derecha, de abajo hacia arriba),
-  // centrada en la barra, blanca — se lee sobre el rojo/verde de la barra y
-  // sobre el fondo oscuro de la tarjeta si sobresale. Barra muy baja (<40px)
-  // → no se pinta (queda el tooltip).
+  // (2026-10-30) Etiqueta % dentro de cada barra del «On Time vs meta»:
+  // MENSUAL = diagonal -45° (de izquierda a derecha, de abajo hacia arriba);
+  // DIARIA = totalmente vertical -90° (las barras son angostas y la diagonal
+  // invadía a la vecina). Centrada en la barra, blanca — se lee sobre el
+  // rojo/verde de la barra y sobre el fondo oscuro de la tarjeta. Barra muy
+  // baja (<40px) → no se pinta (queda el tooltip).
   const etiquetaVerticalMeta = (props: any) => {
     const { x, y, width, height, value } = props;
     if (value == null || height < 40) return null;
+    const angulo = vistaOT === 'diaria' ? -90 : -45;
     const cx = Number(x) + Number(width) / 2;
     const cy = Number(y) + Number(height) / 2;
     return (
       <text
         x={cx}
         y={cy}
-        transform={`rotate(-45 ${cx} ${cy})`}
+        transform={`rotate(${angulo} ${cx} ${cy})`}
         textAnchor="middle"
         dominantBaseline="central"
         fill="#fff"
@@ -1177,6 +1182,30 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
         fontWeight={700}
       >
         {`${Number(value).toFixed(1).replace('.', ',')}%`}
+      </text>
+    );
+  };
+  // (2026-10-30) Etiqueta del TOTAL de la pila del «On Time por período» en
+  // vista DIARIA: totalmente vertical -90° subiendo desde el tope de la pila
+  // — con barras angostas (móvil) los números horizontales se montaban entre
+  // sí. En mensual sigue horizontal encima de la pila (LabelList normal).
+  const etiquetaTotalDiarioOT = (props: any) => {
+    const { x, y, width, value } = props;
+    if (!value) return null;
+    const cx = Number(x) + Number(width) / 2;
+    const cy = Number(y) - 6;
+    return (
+      <text
+        x={cx}
+        y={cy}
+        transform={`rotate(-90 ${cx} ${cy})`}
+        textAnchor="start"
+        dominantBaseline="central"
+        fill="#0f1928"
+        fontSize={10}
+        fontWeight={700}
+      >
+        {`${value}`}
       </text>
     );
   };
@@ -1261,7 +1290,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
               animationEasing={ANIM_BARRAS.animationEasing}
             >
               {dataOTMeta.map(d => (
-                <Cell key={d.periodo} fill={d.pct == null ? '#334155' : d.pct < META_OT ? '#b91c1c' : '#15803d'} />
+                <Cell key={d.periodo} fill={d.pct == null ? '#334155' : colorMetaOT(d.pct)} />
               ))}
               <LabelList dataKey="pct" content={etiquetaVerticalMeta} />
             </Bar>
@@ -1290,7 +1319,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radio} ${radio} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
     };
     const val = pct ?? 0;
-    const color = pct != null ? colorOT(pct) : '#334155';
+    const color = pct != null ? colorMetaOT(pct) : '#334155';
     const [nx, ny] = pt(val, r - 34);
     // % con UN decimal y coma (85,4%) — igual que el resumen del backend.
     const txt = pct != null ? `${pct.toFixed(1).replace('.', ',')}%` : '—';
@@ -2959,6 +2988,9 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                               width={130}
                               tick={{ fontSize: 12 }}
                             />
+                            {/* Sin tooltip en móvil (mismo criterio que la pila):
+                                el tap abre el detalle de guías directamente. */}
+                            {!esMovil && (
                             <Tooltip
                               content={(props: any) => {
                                 if (!props.active || !props.payload?.length) return null;
@@ -2979,6 +3011,7 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                               }}
                               cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }}
                             />
+                            )}
                             <Bar
                               dataKey="cantidad"
                               name="Guías"
@@ -3005,7 +3038,7 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                         <ResponsiveContainer width="100%" height={320}>
                           <BarChart
                             data={dataOTVis}
-                            margin={{ top: 24, right: 20, left: 20, bottom: 10 }}
+                            margin={{ top: vistaOT === 'diaria' ? 34 : 24, right: 20, left: 20, bottom: 10 }}
                             onClick={clicBarraOT}
                             style={{ cursor: 'pointer' }}
                           >
@@ -3025,7 +3058,11 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                             height={vistaOT === 'diaria' ? 60 : 30}
                           />
                           <YAxis tickFormatter={(v: number) => formatearEntero(v)} width={60} allowDecimals={false} />
-                          <Tooltip content={tooltipOT} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
+                          {/* (2026-10-30) Sin tooltip en móvil: al deslizar el
+                              dedo para hacer el scroll horizontal recharts
+                              disparaba el tooltip barra por barra. El detalle
+                              sigue disponible con el tap (zoom de día). */}
+                          {!esMovil && <Tooltip content={tooltipOT} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />}
                           {segActivosOT.map((s, i) => (
                             <Bar
                               key={s.clave}
@@ -3038,13 +3075,17 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                               animationEasing={ANIM_BARRAS.animationEasing}
                             >
                               {i === segActivosOT.length - 1 && (
-                                <LabelList
-                                  dataKey="totalSel"
-                                  position="top"
-                                  offset={10}
-                                  formatter={(v: number) => (v > 0 ? `${v}` : '')}
-                                  style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
-                                />
+                                vistaOT === 'diaria' ? (
+                                  <LabelList dataKey="totalSel" content={etiquetaTotalDiarioOT} />
+                                ) : (
+                                  <LabelList
+                                    dataKey="totalSel"
+                                    position="top"
+                                    offset={10}
+                                    formatter={(v: number) => (v > 0 ? `${v}` : '')}
+                                    style={{ fill: '#0f1928', fontSize: 10, fontWeight: 700 }}
+                                  />
+                                )
                               )}
                             </Bar>
                           ))}
