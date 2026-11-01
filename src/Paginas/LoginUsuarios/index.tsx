@@ -4,70 +4,10 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { loginUsuario } from "@/Funciones/ApiPedidos/usuarios";
 import confetti from "canvas-confetti";
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash, FaChevronRight } from "react-icons/fa";
+import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 import Link from "next/link";
 import logo from '@/Imagenes/albatros.png';
 import "./estilos.css";
-
-// Perfiles que pueden ver el portal de Flota Disponible (coincide con /FlotaDisponible).
-const PERFILES_FLOTA = ["ADMIN", "ANALISTA", "COORDINADOR", "CONTROL", "OPERATIVO"];
-
-const CLIENTES_CONFIG: Record<string, { label: string; desc: string; color: string; ruta: string }> = {
-  KABI: {
-    label: "Fresenius Kabi",
-    desc: "Portal de gestión de pedidos Fresenius Kabi",
-    color: "#0f1928",
-    ruta: "/Pedidos",
-  },
-  MEDICAL_CARE: {
-    label: "Fresenius Medical Care",
-    desc: "Portal de operaciones Fresenius Medical Care",
-    color: "#006b5e",
-    ruta: "/MedicalCare",
-  },
-  FLOTA: {
-    label: "Flota Disponible",
-    desc: "Vehículos disponibles hoy — contacto directo a conductores",
-    color: "#e8a000",
-    ruta: "/FlotaDisponible",
-  },
-  INDICADORES: {
-    label: "Indicadores Integra",
-    desc: "Menú principal de dashboards e indicadores",
-    color: "#2563eb",
-    ruta: "/indicadores",
-  },
-  SICETAC: {
-    label: "SICE-TAC",
-    desc: "Consulta masiva de costos eficientes de transporte",
-    color: "#00796b",
-    ruta: "/Sicetac",
-  },
-  SEGURIDAD: {
-    label: "Seguridad",
-    desc: "Revisión y aprobación de vehículos",
-    color: "#dc2626",
-    ruta: "/revision",
-  },
-  ADMIN_SEGURIDAD: {
-    label: "Estudios de Seguridad",
-    desc: "Planes, cupos y cuentas de cobro del servicio",
-    color: "#7c3aed",
-    ruta: "/AdminSeguridad",
-  },
-};
-
-// Perfiles que pueden ver el portal de Seguridad (/revision). PADRINO entra
-// directo (micro-portal aislado, 2026-10-15) y no llega a esta lista, pero se
-// deja por si otro flujo lo consulta. /revision lo distingue por la cookie
-// `seguridadPerfil` que se setea al entrar al portal.
-const PERFILES_SEGURIDAD = ["ADMIN", "SEGURIDAD", "PADRINO"];
-
-// Perfiles que pueden administrar el cobro de Estudios de Seguridad (/AdminSeguridad).
-const PERFILES_ADMIN_SEGURIDAD = ["ADMIN"];
-
-// Orden visual de los portales en el selector (Flota va justo después de Medical Care).
-const ORDEN_PORTALES = ["KABI", "MEDICAL_CARE", "FLOTA", "INDICADORES", "SICETAC", "SEGURIDAD", "ADMIN_SEGURIDAD"];
 
 const LoginUsuario: React.FC = () => {
   const [usuario, setUsuario] = useState("");
@@ -75,8 +15,6 @@ const LoginUsuario: React.FC = () => {
   const [mostrarClave, setMostrarClave] = useState(false);
   const [mensajeError, setMensajeError] = useState("");
   const [cargando, setCargando] = useState(false);
-  const [paso, setPaso] = useState<1 | 2>(1);
-  const [datosUsuario, setDatosUsuario] = useState<{ id: string; usuario: string; nombre?: string; correo?: string; perfil: string; perfiles_adicionales?: string[]; regional: string; clientes: string[] } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -96,14 +34,16 @@ const LoginUsuario: React.FC = () => {
       // portal «Mis Indicadores» con los clientes que tiene asignados.
       if (perfilCookie === 'CLIENTE') { router.replace('/indicadores/mis-clientes'); return; }
       // PADRINO (2026-10-15): su único módulo es Seguridad — vuelve directo a
-      // /revision, sin pasar por el selector de portales.
+      // /revision, sin pasar por la pantalla de módulos.
       if (perfilCookie === 'PADRINO') { router.replace('/revision'); return; }
       const cliente = clienteCookie[2];
       // Seguridad entró desde la Torre de Control: vuelve a /revision.
       if (cliente === 'SEGURIDAD') { router.replace('/revision'); return; }
       // El admin del cobro de estudios vuelve a su panel.
       if (cliente === 'ADMIN_SEGURIDAD') { router.replace('/AdminSeguridad'); return; }
-      router.replace(CLIENTES_CONFIG[cliente]?.ruta || "/Pedidos");
+      // (2026-10-31) El resto de portales ya no restaura la última sección:
+      // todos los perfiles multi-módulo vuelven a la pantalla de Módulos.
+      router.replace('/Modulos');
     }
   }, [router]);
 
@@ -121,11 +61,22 @@ const LoginUsuario: React.FC = () => {
       document.cookie = `regionalPedidosCookie=${res.usuario.regional}; path=/; ${expires}`;
       document.cookie = `perfilPedidosCookie=${res.usuario.perfil}; path=/; ${expires}`;
 
+      // (2026-10-31) Info completa del usuario para la pantalla de Módulos:
+      // le permite setear las cookies seguridad* al entrar al portal de
+      // Seguridad sin volver a consultar el backend.
+      document.cookie = `usuarioInfoPedidosCookie=${encodeURIComponent(JSON.stringify({
+        id: res.usuario.id,
+        usuario: res.usuario.usuario,
+        nombre: res.usuario.nombre,
+        correo: res.usuario.correo,
+        perfil: res.usuario.perfil,
+        perfiles_adicionales: res.usuario.perfiles_adicionales || [],
+      }))}; path=/; ${expires}`;
+
       const clientes = res.usuario.clientes || ["KABI"];
       // Guardar la lista completa de clientes para habilitar el cambio de portal en los menús
       document.cookie = `clientesPedidosCookie=${clientes.join(",")}; path=/; ${expires}`;
 
-      // Portales extra en el selector: Indicadores siempre; Flota solo si el perfil puede verla.
       const perfilUpper = (res.usuario.perfil || "").toUpperCase();
 
       // FINANCIERO: acceso únicamente al módulo de Otros Costos.
@@ -136,7 +87,7 @@ const LoginUsuario: React.FC = () => {
       }
 
       // VISUALIZADOR: solo lectura (históricos e indicadores), aterriza en
-      // el panel de indicadores sin pasar por el selector de portales.
+      // el panel de indicadores sin pasar por la pantalla de módulos.
       if (perfilUpper === 'VISUALIZADOR') {
         document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; ${expires}`;
         setTimeout(() => router.replace('/indicadores'), 200);
@@ -144,7 +95,7 @@ const LoginUsuario: React.FC = () => {
       }
 
       // CLIENTE_ESTUDIOS: cliente externo → directo al portal de consultas,
-      // sin pasar por el selector de portales (no ve nada de la Torre).
+      // sin pasar por la Torre de Control (no ve nada de la Torre).
       if (perfilUpper === 'CLIENTE_ESTUDIOS') {
         setTimeout(() => router.replace('/PortalSeguridad'), 200);
         return;
@@ -152,7 +103,7 @@ const LoginUsuario: React.FC = () => {
 
       // CLIENTE (2026-10-29): cliente externo de indicadores → directo a su
       // portal «Mis Indicadores» (solo los clientes que tiene asignados),
-      // sin pasar por el selector de portales. (2026-10-30) Si tiene UN solo
+      // sin pasar por la pantalla de módulos. (2026-10-30) Si tiene UN solo
       // cliente asignado CON dashboard publicado, entra DERECHO al tablero
       // sin pasar por el panel de selección.
       if (perfilUpper === 'CLIENTE') {
@@ -171,7 +122,7 @@ const LoginUsuario: React.FC = () => {
           );
           if (conDash.length === 1) ruta = `/indicadores/mis-clientes/${conDash[0].cliente_id}`;
         } catch { /* sin respuesta → al panel, que muestra la asignación */ }
-        // Confeti de bienvenida — mismo del selector de portales (800ms para
+        // Confeti de bienvenida — mismo de la pantalla de módulos (800ms para
         // que se vea antes de navegar).
         confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
         setTimeout(() => router.replace(ruta), 800);
@@ -180,7 +131,7 @@ const LoginUsuario: React.FC = () => {
 
       // PADRINO (2026-10-15): su único módulo es Seguridad — micro-portal
       // aislado (patrón FINANCIERO/VISUALIZADOR): entra directo a /revision
-      // con las cookies seguridad* seteadas, sin ver el selector de portales
+      // con las cookies seguridad* seteadas, sin ver la pantalla de módulos
       // (KABI/MEDICAL_CARE/INDICADORES quedan fuera de su alcance).
       if (perfilUpper === 'PADRINO') {
         document.cookie = `clientePedidosCookie=SEGURIDAD; path=/; ${expires}`;
@@ -194,28 +145,11 @@ const LoginUsuario: React.FC = () => {
         return;
       }
 
-      const extras = ["INDICADORES"];
-      if (PERFILES_FLOTA.includes(perfilUpper)) extras.push("FLOTA");
-      if (["ADMIN", "ADMINISTRADOR"].includes(perfilUpper)) extras.push("SICETAC");
-      // (2026-10-15) Perfil ADICIONAL PADRINO: un usuario con otro perfil
-      // principal (p. ej. OPERATIVO) también ve el portal de Seguridad — al
-      // entrar va en modo Padrino (cookie seguridadPerfil=PADRINO). Su
-      // aterrizaje y portales principales NO cambian.
-      const esPadrinoAdicional = !["ADMIN", "SEGURIDAD"].includes(perfilUpper)
-        && (res.usuario.perfiles_adicionales || []).map(p => p.toUpperCase()).includes("PADRINO");
-      if (PERFILES_SEGURIDAD.includes(perfilUpper) || esPadrinoAdicional) extras.push("SEGURIDAD");
-      if (PERFILES_ADMIN_SEGURIDAD.includes(perfilUpper)) extras.push("ADMIN_SEGURIDAD");
-
-      // Reordenar según el orden canónico del selector (Flota después de Medical Care).
-      const keys = Array.from(new Set([...clientes, ...extras]));
-      const keysOrdenadas = ORDEN_PORTALES.filter((k) => keys.includes(k));
-      setDatosUsuario({ ...res.usuario, clientes: keysOrdenadas });
-
-      if (keysOrdenadas.length === 1) {
-        seleccionarCliente(keysOrdenadas[0], expires);
-      } else {
-        setPaso(2);
-      }
+      // (2026-10-31) Resto de perfiles (multi-módulo): a la pantalla de
+      // Módulos con menú lateral — reemplaza el selector de portales. Los
+      // permisos por perfil/cliente los resuelve construirMenu() allí.
+      confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
+      setTimeout(() => router.replace('/Modulos'), 800);
     } catch (err: any) {
       // (2026-10-16) El backend distingue «cuenta no existe» de «clave
       // incorrecta» (y el 403 de usuario inactivo): mostrar SU detalle en
@@ -229,38 +163,6 @@ const LoginUsuario: React.FC = () => {
     } finally {
       setCargando(false);
     }
-  };
-
-  const seleccionarCliente = (clienteKey: string, expiresStr?: string) => {
-    const expiracion = new Date();
-    expiracion.setDate(expiracion.getDate() + 14);
-    const expires = expiresStr || `expires=${expiracion.toUTCString()}`;
-
-    // Portal de Seguridad: setea las cookies que /revision gatea y entra directo.
-    if (clienteKey === "SEGURIDAD") {
-      document.cookie = `clientePedidosCookie=SEGURIDAD; path=/; ${expires}`;
-      if (datosUsuario) {
-        // (2026-10-15) Perfil ADICIONAL: quien NO es Seguridad/Admin entra al
-        // portal en modo PADRINO (vista simplificada + guards), venga o no de
-        // un perfil principal PADRINO.
-        const perfilSeguridad = ["ADMIN", "SEGURIDAD"].includes((datosUsuario.perfil || "").toUpperCase())
-          ? datosUsuario.perfil
-          : "PADRINO";
-        document.cookie = `seguridadId=${datosUsuario.id}; path=/; ${expires}`;
-        document.cookie = `seguridadNombre=${encodeURIComponent(datosUsuario.nombre || datosUsuario.usuario)}; path=/; ${expires}`;
-        document.cookie = `seguridadPerfil=${perfilSeguridad}; path=/; ${expires}`;
-        if (datosUsuario.correo) {
-          document.cookie = `seguridadCorreo=${encodeURIComponent(datosUsuario.correo)}; path=/; ${expires}`;
-        }
-      }
-      router.replace("/revision");
-      return;
-    }
-
-    document.cookie = `clientePedidosCookie=${clienteKey}; path=/; ${expires}`;
-    confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
-    const ruta = CLIENTES_CONFIG[clienteKey]?.ruta || "/Pedidos";
-    setTimeout(() => router.replace(ruta), 800);
   };
 
   return (
@@ -281,101 +183,61 @@ const LoginUsuario: React.FC = () => {
       {/* ── MAIN ── */}
       <main className="LU-main">
 
-        {/* ── PASO 1: credenciales ── */}
-        {paso === 1 && (
-          <div className="LU-card">
-            <div className="LU-cardHeader">
-              <Image src={logo} alt="Logo Integra" height={64} />
-              <h2 className="LU-titulo">Torre de Control</h2>
-              <p className="LU-subtitulo">Ingresa tus credenciales para continuar</p>
+        <div className="LU-card">
+          <div className="LU-cardHeader">
+            <Image src={logo} alt="Logo Integra" height={64} priority />
+            <h2 className="LU-titulo">Torre de Control</h2>
+            <p className="LU-subtitulo">Ingresa tus credenciales para continuar</p>
+          </div>
+
+          <form className="LU-formulario" onSubmit={manejarLogin}>
+            <div className="LU-grupo">
+              <label className="LU-label">Correo Electrónico</label>
+              <input
+                className="LU-input"
+                type="email"
+                placeholder="nombre@integralogistica.com"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                required
+                autoComplete="email"
+              />
             </div>
 
-            <form className="LU-formulario" onSubmit={manejarLogin}>
-              <div className="LU-grupo">
-                <label className="LU-label">Correo Electrónico</label>
+            <div className="LU-grupo">
+              <label className="LU-label">Contraseña</label>
+              <div className="LU-passwordWrap">
                 <input
-                  className="LU-input"
-                  type="email"
-                  placeholder="nombre@integralogistica.com"
-                  value={usuario}
-                  onChange={(e) => setUsuario(e.target.value)}
+                  className="LU-input LU-inputPassword"
+                  type={mostrarClave ? "text" : "password"}
+                  placeholder="Contraseña"
+                  value={clave}
+                  onChange={(e) => setClave(e.target.value)}
                   required
-                  autoComplete="email"
+                  autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setMostrarClave(p => !p)}
+                  className="LU-ojito"
+                  aria-label="Mostrar u ocultar contraseña"
+                >
+                  {mostrarClave ? <FaEyeSlash /> : <FaEye />}
+                </button>
               </div>
-
-              <div className="LU-grupo">
-                <label className="LU-label">Contraseña</label>
-                <div className="LU-passwordWrap">
-                  <input
-                    className="LU-input LU-inputPassword"
-                    type={mostrarClave ? "text" : "password"}
-                    placeholder="Contraseña"
-                    value={clave}
-                    onChange={(e) => setClave(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setMostrarClave(p => !p)}
-                    className="LU-ojito"
-                    aria-label="Mostrar u ocultar contraseña"
-                  >
-                    {mostrarClave ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-
-              {mensajeError && <p className="LU-error">{mensajeError}</p>}
-
-              <button className="LU-boton" type="submit" disabled={cargando}>
-                {cargando ? "Verificando…" : "Ingresar"}
-              </button>
-
-              <Link href="/OlvidoClaveBaseUsuario" className="LU-olvidaste">
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </form>
-          </div>
-        )}
-
-        {/* ── PASO 2: selección de cliente ── */}
-        {paso === 2 && datosUsuario && (
-          <div className="LU-card LU-cardClientes">
-            <div className="LU-cardHeader">
-              <Image src={logo} alt="Logo Integra" height={64} />
-              <h2 className="LU-titulo">Bienvenido, {datosUsuario.nombre || datosUsuario.usuario}</h2>
-              <p className="LU-subtitulo">Selecciona el portal al que deseas ingresar</p>
             </div>
 
-            <div className="LU-clientesLista">
-              {datosUsuario.clientes.map((key) => {
-                const cfg = CLIENTES_CONFIG[key];
-                if (!cfg) return null;
-                return (
-                  <button
-                    key={key}
-                    className="LU-clienteCard"
-                    style={{ borderColor: cfg.color }}
-                    onClick={() => seleccionarCliente(key)}
-                  >
-                    <div className="LU-clienteCardDot" style={{ background: cfg.color }} />
-                    <div className="LU-clienteCardTexto">
-                      <span className="LU-clienteCardNombre">{cfg.label}</span>
-                      <span className="LU-clienteCardDesc">{cfg.desc}</span>
-                    </div>
-                    <FaChevronRight className="LU-clienteCardFlecha" />
-                  </button>
-                );
-              })}
-            </div>
+            {mensajeError && <p className="LU-error">{mensajeError}</p>}
 
-            <button className="LU-volverBtn" onClick={() => { setPaso(1); setDatosUsuario(null); }}>
-              ← Volver
+            <button className="LU-boton" type="submit" disabled={cargando}>
+              {cargando ? "Verificando…" : "Ingresar"}
             </button>
-          </div>
-        )}
+
+            <Link href="/OlvidoClaveBaseUsuario" className="LU-olvidaste">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </form>
+        </div>
       </main>
 
       {/* ── FOOTER ── */}

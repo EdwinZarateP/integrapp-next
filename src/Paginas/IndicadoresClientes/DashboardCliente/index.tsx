@@ -81,6 +81,9 @@ type ApiResponse = {
 // informe_guias_tms — sin Mongo, sin consecutivo de vehículo ni cajas).
 type FilaGuia = {
   guia: string;
+  // (2026-10-31) Nombre del cliente en el TMS — distingue Kabi de FK Servicio
+  // Técnico en los Excel (etiquetas del filtro «Cliente interno»).
+  nombre_cliente: string | null;
   planilla: string | null;      // n° de planilla del TMS (null si '0'/vacía)
   ciudad_destino: string | null;
   destinatario: string | null;
@@ -115,6 +118,12 @@ type FilaGuia = {
     nombre?: string;
     fecha?: string;
   } | null;
+  // (2026-10-31) Lógica OT del Excel real: clasificación y veredicto.
+  tipo_servicio?: string;      // SERVICIO TECNICO | CARGA | RECOLECCION | DEVOLUCION | MUESTRA DE CALIDAD
+  tipo_st?: string;            // ENVIO DIRECTO | RECOLECCION | NO ES ST
+  ruta?: string;               // URBANO | NACIONAL
+  dias_promesa?: number | null;
+  cumple_novedad?: boolean;    // novedad del TMS: auto-cumple
 };
 
 type ResumenGuias = {
@@ -129,23 +138,24 @@ type ResumenGuias = {
   ot_justificadas: number;
   ot_no_evaluables: number;
   ot_pct: number | null;
+  // (2026-10-31) Cards de la pestaña Operación: distintos sobre las guías
+  // ENTREGADAS del período filtrado.
+  destinatarios_atendidos?: number;
+  ciudades_atendidas?: number;
 };
 
 type PaginacionGuias = { pagina: number; limite: number; total: number; hay_mas: boolean };
 
 // Bucket del gráfico OT — lo agrega el BACKEND (misma pasada que la tabla).
-// Bucket = FECHA DE EMISIÓN; segmentos = división real de estados del TMS
-// (ENTREGADO partido en cumplieron/no cumplieron + estados en curso).
+// (2026-10-31) Bucket = FECHA DE EMISIÓN; segmentos = los 4 VEREDICTOS del
+// Excel real: las guías en curso SÍ se juzgan (contra HOY) y cualquier
+// novedad auto-cumple. evaluables YA incluye a conNovedad.
 type BucketOT = {
   periodo: string;
   cumplieron: number;
   noCumplieron: number;
-  justificadas: number;
-  con_novedad: number;
-  en_distribucion: number;
-  transito: number;
-  pendiente: number;
-  sin_info: number;
+  conNovedad: number;
+  noAplica: number;
   evaluables: number;
   total: number;
 };
@@ -167,25 +177,23 @@ const useEsMovil = () => {
 
 // Definición única de los segmentos del gráfico OT (orden de la pila, color,
 // etiqueta y explicación para title/tooltip) — barras, leyenda y tooltip.
+// (2026-10-31) 4 segmentos de VEREDICTO (lógica del Excel real): «No
+// cumplieron» incluye guías en curso ya VENCIDAS; «Con novedad» auto-cumple.
 const SEGMENTOS_OT: { clave: keyof BucketOT; color: string; etiqueta: string; explica: string }[] = [
-  { clave: 'cumplieron', color: '#15803d', etiqueta: 'Cumplieron', explica: 'ENTREGADO en fecha ≤ fecha promesa (días hábiles)' },
-  { clave: 'noCumplieron', color: '#b91c1c', etiqueta: 'No cumplieron', explica: 'ENTREGADO después de la fecha promesa' },
-  { clave: 'justificadas', color: '#4a3aa7', etiqueta: 'Cumplieron con novedad', explica: 'Con novedad justificada (causal + justificación cargados en Novedades OT): cuentan como cumplidas en el % OT' },
-  { clave: 'en_distribucion', color: '#eda100', etiqueta: 'En distribución', explica: 'Estado TMS: En distribucion' },
-  { clave: 'transito', color: '#2a78d6', etiqueta: 'Tránsito Nacional', explica: 'Estado TMS: Transito Nacional' },
-  { clave: 'pendiente', color: '#94a3b8', etiqueta: 'Pendiente', explica: 'Estado TMS: PENDIENTE' },
-  { clave: 'con_novedad', color: '#eb6834', etiqueta: 'Con novedad', explica: 'Entrega con novedad reportada (el bot sigue actualizándola)' },
-  { clave: 'sin_info', color: '#cbd5e1', etiqueta: 'Sin info', explica: 'Sin estado servible del TMS, o ENTREGADO sin fecha de entrega (no evaluable)' },
+  { clave: 'cumplieron', color: '#15803d', etiqueta: 'Cumplieron', explica: 'Entregadas (o en curso sin vencer) dentro de la cita o la fecha promesa' },
+  { clave: 'noCumplieron', color: '#b91c1c', etiqueta: 'No cumplieron', explica: 'Después de la cita/promesa — incluye guías en curso ya VENCIDAS' },
+  { clave: 'conNovedad', color: '#4a3aa7', etiqueta: 'Con novedad', explica: 'Con novedad del TMS o justificada (/Novedades OT): cuentan como cumplidas en el % OT' },
+  { clave: 'noAplica', color: '#94a3b8', etiqueta: 'No aplica', explica: 'Sin promesa evaluable (no cuentan en el % OT)' },
 ];
 
 // (2026-10-30) OT agregado por un campo PG (ciudad_destino / destinatario)
 // para las barras horizontales del portal de clientes — mismos conteos del
-// % OT (justificadas cuentan como cumplidas).
+// % OT («con novedad» cuentan como cumplidas).
 type OTPorCampo = {
   clave: string;
   cumplieron: number;
   no_cumplieron: number;
-  justificadas: number;
+  con_novedad: number;
   evaluables: number;
   total: number;
   pct: number;
@@ -327,9 +335,10 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const esMovil = useEsMovil();
 
   // (2026-10-30) Pestañas del portal de clientes: «Gerenciales» (todos los
-  // gráficos) y «Operación» (consulta de guía en Siscore por SOAP — el
-  // mismo servicio del bot de WhatsApp).
-  const [pestanaPortal, setPestanaPortal] = useState<'gerenciales' | 'operacion'>('gerenciales');
+  // gráficos), «Operación» (cards de atención del período) y «Trazabilidad»
+  // (consulta de guía en Siscore por SOAP — el mismo servicio del bot de
+  // WhatsApp; nació como «Operación» y se movió aquí 2026-10-31).
+  const [pestanaPortal, setPestanaPortal] = useState<'gerenciales' | 'operacion' | 'trazabilidad'>('gerenciales');
   const [inputGuiaOp, setInputGuiaOp] = useState('');
   const [tlHayMas, setTlHayMas] = useState(false);
   const tlRef = useRef<HTMLDivElement | null>(null);
@@ -924,13 +933,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     setDiaOT(null);
   };
 
-  // % OT por período para etiqueta y tooltip — evaluables + JUSTIFICADAS:
-  // las justificadas cuentan como cumplidas (numerador y denominador).
-  const pctOT = (d: { cumplieron: number; justificadas: number; evaluables: number }) => {
-    const base = d.evaluables + d.justificadas;
+  // % OT por período para etiqueta y tooltip (2026-10-31): evaluables YA
+  // incluye a «con novedad» (auto-cumplen: numerador y denominador).
+  const pctOT = (d: { cumplieron: number; conNovedad: number; evaluables: number }) => {
     // 1 decimal (2026-10-30: antes redondeaba a entero y el gráfico de meta
     // mostraba "79,0" — un decimal falso sobre un entero).
-    return base > 0 ? Math.round(((d.cumplieron + d.justificadas) / base) * 1000) / 10 : null;
+    return d.evaluables > 0 ? Math.round(((d.cumplieron + d.conNovedad) / d.evaluables) * 1000) / 10 : null;
   };
 
   // ── Uso de vehículos: agregaciones de los 4 niveles del drill-down ──
@@ -1065,7 +1073,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const exportarUsoExcel = () => {
     const datos = filasUsoAlcance.map(f => ({
       'Vehículo': f.consecutivo_vehiculo,
-      'Fecha': f.fecha ? formatearFecha(f.fecha) : '',
+      'Fecha': f.fecha ? formatearFechaExcel(f.fecha) : '',
       '% Uso': f.uso_pct ?? '',
       'Destino': f.destino || '',
       'Veh Solicitado': f.tipo_solicitado,
@@ -1113,17 +1121,16 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const colorMetaOT = (pct: number) => (pct >= 96 ? '#15803d' : pct >= 90 ? '#ea580c' : '#b91c1c');
 
   // % del gauge: el del DÍA en zoom si hay, si no el del período filtrado
-  // (resumen.ot_pct — justificadas cuentan como cumplidas).
+  // (resumen.ot_pct — «con novedad» cuentan como cumplidas).
   const gaugeOT = useMemo(() => {
     if (diaOT && bucketDiaOT) {
       // 1 decimal (mismo formato del resumen): redondeo a décimas, no enteros.
       const b = bucketDiaOT;
-      const base = b.evaluables + b.justificadas;
-      const pct = base > 0 ? Math.round(((b.cumplieron + b.justificadas) / base) * 1000) / 10 : null;
+      const pct = b.evaluables > 0 ? Math.round(((b.cumplieron + b.conNovedad) / b.evaluables) * 1000) / 10 : null;
       return {
         pct,
-        cumplidas: pct != null ? bucketDiaOT.cumplieron + bucketDiaOT.justificadas : null,
-        evaluables: bucketDiaOT.evaluables + bucketDiaOT.justificadas,
+        cumplidas: pct != null ? b.cumplieron + b.conNovedad : null,
+        evaluables: b.evaluables,
         alcance: format(parseISO(diaOT), "d 'de' MMMM yyyy", { locale: es }),
       };
     }
@@ -1144,8 +1151,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     () => dataOT.map(b => ({
       periodo: b.periodo,
       pct: pctOT(b),
-      cumplidas: b.cumplieron + b.justificadas,
-      evaluables: b.evaluables + b.justificadas,
+      cumplidas: b.cumplieron + b.conNovedad,
+      evaluables: b.evaluables,
     })),
     [dataOT]
   );
@@ -1380,10 +1387,10 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       <div className="IG-tooltipSerie">
         <p className="IG-tooltipSerieFecha">{d.clave}</p>
         <p>Cumplieron: <b>{formatearEntero(d.cumplieron)}</b></p>
-        <p>Cumplieron con novedad: <b>{formatearEntero(d.justificadas)}</b></p>
+        <p>Con novedad: <b>{formatearEntero(d.con_novedad)}</b></p>
         <p>No cumplieron: <b>{formatearEntero(d.no_cumplieron)}</b></p>
         <p className="IG-tooltipSerieSub">
-          {d.pct}% OT · {formatearEntero(d.cumplieron + d.justificadas)} de {formatearEntero(d.evaluables)} evaluables · {formatearEntero(d.total)} guías
+          {d.pct}% OT · {formatearEntero(d.cumplieron + d.con_novedad)} de {formatearEntero(d.evaluables)} evaluables · {formatearEntero(d.total)} guías
         </p>
       </div>
     );
@@ -1440,7 +1447,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                     </span>
                     {abierta && (
                       <span className="DC-otCampoDetalle">
-                        Cumplieron {formatearEntero(d.cumplieron)} · Con novedad {formatearEntero(d.justificadas)} · No cumplieron {formatearEntero(d.no_cumplieron)} · {formatearEntero(d.total)} guías ({formatearEntero(d.evaluables)} evaluables)
+                        Cumplieron {formatearEntero(d.cumplieron)} · Con novedad {formatearEntero(d.con_novedad)} · No cumplieron {formatearEntero(d.no_cumplieron)} · {formatearEntero(d.total)} guías ({formatearEntero(d.evaluables)} evaluables)
                       </span>
                     )}
                   </button>
@@ -1513,11 +1520,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       pct = pctOT(d);
     } else {
       // % OT solo sobre los segmentos OT de la selección (cumplieron /
-      // noCumplieron / justificadas); si la selección no toca evaluables,
+      // noCumplieron / conNovedad); si la selección no toca evaluables,
       // no se muestra (no aplica a lo que se está viendo).
       const c = segSelOT.has('cumplieron') ? d.cumplieron : 0;
       const n = segSelOT.has('noCumplieron') ? d.noCumplieron : 0;
-      const j = segSelOT.has('justificadas') ? d.justificadas : 0;
+      const j = segSelOT.has('conNovedad') ? d.conNovedad : 0;
       const base = c + n + j;
       pct = c + n > 0 ? Math.round(((c + j) / base) * 1000) / 10 : null;
     }
@@ -1535,7 +1542,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           </p>
         ) : (
           <p className="IG-tooltipSerieSub">
-            Evaluables: {formatearEntero(d.evaluables + d.justificadas)} (con novedad cuentan como cumplidas){pct != null ? ` · ${pct.toFixed(1).replace('.', ',')}% OT` : ''} · Total: {formatearEntero(d.total)}
+            Evaluables: {formatearEntero(d.evaluables)} (con novedad cuentan como cumplidas){pct != null ? ` · ${pct.toFixed(1).replace('.', ',')}% OT` : ''} · Total: {formatearEntero(d.total)}
           </p>
         )}
       </div>
@@ -1650,12 +1657,32 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     return m ? `${m[3]}-${m[2]}-${m[1]}` : v;
   };
 
+  // (2026-10-31) Fechas para los EXCEL: DD/MM/AAAA con barra (a pedido del
+  // usuario; la tabla en pantalla conserva DD-MM-AAAA). Excel-ES la lee como
+  // fecha nativa al abrir el archivo.
+  const formatearFechaExcel = (v: string | null): string => {
+    if (!v) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
+  };
+
+  // (2026-10-31) Etiqueta visible del cliente TMS — espejo de pg_grupos del
+  // backend (la variante concatenada vieja viaja con servicio técnico).
+  const ETIQUETA_CLIENTE_TMS: Record<string, string> = {
+    'FRESENIUS KABI': 'Fresenius Kabi',
+    'FK SERVICIO TECNICO': 'FK Servicio Técnico',
+    'FRESENIUSKABISERVICIOTECNICO': 'FK Servicio Técnico',
+  };
+  const etiquetaClienteTMS = (f: FilaGuia) =>
+    ETIQUETA_CLIENTE_TMS[f.nombre_cliente ?? ''] ?? f.nombre_cliente ?? '';
+
   // Fila de guía → objeto plano para Excel (compartido por el export del
-  // informe y el del gráfico On Time). Fechas ya en DD-MM-AAAA. «F. Conteo OT»
-  // = el criterio EXACTO con el que bucketa el gráfico On Time (fecha de
-  // ENTREGA; fallback emisión si aún no hay entrega) — filtrando el Excel por
-  // esta columna se replica la altura de las barras.
+  // informe y el del detalle del día). Fechas ya en DD-MM-AAAA. «F. Conteo OT»
+  // = el criterio EXACTO con el que bucketa el gráfico On Time (FECHA DE
+  // EMISIÓN, desde 2026-10-29) — filtrando el Excel por esta columna se
+  // replica la altura de las barras.
   const filaGuiaAExport = (f: FilaGuia) => ({
+    'Cliente': etiquetaClienteTMS(f),
     'Guía': f.guia,
     'Planilla': f.planilla ?? '',
     'Destino': f.ciudad_destino ?? '',
@@ -1666,19 +1693,81 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     'Estado': f.estado ?? '',
     'Novedad TMS': f.novedad_tms ?? '',
     'Estado Crudo': f.estado_crudo && !f.estado ? f.estado_crudo : '',
-    'F. Conteo OT': formatearFecha(f.fecha_entrega || f.fecha_emision),
-    'F. Emisión': f.fecha_emision ? formatearFecha(f.fecha_emision) : '',
-    'F. Entrega': f.fecha_entrega ? formatearFecha(f.fecha_entrega) : '',
-    'F. Promesa': f.fecha_promesa ? formatearFecha(f.fecha_promesa) : '',
+    'F. Conteo OT': formatearFechaExcel(f.fecha_emision),
+    'F. Emisión': f.fecha_emision ? formatearFechaExcel(f.fecha_emision) : '',
+    'F. Entrega': f.fecha_entrega ? formatearFechaExcel(f.fecha_entrega) : '',
+    'F. Promesa': f.fecha_promesa ? formatearFechaExcel(f.fecha_promesa) : '',
     'Origen Promesa': f.origen_promesa ?? '',
     'Días Hábiles': f.dias_habiles ?? '',
     'OT': f.ot ?? '',
-    'F. Digitalización': f.fecha_digitalizacion ? formatearFecha(f.fecha_digitalizacion) : '',
-    'F. Cita': f.fecha_cita ? formatearFecha(f.fecha_cita) : '',
+    'F. Digitalización': f.fecha_digitalizacion ? formatearFechaExcel(f.fecha_digitalizacion) : '',
+    'F. Cita': f.fecha_cita ? formatearFechaExcel(f.fecha_cita) : '',
     'Causal (justificada)': f.novedad?.causal ?? '',
     'Justificación': f.novedad?.justificacion ?? '',
     'Registrada por': f.novedad ? (f.novedad.nombre || f.novedad.usuario || '') : '',
   });
+
+  // (2026-10-31) Fila para la hoja «Guías» del export del gráfico On Time y la
+  // hoja «Detalle» del modal de día: orden de lectura profesional — la guía,
+  // CUÁNDO se emitió, cuándo se entregó, cuál era la promesa, cuántos días de
+  // diferencia hubo y si cumplió; después el estado/segmento y el contexto.
+  // - «Días vs Promesa» = referencia − fecha juzgada en calendario. La
+  //   referencia es la ENTREGA; si aún no se entrega, HOY (regla del Excel:
+  //   en curso cuenta como cumple mientras no venza). La fecha juzgada es la
+  //   cita si origen CITA, si no la promesa. Negativo = antes; 0 = justo.
+  // - «Cumplió»: SÍ/NO en texto; para guías en curso se marca el estado.
+  const diasVsPromesa = (f: FilaGuia): number | '' => {
+    // Parseo seguro: ISO 'YYYY-MM-DD' o D/M/YYYY (la cita cruda del TMS —
+    // new Date('5/9/2026') la leería al revés como mes/día).
+    const parseFecha = (t?: string | null): number | null => {
+      if (!t) return null;
+      const s = String(t).slice(0, 10).trim();
+      const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]).getTime();
+      const dm = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (dm) return new Date(+dm[3], +dm[2] - 1, +dm[1]).getTime();
+      return null;
+    };
+    const juzgada = parseFecha(f.origen_promesa === 'CITA' ? (f.fecha_cita || f.fecha_promesa) : f.fecha_promesa);
+    const ref = f.fecha_entrega ? parseFecha(f.fecha_entrega) : Date.now();
+    if (juzgada == null || ref == null) return '';
+    const d = Math.round((ref - juzgada) / 86400000);
+    return Number.isFinite(d) ? d : '';
+  };
+  const filaOTExcel = (f: FilaGuia) => {
+    const base = filaGuiaAExport(f);
+    const seg = SEGMENTOS_OT.find(s => s.clave === segmentoDeFila(f));
+    const enCurso = !f.fecha_entrega;
+    let cumplio = '';
+    if (f.ot === 1) cumplio = enCurso ? 'SÍ (en curso)' : 'SÍ';
+    else if (f.ot === 0) cumplio = enCurso ? 'NO (en curso, vencida)' : 'NO';
+    return {
+      'Cliente': base['Cliente'],
+      'Guía': base['Guía'],
+      'Tipo Servicio': f.tipo_servicio ?? '',
+      'F. Emisión': base['F. Emisión'],
+      'F. Entrega': base['F. Entrega'],
+      'F. Promesa': base['F. Promesa'],
+      'Origen Promesa': base['Origen Promesa'],
+      'Días vs Promesa': diasVsPromesa(f),
+      'Días Hábiles': base['Días Hábiles'],
+      'Cumplió': cumplio,
+      'Estado': base['Estado'],
+      'Resultado': seg?.etiqueta ?? '',
+      'Novedad TMS': base['Novedad TMS'],
+      'Destino': base['Destino'],
+      'Destinatario': base['Destinatario'],
+      'Planilla': base['Planilla'],
+      'Servicio': base['Servicio'],
+      'Piezas': base['Piezas'],
+      'Kilos': base['Kilos'],
+      'F. Cita': base['F. Cita'],
+      'F. Digitalización': base['F. Digitalización'],
+      'Causal (justificada)': base['Causal (justificada)'],
+      'Justificación': base['Justificación'],
+      'Registrada por': base['Registrada por'],
+    };
+  };
 
   // Export Excel (.xlsx) del informe — SheetJS, mismo patrón que el Export de
   // Tarifas. Exporta el RANGO COMPLETO del alcance visible (período o
@@ -1696,7 +1785,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(datos);
       ws['!cols'] = [
-        { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
+        { wch: 19 }, { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
         { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 14 },
         { wch: 12 }, { wch: 12 }, { wch: 12 },
         { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
@@ -1714,17 +1803,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // Segmento OT de una fila de guía — ESPEJO del _serie_ot del backend (mismo
   // orden de prioridad: novedad > ot > estado) para filtrar el Excel del OT
   // por el filtro de leyenda activo y para el detalle del día.
+  // (2026-10-31) Segmento de VEREDICTO (lógica del Excel real): novedad (TMS
+  // o justificada manual) auto-cumple; las en curso se juzgan contra HOY así
+  // que caen en cumplieron/noCumplieron según venza o no su cita/promesa.
   const segmentoDeFila = (f: FilaGuia): string => {
-    if (f.novedad) return 'justificadas';
+    if (f.novedad || f.cumple_novedad) return 'conNovedad';
     if (f.ot === 1) return 'cumplieron';
     if (f.ot === 0) return 'noCumplieron';
-    switch (f.estado) {
-      case 'CON NOVEDAD': return 'con_novedad';
-      case 'En distribucion': return 'en_distribucion';
-      case 'Transito Nacional': return 'transito';
-      case 'PENDIENTE': return 'pendiente';
-      default: return 'sin_info';
-    }
+    return 'noAplica';
   };
 
   // ── Detalle del día (2026-10-30) ──
@@ -1765,15 +1851,18 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const exportarDetalleDia = () => {
     const seg = SEGMENTOS_OT.find(s => s.clave === detalleSegOT);
     if (!seg || !filasDetalleDia.length) return;
-    const datos = filasDetalleDia.map(filaGuiaAExport);
+    // (2026-10-31) Misma fila analizadora que la hoja «Guías» del export OT:
+    // cálculo del OT adelante (emisión → promesa y su origen → entrega →
+    // veredicto) + estado y, si la tiene, la justificación al final.
+    const datos = filasDetalleDia.map(filaOTExcel);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(datos);
     ws['!cols'] = [
-      { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
-      { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 14 },
-      { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
-      { wch: 20 }, { wch: 40 }, { wch: 18 },
+      { wch: 19 }, { wch: 13 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+      { wch: 15 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 20 },
+      { wch: 20 }, { wch: 18 }, { wch: 26 }, { wch: 10 }, { wch: 12 },
+      { wch: 8 }, { wch: 9 }, { wch: 12 }, { wch: 14 }, { wch: 20 },
+      { wch: 40 }, { wch: 18 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Detalle');
     XLSX.writeFile(wb, `detalle_ot_${clienteId}_${diaOT}_${seg.etiqueta.toLowerCase().replace(/[^a-z0-9]+/g, '-')}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
@@ -1810,7 +1899,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       const resumenSel = (b: BucketOT) => {
         const sel = (clave: string) =>
           !filtrandoSeg || segSelOT.has(clave) ? (b[clave as keyof BucketOT] as number) : 0;
-        const c = sel('cumplieron'), n = sel('noCumplieron'), j = sel('justificadas');
+        const c = sel('cumplieron'), n = sel('noCumplieron'), j = sel('conNovedad');
         const evaluables = c + n + j;
         return {
           sel,
@@ -1834,12 +1923,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
 
       // ② Hoja «Guías»: base del filtro vigente, recortada al día del zoom y
       // a los segmentos de la leyenda (client-side: la API no conoce día ni
-      // segmentos).
+      // segmentos). Lleva ADELANTE el detalle del cálculo del OT (filaOTExcel).
       const { filas } = await obtenerFilasGuias(new URLSearchParams({ pagina: '1', limite: '30000' }));
       let filasHoja = filas;
       if (diaZoom) filasHoja = filasHoja.filter(f => (f.fecha_emision || '').startsWith(diaZoom));
       if (filtrandoSeg) filasHoja = filasHoja.filter(f => segSelOT.has(segmentoDeFila(f)));
-      const hojaGuias = filasHoja.map(filaGuiaAExport);
+      const hojaGuias = filasHoja.map(filaOTExcel);
 
       const wb = XLSX.utils.book_new();
       const wsOT = XLSX.utils.json_to_sheet(hojaOT);
@@ -1847,11 +1936,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       XLSX.utils.book_append_sheet(wb, wsOT, 'On Time');
       const wsGuias = XLSX.utils.json_to_sheet(hojaGuias);
       wsGuias['!cols'] = [
-        { wch: 13 }, { wch: 10 }, { wch: 18 }, { wch: 26 }, { wch: 12 },
-        { wch: 8 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 14 },
-        { wch: 12 }, { wch: 12 }, { wch: 12 },
-        { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 6 }, { wch: 14 }, { wch: 12 },
-        { wch: 20 }, { wch: 40 }, { wch: 18 },
+        { wch: 19 }, { wch: 13 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+        { wch: 15 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 20 },
+        { wch: 20 }, { wch: 18 }, { wch: 26 }, { wch: 10 }, { wch: 12 },
+        { wch: 8 }, { wch: 9 }, { wch: 12 }, { wch: 14 }, { wch: 20 },
+        { wch: 40 }, { wch: 18 },
       ];
       XLSX.utils.book_append_sheet(wb, wsGuias, 'Guías');
       XLSX.writeFile(wb, `on_time_${clienteId}${diaZoom ? `_${diaZoom}` : ''}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
@@ -2451,8 +2540,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           </div>
         ) : (
           <>
-            {/* (2026-10-30) Pestañas del portal: «Gerenciales» (gráficos)
-                y «Operación» (consulta de guía en Siscore). */}
+            {/* (2026-10-31) Pestañas del portal: «Gerenciales» (gráficos),
+                «Operación» (cards de atención) y «Trazabilidad» (consulta de
+                guía en Siscore). */}
             {modoExterno && (
               <div className="DC-pestanas" role="tablist" aria-label="Secciones del portal">
                 <button
@@ -2473,12 +2563,42 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                 >
                   🚛 Operación
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={pestanaPortal === 'trazabilidad'}
+                  className={`DC-pestanaBtn ${pestanaPortal === 'trazabilidad' ? 'DC-pestanaBtnActiva' : ''}`}
+                  onClick={() => setPestanaPortal('trazabilidad')}
+                >
+                  🧭 Trazabilidad
+                </button>
               </div>
             )}
 
-            {/* (2026-10-30) Vista OPERACIÓN: consulta de guía en Siscore por
-                SOAP — mismo servicio del bot de WhatsApp. */}
+            {/* (2026-10-31) Vista OPERACIÓN: cards de atención del período
+                filtrado (mismos datos del fetch de /guias). */}
             {modoExterno && pestanaPortal === 'operacion' && (
+              <div className="DC-opStats">
+                {([
+                  { icono: '📦', etiqueta: 'Pedidos entregados', valor: resumenGuias?.entregadas },
+                  { icono: '👥', etiqueta: 'Destinatarios atendidos', valor: resumenGuias?.destinatarios_atendidos },
+                  { icono: '📍', etiqueta: 'Ciudades atendidas', valor: resumenGuias?.ciudades_atendidas },
+                ] as const).map(c => (
+                  <div key={c.etiqueta} className="DC-opStat">
+                    <span className="DC-opStatIcono" aria-hidden="true">{c.icono}</span>
+                    <span className={`DC-opStatValor ${cargandoGuias ? 'DC-opStatShimmer' : ''}`}>
+                      {cargandoGuias ? '' : formatearEntero(c.valor ?? 0)}
+                    </span>
+                    <span className="DC-opStatLabel">{c.etiqueta}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* (2026-10-30) Vista TRAZABILIDAD (nació como Operación): consulta
+                de guía en Siscore por SOAP — mismo servicio del bot de
+                WhatsApp. */}
+            {modoExterno && pestanaPortal === 'trazabilidad' && (
               <div className="IG-graficoContainer DC-opCard">
                 <div className="IG-graficoHeader">
                   <div className="IG-graficoTituloWrap">
@@ -2542,6 +2662,52 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                             </span>
                           )}
                         </div>
+                        {/* (2026-10-31) Veredicto OT de la guía — mismo cálculo
+                            del informe (backend _calcular_ot_filas, lógica del
+                            Excel real): en curso se juzga contra HOY y la
+                            novedad (TMS o justificada) auto-cumple (morado). */}
+                        {resultadoGuiaOp.ot && (() => {
+                          const ot = resultadoGuiaOp.ot;
+                          const fmt = (f: string) => f ? formatearFecha(f.slice(0, 10)).replaceAll('-', '/') : '';
+                          const conNovedad = ot.cumple_novedad || resultadoGuiaOp.justificada;
+                          let chip = 'No aplica', clase = 'DC-opChipOTSin', detalle = '';
+                          if (conNovedad) {
+                            chip = '✔ Con novedad';
+                            clase = 'DC-opChipOTJust';
+                            detalle = ot.entregada
+                              ? `Entregada el ${fmt(ot.fecha_entrega)} — cuenta como cumplida`
+                              : 'En curso — cuenta como cumplida';
+                          } else if (ot.ot === 1) {
+                            chip = ot.entregada ? '✔ Cumplió' : '✔ En curso';
+                            clase = 'DC-opChipOTOk';
+                            detalle = ot.entregada
+                              ? `Entrega ${fmt(ot.fecha_entrega)} ≤ ${ot.origen_promesa === 'CITA' ? 'cita' : 'promesa'} ${fmt(ot.fecha_promesa)}`
+                              : `Promesa ${fmt(ot.fecha_promesa)} aún no vence`;
+                          } else if (ot.ot === 0) {
+                            chip = ot.entregada ? '✘ No cumplió' : '✘ Vencida (en curso)';
+                            clase = 'DC-opChipOTNo';
+                            detalle = ot.entregada
+                              ? `Entrega ${fmt(ot.fecha_entrega)} > ${ot.origen_promesa === 'CITA' ? 'cita' : 'promesa'} ${fmt(ot.fecha_promesa)}`
+                              : `Promesa ${fmt(ot.fecha_promesa)} ya venció`;
+                          } else if (ot.entregada) {
+                            detalle = 'Entregada sin fecha de promesa evaluable';
+                          } else {
+                            detalle = 'En curso sin promesa evaluable';
+                          }
+                          const title = [
+                            'On Time: entrega (o hoy si va en curso) vs cita/fecha promesa — misma regla del informe',
+                            ot.fecha_promesa ? `Promesa ${fmt(ot.fecha_promesa)} (${ot.origen_promesa === 'CITA' ? 'cita' : ot.origen_promesa === 'FALLBACK' ? 'fallback 12/8' : 'tabla de tiempos'})` : null,
+                            ot.tipo_servicio ? `Tipo ${ot.tipo_servicio}${ot.ruta ? ` · ruta ${ot.ruta.toLowerCase()}` : ''}` : null,
+                            ot.dias_habiles != null ? `${ot.dias_habiles} días hábiles hasta la entrega` : null,
+                          ].filter(Boolean).join('\n');
+                          return (
+                            <div className="DC-opEstadoActual DC-opOT" title={title}>
+                              <span className="DC-opEstadoLabel">On Time</span>
+                              <span className={`DC-opEstadoChip ${clase}`}>{chip}</span>
+                              {detalle && <span className="DC-opEstadoFecha">{detalle}</span>}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* (2026-10-30) Novedad JUSTIFICADA de la guía (Mongo,
@@ -3554,7 +3720,7 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                     </div>
                     <div
                       className="DC-guiaTile DC-guiaTileOT"
-                      title={`On Time: ${resumenGuias.ot_cumplen + resumenGuias.ot_justificadas}/${resumenGuias.ot_cumplen + resumenGuias.ot_no_cumplen + resumenGuias.ot_justificadas} guías cumplidas (dentro de la fecha promesa en días hábiles + justificadas)`}
+                      title={`On Time: ${resumenGuias.ot_cumplen + resumenGuias.ot_justificadas}/${resumenGuias.ot_cumplen + resumenGuias.ot_no_cumplen + resumenGuias.ot_justificadas} guías cumplidas (dentro de la cita/promesa, con las de novedad contando como cumplidas)`}
                     >
                       <span className="DC-guiaTileValor">
                         {resumenGuias.ot_pct != null ? `${resumenGuias.ot_pct}%` : '—'}

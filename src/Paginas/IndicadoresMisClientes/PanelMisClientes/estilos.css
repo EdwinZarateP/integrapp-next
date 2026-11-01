@@ -13,7 +13,7 @@
 
 /* ── Header ─────────────────────────────────────────────── */
 .MC-header {
-  background: #0f1928;
+  background: #000;
   color: #fff;
   position: sticky;
   top: 0;
@@ -48,7 +48,7 @@
   letter-spacing: 0.3px;
   color: #fff;
 }
-.MC-brandAccent { color: #e8a000; }
+.MC-brandAccent { color: #98C74C; }
 
 .MC-titulo {
   font-size: 1.05rem;
@@ -75,7 +75,7 @@
 }
 .MC-userBtn:hover { background: rgba(255, 255, 255, 0.12); }
 
-.MC-userIcon { font-size: 1.4rem; color: #e8a000; }
+.MC-userIcon { font-size: 1.4rem; color: #98C74C; }
 
 .MC-userInfo {
   display: flex;

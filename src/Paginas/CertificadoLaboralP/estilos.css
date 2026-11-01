@@ -1,4 +1,4 @@
-/* ── Layout raíz ── */
+/* â”€â”€ Layout raÃ­z â”€â”€ */
 .CLP-layout {
   display: flex;
   flex-direction: column;
@@ -7,9 +7,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .CLP-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -42,9 +42,9 @@
   letter-spacing: -0.3px;
 }
 
-.CLP-brandAccent { color: #e8a000; }
+.CLP-brandAccent { color: #98C74C; }
 
-/* ── MAIN ── */
+/* â”€â”€ MAIN â”€â”€ */
 .CLP-main {
   flex: 1;
   display: flex;
@@ -53,7 +53,7 @@
   padding: 48px 24px;
 }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .CLP-footer {
   background: #0f1928;
   border-top: 1px solid rgba(255,255,255,.05);
@@ -101,7 +101,7 @@
   color: rgba(255,255,255,.25);
 }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 600px) {
   .CLP-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
   .CLP-footerLinks { display: none; }

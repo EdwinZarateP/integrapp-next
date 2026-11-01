@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- */
-/* 1. CONFIGURACIÓN GLOBAL Y RESET                                            */
+/* 1. CONFIGURACIÃ“N GLOBAL Y RESET                                            */
 /* -------------------------------------------------------------------------- */
 * {
   box-sizing: border-box;
@@ -31,7 +31,7 @@ select:focus-visible {
 /* 2. BARRA SUPERIOR (HEADER)                                                 */
 /* -------------------------------------------------------------------------- */
 .barra-superior {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   color: #fff;
   display: flex;
   align-items: center;
@@ -68,7 +68,7 @@ select:focus-visible {
 }
 
 .barra-marca-acento {
-  color: #e8a000;
+  color: #98C74C;
 }
 
 .barra-derecha {
@@ -77,7 +77,7 @@ select:focus-visible {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 2b. HUB DE MÓDULOS (pantalla inicial del panel)                            */
+/* 2b. HUB DE MÃ“DULOS (pantalla inicial del panel)                            */
 /* -------------------------------------------------------------------------- */
 .pc-hub {
   width: calc(100% - 40px);
@@ -106,7 +106,7 @@ select:focus-visible {
   gap: 14px;
 }
 
-/* Tarjeta de módulo (patrón LU-clienteCard de /LoginUsuario) */
+/* Tarjeta de mÃ³dulo (patrÃ³n LU-clienteCard de /LoginUsuario) */
 .pc-moduloCard {
   display: flex;
   align-items: center;
@@ -189,7 +189,7 @@ select:focus-visible {
   flex-shrink: 0;
 }
 
-/* Botón "← Menú" del stepper (vuelve al hub): píldora compacta en la fila */
+/* BotÃ³n "â† MenÃº" del stepper (vuelve al hub): pÃ­ldora compacta en la fila */
 .btn-sidebar-volver {
   flex: 0 0 auto;
   align-self: center;
@@ -212,7 +212,7 @@ select:focus-visible {
   border-color: #b8c2cf;
 }
 
-/* Botón usuario + menú (patrón del header de /Pedidos) */
+/* BotÃ³n usuario + menÃº (patrÃ³n del header de /Pedidos) */
 .barra-derecha {
   position: relative;
 }
@@ -321,17 +321,17 @@ select:focus-visible {
 .menu-itemDanger { color: #c9302c; }
 .menu-itemDanger:hover { background: #fff5f5; }
 
-/* «Volver a Seguridad» (solo sesión impersonada): violeta de Modo Seguridad. */
+/* Â«Volver a SeguridadÂ» (solo sesiÃ³n impersonada): violeta de Modo Seguridad. */
 .menu-itemSeguridad { color: #8e44ad; }
 .menu-itemSeguridad:hover { background: #f8f0fc; }
 
 /* -------------------------------------------------------------------------- */
 /* 3. LAYOUT PRINCIPAL                                                        */
 /* -------------------------------------------------------------------------- */
-/* ESCRITORIO: app-shell como /revision — la columna de navegación va PEGADA
+/* ESCRITORIO: app-shell como /revision â€” la columna de navegaciÃ³n va PEGADA
    al borde izquierdo a toda altura (blanca, con filo derecho) y el contenido
    aprovecha todo el anchura restante; solo la tarjeta de contenido flota
-   sobre el fondo gris. En móvil (≤900px) la columna se vuelve fila sticky. */
+   sobre el fondo gris. En mÃ³vil (â‰¤900px) la columna se vuelve fila sticky. */
 .layout-conductor {
   display: flex;
   flex-direction: row;
@@ -343,7 +343,7 @@ select:focus-visible {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. NAVEGACIÓN DE PASOS (columna en escritorio, fila sticky en móvil)       */
+/* 4. NAVEGACIÃ“N DE PASOS (columna en escritorio, fila sticky en mÃ³vil)       */
 /* -------------------------------------------------------------------------- */
 .sidebar-conductor {
   display: flex;
@@ -351,7 +351,7 @@ select:focus-visible {
   gap: 4px;
   flex: 0 0 252px;
   width: 252px;
-  /* Columna docked a toda altura (patrón /revision): al hacer scroll queda
+  /* Columna docked a toda altura (patrÃ³n /revision): al hacer scroll queda
      fija y con scroll propio; la barra superior mide 64px. */
   position: sticky;
   top: 0;
@@ -393,7 +393,7 @@ select:focus-visible {
   color: #2c3e50;
 }
 
-/* Activo: píldora suave + texto verde + filo izquierdo (patrón /revision). */
+/* Activo: pÃ­ldora suave + texto verde + filo izquierdo (patrÃ³n /revision). */
 .btn-sidebar-step.active {
   background: #e9f7ef;
   color: #1e8449;
@@ -401,7 +401,7 @@ select:focus-visible {
   font-weight: 600;
 }
 
-/* Divisor entre el flujo normal y el módulo de devueltos. */
+/* Divisor entre el flujo normal y el mÃ³dulo de devueltos. */
 .pc-nav-divisor {
   height: 1px;
   background: #e4e9ef;
@@ -456,7 +456,7 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   /* Sin min-height: la altura depende naturalmente del contenido
-     (antes quedaba un bloque de aire vacío debajo del paso 1). */
+     (antes quedaba un bloque de aire vacÃ­o debajo del paso 1). */
   position: relative;
   /* La tarjeta flota sobre el fondo gris con aire alrededor
      (el padding ya no lo pone .layout-conductor). */
@@ -495,13 +495,13 @@ select:focus-visible {
 
 /* Barras de Progreso */
 .progreso-header {
-  /* Pegada al borde superior al hacer scroll (mismo patrón de la barra del
-     paso 2): ancho COMPLETO de la tarjeta con márgenes negativos que escapan
-     al padding (30px escritorio); en móvil se recalibra debajo de la fila de
+  /* Pegada al borde superior al hacer scroll (mismo patrÃ³n de la barra del
+     paso 2): ancho COMPLETO de la tarjeta con mÃ¡rgenes negativos que escapan
+     al padding (30px escritorio); en mÃ³vil se recalibra debajo de la fila de
      pasos sticky (media queries de abajo). */
   position: sticky;
   top: 0;
-  z-index: 400; /* por debajo de la fila de pasos móvil (500) */
+  z-index: 400; /* por debajo de la fila de pasos mÃ³vil (500) */
   background: #fff;
   margin: 15px -30px 0;
   padding: 10px 30px;
@@ -527,7 +527,7 @@ select:focus-visible {
   background: #27ae60;
   height: 100%;
   border-radius: 4px;
-  /* Transición también del color: los tramos rojo/naranja/verde
+  /* TransiciÃ³n tambiÃ©n del color: los tramos rojo/naranja/verde
      (pv-fill--bajo/medio, mismos umbrales del paso 2) cambian suaves. */
   transition: width 0.5s ease, background 0.4s ease;
 }
@@ -616,11 +616,11 @@ select:focus-visible {
 }
 
 /* ========================================================================== */
-/* 6c. PASO 1 «Mis vehículos» — registro + tarjetas orientadas a acción        */
-/* (mobile-first: una columna, touch targets ≥46px, CTA protagonista)         */
+/* 6c. PASO 1 Â«Mis vehÃ­culosÂ» â€” registro + tarjetas orientadas a acciÃ³n        */
+/* (mobile-first: una columna, touch targets â‰¥46px, CTA protagonista)         */
 /* ========================================================================== */
 
-/* Línea compacta de conteos bajo el título (datos ya cargados, sin consultas). */
+/* LÃ­nea compacta de conteos bajo el tÃ­tulo (datos ya cargados, sin consultas). */
 .pv-resumen {
   margin: 6px 0 0;
   font-size: 0.85rem;
@@ -628,7 +628,7 @@ select:focus-visible {
   font-weight: 600;
 }
 
-/* --- Registrar vehículo nuevo --- */
+/* --- Registrar vehÃ­culo nuevo --- */
 .pv-registro {
   display: flex;
   flex-direction: column;
@@ -639,7 +639,7 @@ select:focus-visible {
   font-weight: 700;
   color: #2c3e50;
 }
-/* Banner «Modo consulta» (vehículo en revisión): solo lectura en pasos 2-3. */
+/* Banner Â«Modo consultaÂ» (vehÃ­culo en revisiÃ³n): solo lectura en pasos 2-3. */
 .pv-nota-lectura {
   padding: 12px 16px;
   margin-bottom: 16px;
@@ -651,9 +651,9 @@ select:focus-visible {
   border-radius: 8px;
 }
 
-/* Sesión IMPERSONADA (Seguridad entró vía login-como): banner violeta al
-   tope del panel — contexto claro de en nombre de quién se trabaja. */
-/* Aviso cuando un CONDUCTOR ya tiene su único vehículo posible: el
+/* SesiÃ³n IMPERSONADA (Seguridad entrÃ³ vÃ­a login-como): banner violeta al
+   tope del panel â€” contexto claro de en nombre de quiÃ©n se trabaja. */
+/* Aviso cuando un CONDUCTOR ya tiene su Ãºnico vehÃ­culo posible: el
    formulario de nueva placa se reemplaza por este mensaje. */
 .pv-registro-maximo {
   padding: 14px 16px;
@@ -687,10 +687,10 @@ select:focus-visible {
   font-weight: 600;
 }
 
-/* --- Tarjeta de vehículo por estado --- */
-/* --- Tarjetas de placa (paso 1): SOBRIAS — tarjeta neutra, la placa luce
+/* --- Tarjeta de vehÃ­culo por estado --- */
+/* --- Tarjetas de placa (paso 1): SOBRIAS â€” tarjeta neutra, la placa luce
        como placa y el estado habla con un punto de color, no con cajas
-       pintadas ni botones gigantes (rediseño 2026-10-01). --- */
+       pintadas ni botones gigantes (rediseÃ±o 2026-10-01). --- */
 .pv-card {
   border: 1px solid #e8edf2;
   border-radius: 14px;
@@ -710,7 +710,7 @@ select:focus-visible {
 .pv-card:last-child { margin-bottom: 0; }
 
 /* El color del estado vive SOLO en el punto del chip (antes: borde izquierdo
-   pintado + chip con fondo + botón verde a todo el ancho). */
+   pintado + chip con fondo + botÃ³n verde a todo el ancho). */
 .pv-card--inactivo { background: #fafbfc; }
 
 .pv-card-top {
@@ -720,7 +720,7 @@ select:focus-visible {
   gap: 10px;
   flex-wrap: wrap;
 }
-/* La placa como PLACA: caja propia, espaciada, números tabulares. */
+/* La placa como PLACA: caja propia, espaciada, nÃºmeros tabulares. */
 .pv-placa {
   display: inline-flex;
   align-items: center;
@@ -762,7 +762,7 @@ select:focus-visible {
 }
 
 /* --- Botones: discretos, alineados a la derecha; el color del CTA vive en
-       el TEXTO (verde acción / rojo corrección), no en un bloque pintado --- */
+       el TEXTO (verde acciÃ³n / rojo correcciÃ³n), no en un bloque pintado --- */
 .pv-acciones {
   display: flex;
   gap: 10px;
@@ -814,8 +814,8 @@ select:focus-visible {
 .pv-btn-ghost:hover { border-color: #aeb9c6; background: #f7f9fb; }
 /* --------------------------------------------- */
 
-/* Progreso de documentación en la tarjeta: línea fina con los MISMOS tramos
-   de la barra del paso 2 (rojo <70 · naranja 70–89 · verde ≥90). */
+/* Progreso de documentaciÃ³n en la tarjeta: lÃ­nea fina con los MISMOS tramos
+   de la barra del paso 2 (rojo <70 Â· naranja 70â€“89 Â· verde â‰¥90). */
 .barra-progreso-bg--mini { height: 5px; }
 .pv-fill--bajo { background: #e74c3c; }
 .pv-fill--medio { background: #e67e22; }
@@ -889,8 +889,8 @@ select:focus-visible {
 }
 .doc-item-row--falta .doc-name { color: #8d3a4a; }
 
-/* ── Fotos del vehículo POR ÁNGULO (2026-10-14) ──────────────────────────
-   Cada ángulo (frontal / lateral izq / lateral der / posterior) muestra un
+/* â”€â”€ Fotos del vehÃ­culo POR ÃNGULO (2026-10-14) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Cada Ã¡ngulo (frontal / lateral izq / lateral der / posterior) muestra un
    DIBUJO DE EJEMPLO de la toma esperada debajo de la fila; con la foto ya
    cargada, su miniatura reemplaza el ejemplo. */
 .doc-item-row--foto { flex-wrap: wrap; }
@@ -928,7 +928,7 @@ select:focus-visible {
     line-height: 1.2;
     flex-wrap: wrap;
 }
-/* Etiqueta «opcional» y nota de regla (ej. cantidad de fotos). */
+/* Etiqueta Â«opcionalÂ» y nota de regla (ej. cantidad de fotos). */
 .doc-tag-opcional {
     font-size: 0.68rem;
     font-weight: 700;
@@ -986,24 +986,24 @@ select:focus-visible {
 /* -------------------------------------------------------------------------- */
 .btn-whatsapp-flotante {
   position: fixed;
-  bottom: 10px; /* Más pegado al borde inferior */
-  left: 10px;   /* Más pegado a la esquina izquierda */
+  bottom: 10px; /* MÃ¡s pegado al borde inferior */
+  left: 10px;   /* MÃ¡s pegado a la esquina izquierda */
   z-index: 9999;
   display: inline-flex;
   align-items: center;
   gap: 8px; /* Menos espacio entre icono y texto */
   background-color: #25D366;
   color: white;
-  padding: 8px 16px; /* Botón más compacto */
+  padding: 8px 16px; /* BotÃ³n mÃ¡s compacto */
   border-radius: 30px;
   text-decoration: none;
   font-weight: bold;
-  font-size: 0.9rem; /* Letra más pequeña */
+  font-size: 0.9rem; /* Letra mÃ¡s pequeÃ±a */
   box-shadow: 0 3px 10px rgba(37, 211, 102, 0.3);
   transition: transform 0.2s ease;
 }
 
-/* Forzar tamaño del ícono SVG para que acompañe el tamaño pequeño */
+/* Forzar tamaÃ±o del Ã­cono SVG para que acompaÃ±e el tamaÃ±o pequeÃ±o */
 .btn-whatsapp-flotante svg {
     width: 20px !important;
     height: 20px !important;
@@ -1020,7 +1020,7 @@ select:focus-visible {
   z-index: 10000;
   box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
-/* ESTILOS PARA EL MÓDULO DE RECHAZADOS (devueltos por Seguridad) */
+/* ESTILOS PARA EL MÃ“DULO DE RECHAZADOS (devueltos por Seguridad) */
 
 .btn-sidebar-step.disabled {
     opacity: 0.55;
@@ -1029,7 +1029,7 @@ select:focus-visible {
     box-shadow: none !important;
 }
 
-/* Rojo (advertencia) en la columna lateral, mismo patrón de píldora suave. */
+/* Rojo (advertencia) en la columna lateral, mismo patrÃ³n de pÃ­ldora suave. */
 .btn-sidebar-step.btn-rechazados:not(.disabled) {
     color: #c0392b;
 }
@@ -1061,7 +1061,7 @@ select:focus-visible {
 }
 
 /* ========================================================================== */
-/* 6b. TARJETAS DE ESTADO (paso 1) — minimalistas: blancas con acento lateral  */
+/* 6b. TARJETAS DE ESTADO (paso 1) â€” minimalistas: blancas con acento lateral  */
 /* ========================================================================== */
 .estado-seccion {
   background: #fff;
@@ -1095,7 +1095,7 @@ select:focus-visible {
 .estado-seccion--revision   { border-left-color: #3498db; }
 .estado-seccion--revision h4 svg { color: #3498db; }
 
-/* Inactivados por Seguridad: gris neutro (en la base, fuera de operación). */
+/* Inactivados por Seguridad: gris neutro (en la base, fuera de operaciÃ³n). */
 .estado-seccion--inactivo   { border-left-color: #7f8c8d; background: #f7f8f9; }
 .estado-seccion--inactivo h4 svg { color: #7f8c8d; }
 
@@ -1107,7 +1107,7 @@ select:focus-visible {
 }
 
 /* Chip de estado (pill discreto) */
-/* Chip de estado: texto discreto en mayúsculas + PUNTO de color (el único
+/* Chip de estado: texto discreto en mayÃºsculas + PUNTO de color (el Ãºnico
    acento de color de la tarjeta). */
 .estado-chip {
   display: inline-flex;
@@ -1134,7 +1134,7 @@ select:focus-visible {
 .estado-chip--inactivo::before { background: #95a1ad; }
 
 /* ========================================================================== */
-/* 6c. PASO 3 — jerarquía y áreas táctiles                                    */
+/* 6c. PASO 3 â€” jerarquÃ­a y Ã¡reas tÃ¡ctiles                                    */
 /* ========================================================================== */
 .seccion-header {
   background: #f8f9fa;
@@ -1181,7 +1181,7 @@ select:focus-visible {
   border-radius: 8px;
 }
 
-/* Finalizar = acción de éxito: verde, consistente con «Continuar» de Datos */
+/* Finalizar = acciÃ³n de Ã©xito: verde, consistente con Â«ContinuarÂ» de Datos */
 .btn-finalizar {
   background-color: #27ae60;
   box-shadow: 0 4px 12px rgba(39, 174, 96, 0.25);
@@ -1189,11 +1189,11 @@ select:focus-visible {
 .btn-finalizar:hover { background-color: #219150; }
 
 /* ========================================================================== */
-/* RESPONSIVE DESIGN (MÓVIL / TABLET)                                         */
+/* RESPONSIVE DESIGN (MÃ“VIL / TABLET)                                         */
 /* ========================================================================== */
 @media (max-width: 900px) {
   
-  /* 1. HEADER MÁS PEQUEÑO Y COMPACTO */
+  /* 1. HEADER MÃS PEQUEÃ‘O Y COMPACTO */
   .barra-superior {
     height: 50px; /* Reducido de 60/65px a 50px */
     padding: 0 10px;
@@ -1204,13 +1204,13 @@ select:focus-visible {
   }
   .barra-marca { font-size: 1.1rem; }
 
-  /* Usuario más discreto (patrón Pedidos) */
+  /* Usuario mÃ¡s discreto (patrÃ³n Pedidos) */
   .barra-userBtn { padding: 4px 8px 4px 6px; }
   .barra-userIcon { font-size: 1.2rem; }
   .barra-userName { font-size: 0.75rem; max-width: 110px; }
   .barra-userPerfil { font-size: 0.65rem; }
 
-  /* 2. LAYOUT: REDUCCIÓN DE ESPACIOS EXTERNOS */
+  /* 2. LAYOUT: REDUCCIÃ“N DE ESPACIOS EXTERNOS */
   .layout-conductor {
     flex-direction: column;
     padding: 5px;
@@ -1218,7 +1218,7 @@ select:focus-visible {
     margin-top: 0;
   }
 
-  /* 3. NAVEGACIÓN: vuelve a FILA sticky arriba (la columna lateral no cabe) */
+  /* 3. NAVEGACIÃ“N: vuelve a FILA sticky arriba (la columna lateral no cabe) */
   .sidebar-conductor {
     width: 100%;
     flex: 0 1 auto;
@@ -1243,7 +1243,7 @@ select:focus-visible {
   /* En fila horizontal el divisor sobra */
   .pc-nav-divisor { display: none; }
 
-  /* «← Menú» compacto dentro de la fila (no ocupa una fila entera) */
+  /* Â«â† MenÃºÂ» compacto dentro de la fila (no ocupa una fila entera) */
   .btn-sidebar-volver {
     width: auto;
     flex: 0 0 auto;
@@ -1273,7 +1273,7 @@ select:focus-visible {
     margin-right: 5px;
   }
 
-  /* Vuelve a la píldora oscura sólida (sin filo izquierdo de la columna). */
+  /* Vuelve a la pÃ­ldora oscura sÃ³lida (sin filo izquierdo de la columna). */
   .btn-sidebar-step.active {
     background-color: #2c3e50;
     color: white;
@@ -1302,10 +1302,10 @@ select:focus-visible {
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     width: 100%;
-    margin: 0; /* sin aire de tarjeta: en móvil ocupa todo el ancho */
+    margin: 0; /* sin aire de tarjeta: en mÃ³vil ocupa todo el ancho */
   }
 
-  /* Barra «Avance Total» del paso 3: debajo de la fila de pasos sticky
+  /* Barra Â«Avance TotalÂ» del paso 3: debajo de la fila de pasos sticky
      (mismo recalibre de la barra del paso 2) y a ancho de la tarjeta. */
   .progreso-header {
     top: 44px;
@@ -1327,7 +1327,7 @@ select:focus-visible {
     font-size: 0.8rem; 
   }
 
-  /* 5. INPUTS Y FORMULARIOS MÁS COMPACTOS */
+  /* 5. INPUTS Y FORMULARIOS MÃS COMPACTOS */
   .input-moderno {
     padding: 8px 10px; 
     font-size: 0.9rem;
@@ -1373,7 +1373,7 @@ select:focus-visible {
     height: 24px !important;
   }
   
-  /* Botón Guardar fijo */
+  /* BotÃ³n Guardar fijo */
   .contenedor-formulario-fijo button[type="submit"],
   .contenedor-formulario-fijo .btn-guardar {
     bottom: 10px;
@@ -1404,15 +1404,15 @@ select:focus-visible {
     font-size: 0.88rem;
   }
 
-  /* Header: espaciado más compacto entre elementos */
+  /* Header: espaciado mÃ¡s compacto entre elementos */
   .barra-derecha { gap: 8px; }
 }
 
 /* ========================================================================== */
-/* MÓVIL ESTÁNDAR (≤600px)                                                    */
+/* MÃ“VIL ESTÃNDAR (â‰¤600px)                                                    */
 /* ========================================================================== */
 @media (max-width: 600px) {
-  /* Hub de módulos más compacto */
+  /* Hub de mÃ³dulos mÃ¡s compacto */
   .pc-hub { width: calc(100% - 10px); margin: 18px auto; gap: 16px; }
   .pc-hub-titulo h2 { font-size: 1.2rem; }
   .pc-moduloCard { padding: 13px 14px; gap: 11px; }
@@ -1420,32 +1420,32 @@ select:focus-visible {
   .pc-moduloCardNombre { font-size: 0.95rem; }
   .pc-moduloCardDesc { font-size: 0.78rem; }
 
-  /* Nombre del conductor más corto para evitar desbordes */
+  /* Nombre del conductor mÃ¡s corto para evitar desbordes */
   .barra-userName { max-width: 90px; }
 
-  /* Título más compacto */
+  /* TÃ­tulo mÃ¡s compacto */
   .barra-marca { font-size: 1rem; }
 
-  /* Botones de acción de documentos ocupan ancho completo cuando envuelven */
+  /* Botones de acciÃ³n de documentos ocupan ancho completo cuando envuelven */
   .doc-item-row {
     justify-content: flex-start;
   }
 
-  /* Tarjeta de rechazado a ancho completo, botón no se sale */
+  /* Tarjeta de rechazado a ancho completo, botÃ³n no se sale */
   .card-rechazado {
     padding: 12px;
   }
 
-  /* Botón finalizar un poco más compacto */
+  /* BotÃ³n finalizar un poco mÃ¡s compacto */
   .btn-finalizar {
     padding: 14px;
     font-size: 1rem;
   }
 
-  /* Tarjetas de estado con menos relleno en móvil */
+  /* Tarjetas de estado con menos relleno en mÃ³vil */
   .estado-seccion { padding: 12px; }
 
-  /* Paso 1 «Mis vehículos»: una columna, input y botones a ancho completo */
+  /* Paso 1 Â«Mis vehÃ­culosÂ»: una columna, input y botones a ancho completo */
   .pv-registro .input-group-crear { flex-direction: column; }
   .pv-registro .input-group-crear .input-moderno,
   .pv-registro .input-group-crear .btn-moderno-accion { width: 100%; }
@@ -1456,7 +1456,7 @@ select:focus-visible {
 }
 
 /* ========================================================================== */
-/* MÓVIL PEQUEÑO (≤480px)                                                     */
+/* MÃ“VIL PEQUEÃ‘O (â‰¤480px)                                                     */
 /* ========================================================================== */
 @media (max-width: 480px) {
   /* Header ultra compacto */
@@ -1465,12 +1465,12 @@ select:focus-visible {
     padding: 0 8px;
   }
 
-  /* El stepper acompaña el scroll pegado al borde superior */
+  /* El stepper acompaÃ±a el scroll pegado al borde superior */
   .sidebar-conductor { top: 0; }
   .barra-logo { height: 28px; }
   .barra-marca { font-size: 0.95rem; letter-spacing: 0.3px; }
 
-  /* Hub: mínimo relleno en pantallas muy pequeñas */
+  /* Hub: mÃ­nimo relleno en pantallas muy pequeÃ±as */
   .pc-hub { margin: 12px auto; }
 
   /* Solo avatar + chevron (sin textos) para aprovechar el espacio */
@@ -1483,7 +1483,7 @@ select:focus-visible {
     gap: 6px;
   }
 
-  /* Sidebar píldoras aún más compactas */
+  /* Sidebar pÃ­ldoras aÃºn mÃ¡s compactas */
   .btn-sidebar-step {
     padding: 5px 10px;
     font-size: 0.7rem;
@@ -1527,17 +1527,17 @@ select:focus-visible {
     font-size: 0.78rem;
   }
 
-  /* Botón "Crear Placa" ocupa todo el ancho */
+  /* BotÃ³n "Crear Placa" ocupa todo el ancho */
   .btn-moderno-accion { font-size: 0.9rem; }
 
-  /* Botón corregir a ancho completo */
+  /* BotÃ³n corregir a ancho completo */
   .btn-corregir {
     width: 100%;
     justify-content: center;
     padding: 10px;
   }
 
-  /* Botón flotante WhatsApp un poco más pequeño y separado del borde */
+  /* BotÃ³n flotante WhatsApp un poco mÃ¡s pequeÃ±o y separado del borde */
   .btn-whatsapp-flotante {
     padding: 6px;
     bottom: 8px;
@@ -1546,7 +1546,7 @@ select:focus-visible {
 }
 
 /* ========================================================================== */
-/* MODAL "VER MIS DATOS" (vehículo aprobado, solo lectura)                    */
+/* MODAL "VER MIS DATOS" (vehÃ­culo aprobado, solo lectura)                    */
 /* ========================================================================== */
 .btn-ver-mis-datos {
   display: inline-flex;

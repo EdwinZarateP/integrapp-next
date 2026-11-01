@@ -8,9 +8,12 @@
 
 /* --- Tokens de diseño (patrón tusdatos) --------------------------------- */
 :root {
-  --psx-teal: #00a5b5;
-  --psx-teal-oscuro: #008794;
-  --psx-teal-suave: #e6f5f6;
+  /* (2026-10-31) Branding general: acento verde #98C74C (antes teal), igual
+     que el header del portal Mis Indicadores. El nombre de la variable se
+     conserva para no romper los usos. */
+  --psx-teal: #98c74c;
+  --psx-teal-oscuro: #6f9430;
+  --psx-teal-suave: #eef4e0;
   --psx-fondo: #f4f6f8;
   --psx-borde: #e5e9ef;
   --psx-texto: #22313f;
@@ -201,12 +204,14 @@
   min-width: 0;
 }
 
+/* (2026-10-31) Topbar negra con acento verde (branding general). */
 .PSX-topbar {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #fff;
-  border-bottom: 1px solid var(--psx-borde);
+  background: #000;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 14px 26px;
   position: sticky;
   top: 0;
@@ -218,7 +223,7 @@
   border: none;
   background: transparent;
   font-size: 1.25rem;
-  color: var(--psx-texto);
+  color: #fff;
   cursor: pointer;
   padding: 6px;
 }
@@ -232,7 +237,7 @@
 
 .PSX-miga-inicio,
 .PSX-miga-sep {
-  color: var(--psx-texto-suave);
+  color: #b9c2d0;
 }
 
 .PSX-miga-actual {
@@ -550,7 +555,7 @@
 .PSX-campo input:focus {
   outline: none;
   border-color: var(--psx-teal);
-  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
+  box-shadow: 0 0 0 3px rgba(152, 199, 76, 0.15);
 }
 
 .PSX-campo input:disabled {
@@ -1054,7 +1059,7 @@
 }
 
 .PSX-login-ilustracion {
-  background: linear-gradient(150deg, #00a5b5 0%, #067d8c 100%);
+  background: linear-gradient(150deg, #98c74c 0%, #6f9430 100%);
   color: #fff;
   padding: 60px 56px;
   display: flex;

@@ -1,9 +1,9 @@
-/* ────────────────────────────────────────────────
-   PEDIDOS COMPLETADOS — Estilos
-   Sistema de diseño: Integra (#0f1928 / #e8a000)
-──────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   PEDIDOS COMPLETADOS â€” Estilos
+   Sistema de diseÃ±o: Integra (#0f1928 / #e8a000)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* ── Layout raíz ── */
+/* â”€â”€ Layout raÃ­z â”€â”€ */
 .PC-layout {
   display: flex;
   flex-direction: column;
@@ -13,9 +13,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .PC-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -46,7 +46,7 @@
   flex-shrink: 0;
 }
 
-/* Botón menú móvil */
+/* BotÃ³n menÃº mÃ³vil */
 .PC-menuMobileBtn {
   display: none;
   background: rgba(255, 255, 255, 0.1);
@@ -74,7 +74,7 @@
   line-height: 1;
 }
 
-.PC-brandAccent { color: #e8a000; }
+.PC-brandAccent { color: #98C74C; }
 
 /* Nav tabs */
 .PC-nav {
@@ -108,8 +108,8 @@
 }
 
 .PC-navTabActive {
-  color: #e8a000 !important;
-  background: rgba(232, 160, 0, 0.12) !important;
+  color: #98C74C !important;
+  background: rgba(152, 199, 76, 0.12) !important;
   font-weight: 700;
 }
 
@@ -173,7 +173,7 @@
 
 .PC-chevronOpen { transform: rotate(180deg); }
 
-/* Dropdown menú */
+/* Dropdown menÃº */
 .PC-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -223,7 +223,7 @@
 .PC-dropItemSwitch { color: #1d4ed8; font-weight: 600; }
 .PC-dropItemSwitch:hover { background: #eff6ff; }
 
-/* ── MENÚ MÓVIL ── */
+/* â”€â”€ MENÃš MÃ“VIL â”€â”€ */
 .PC-menuMobile {
   position: fixed;
   top: 64px;
@@ -283,14 +283,14 @@
   margin: 4px 0;
 }
 
-/* ── TABLA PRINCIPAL ── */
+/* â”€â”€ TABLA PRINCIPAL â”€â”€ */
 .PC-main {
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
 }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .PC-footer {
   background: #0f1928;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -339,7 +339,7 @@
   color: rgba(255, 255, 255, 0.25);
 }
 
-/* ── RESPONSIVE ── */
+/* â”€â”€ RESPONSIVE â”€â”€ */
 @media (max-width: 768px) {
   .PC-nav { display: none; }
   
@@ -356,7 +356,7 @@
     margin-left: auto;
   }
 
-  /* Dropdown alineado a la derecha en móviles */
+  /* Dropdown alineado a la derecha en mÃ³viles */
   .PC-dropdown {
     right: 0;
     left: auto !important;

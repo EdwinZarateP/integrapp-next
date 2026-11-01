@@ -80,8 +80,8 @@ body {
 
 .rev-input-busqueda:focus {
   outline: none;
-  border-color: #00a5b5;
-  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
+  border-color: #98c74c;
+  box-shadow: 0 0 0 3px rgba(152, 199, 76, 0.15);
 }
 
 .rev-btn-clear {
@@ -107,9 +107,9 @@ body {
 
 /* Botón «Buscar» (solo pestaña Aprobados: consulta al servidor con Enter) */
 .rev-btn-buscar {
-  background: #008794;
+  background: #6f9430;
   color: white;
-  border: 1px solid #008794;
+  border: 1px solid #6f9430;
   border-radius: 0 10px 10px 0;
   padding: 11px 18px;
   font-size: 0.88rem;
@@ -119,7 +119,7 @@ body {
   white-space: nowrap;
 }
 
-.rev-btn-buscar:hover { background: #00a5b5; }
+.rev-btn-buscar:hover { background: #98c74c; }
 
 /* Botón «Excel» (export de todas las placas, bandeja Aprobados) */
 .rev-btn-excel {
@@ -208,18 +208,18 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.rev-fila:hover { border-color: #9fd8dd; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+.rev-fila:hover { border-color: #c9dfa4; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
 
 .rev-fila--activa {
-  border-color: #00a5b5;
-  box-shadow: inset 3px 0 0 #00a5b5;
-  background: #f0fafb;
+  border-color: #98c74c;
+  box-shadow: inset 3px 0 0 #98c74c;
+  background: #f6faec;
 }
 
 .rev-fila-placa {
   font-weight: 800;
   font-size: 1rem;
-  color: #006b77;
+  color: #6f9430;
   min-width: 90px;
   letter-spacing: 0.03em;
 }
@@ -300,12 +300,12 @@ body {
   font: inherit;
   color: inherit;
 }
-.rev-ord-btn:hover { color: #006b77; }
-.rev-ord-btn:focus-visible { outline: 2px solid #00a5b5; outline-offset: 2px; border-radius: 4px; }
+.rev-ord-btn:hover { color: #6f9430; }
+.rev-ord-btn:focus-visible { outline: 2px solid #98c74c; outline-offset: 2px; border-radius: 4px; }
 
 /* Flecha de orden: tenue sin orden activo, sólida en la columna activa. */
 .rev-ord-flecha { opacity: 0.35; font-size: 0.8em; }
-.rev-ord-flecha--activa { opacity: 1; color: #00a5b5; }
+.rev-ord-flecha--activa { opacity: 1; color: #98c74c; }
 
 .rev-tabla-bandeja tbody td {
   padding: 10px 12px;
@@ -318,8 +318,8 @@ body {
 .rev-tfila { cursor: pointer; transition: background 0.12s ease; }
 .rev-tfila:hover { background: #f7fbfb; }
 .rev-tfila--activa {
-  background: #f0fafb;
-  box-shadow: inset 3px 0 0 #00a5b5;
+  background: #f6faec;
+  box-shadow: inset 3px 0 0 #98c74c;
 }
 
 /* Dentro de la tabla las celdas heredan el look de placa/conductor/avance/
@@ -401,7 +401,7 @@ body {
   gap: 10px;
   padding-top: 12px;
   padding-bottom: 12px;
-  background: #006f7a;
+  background: #5a7c22;
   color: white;
   flex-wrap: wrap;
   position: relative;
@@ -528,11 +528,11 @@ body {
   border-bottom: 3px solid transparent;
 }
 
-.rev-panel-pestana:hover { color: #006b77; }
+.rev-panel-pestana:hover { color: #6f9430; }
 
 .rev-panel-pestana--activa {
-  color: #006b77;
-  border-bottom-color: #00a5b5;
+  color: #6f9430;
+  border-bottom-color: #98c74c;
   background: #fff;
 }
 
@@ -589,7 +589,7 @@ body {
 .rev-btn--devolver { background: #e74c3c; }
 .rev-btn--inactivar { background: #7f8c8d; }
 .rev-btn--reactivar { background: #27ae60; }
-.rev-btn--actualizar { background: #008794; }
+.rev-btn--actualizar { background: #6f9430; }
 /* Rechazo DEFINITIVO: rojo oscuro, se distingue del «Devolver» correctivo. */
 .rev-btn--rechazar { background: #90222b; }
 
@@ -704,7 +704,7 @@ body {
 .rev-datos-nav-btn {
   border: 1px solid #cfe0e4;
   background: #fff;
-  color: #006f7a;
+  color: #5a7c22;
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 0.8rem;
@@ -718,8 +718,8 @@ body {
 .rev-datos-nav-btn:hover { background: #e8f7f9; }
 
 .rev-datos-nav-btn--activa {
-  background: #00a5b5;
-  border-color: #00a5b5;
+  background: #98c74c;
+  border-color: #98c74c;
   color: #fff;
 }
 
@@ -739,7 +739,7 @@ body {
 }
 
 .rev-subtitulo:first-of-type { margin-top: 4px; }
-.rev-subtitulo svg { color: #008794; }
+.rev-subtitulo svg { color: #6f9430; }
 
 /* Campo LIMPIO (2026-10-15): etiqueta y valor sobre fondo plano — bordes y
    fondos quedan para secciones y alertas. */
@@ -807,7 +807,7 @@ body {
 .rev-cuenta-btn {
   border: 1px solid #bfe0e4;
   background: #fff;
-  color: #006f7a;
+  color: #5a7c22;
   border-radius: 6px;
   width: 26px;
   height: 26px;
@@ -834,16 +834,16 @@ body {
   line-height: 1.45;
 }
 
-.rev-rol-compartido svg { margin-top: 3px; color: #008794; }
+.rev-rol-compartido svg { margin-top: 3px; color: #6f9430; }
 
 /* «Agregar segundo conductor» (acción compacta desplegable). */
 .rev-gc-agregar2 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 2px dashed #00a5b5;
+  border: 2px dashed #98c74c;
   background: #f0fafc;
-  color: #006f7a;
+  color: #5a7c22;
   border-radius: 8px;
   padding: 9px 14px;
   font-size: 0.82rem;
@@ -859,7 +859,7 @@ body {
 .rev-cuenta-btn:focus-visible,
 .rev-gc-agregar2:focus-visible,
 .rev-gc-btn:focus-visible {
-  outline: 3px solid #00a5b5;
+  outline: 3px solid #98c74c;
   outline-offset: 2px;
 }
 
@@ -944,7 +944,7 @@ body {
   border: none;
   border-radius: 8px;
   padding: 7px 14px;
-  background: #008794;
+  background: #6f9430;
   color: #fff;
   font-size: 0.8rem;
   font-weight: 600;
@@ -954,7 +954,7 @@ body {
   gap: 6px;
   white-space: nowrap;
 }
-.rev-planilla-btn:hover { background: #006f7a; }
+.rev-planilla-btn:hover { background: #5a7c22; }
 
 .rev-planilla-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 
@@ -983,7 +983,7 @@ body {
   padding: 2px 8px;
   white-space: nowrap;
 }
-.rev-planilla-ver { color: #00a5b5; font-weight: 600; white-space: nowrap; }
+.rev-planilla-ver { color: #98c74c; font-weight: 600; white-space: nowrap; }
 
 .rev-planilla-vacia { margin: 4px 0 0; color: #7f8c8d; font-size: 0.8rem; }
 
@@ -1046,11 +1046,11 @@ body {
 .titulo-seccion {
     font-size: 1rem;
     font-weight: 700;
-    color: #006b77;
+    color: #6f9430;
     margin-top: 22px;
     margin-bottom: 12px;
     padding-bottom: 4px;
-    border-bottom: 3px solid #00a5b5;
+    border-bottom: 3px solid #98c74c;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -1058,7 +1058,7 @@ body {
 .titulo-subseccion {
     font-size: 0.92rem;
     font-weight: 600;
-    color: #008794;
+    color: #6f9430;
     margin-top: 14px;
     border-bottom: 1px solid #ddd;
     padding-bottom: 3px;
@@ -1076,7 +1076,7 @@ body {
 .rev-seccion-titulo {
     font-size: 0.8rem;
     font-weight: 700;
-    color: #006b77;
+    color: #6f9430;
     text-transform: uppercase;
     letter-spacing: 0.4px;
     margin: 0 0 12px;
@@ -1224,7 +1224,7 @@ body {
 
 .rev-lic-chip {
     background: #e4f0f2;
-    color: #006b77;
+    color: #6f9430;
     border: 1px solid #bfe0e5;
     border-radius: 999px;
     padding: 1px 9px;
@@ -1260,7 +1260,7 @@ body {
 .documento-card p {
     margin: 0;
     font-size: 0.85rem;
-    color: #006b77;
+    color: #6f9430;
     font-weight: 600;
 }
 
@@ -1302,7 +1302,7 @@ body {
   padding: 8px 15px;
   border: none;
   border-radius: 5px;
-  background: #008794;
+  background: #6f9430;
   color: white;
   cursor: pointer;
 }
@@ -1388,9 +1388,11 @@ body {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .revx-app {
-  --revx-acento: #00a5b5;
-  --revx-acento-oscuro: #008794;
-  --revx-acento-suave: #e6f5f6;
+  /* (2026-10-31) Branding general: acento verde #98C74C (antes teal
+     #98c74c) — mismo look del header del portal Mis Indicadores. */
+  --revx-acento: #98c74c;
+  --revx-acento-oscuro: #6f9430;
+  --revx-acento-suave: #eef4e0;
   --revx-fondo: #f4f6f8;
   --revx-borde: #e5e9ef;
   --revx-texto: #22313f;
@@ -1536,7 +1538,8 @@ body {
   height: 36px;
   border-radius: 50%;
   background: var(--revx-acento);
-  color: #fff;
+  /* Verde claro: texto oscuro para contraste. */
+  color: #0b1526;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1592,12 +1595,14 @@ body {
   min-width: 0;
 }
 
+/* (2026-10-31) Topbar negra con acento verde (branding general). */
 .revx-topbar {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #fff;
-  border-bottom: 1px solid var(--revx-borde);
+  background: #000;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 14px 26px;
   position: sticky;
   top: 0;
@@ -1609,7 +1614,7 @@ body {
   border: none;
   background: transparent;
   font-size: 1.25rem;
-  color: var(--revx-texto);
+  color: #fff;
   cursor: pointer;
   padding: 6px;
 }
@@ -1623,7 +1628,7 @@ body {
 }
 
 .revx-miga-inicio,
-.revx-miga-sep { color: var(--revx-texto-suave); }
+.revx-miga-sep { color: #b9c2d0; }
 
 .revx-miga-actual {
   color: var(--revx-acento-oscuro);
@@ -1706,8 +1711,8 @@ body {
 .revx-alta-grid select:focus,
 .revx-alta-fila input:focus {
   outline: none;
-  border-color: #00a5b5;
-  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
+  border-color: #98c74c;
+  box-shadow: 0 0 0 3px rgba(152, 199, 76, 0.15);
 }
 
 .revx-alta-grid input:disabled,
@@ -1735,7 +1740,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #00a5b5;
+  background: #98c74c;
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -1755,8 +1760,8 @@ body {
   align-items: center;
   gap: 18px;
   flex-wrap: wrap;
-  background: #e6f5f6;
-  border: 1px solid #00a5b5;
+  background: #eef4e0;
+  border: 1px solid #98c74c;
   border-radius: 12px;
   padding: 14px 18px;
 }
@@ -1768,7 +1773,7 @@ body {
 }
 
 .revx-alta-cred small {
-  color: #008794;
+  color: #6f9430;
   font-size: 0.7rem;
   text-transform: uppercase;
   font-weight: 700;
@@ -1792,8 +1797,8 @@ body {
   align-items: center;
   gap: 7px;
   background: #fff;
-  color: #008794;
-  border: 1px solid #00a5b5;
+  color: #6f9430;
+  border: 1px solid #98c74c;
   border-radius: 9px;
   padding: 9px 14px;
   font-size: 0.8rem;
@@ -1831,7 +1836,7 @@ body {
 
 .revx-alta-tab--activo {
   background: #fff;
-  color: #008794;
+  color: #6f9430;
   box-shadow: 0 1px 3px rgba(20, 40, 60, 0.12);
 }
 
@@ -2122,7 +2127,7 @@ body {
 
 .revx-bandeja .rev-input-busqueda:focus {
   border-color: var(--revx-acento);
-  box-shadow: 0 0 0 3px rgba(0, 165, 181, 0.15);
+  box-shadow: 0 0 0 3px rgba(152, 199, 76, 0.15);
 }
 
 /* ── Responsive del shell ── */
@@ -2231,7 +2236,7 @@ body {
 @keyframes rev-est-girar { to { transform: rotate(360deg); } }
 
 .rev-est-reutilizado {
-  color: #008794;
+  color: #6f9430;
   font-weight: 600;
 }
 
@@ -2265,7 +2270,7 @@ body {
   transition: filter 0.15s ease, background 0.15s ease;
 }
 
-.rev-est-btn-pdf { background: #00a5b5; color: #fff; }
+.rev-est-btn-pdf { background: #98c74c; color: #fff; }
 .rev-est-btn-pdf:hover { filter: brightness(1.08); }
 
 .rev-est-btn-fuentes {
@@ -2383,7 +2388,7 @@ body {
   gap: 6px;
   border: none;
   border-radius: 8px;
-  background: #00a5b5;
+  background: #98c74c;
   color: #fff;
   font-size: 0.76rem;
   font-weight: 700;
@@ -2417,7 +2422,7 @@ body {
 /* ════════════════════════════════════════════════════════════════════════
    PESTAÑA DOCUMENTOS — rediseño 2026-10-15: resumen + filtros, grupos por
    figura, filas compactas con estado y acciones, visor lateral. Paleta
-   turquesa IntegrApp (#00a5b5 / #006f7a / #008794).
+   turquesa IntegrApp (#98c74c / #5a7c22 / #6f9430).
    ════════════════════════════════════════════════════════════════════════ */
 
 /* ── Resumen compacto ── */
@@ -2457,7 +2462,7 @@ body {
 .rev-docfiltro {
   border: 1px solid #bfe0e4;
   background: #fff;
-  color: #006f7a;
+  color: #5a7c22;
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 0.8rem;
@@ -2467,7 +2472,7 @@ body {
 }
 
 .rev-docfiltro:hover { background: #e8f7f9; }
-.rev-docfiltro--activo { background: #00a5b5; border-color: #00a5b5; color: #fff; }
+.rev-docfiltro--activo { background: #98c74c; border-color: #98c74c; color: #fff; }
 
 /* ── Grupos por figura ── */
 .rev-docgrupo {
@@ -2493,7 +2498,7 @@ body {
   gap: 8px;
   font-size: 0.82rem;
   font-weight: 800;
-  color: #006f7a;
+  color: #5a7c22;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -2555,7 +2560,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-.rev-docfila-nombre svg { color: #008794; flex-shrink: 0; }
+.rev-docfila-nombre svg { color: #6f9430; flex-shrink: 0; }
 
 .rev-docfila-nota {
   font-size: 0.72rem;
@@ -2592,7 +2597,7 @@ body {
   gap: 6px;
   border: 1px solid #9fd4da;
   background: #fff;
-  color: #006f7a;
+  color: #5a7c22;
   border-radius: 6px;
   padding: 5px 12px;
   font-size: 0.78rem;
@@ -2616,9 +2621,9 @@ body {
   gap: 8px;
   width: 100%;
   justify-content: center;
-  border: 2px dashed #00a5b5;
+  border: 2px dashed #98c74c;
   background: #e9f9fb;
-  color: #006f7a;
+  color: #5a7c22;
   border-radius: 10px;
   padding: 12px 16px;
   font-size: 0.9rem;
@@ -2627,14 +2632,14 @@ body {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.rev-docbtn-adicional:hover { background: #d3f2f6; border-color: #006f7a; }
+.rev-docbtn-adicional:hover { background: #e9f3d5; border-color: #5a7c22; }
 
 /* ── Planilla: item vigente + toggle de historial ── */
 .rev-planilla-item--vigente { border-color: #9fd4da; background: #f4fbfc; }
 .rev-planilla-toggle {
   border: none;
   background: transparent;
-  color: #008794;
+  color: #6f9430;
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
@@ -2644,7 +2649,7 @@ body {
   text-decoration: underline;
 }
 
-.rev-planilla-toggle:hover { color: #006f7a; }
+.rev-planilla-toggle:hover { color: #5a7c22; }
 
 /* ── Visor lateral de documentos ── */
 .rev-visor-overlay {
@@ -2676,7 +2681,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #006f7a;
+  background: #5a7c22;
   color: white;
   padding: 10px 14px;
   flex-shrink: 0;
@@ -2764,7 +2769,7 @@ body {
 }
 
 .rev-visor-error a {
-  color: #008794;
+  color: #6f9430;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -2789,7 +2794,7 @@ body {
   gap: 6px;
   border: 1px solid #bfe0e4;
   background: #fff;
-  color: #006f7a;
+  color: #5a7c22;
   border-radius: 8px;
   padding: 7px 12px;
   font-size: 0.8rem;
@@ -2805,7 +2810,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #008794;
+  color: #6f9430;
   font-size: 0.8rem;
   font-weight: 700;
   text-decoration: none;
@@ -2823,7 +2828,7 @@ body {
 .rev-visor-cerrar:focus-visible,
 .rev-planilla-toggle:focus-visible,
 .rev-planilla-btn:focus-visible {
-  outline: 3px solid #00a5b5;
+  outline: 3px solid #98c74c;
   outline-offset: 2px;
 }
 
@@ -2869,7 +2874,7 @@ body {
 .rev-adopcion-mini--ok { color: #f8e9c8; }
 
 .rev-adopcion-mini:focus-visible {
-  outline: 3px solid #00a5b5;
+  outline: 3px solid #98c74c;
   outline-offset: 2px;
 }
 
@@ -2896,7 +2901,7 @@ body {
 }
 
 .revx-toggle-mias:focus-visible {
-  outline: 3px solid #00a5b5;
+  outline: 3px solid #98c74c;
   outline-offset: 2px;
 }
 

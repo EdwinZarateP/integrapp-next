@@ -1,4 +1,4 @@
-/* ── Layout ── */
+/* â”€â”€ Layout â”€â”€ */
 .TAR-layout {
   display: flex;
   flex-direction: column;
@@ -7,9 +7,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .TAR-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -40,7 +40,7 @@
   color: #fff;
   letter-spacing: -0.3px;
 }
-.TAR-brandAccent { color: #e8a000; }
+.TAR-brandAccent { color: #98C74C; }
 .TAR-backBtn {
   display: flex;
   align-items: center;
@@ -58,7 +58,7 @@
 }
 .TAR-backBtn:hover { background: rgba(255,255,255,.2); }
 
-/* ── MAIN ── */
+/* â”€â”€ MAIN â”€â”€ */
 .TAR-main {
   flex: 1;
   padding: 36px 24px;
@@ -129,7 +129,7 @@
 .TAR-btnExportar:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
 .TAR-btnExportar:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Cargar masivo: mismo patrón que Exportar pero azul (acción de escritura) */
+/* Cargar masivo: mismo patrÃ³n que Exportar pero azul (acciÃ³n de escritura) */
 .TAR-btnCargar {
   display: flex;
   align-items: center;
@@ -149,7 +149,7 @@
 .TAR-btnCargar:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
 .TAR-btnCargar:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Buscador ── */
+/* â”€â”€ Buscador â”€â”€ */
 .TAR-busquedaBar {
   display: flex;
   gap: 8px;
@@ -193,7 +193,7 @@
 }
 .TAR-btnBuscar:hover { opacity: 0.85; }
 
-/* ── Miga de pan ── */
+/* â”€â”€ Miga de pan â”€â”€ */
 .TAR-miga {
   display: flex;
   align-items: center;
@@ -245,7 +245,7 @@
   font-size: 0.95rem;
 }
 
-/* ── Tabla ── */
+/* â”€â”€ Tabla â”€â”€ */
 .TAR-tabla-wrap {
   background: #fff;
   border-radius: 16px;
@@ -314,7 +314,7 @@
 .TAR-btnAccion--eliminar:hover { background: #ffe0e0; }
 .TAR-td-vacio { text-align: center; padding: 48px; color: #6b7a8d; font-size: 0.9rem; }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .TAR-footer { background: #0f1928; border-top: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }
 .TAR-footerInner {
   display: flex; align-items: center; justify-content: space-between;
@@ -326,7 +326,7 @@
 .TAR-footerLink:hover { color: #e8a000; }
 .TAR-footerCopy { font-size: 0.75rem; color: rgba(255,255,255,.25); }
 
-/* ══ MODAL ══ */
+/* â•â• MODAL â•â• */
 .TAR-modalOverlay {
   position: fixed; inset: 0;
   background: rgba(15,25,40,.55);
@@ -389,7 +389,7 @@
 .TAR-btnGuardar:hover:not(:disabled) { opacity: 0.85; }
 .TAR-btnGuardar:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* ── Filas dinámicas de vehículo ── */
+/* â”€â”€ Filas dinÃ¡micas de vehÃ­culo â”€â”€ */
 .TAR-tarifasSeccion { display: flex; flex-direction: column; gap: 10px; }
 .TAR-tarifasHeader { display: flex; align-items: center; justify-content: space-between; }
 .TAR-btnAgregarFila {
@@ -414,7 +414,7 @@
 .TAR-btnEliminarFila:hover { background: #ffe0e0; }
 .TAR-tarifasVacio { font-size: 0.83rem; color: #6b7a8d; text-align: center; padding: 12px 0; margin: 0; }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 600px) {
   .TAR-main { padding: 20px 12px; }
   .TAR-formGrid { grid-template-columns: 1fr; }

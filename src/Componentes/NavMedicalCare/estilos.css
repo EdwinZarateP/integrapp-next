@@ -1,10 +1,13 @@
+/* (2026-10-31) Branding general: fondo negro + acento verde #98C74C
+   (antes gradiente teal #004d40→#006b5e) — mismo look del header del
+   portal Mis Indicadores, pedido para todos los headers de integrApp. */
 .NMC-header {
-  background: linear-gradient(90deg, #004d40 0%, #006b5e 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+  box-shadow: 0 2px 12px rgba(15, 25, 40, 0.35);
 }
 
 .NMC-inner {
@@ -34,7 +37,7 @@
   letter-spacing: -0.3px;
 }
 
-.NMC-brandAccent { color: #80cbc4; }
+.NMC-brandAccent { color: #98C74C; }
 
 .NMC-badge {
   flex: 1;
@@ -57,17 +60,17 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255,255,255,.1);
-  border: 1px solid rgba(255,255,255,.18);
-  border-radius: 10px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 999px;
   padding: 7px 12px;
   cursor: pointer;
   color: #fff;
   transition: background 0.18s;
 }
-.NMC-userBtn:hover { background: rgba(255,255,255,.18); }
+.NMC-userBtn:hover { background: rgba(255,255,255,.12); }
 
-.NMC-userIcon { font-size: 1.3rem; opacity: 0.85; }
+.NMC-userIcon { font-size: 1.3rem; color: #98C74C; }
 
 .NMC-userInfo {
   display: flex;
@@ -77,9 +80,9 @@
 }
 
 .NMC-userName  { font-size: 0.82rem; font-weight: 700; color: #fff; }
-.NMC-userPerfil { font-size: 0.7rem; color: rgba(255,255,255,.6); text-transform: uppercase; }
+.NMC-userPerfil { font-size: 0.7rem; color: #b9c2d0; text-transform: uppercase; }
 
-.NMC-chevron { font-size: 0.7rem; color: rgba(255,255,255,.6); transition: transform 0.2s; }
+.NMC-chevron { font-size: 0.7rem; color: #b9c2d0; transition: transform 0.2s; }
 .NMC-chevronOpen { transform: rotate(180deg); }
 
 .NMC-dropdown {
@@ -113,12 +116,12 @@
 .NMC-dropItem:hover { background: #f0f2f5; }
 
 .NMC-dropItemActive {
-  background: #e8f5e9;
-  color: #006b5e;
+  background: #eef4e0;
+  color: #6f9430;
   font-weight: 700;
   cursor: default;
 }
-.NMC-dropItemActive:hover { background: #e8f5e9; }
+.NMC-dropItemActive:hover { background: #eef4e0; }
 
 .NMC-dropDivider { height: 1px; background: #f0f2f5; margin: 4px 6px; }
 

@@ -1,4 +1,4 @@
-/* ── Layout raíz ── */
+/* â”€â”€ Layout raÃ­z â”€â”€ */
 .LU-layout {
   display: flex;
   flex-direction: column;
@@ -7,9 +7,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .LU-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -38,15 +38,15 @@
   font-size: 1.3rem;
   font-weight: 800;
   /* Sin uppercase (2026-10-06, pedido del usuario): el wordmark se muestra
-     tal cual «IntegrApp» — igual que el home. */
+     tal cual Â«IntegrAppÂ» â€” igual que el home. */
   color: #fff;
   letter-spacing: -0.3px;
 }
 
-/* «App» del wordmark en VERDE (2026-10-06, pedido del usuario — igual que el home). */
-.LU-brandAccent { color: #27ae60; }
+/* Â«AppÂ» del wordmark en VERDE (2026-10-06, pedido del usuario â€” igual que el home). */
+.LU-brandAccent { color: #98C74C; }
 
-/* ── MAIN ── */
+/* â”€â”€ MAIN â”€â”€ */
 .LU-main {
   flex: 1;
   display: flex;
@@ -198,7 +198,7 @@
   margin: 0;
 }
 
-/* ── Selector de cliente ── */
+/* â”€â”€ Selector de cliente â”€â”€ */
 .LU-cardClientes {
   max-width: 440px;
 }
@@ -273,7 +273,7 @@
 }
 .LU-volverBtn:hover { color: #0f1928; }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .LU-footer {
   background: #0f1928;
   border-top: 1px solid rgba(255,255,255,.05);
@@ -321,7 +321,7 @@
   color: rgba(255,255,255,.25);
 }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 600px) {
   .LU-card { padding: 28px 20px; }
   .LU-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }

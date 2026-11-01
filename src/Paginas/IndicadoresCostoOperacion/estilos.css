@@ -1,14 +1,14 @@
 /* ==========================================
-   INDICADORES DE COSTO DE OPERACIÓN - ESTILOS
-   Reutiliza todo el chrome compartido (header, filtros, tiles, gráficos,
+   INDICADORES DE COSTO DE OPERACIÃ“N - ESTILOS
+   Reutiliza todo el chrome compartido (header, filtros, tiles, grÃ¡ficos,
    loading) mediante `import '../../Componentes/IndicadoresChrome/estilos.css'`
-   en el componente. Aquí solo van los ajustes específicos de este módulo.
+   en el componente. AquÃ­ solo van los ajustes especÃ­ficos de este mÃ³dulo.
    ========================================== */
 
 /* Responsive: en pantallas grandes el contenido centrado (header, filtros,
    chips y main) ocupa el 90% del ancho (>=85%). El chrome compartido lo cap a
-   max-width 1200px; aquí lo ensanchamos SOLO para este módulo y solo en desktop,
-   sin tocar los breakpoints móviles (<=1024px) que ya hacen el contenido full-width. */
+   max-width 1200px; aquÃ­ lo ensanchamos SOLO para este mÃ³dulo y solo en desktop,
+   sin tocar los breakpoints mÃ³viles (<=1024px) que ya hacen el contenido full-width. */
 @media (min-width: 1025px) {
   .IG-headerInner,
   .IG-filtrosSection,
@@ -22,15 +22,15 @@
 }
 
 /* El chrome compartido aplica `.IG-graficosFila { order: 4 }`. Como IG-main es
-   flex-column, eso reordenaría las filas; lo reseteamos para respetar el DOM. */
+   flex-column, eso reordenarÃ­a las filas; lo reseteamos para respetar el DOM. */
 .IG-graficosFila { order: 0; }
 
-/* ── Uso de vehículos solicitados (drill-down) ───────────────────────────
+/* â”€â”€ Uso de vehÃ­culos solicitados (drill-down) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Mismas clases DC-* que usa el dashboard de kabi (DashboardCliente) para
    que el bloque se replique con el mismo look: trazabilidad, breadcrumb,
-   tabla de detalle con "+" por vehículo y sub-tabla de pedidos. */
+   tabla de detalle con "+" por vehÃ­culo y sub-tabla de pedidos. */
 
-/* Botón Reintentar del estado de error */
+/* BotÃ³n Reintentar del estado de error */
 .DC-reintentar {
   background: #e8a000;
   border: none;
@@ -40,14 +40,14 @@
   cursor: pointer;
 }
 
-/* Badge neutro del rango de fechas aplicado (junto al título) */
+/* Badge neutro del rango de fechas aplicado (junto al tÃ­tulo) */
 .DC-badgeRango {
   background: #f1f5f9;
   color: #475569;
   border: 1px solid #e2e8f0;
 }
 
-/* Barra de trazabilidad (búsqueda por pedido Vulcano) */
+/* Barra de trazabilidad (bÃºsqueda por pedido Vulcano) */
 .DC-trazaBarra {
   display: flex;
   align-items: center;
@@ -97,7 +97,7 @@
   padding: 0.4rem 0.7rem;
 }
 
-/* Cuerpo y acciones del detalle por vehículo */
+/* Cuerpo y acciones del detalle por vehÃ­culo */
 .DC-guiaCuerpo {
   padding: 0.6rem 1.4rem 1.4rem;
   border-top: 1px solid #e5e9f0;
@@ -142,8 +142,8 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
-  border-bottom: 2px solid #e8a000;
+  background: #000;
+  border-bottom: 2px solid #98C74C;
 }
 
 .DC-guiaCeldaNum {
@@ -194,8 +194,8 @@
 /* Pista de que las barras son clicables (dentro del tooltip). */
 .DC-usoTipClic { color: #64748b; font-style: italic; }
 
-/* Detalle por vehículo: botón "+" que despliega los pedidos (destinatario,
-   entrega y kg de cada uno) — mismo gesto que el "+" de PedidosCompletados. */
+/* Detalle por vehÃ­culo: botÃ³n "+" que despliega los pedidos (destinatario,
+   entrega y kg de cada uno) â€” mismo gesto que el "+" de PedidosCompletados. */
 .DC-usoBtnExpandir {
   width: 22px;
   height: 22px;
@@ -215,7 +215,7 @@
 .DC-usoFilaAbierta td { background: #f8fafc; }
 .DC-usoFilaDetalle td { background: #f8fafc; padding: 0 0.6rem 0.7rem 0.6rem; }
 
-/* Sub-tabla de pedidos del vehículo (destinatario / entrega / kg). */
+/* Sub-tabla de pedidos del vehÃ­culo (destinatario / entrega / kg). */
 .DC-usoSubTabla {
   width: 100%;
   border-collapse: collapse;
@@ -242,8 +242,8 @@
 /* Pedido Vulcano que hizo match en la trazabilidad: fila resaltada. */
 .DC-usoSubRowHit td { background: #fef9c3; font-weight: 600; }
 
-/* Vehículo del detalle de uso: el consecutivo es largo → salta de línea en
-   vez de truncarse (la tabla de guías sigue con elipsis). */
+/* VehÃ­culo del detalle de uso: el consecutivo es largo â†’ salta de lÃ­nea en
+   vez de truncarse (la tabla de guÃ­as sigue con elipsis). */
 .DC-usoCeldaVeh {
   max-width: 300px;
   white-space: normal;

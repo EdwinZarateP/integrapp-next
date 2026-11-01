@@ -738,3 +738,34 @@ El modal de detalle (clic en el consecutivo) mostraba datos, fletes y fechas, pe
 
 - Nuevo helper `nombrePersona(valor)` en `SolicitudVehiculos/page.tsx` e `HistoricoPedidosP/index.tsx`: resuelve username → **nombre de la persona** usando un mapa `{USUARIO: nombre}` que se consulta una vez al montar la página (`GET /siscore/nombres-usuarios`, sólo usuario+nombre). Prioridad: campo `*_nombre` del backend → mapa local → valor tal cual.
 - Aplica a: toda la sección «Trazabilidad del flujo», la tabla «Historial de cambios» y el aviso de fila **«⚠️ Devuelta por …»** de SolicitudVehiculos (que antes mostraba el username crudo). También cubre el estado local justo después de aprobar/devolver sin esperar el re-fetch.
+
+## Actualizaciones Recientes (2026-10-31)
+
+### Indicadores — On Time con la lógica del Excel real (frontend)
+
+Cambio de backend (ver `integrappi/README.md` 2026-10-31) que afecta el frontend de los dashboards:
+
+- **`SEGMENTOS_OT` pasó de 8 a 4 veredictos** (definición única para barras/leyenda/tooltip): **Cumplieron** (entregadas a tiempo + en curso sin vencer) / **No cumplieron** (entregadas tarde + en curso VENCIDAS) / **Con novedad** (auto-cumplen: reporte de Siscore **o justificación manual de /NovedadesOT** — las «Justificadas» se fusionaron aquí) / **No aplica** (fuera del %).
+- **BucketOT** (gráfico por período) y **OTPorCampo** (ciudad/destinatario) adaptados a los 4 segmentos.
+- **Excel** del OT/informe/detalle con columnas nuevas **Tipo Servicio** y **Cumplió «SÍ/NO (en curso)»** (hoja «Guías» con orden de lectura profesional: «Días vs Promesa» incluido).
+- **Badge de la consulta de guía** (pestaña Trazabilidad): chip ✔ Cumplió / ✘ No cumplió / ✔ Justificada / Sin evaluar con línea de fechas entrega↔promesa.
+- Deploy backend + frontend JUNTOS. Documentación completa en `INDICADORES.md` §3.
+
+### Nueva pantalla «Módulos» (/Modulos) — reemplaza el selector de portales del login
+
+- **Tras el login**, los perfiles multi-módulo (ADMIN, ANALISTA, COORDINADOR, CONTROL, OPERATIVO, DESPACHADOR) ya no eligen portal por tarjetas: aterrizan en **`/Modulos`** — hub minimalista con **menú lateral izquierdo SIEMPRE visible** (expandido con textos en desktop; en ≤768px **ocupa toda la pantalla**, sin logo central) y el **logo corporativo centrado** en el área restante. Nunca drawer ni hamburguesa.
+- **Config única del menú**: `src/Funciones/menuModulos.ts` (`construirMenu(ctx)` + `PERFILES_FLOTA/SEGURIDAD/ADMIN_SEGURIDAD`, movidas desde el login). Módulos principales (negrita, misma tipografía que las cabeceras de grupo): **CUMPLIMIENTO RNDC** (externo Mintransporte) · **GESTIÓN DE ÓRDENES** (externo Vulcano) · **TORRE DE CONTROL** (externo Mayasoft) · **ALMACENAMIENTO** (externo Siscore WMS) · **TMS** (externo Siscore) · **INDICADORES** (interno /indicadores). Grupos desplegables (cerrados por defecto, submenús solo al clic): **PROGRAMACIÓN** (Kabi → /Pedidos, Medical Care → /MedicalCare) y **EN RUTA** (Seguridad → /revision, Flota Disponible). Grupos vacíos se omiten. SICE-TAC y Admin Seguridad salieron del menú (rutas intactas).
+- **Al navegar** (`abrir()` en `Paginas/ModulosP`): setea `clientePedidosCookie` del portal antes del push; para Seguridad escribe las cookies `seguridad*` (modo PADRINO si el perfil no es ADMIN/SEGURIDAD); externos abren pestaña nueva. Sesiones previas al cambio sin la cookie de info → clic en Seguridad pide re-login una sola vez.
+- **Cookie nueva `usuarioInfoPedidosCookie`** (JSON `{id, usuario, nombre, correo, perfil, perfiles_adicionales}`, 14 días): la setea `LoginUsuarios` al autenticar y la lee /Modulos — permite entrar a Seguridad sin consultar backend.
+- **Login** (`Paginas/LoginUsuarios/index.tsx`): eliminados el paso 2 (tarjetas), `seleccionarCliente`, `CLIENTES_CONFIG` y `ORDEN_PORTALES`. Micro-portales intactos (FINANCIERO→/OtrosCostos, VISUALIZADOR→/indicadores, CLIENTE_ESTUDIOS→/PortalSeguridad, CLIENTE→/indicadores/mis-clientes, PADRINO→/revision). Re-login multi-módulo → /Modulos.
+- Usuario del sidebar con popover (nombre/perfil + Cerrar sesión); a11y (`:focus-visible`, aria-labels, `prefers-reduced-motion`).
+
+### Branding: headers unificados negro #000 + verde #98C74C
+
+A pedido del usuario, todos los headers pasaron al look del portal Mis Indicadores (`DC-header`). Técnica: **edición por línea exacta** (el gradiente navy `linear-gradient(90deg,#0f1928,#1e2f45)` también existe en footers/tablas y NO se tocó). Acentos `#e8a000`/`#27ae60`/`#bacf65` → `#98C74C`; `rgba(232,160,0,…)` → `rgba(152,199,76,…)`.
+
+- **Componentes compartidos**: `HeaderSesion` (FlotaDisponible/Sicetac/FlotaUsada/Disponibilidad), `HeaderApp`, `HeaderLogo` (#2c3e50→#000), `Barra` (huérfano), `IndicadoresChrome` (**solo `.IG-header`** — filtros/tablas internos siguen navy/naranja).
+- **Headers propios**: `Pedidos`/KABI (tabs activos verdes), `PedidosCompletados`, `AdminSeguridadP`, `TarifasP`, `CertificadoLaboralP`, `InicioPropietarios`, `OlvidoClaveBaseUsuario`, `GestionUsuariosP` (CSS muerto, alineado igual), `app/indicadores` (IM-header), `VerificarCorreo` (+AutorizacionDatos/AceptarInvitacion), `LoginUsuarios`/`LoginConductores`, `PanelClientes`/`PanelMisClientes` (#0f1928 plano→#000), landing `/` (page.module.css), `PanelConductores`.
+- **Shells teal → verde**: `revision` (tokens `--revx-acento*` + topbar negra + teales quemados #006b77/#006f7a/#9fd8dd/#f0fafb) y `PortalSeguridadP` (`--psx-teal*` + topbar negra; ⚠️ portal con marca seguriDatia — revertir tokens si se quiere conservar su teal).
+- **NavMedicalCare**: gradiente teal #004d40→#006b5e → #000; «App» verde; pill de usuario redondo; dropItemActive verde.
+- **No tocado**: `/VerificarEstudio` (portal público claro) y el contenido interno naranja de IndicadoresChrome/costo-operación.

@@ -1,11 +1,11 @@
 /* ---------------------------------------------------------------
-   HEADER DE SESIÓN de /revision — MISMO patrón que /PanelConductores
-   (marca + botón usuario con dropdown blanco). Sin hamburguesa.
+   HEADER DE SESIÃ“N de /revision â€” MISMO patrÃ³n que /PanelConductores
+   (marca + botÃ³n usuario con dropdown blanco). Sin hamburguesa.
    z-index 900: por debajo del panel de detalle (1000) y de los visores
    (1050) para que nunca compita con la UI de la bandeja.
    --------------------------------------------------------------- */
 .barra-superior {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   color: #fff;
   display: flex;
   align-items: center;
@@ -51,7 +51,7 @@
   letter-spacing: -0.3px;
 }
 
-.barra-marca-acento { color: #e8a000; }
+.barra-marca-acento { color: #98C74C; }
 
 .barra-titulo {
   font-size: 11px;
@@ -65,7 +65,7 @@
   text-overflow: ellipsis;
 }
 
-/* Derecha: botón de usuario (avatar + nombre + rol + chevron) */
+/* Derecha: botÃ³n de usuario (avatar + nombre + rol + chevron) */
 .barra-derecha {
   display: flex;
   align-items: center;
@@ -161,7 +161,7 @@
 .menu-itemDanger { color: #c0392b; }
 .menu-itemDanger:hover { background: #fdeeec; }
 
-/* Responsive: en móvil se oculta el nombre, queda avatar + chevron */
+/* Responsive: en mÃ³vil se oculta el nombre, queda avatar + chevron */
 @media (max-width: 600px) {
   .barra-superior { padding: 0 12px; }
 

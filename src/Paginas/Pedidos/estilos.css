@@ -1,9 +1,9 @@
-/* ────────────────────────────────────────────────
-   PEDIDOS — Estilos
-   Sistema de diseño: Integra (#0f1928 / #e8a000)
-──────────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   PEDIDOS â€” Estilos
+   Sistema de diseÃ±o: Integra (#0f1928 / #e8a000)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* ── Layout raíz ── */
+/* â”€â”€ Layout raÃ­z â”€â”€ */
 .Ped-layout {
   display: flex;
   flex-direction: column;
@@ -13,9 +13,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .Ped-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -47,7 +47,7 @@
   flex-shrink: 0;
 }
 
-/* Botón menú móvil */
+/* BotÃ³n menÃº mÃ³vil */
 .Ped-menuMobileBtn {
   display: none;
   background: rgba(255, 255, 255, 0.1);
@@ -75,7 +75,7 @@
   line-height: 1;
 }
 
-.Ped-brandAccent { color: #e8a000; }
+.Ped-brandAccent { color: #98C74C; }
 
 /* Nav tabs */
 .Ped-nav {
@@ -109,8 +109,8 @@
 }
 
 .Ped-navTabActive {
-  color: #e8a000 !important;
-  background: rgba(232, 160, 0, 0.12) !important;
+  color: #98C74C !important;
+  background: rgba(152, 199, 76, 0.12) !important;
   font-weight: 700;
 }
 
@@ -174,7 +174,7 @@
 
 .Ped-chevronOpen { transform: rotate(180deg); }
 
-/* Dropdown menú */
+/* Dropdown menÃº */
 .Ped-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -224,7 +224,7 @@
 .Ped-dropItemSwitch { color: #1d4ed8; font-weight: 600; }
 .Ped-dropItemSwitch:hover { background: #eff6ff; }
 
-/* ── MENÚ MÓVIL ── */
+/* â”€â”€ MENÃš MÃ“VIL â”€â”€ */
 .Ped-menuMobile {
   position: fixed;
   top: 64px;
@@ -284,14 +284,14 @@
   margin: 4px 0;
 }
 
-/* ── TABLA PRINCIPAL ── */
+/* â”€â”€ TABLA PRINCIPAL â”€â”€ */
 .Ped-main {
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
 }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .Ped-footer {
   background: #0f1928;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -341,7 +341,7 @@
   color: rgba(255, 255, 255, 0.25);
 }
 
-/* ── COMPONENTES FUERA DE PANTALLA ── */
+/* â”€â”€ COMPONENTES FUERA DE PANTALLA â”€â”€ */
 .Ped-accionesFuera {
   position: fixed;
   left: -9999px;
@@ -354,7 +354,7 @@
   visibility: visible;
 }
 
-/* ── FAB SPEED DIAL ── */
+/* â”€â”€ FAB SPEED DIAL â”€â”€ */
 .Ped-fab-zona {
   position: fixed;
   bottom: 28px;
@@ -366,7 +366,7 @@
   z-index: 500;
 }
 
-/* Botón FAB principal */
+/* BotÃ³n FAB principal */
 .Ped-fab-btn {
   width: 56px;
   height: 56px;
@@ -414,7 +414,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Cada opción */
+/* Cada opciÃ³n */
 .Ped-fab-opcion {
   display: flex;
   align-items: center;
@@ -469,7 +469,7 @@
 .Ped-fab-opcionIcono--teal { background: #0d6efd; }
 .Ped-fab-opcion:hover .Ped-fab-opcionIcono--teal { box-shadow: 0 6px 16px rgba(13, 110, 253, 0.45); }
 
-/* ── RESPONSIVE ── */
+/* â”€â”€ RESPONSIVE â”€â”€ */
 @media (max-width: 768px) {
   .Ped-nav { display: none; }
   
@@ -488,7 +488,7 @@
     margin-left: auto;
   }
 
-  /* Dropdown alineado a la derecha en móviles */
+  /* Dropdown alineado a la derecha en mÃ³viles */
   .Ped-dropdown {
     right: 0;
     left: auto !important;

@@ -1,5 +1,5 @@
 /* ==========================================
-   MENÚ INDICADORES - ESTILOS
+   MENÃš INDICADORES - ESTILOS
    Colores coincidiendo con /integrapp
    ========================================== */
 
@@ -16,7 +16,7 @@
    ========================================== */
 
 .IM-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 70px;
   display: flex;
   align-items: center;
@@ -58,11 +58,11 @@
 }
 
 .IM-brandAccent {
-  color: #e8a000;
+  color: #98C74C;
 }
 
 /* ==========================================
-   MENÚ USUARIO
+   MENÃš USUARIO
    ========================================== */
 
 .IM-userZone {

@@ -1,4 +1,4 @@
-/* ── BASE ── */
+/* â”€â”€ BASE â”€â”€ */
 .contenedor {
   min-height: 100vh;
   display: flex;
@@ -7,11 +7,11 @@
   background: #fafbfc;
 }
 
-/* ── HEADER ── Idéntico al de LoginConductores/LoginUsuario (LC-/LU-):
+/* â”€â”€ HEADER â”€â”€ IdÃ©ntico al de LoginConductores/LoginUsuario (LC-/LU-):
    mismo alto, sombra, espaciados y logo 40px (2026-10-06, pedido del
-   usuario: «que se vea como en LoginConductores»). */
+   usuario: Â«que se vea como en LoginConductoresÂ»). */
 .header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -27,7 +27,7 @@
   padding: 0 28px;
 }
 
-/* Wordmark «IntegrApp» junto al logo, a la IZQUIERDA — «App» en verde
+/* Wordmark Â«IntegrAppÂ» junto al logo, a la IZQUIERDA â€” Â«AppÂ» en verde
    (mismos valores de LC-brandName / LU-brandName). */
 .marca {
   color: #fff;
@@ -37,9 +37,9 @@
   white-space: nowrap;
 }
 
-.marcaApp { color: #27ae60; }
+.marcaApp { color: #98C74C; }
 
-/* ── MAIN / PORTALES ── */
+/* â”€â”€ MAIN / PORTALES â”€â”€ */
 .main {
   flex: 1;
   display: flex;
@@ -94,7 +94,7 @@
   color: #0f1928;
 }
 
-/* «Ingresar →»: affordance explícita de que la tarjeta es un botón. */
+/* Â«Ingresar â†’Â»: affordance explÃ­cita de que la tarjeta es un botÃ³n. */
 .portalBtn {
   margin-top: 6px;
   font-size: 0.92rem;
@@ -110,7 +110,7 @@
   background: #e8a000;
 }
 
-/* ── FOOTER ── Una sola fila compacta: © a la izquierda, contacto en línea
+/* â”€â”€ FOOTER â”€â”€ Una sola fila compacta: Â© a la izquierda, contacto en lÃ­nea
    a la derecha (antes eran dos bloques grandes que ocupaban media pantalla). */
 .footer {
   background: #080f1a;
@@ -152,12 +152,12 @@
 
 .footerLink:hover { color: #e8a000; }
 
-/* ── RESPONSIVE ── */
+/* â”€â”€ RESPONSIVE â”€â”€ */
 @media (max-width: 768px) {
   .main { padding: 48px 20px; }
   /* Una tarjeta por fila, a ancho generoso (touch target grande). */
   .portalGrid { grid-template-columns: 1fr; max-width: 420px; }
-  /* Footer compacto apilado y centrado en móvil. */
+  /* Footer compacto apilado y centrado en mÃ³vil. */
   .footer { padding: 14px 18px; }
   .footerInner { flex-direction: column; gap: 8px; }
   .footerContacto { justify-content: center; }

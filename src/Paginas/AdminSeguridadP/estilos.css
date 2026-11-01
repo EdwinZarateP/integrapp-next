@@ -1,6 +1,6 @@
-/* Panel de administración de cobro — prefijo AS- (CSS plano, patrón del proyecto) */
+/* Panel de administraciÃ³n de cobro â€” prefijo AS- (CSS plano, patrÃ³n del proyecto) */
 
-/* ── Header de la app (mismo diseño que /indicadores) ── */
+/* â”€â”€ Header de la app (mismo diseÃ±o que /indicadores) â”€â”€ */
 .AS-pagina {
   min-height: 100vh;
   display: flex;
@@ -11,7 +11,7 @@
 }
 
 .AS-header-app {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -21,8 +21,8 @@
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
-/* Patrón /Pedidos: contenido a ANCHO COMPLETO (sin max-width que dejaba una
-   franja encogida al centro en pantallas grandes), con el título del módulo
+/* PatrÃ³n /Pedidos: contenido a ANCHO COMPLETO (sin max-width que dejaba una
+   franja encogida al centro en pantallas grandes), con el tÃ­tulo del mÃ³dulo
    como tab central que empuja logo y usuario a los extremos. */
 .AS-header-inner {
   display: flex;
@@ -32,13 +32,13 @@
   gap: 16px;
 }
 
-/* Título del módulo como tab de navegación (como "Gestión de Pedidos"). */
+/* TÃ­tulo del mÃ³dulo como tab de navegaciÃ³n (como "GestiÃ³n de Pedidos"). */
 .AS-headerTab {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #e8a000;
-  background: rgba(232, 160, 0, 0.12);
+  color: #98C74C;
+  background: rgba(152, 199, 76, 0.12);
   font-size: 0.88rem;
   font-weight: 700;
   padding: 8px 16px;
@@ -72,7 +72,7 @@
 }
 
 .AS-brandAccent {
-  color: #e8a000;
+  color: #98C74C;
 }
 
 .AS-userZone {
@@ -191,7 +191,7 @@
 
 @media (max-width: 600px) {
   .AS-userInfo {
-    display: none; /* móvil: solo avatar + chevron */
+    display: none; /* mÃ³vil: solo avatar + chevron */
   }
   .AS-brandName {
     font-size: 1.15rem;
@@ -248,7 +248,7 @@
   flex-wrap: wrap;
 }
 
-.AS-pestaña {
+.AS-pestaÃ±a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -263,7 +263,7 @@
   margin-bottom: -2px;
 }
 
-.AS-pestaña-activa {
+.AS-pestaÃ±a-activa {
   color: #0f2a43;
   border-bottom-color: #0f2a43;
 }
@@ -348,7 +348,7 @@
   background: #1a3a5c;
 }
 
-/* ── Fila expandible de empresas (planes habilitados) ── */
+/* â”€â”€ Fila expandible de empresas (planes habilitados) â”€â”€ */
 .AS-expandir {
   text-align: center;
   width: 36px;
@@ -372,7 +372,7 @@
 }
 
 .AS-boton-flecha-abierta {
-  transform: rotate(90deg); /* ▸ apuntando hacia abajo */
+  transform: rotate(90deg); /* â–¸ apuntando hacia abajo */
   background: #0f2a43;
   color: #fff;
   border-color: #0f2a43;
@@ -436,7 +436,7 @@
   color: #c0392b !important;
 }
 
-/* Botón de solo ícono (retirar plan en la tarjeta desplegada). */
+/* BotÃ³n de solo Ã­cono (retirar plan en la tarjeta desplegada). */
 .AS-plan-cab .AS-boton-peligro {
   display: inline-flex;
   align-items: center;

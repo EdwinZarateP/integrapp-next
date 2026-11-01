@@ -1,7 +1,7 @@
-/* Header de marca + sesión. Botón de usuario y dropdown con el MISMO patrón
+/* Header de marca + sesiÃ³n. BotÃ³n de usuario y dropdown con el MISMO patrÃ³n
    del header de /PanelConductores (barra-userBtn / menu-desplegable). */
 .HS-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -31,7 +31,7 @@
   letter-spacing: -0.3px;
   white-space: nowrap;
 }
-.HS-brandAccent { color: #e8a000; }
+.HS-brandAccent { color: #98C74C; }
 
 .HS-derecha {
   position: relative;
@@ -39,7 +39,7 @@
   align-items: center;
 }
 
-/* --- Botón de usuario (avatar + nombre + perfil + chevron) --- */
+/* --- BotÃ³n de usuario (avatar + nombre + perfil + chevron) --- */
 .HS-userBtn {
   display: flex;
   align-items: center;
@@ -145,5 +145,5 @@
 @media (max-width: 600px) {
   .HS-header { padding: 0 14px; height: 56px; }
   .HS-brandName { font-size: 1.05rem; }
-  .HS-userInfo { display: none; } /* Solo avatar + chevron en móvil */
+  .HS-userInfo { display: none; } /* Solo avatar + chevron en mÃ³vil */
 }

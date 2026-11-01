@@ -1,4 +1,4 @@
-/* ── Olvido Clave Base Usuario ── */
+/* â”€â”€ Olvido Clave Base Usuario â”€â”€ */
 .OCBU-layout {
   display: flex;
   flex-direction: column;
@@ -8,7 +8,7 @@
 }
 
 .OCBU-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -41,7 +41,7 @@
   letter-spacing: -0.3px;
 }
 
-.OCBU-brandAccent { color: #e8a000; }
+.OCBU-brandAccent { color: #98C74C; }
 
 .OCBU-main {
   flex: 1;

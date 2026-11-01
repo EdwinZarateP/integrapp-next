@@ -1,6 +1,6 @@
 /* ==========================================
-   DASHBOARD INDICADORES DE GUÍAS - ESTILOS
-   Diseño coincidiendo con /integrapp
+   DASHBOARD INDICADORES DE GUÃAS - ESTILOS
+   DiseÃ±o coincidiendo con /integrapp
    ========================================== */
 
 .IG-container {
@@ -16,7 +16,7 @@
    ========================================== */
 
 .IG-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 70px;
   display: flex;
   align-items: center;
@@ -58,7 +58,7 @@
 }
 
 .IG-brandAccent {
-  color: #e8a000;
+  color: #98C74C;
 }
 
 .IG-titulo {
@@ -79,7 +79,7 @@
 }
 
 /* ==========================================
-   MENÚ USUARIO
+   MENÃš USUARIO
    ========================================== */
 
 .IG-userZone {
@@ -539,7 +539,7 @@
   flex-direction: column;
 }
 
-/* Reorden visual: KPIs → Pedidos → Cajas → desgloses (sin mover el DOM) */
+/* Reorden visual: KPIs â†’ Pedidos â†’ Cajas â†’ desgloses (sin mover el DOM) */
 .IG-kpisContainer { order: 1; }
 .IG-graficoPedidos { order: 2; }
 .IG-graficoCajas { order: 3; }
@@ -757,7 +757,7 @@
 }
 
 /* ==========================================
-   KPIs — NUEVO DISEÑO (hero + tiles)
+   KPIs â€” NUEVO DISEÃ‘O (hero + tiles)
    ========================================== */
 
 .IG-kpiHero {
@@ -1016,7 +1016,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Cabecera de gráfico: título + hint + acciones */
+/* Cabecera de grÃ¡fico: tÃ­tulo + hint + acciones */
 .IG-graficoTituloWrap {
   display: flex;
   flex-direction: column;
@@ -1039,7 +1039,7 @@
   justify-content: flex-end;
 }
 
-/* Botón exportar compacto (redefine el original) */
+/* BotÃ³n exportar compacto (redefine el original) */
 .IG-botonExportar {
   display: inline-flex;
   align-items: center;
@@ -1245,7 +1245,7 @@
 }
 
 /* ==========================================
-   GRÁFICO
+   GRÃFICO
    ========================================== */
 
 .IG-graficosFila {
@@ -1273,7 +1273,7 @@
   min-height: 300px;
 }
 
-/* Panel de información del cliente seleccionado en el pie */
+/* Panel de informaciÃ³n del cliente seleccionado en el pie */
 .IG-clienteSeleccionadoInfo {
   background: linear-gradient(135deg, #0f1928 0%, #1e2f45 100%);
   color: white;
@@ -1341,7 +1341,7 @@
   border-color: rgba(255, 255, 255, 0.35);
 }
 
-/* Lista de clientes para móvil */
+/* Lista de clientes para mÃ³vil */
 .IG-clientesListaMobile {
   display: none;
   flex-direction: column;
@@ -1542,7 +1542,7 @@
   gap: 0.75rem;
 }
 
-/* Botón toggle: oculto en desktop */
+/* BotÃ³n toggle: oculto en desktop */
 .IG-leyendaToggle {
   display: none;
 }
@@ -2032,7 +2032,7 @@
   }
 
   /* overflow: visible para que los popovers (calendario y desplegable de
-     cliente) no queden recortados/tapados por el botón Filtrar en móvil */
+     cliente) no queden recortados/tapados por el botÃ³n Filtrar en mÃ³vil */
   .IG-filtrosPanel {
     grid-template-columns: 1fr;
     gap: 0.75rem;
@@ -2168,7 +2168,7 @@
     font-size: 1.5rem;
   }
 
-  /* Optimización del gráfico de pie para móviles */
+  /* OptimizaciÃ³n del grÃ¡fico de pie para mÃ³viles */
   .IG-graficoPieWrap {
     display: none;
   }
@@ -2327,9 +2327,9 @@
 }
 
 /* ==========================================
-   RESPONSIVE — rejilla de KPIs (nuevo diseño)
-   Deben ir después para prevalecer sobre las
-   reglas .IG-kpisContainer genéricas de arriba.
+   RESPONSIVE â€” rejilla de KPIs (nuevo diseÃ±o)
+   Deben ir despuÃ©s para prevalecer sobre las
+   reglas .IG-kpisContainer genÃ©ricas de arriba.
    ========================================== */
 
 @media (max-width: 1024px) {
@@ -2368,10 +2368,10 @@
   }
 }
 
-/* ── Componentes de gráfico compartidos (mudados de Costo de Operación) ────
-   Toggle Mensual/Diario, badge de vista, subtítulo y tooltip de serie los
-   usan todos los dashboards de indicadores (Costo Operación y Clientes). */
-/* Toggle segmentado Mensual/Diario del gráfico de costo de operación */
+/* â”€â”€ Componentes de grÃ¡fico compartidos (mudados de Costo de OperaciÃ³n) â”€â”€â”€â”€
+   Toggle Mensual/Diario, badge de vista, subtÃ­tulo y tooltip de serie los
+   usan todos los dashboards de indicadores (Costo OperaciÃ³n y Clientes). */
+/* Toggle segmentado Mensual/Diario del grÃ¡fico de costo de operaciÃ³n */
 .IG-toggleGrupo {
   display: inline-flex;
   border: 1px solid #cbd5e1;
@@ -2398,7 +2398,7 @@
   color: #ffffff;
 }
 
-/* Badge de vista junto al título del gráfico */
+/* Badge de vista junto al tÃ­tulo del grÃ¡fico */
 .IG-graficoBadge {
   display: inline-block;
   margin-left: 0.5rem;
@@ -2413,7 +2413,7 @@
   vertical-align: middle;
 }
 
-/* Subtítulo bajo el header de un gráfico (mapeo de fuentes) */
+/* SubtÃ­tulo bajo el header de un grÃ¡fico (mapeo de fuentes) */
 .IG-graficoSub {
   margin: 0.25rem 0 0.75rem;
   font-size: 0.82rem;
@@ -2425,7 +2425,7 @@
   color: #0f1928;
 }
 
-/* Tooltip personalizado del gráfico de costo (desglose por etapa + total) */
+/* Tooltip personalizado del grÃ¡fico de costo (desglose por etapa + total) */
 .IG-tooltipSerie {
   background: #0f1928;
   border-radius: 8px;

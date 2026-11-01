@@ -1,0 +1,370 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHELL MODX — pantalla de Módulos de la Torre de Control (/Modulos).
+   Minimalista: sidebar COMPLETA (con textos) SIEMPRE visible en cualquier
+   tamaño de pantalla — sin modo compacto ni drawer — y el logo corporativo
+   centrado en el área central.
+   Branding IntegrApp: negro #000 + verde #98C74C. Prefijo MODX-.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.modx-app {
+  --modx-acento: #98c74c;
+  --modx-acento-oscuro: #6f9430;
+  --modx-acento-suave: #eef4e0;
+  --modx-fondo: #f5f6f8;
+  --modx-borde: #e6e9ee;
+  --modx-texto: #1f2b38;
+  --modx-texto-suave: #67737f;
+  --modx-rojo: #e5484d;
+  --modx-radio: 12px;
+  --modx-sombra: 0 1px 2px rgba(16, 42, 67, 0.06);
+  --modx-sidebar-ancho: 252px;
+
+  display: flex;
+  min-height: 100vh;
+  background: var(--modx-fondo);
+  color: var(--modx-texto);
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+.modx-cargando {
+  align-items: center;
+  justify-content: center;
+  color: var(--modx-texto-suave);
+}
+
+/* Focus visible en toda la pantalla (accesibilidad por teclado). */
+.modx-app :focus-visible {
+  outline: 2px solid var(--modx-acento-oscuro);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Sidebar (siempre visible y completa) ────────────────────────── */
+.modx-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: var(--modx-sidebar-ancho);
+  background: #fff;
+  border-right: 1px solid var(--modx-borde);
+  /* Toda la altura de la pantalla, con scroll interno si hace falta. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.modx-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px 12px;
+  min-height: 56px;
+}
+
+.modx-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.modx-logo-texto { display: flex; flex-direction: column; min-width: 0; }
+
+.modx-logo-texto span {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--modx-texto);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.modx-logo-texto span span { color: var(--modx-acento-oscuro); }
+
+.modx-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  flex: 1;
+}
+
+.modx-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  color: var(--modx-texto-suave);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modx-nav-item svg {
+  font-size: 1rem;
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.modx-nav-item:hover { background: #f2f5f7; color: var(--modx-texto); }
+
+/* Sub-ítem dentro de un grupo: indentado y un punto más pequeño. */
+.modx-nav-item--sub {
+  font-size: 0.85rem;
+  padding: 9px 12px 9px 26px;
+}
+
+.modx-nav-item--sub svg {
+  font-size: 0.88rem;
+  width: 17px;
+}
+
+/* Ítems directos = módulos principales: mayúsculas y NEGRILLA. */
+.modx-nav-item--directo {
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  font-weight: 700;
+  color: var(--modx-texto);
+}
+
+/* Ítem deshabilitado (módulo sin link todavía / próximo a lanzarse). */
+.modx-nav-item--deshabilitado {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.modx-nav-item--deshabilitado:hover {
+  background: transparent;
+  color: var(--modx-texto-suave);
+}
+
+.modx-nav-texto {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modx-nav-badge {
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--modx-acento-oscuro);
+  background: var(--modx-acento-suave);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+
+.modx-nav-externo {
+  font-size: 0.58rem !important;
+  width: 10px !important;
+  color: var(--modx-texto-suave);
+  opacity: 0.8;
+}
+
+.modx-nav-divisor {
+  height: 1px;
+  background: var(--modx-borde);
+  margin: 8px 10px;
+}
+
+/* Grupo colapsable (PROGRAMACIÓN / EN RUTA). Misma tipografía que los
+   módulos principales: también son módulos de primer nivel. */
+.modx-grupo { display: flex; flex-direction: column; }
+
+.modx-grupo-cab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  color: var(--modx-texto);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.modx-grupo-cab:hover { background: #f2f5f7; }
+
+.modx-grupo-cab svg:first-child {
+  font-size: 1rem;
+  width: 20px;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.modx-grupo-cab span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modx-grupo-chevron {
+  font-size: 0.64rem;
+  color: var(--modx-texto-suave);
+}
+
+.modx-grupo-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Pie del sidebar: usuario con popover ────────────────────────── */
+.modx-sidebar-pie {
+  position: relative;
+  border-top: 1px solid var(--modx-borde);
+  padding: 12px;
+}
+
+.modx-sidebar-usuario {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.modx-sidebar-usuario:hover { background: #f2f5f7; }
+.modx-sidebar-usuario--activo { background: var(--modx-acento-suave); }
+
+.modx-sidebar-usuario-datos { display: flex; flex-direction: column; min-width: 0; }
+
+.modx-sidebar-usuario-datos strong {
+  font-size: 0.84rem;
+  color: var(--modx-texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modx-sidebar-usuario-datos small {
+  color: var(--modx-texto-suave);
+  font-size: 0.7rem;
+}
+
+.modx-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--modx-acento);
+  /* Verde claro: texto oscuro para contraste. */
+  color: #0b1526;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* Popover del usuario (se abre hacia arriba). */
+.modx-user-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 10px;
+  width: 220px;
+  background: #fff;
+  border: 1px solid var(--modx-borde);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 42, 67, 0.14);
+  padding: 6px;
+  z-index: 95;
+}
+
+.modx-user-pop-cab {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--modx-borde);
+  margin-bottom: 6px;
+}
+
+.modx-user-pop-cab strong { font-size: 0.86rem; }
+.modx-user-pop-cab small { color: var(--modx-texto-suave); font-size: 0.74rem; }
+
+.modx-user-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--modx-texto);
+  font-size: 0.85rem;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.modx-user-pop-item:hover { background: #f2f5f7; }
+.modx-user-pop-item--rojo:hover { background: #fdeeee; color: var(--modx-rojo); }
+
+/* ── Área central: logo corporativo centrado ─────────────────────── */
+.modx-lienzo {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  min-width: 0;
+  padding: 24px;
+}
+
+.modx-logo-central {
+  /* Responsive, sin distorsión, con aire alrededor. En pantallas
+     angostas se ajusta al espacio que deja la sidebar. */
+  width: min(340px, 100%);
+  max-height: 45vh;
+  object-fit: contain;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+/* Pantallas pequeñas: el menú OCUPA TODA LA PANTALLA (ancho completo) y
+   el área del logo se oculta — no importa en pequeñas. */
+@media (max-width: 768px) {
+  .modx-sidebar {
+    width: 100%;
+    border-right: none;
+  }
+
+  .modx-lienzo { display: none; }
+}
+
+/* Movimiento reducido: sin transiciones. */
+@media (prefers-reduced-motion: reduce) {
+  .modx-app *,
+  .modx-app *::before,
+  .modx-app *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

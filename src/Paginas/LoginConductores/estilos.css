@@ -1,4 +1,4 @@
-/* ── Layout raíz ── */
+/* â”€â”€ Layout raÃ­z â”€â”€ */
 .LC-layout {
   display: flex;
   flex-direction: column;
@@ -7,9 +7,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .LC-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -38,15 +38,15 @@
   font-size: 1.3rem;
   font-weight: 800;
   /* Sin uppercase (2026-10-06, pedido del usuario): el wordmark se muestra
-     tal cual «IntegrApp» — igual que el home. */
+     tal cual Â«IntegrAppÂ» â€” igual que el home. */
   color: #fff;
   letter-spacing: -0.3px;
 }
 
-/* «App» del wordmark en VERDE (2026-10-06, pedido del usuario — igual que el home). */
-.LC-brandAccent { color: #27ae60; }
+/* Â«AppÂ» del wordmark en VERDE (2026-10-06, pedido del usuario â€” igual que el home). */
+.LC-brandAccent { color: #98C74C; }
 
-/* ── MAIN ── */
+/* â”€â”€ MAIN â”€â”€ */
 .LC-main {
   flex: 1;
   display: flex;
@@ -175,7 +175,7 @@
   cursor: not-allowed;
 }
 
-/* Fila de links: Registrarse + ¿Olvidaste tu contraseña? */
+/* Fila de links: Registrarse + Â¿Olvidaste tu contraseÃ±a? */
 .LC-linksFila {
   display: flex;
   align-items: center;
@@ -210,7 +210,7 @@
   margin: 0;
 }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .LC-footer {
   background: #0f1928;
   border-top: 1px solid rgba(255,255,255,.05);
@@ -258,7 +258,7 @@
   color: rgba(255,255,255,.25);
 }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 600px) {
   .LC-card { padding: 28px 20px; }
   .LC-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
@@ -266,7 +266,7 @@
   .LC-headerInner { padding: 0 16px; }
 }
 
-/* Botón de reenvío de verificación (mismo ancho, estilo ámbar) */
+/* BotÃ³n de reenvÃ­o de verificaciÃ³n (mismo ancho, estilo Ã¡mbar) */
 .LC-botonReenvio {
   background: #e8a000;
 }

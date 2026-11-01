@@ -1,4 +1,4 @@
-/* ── Layout raíz ── */
+/* â”€â”€ Layout raÃ­z â”€â”€ */
 .VC-layout {
   display: flex;
   flex-direction: column;
@@ -7,9 +7,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .VC-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -37,15 +37,15 @@
 .VC-brandName {
   font-size: 1.3rem;
   font-weight: 800;
-  /* Sin uppercase: el wordmark se muestra tal cual «IntegrApp», igual que
+  /* Sin uppercase: el wordmark se muestra tal cual Â«IntegrAppÂ», igual que
      el home y los logines (pedido del usuario 2026-10-06). */
   color: #fff;
   letter-spacing: -0.3px;
 }
 
-.VC-brandAccent { color: #27ae60; }
+.VC-brandAccent { color: #98C74C; }
 
-/* ── MAIN ── */
+/* â”€â”€ MAIN â”€â”€ */
 .VC-main {
   flex: 1;
   display: flex;
@@ -153,7 +153,7 @@
 }
 .VC-linkVolver:hover { color: #0f1928; }
 
-/* ── Aceptación de política de datos ── */
+/* â”€â”€ AceptaciÃ³n de polÃ­tica de datos â”€â”€ */
 .VC-politicaCaja {
   width: 100%;
   text-align: left;
@@ -190,7 +190,7 @@
   padding-right: 8px;
 }
 
-/* Scrollbar sutil dentro del texto de la política */
+/* Scrollbar sutil dentro del texto de la polÃ­tica */
 .VC-politicaTexto::-webkit-scrollbar { width: 6px; }
 .VC-politicaTexto::-webkit-scrollbar-track { background: transparent; }
 .VC-politicaTexto::-webkit-scrollbar-thumb {
@@ -249,7 +249,7 @@
   margin: 4px 0 0;
 }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .VC-footer {
   background: #0f1928;
   border-top: 1px solid rgba(255,255,255,.05);
@@ -263,21 +263,21 @@
   padding: 14px 28px;
 }
 
-/* ── Pantallas grandes: la aceptación de declaraciones aprovecha el ancho ──
-   Una declaración POR FILA a todo el ancho de la tarjeta (pedido del
-   usuario); los estados simples —verificando/exito/error— siguen compactos
-   y centrados; móvil no cambia. */
+/* â”€â”€ Pantallas grandes: la aceptaciÃ³n de declaraciones aprovecha el ancho â”€â”€
+   Una declaraciÃ³n POR FILA a todo el ancho de la tarjeta (pedido del
+   usuario); los estados simples â€”verificando/exito/errorâ€” siguen compactos
+   y centrados; mÃ³vil no cambia. */
 .VC-card--ancha {
   max-width: 1040px;
   padding: 44px 48px;
 }
 
-/* El subtítulo no se estira a todo el ancho de la tarjeta ancha. */
+/* El subtÃ­tulo no se estira a todo el ancho de la tarjeta ancha. */
 .VC-card--ancha .VC-subtitulo {
   max-width: 680px;
 }
 
-/* Con la política vieja (una sola caja) también se lee más cómodo. */
+/* Con la polÃ­tica vieja (una sola caja) tambiÃ©n se lee mÃ¡s cÃ³modo. */
 .VC-card--ancha .VC-politicaTexto { max-height: 320px; }
 
 .VC-declaraciones {
@@ -287,7 +287,7 @@
   width: 100%;
 }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 600px) {
   .VC-card { padding: 28px 20px; }
   .VC-card--ancha { padding: 28px 20px; }

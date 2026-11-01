@@ -1,5 +1,5 @@
 .HA-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -33,5 +33,5 @@
 }
 
 .HA-brandAccent {
-  color: #e8a000;
+  color: #98C74C;
 }

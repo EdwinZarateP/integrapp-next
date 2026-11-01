@@ -1,4 +1,4 @@
-/* ── Layout raíz ── */
+/* â”€â”€ Layout raÃ­z â”€â”€ */
 .GU-layout {
   display: flex;
   flex-direction: column;
@@ -7,9 +7,9 @@
   background: #f0f2f5;
 }
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .GU-header {
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
+  background: #000;
   height: 64px;
   display: flex;
   align-items: center;
@@ -42,7 +42,7 @@
   color: #fff;
   letter-spacing: -0.3px;
 }
-.GU-brandAccent { color: #e8a000; }
+.GU-brandAccent { color: #98C74C; }
 .GU-backBtn {
   display: flex;
   align-items: center;
@@ -60,7 +60,7 @@
 }
 .GU-backBtn:hover { background: rgba(255,255,255,.2); }
 
-/* ── MAIN ── */
+/* â”€â”€ MAIN â”€â”€ */
 .GU-main {
   flex: 1;
   padding: clamp(20px, 3vw, 48px) clamp(16px, 4vw, 48px);
@@ -115,7 +115,7 @@
 }
 .GU-btnNuevo:hover { opacity: 0.85; transform: translateY(-1px); }
 
-/* ── Tabla ── */
+/* â”€â”€ Tabla â”€â”€ */
 .GU-tabla-wrap {
   background: #fff;
   border-radius: 16px;
@@ -261,7 +261,7 @@
 
 .GU-fila--inactiva { opacity: 0.45; background: #f8f9fa; }
 
-/* ── Notificaciones MC — botón en tabla ── */
+/* â”€â”€ Notificaciones MC â€” botÃ³n en tabla â”€â”€ */
 .GU-th-notif-mc { text-align: center !important; min-width: 80px; }
 .GU-td-notif-mc { text-align: center; }
 
@@ -295,7 +295,7 @@
   border: 1.5px solid #fff;
 }
 
-/* ── Modal notificaciones MC ── */
+/* â”€â”€ Modal notificaciones MC â”€â”€ */
 .GU-modalCard--sm { max-width: 400px; }
 .GU-modal-sub { font-size: 0.82rem; color: #6b7a8d; margin: 2px 0 0; font-weight: 500; }
 
@@ -324,7 +324,7 @@
 .GU-notif-mc-feedback--ok  { margin: 0; font-size: 0.84rem; color: #16a34a; font-weight: 700; text-align: center; }
 .GU-notif-mc-feedback--err { margin: 0; font-size: 0.84rem; color: #dc3545; text-align: center; }
 
-/* ── Alcance de aprobación por cliente (Otros Costos) ── */
+/* â”€â”€ Alcance de aprobaciÃ³n por cliente (Otros Costos) â”€â”€ */
 .GU-btn-alcance-oc {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 10px; border: 1.5px solid #e2e8f0; border-radius: 8px;
@@ -347,7 +347,7 @@
 .GU-th-clientes { text-align: center !important; }
 .GU-alcance-acciones { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 
-/* ── FOOTER ── */
+/* â”€â”€ FOOTER â”€â”€ */
 .GU-footer { background: #0f1928; border-top: 1px solid rgba(255,255,255,.05); flex-shrink: 0; }
 .GU-footerInner {
   display: flex; align-items: center; justify-content: space-between;
@@ -361,7 +361,7 @@
 .GU-footerLink:hover { color: #e8a000; }
 .GU-footerCopy { font-size: 0.75rem; color: rgba(255,255,255,.25); }
 
-/* ══ MODAL ══ */
+/* â•â• MODAL â•â• */
 .GU-modalOverlay {
   position: fixed; inset: 0;
   background: rgba(15,25,40,.55);
@@ -423,7 +423,7 @@
 .GU-btnGuardar:hover:not(:disabled) { opacity: 0.85; }
 .GU-btnGuardar:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* ── Responsive ── */
+/* â”€â”€ Responsive â”€â”€ */
 @media (max-width: 600px) {
   .GU-formGrid { grid-template-columns: 1fr; }
   .GU-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -440,8 +440,8 @@
   .GU-toggle input:checked + .GU-toggleSlider::after { transform: translateX(22px); }
 }
 
-/* (2026-10-15) Perfil ADICIONAL «+ Padrino»: checkbox compacto bajo el
-   selector de perfil — el usuario conserva su perfil principal y gana la
+/* (2026-10-15) Perfil ADICIONAL Â«+ PadrinoÂ»: checkbox compacto bajo el
+   selector de perfil â€” el usuario conserva su perfil principal y gana la
    entrada al portal de Seguridad en modo simplificado. */
 .GU-padrino-adicional {
   display: inline-flex;
@@ -468,7 +468,7 @@
   border-radius: 4px;
 }
 
-/* ── Apartado: Clientes — Otros Costos (2026-10-21) ── */
+/* â”€â”€ Apartado: Clientes â€” Otros Costos (2026-10-21) â”€â”€ */
 .GU-clioc {
   background: #fff;
   border-radius: 16px;
