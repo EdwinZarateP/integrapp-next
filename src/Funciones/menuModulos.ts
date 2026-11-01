@@ -16,11 +16,18 @@ import {
   FaWarehouse,
   FaRoute,
   FaCalendarAlt,
+  FaCalendarCheck,
+  FaCalendarDay,
   FaTruck,
   FaShieldAlt,
   FaChartBar,
   FaBoxes,
   FaClinicMedical,
+  FaHandshake,
+  FaPoll,
+  FaUndoAlt,
+  FaBullseye,
+  FaHeadset,
 } from "react-icons/fa";
 
 // ── Perfiles con acceso a cada portal (mismos sets que usaba el login) ──
@@ -111,18 +118,91 @@ const ITEMS_DIRECTOS: ItemModulo[] = [
     icono: FaRoute,
     externo: "https://integra.appsiscore.com/app/index.php",
   },
-  {
-    id: "indicadores",
-    etiqueta: "INDICADORES",
-    desc: "Menú principal de dashboards e indicadores",
-    icono: FaChartBar,
-    destino: "/indicadores",
-  },
 ];
 
 // ── Grupos (submenús) ──
 
 const GRUPOS: GrupoModulos[] = [
+  {
+    // (2026-10-31) INDICADORES dejó de ser ítem directo: además del menú
+    // interno de dashboards cuelgan aquí los tableros Power BI del área
+    // (links de publicación app.powerbi.com, se abren en pestaña nueva).
+    id: "indicadores",
+    etiqueta: "INDICADORES",
+    icono: FaChartBar,
+    items: [
+      {
+        id: "indicadores_app",
+        etiqueta: "IntegrApp",
+        desc: "Menú principal de dashboards e indicadores",
+        icono: FaChartBar,
+        destino: "/indicadores",
+      },
+      {
+        id: "ind_cierre_diario",
+        etiqueta: "Cierre diario",
+        desc: "Tablero Power BI",
+        icono: FaCalendarDay,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiZDMyYWY2NzAtNjVhOS00OTdhLWI3OTYtZTQwNTJmN2U0ODcwIiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_proveedores",
+        etiqueta: "Gestión de proveedores",
+        desc: "Tablero Power BI",
+        icono: FaHandshake,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiM2M2MDdmYmQtOWJiNC00ZTE2LWJkNzItOWE3NWM5ZTFhNTgxIiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_encuestas",
+        etiqueta: "Encuestas de satisfacción",
+        desc: "Tablero Power BI",
+        icono: FaPoll,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiMjY3Y2NiMTEtODcyMS00M2VkLWFhYjItMDAyNzRjZjc3OGY1IiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_citas",
+        etiqueta: "Cumplimiento de citas",
+        desc: "Tablero Power BI",
+        icono: FaCalendarCheck,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiZGNiMWRiMzUtMWM2MS00MTk4LTljNDUtMGYwODUyYzkzMjZlIiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_almacenamiento",
+        etiqueta: "Gestión de almacenamiento",
+        desc: "Tablero Power BI",
+        icono: FaWarehouse,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiODdjMDcyMTUtYzRhMC00MWEyLWI2NDAtZjM1NWU2MzkyMTMxIiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_devoluciones",
+        etiqueta: "Cumplimiento de devoluciones",
+        desc: "Tablero Power BI",
+        icono: FaUndoAlt,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiZjRiZTI4OGUtZWU2ZS00MzkxLTllODItNzA4N2UyOWYwYTE5IiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_ontime",
+        etiqueta: "On time",
+        desc: "Tablero Power BI",
+        icono: FaBullseye,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiOTExN2EyMmEtMThiMS00OWI1LTg5ODktYzgwYWE5ZjQ2MDFiIiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_inventarios",
+        etiqueta: "Efectividad de inventarios",
+        desc: "Tablero Power BI",
+        icono: FaBoxes,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiZjUzN2EyZDktZmI5YS00NzM1LWI5ZDAtOGE5MTkzYmRmY2VhIiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+      {
+        id: "ind_pqr",
+        etiqueta: "PQR",
+        desc: "Tablero Power BI",
+        icono: FaHeadset,
+        externo: "https://app.powerbi.com/view?r=eyJrIjoiZTU1YmNiMDQtOWJkOC00OGQzLWFmOGUtM2EyMTBiYTczNDZkIiwidCI6ImVhMTg1NzIxLTM3OTMtNDg0Yy1iZGI4LTk5NTc5N2NlMGVjYyIsImMiOjR9",
+      },
+    ],
+  },
   {
     id: "programacion",
     etiqueta: "PROGRAMACIÓN",

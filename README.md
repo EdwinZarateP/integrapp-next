@@ -759,6 +759,7 @@ Cambio de backend (ver `integrappi/README.md` 2026-10-31) que afecta el frontend
 - **Cookie nueva `usuarioInfoPedidosCookie`** (JSON `{id, usuario, nombre, correo, perfil, perfiles_adicionales}`, 14 días): la setea `LoginUsuarios` al autenticar y la lee /Modulos — permite entrar a Seguridad sin consultar backend.
 - **Login** (`Paginas/LoginUsuarios/index.tsx`): eliminados el paso 2 (tarjetas), `seleccionarCliente`, `CLIENTES_CONFIG` y `ORDEN_PORTALES`. Micro-portales intactos (FINANCIERO→/OtrosCostos, VISUALIZADOR→/indicadores, CLIENTE_ESTUDIOS→/PortalSeguridad, CLIENTE→/indicadores/mis-clientes, PADRINO→/revision). Re-login multi-módulo → /Modulos.
 - Usuario del sidebar con popover (nombre/perfil + Cerrar sesión); a11y (`:focus-visible`, aria-labels, `prefers-reduced-motion`).
+- **INDICADORES pasó de ítem directo a GRUPO desplegable** (mismo día): el sub-módulo **IntegrApp** (`/indicadores`) convive con **9 tableros Power BI del área** como sub-módulos externos (Cierre diario, Gestión de proveedores, Encuestas de satisfacción, Cumplimiento de citas, Gestión de almacenamiento, Cumplimiento de devoluciones, On time, Efectividad de inventarios, PQR — links de publicación `app.powerbi.com/view`, abren en pestaña nueva vía `externo`). Todo en `src/Funciones/menuModulos.ts` (grupo `indicadores`, ids `ind_*`).
 
 ### Branding: headers unificados negro #000 + verde #98C74C
 
