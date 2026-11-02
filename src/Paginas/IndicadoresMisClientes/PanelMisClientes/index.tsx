@@ -150,7 +150,7 @@ const PanelMisClientes: React.FC = () => {
           ) : (
             <>
               <div className="MC-intro">
-                <h2 className="MC-introTitulo">Elegí un cliente</h2>
+                <h2 className="MC-introTitulo">Elige un cliente</h2>
                 <p className="MC-subtitulo">para ver sus indicadores de servicio</p>
               </div>
               <div className="MC-clientesGrid">

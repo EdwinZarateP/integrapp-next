@@ -2637,6 +2637,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                   );
                   const ciudad = d.CiuDes || resultadoGuiaOp.ciudad_destino_tms;
                   const esEntregada = String(d.Estado || '').toUpperCase().includes('ENTREGA');
+                  // (2026-11-02) Entrega DIGITALIZADA → en vez del tracking
+                  // genérico, link directo al soporte gráfico que publica
+                  // Siscore: .../imagenes/<año>/<mes>/<día de EMISIÓN>/<guía>.png
+                  const esDigitalizada = String(d.Estado || '').toUpperCase().includes('DIGITALIZADA');
+                  const fechaEmisionGuia = String(resultadoGuiaOp.ot?.fecha_emision || d.FecEnv || '').slice(0, 10);
+                  const urlEvidencia = esDigitalizada && /^\d{4}-\d{2}-\d{2}$/.test(fechaEmisionGuia)
+                    ? `https://integra.appsiscore.com/app/xMr3hVYKKkVzL0gGjnCFySIRO6RLPLb1qUb1bwop94Zq8Of/xMr3hVYKKkVzL0gGjnCFySIRO6RLPLb1qUb1bwop94Zq8Of/imagenes/${fechaEmisionGuia.replaceAll('-', '/')}/${resultadoGuiaOp.guia}.png`
+                    : null;
                   return (
                     <div className="DC-opResultado">
                       {/* RESUMEN: destino (principal) + ESTADO ACTUAL en badge
@@ -2710,26 +2718,6 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                         })()}
                       </div>
 
-                      {/* (2026-10-30) Novedad JUSTIFICADA de la guía (Mongo,
-                          /NovedadesOT): panel morado con causal, justificación
-                          y quién la registró. */}
-                      {resultadoGuiaOp.justificada && (
-                        <div className="DC-opJustificada">
-                          <span className="DC-opJustificadaTitulo">
-                            🚧 {resultadoGuiaOp.justificada.causal}
-                          </span>
-                          {resultadoGuiaOp.justificada.justificacion && (
-                            <p className="DC-opJustificadaTexto">{resultadoGuiaOp.justificada.justificacion}</p>
-                          )}
-                          {(resultadoGuiaOp.justificada.nombre || resultadoGuiaOp.justificada.fecha) && (
-                            <span className="DC-opJustificadaPor">
-                              Registró: {resultadoGuiaOp.justificada.nombre || '—'}
-                              {resultadoGuiaOp.justificada.fecha ? ` · ${formatearFecha(String(resultadoGuiaOp.justificada.fecha).slice(0, 10))}` : ''}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
                       {/* Línea de tiempo: la PROTAGONISTA del resultado */}
                       <h3 className="DC-opMovTitulo">🧭 Trayectoria de la guía</h3>
                       {movimientos.length > 0 ? (
@@ -2797,6 +2785,38 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                         {campo('Fecha envío', d.FecEnv ? formatearFecha(String(d.FecEnv).slice(0, 10)) : null)}
                         {campo('Origen', [d.NomRem, d.CiuRem].filter(Boolean).join(' · '))}
                       </div>
+                      {/* (2026-11-02) Entrega digitalizada → soporte gráfico de
+                          Siscore; cualquier otro estado → tracking en línea. */}
+                      {urlEvidencia ? (
+                        <a className="DC-opTracking" href={urlEvidencia} target="_blank" rel="noopener noreferrer" title={`Soporte de la entrega digitalizada (${resultadoGuiaOp.guia})`}>
+                          🖼️ Evidencia de entrega digitalizada
+                        </a>
+                      ) : resultadoGuiaOp.tracking_url && (
+                        <a className="DC-opTracking" href={resultadoGuiaOp.tracking_url} target="_blank" rel="noopener noreferrer">
+                          🔗 Seguimiento en línea
+                        </a>
+                      )}
+                      {/* (2026-10-30; 2026-11-02 a pedido del usuario, antes
+                          iba al final) Novedad JUSTIFICADA de la guía (Mongo,
+                          /NovedadesOT): panel morado con causal, justificación
+                          y quién la registró — tras los links, ANTES de las
+                          guías compañeras. */}
+                      {resultadoGuiaOp.justificada && (
+                        <div className="DC-opJustificada">
+                          <span className="DC-opJustificadaTitulo">
+                            🚧 {resultadoGuiaOp.justificada.causal}
+                          </span>
+                          {resultadoGuiaOp.justificada.justificacion && (
+                            <p className="DC-opJustificadaTexto">{resultadoGuiaOp.justificada.justificacion}</p>
+                          )}
+                          {(resultadoGuiaOp.justificada.nombre || resultadoGuiaOp.justificada.fecha) && (
+                            <span className="DC-opJustificadaPor">
+                              Registró: {resultadoGuiaOp.justificada.nombre || '—'}
+                              {resultadoGuiaOp.justificada.fecha ? ` · ${formatearFecha(String(resultadoGuiaOp.justificada.fecha).slice(0, 10))}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {/* Otras guías del mismo vehículo emitidas el mismo
                           día (remesa compañera, solo visible en el TMS).
                           Tocar una la consulta. */}
@@ -2824,11 +2844,6 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                             ))}
                           </div>
                         </div>
-                      )}
-                      {resultadoGuiaOp.tracking_url && (
-                        <a className="DC-opTracking" href={resultadoGuiaOp.tracking_url} target="_blank" rel="noopener noreferrer">
-                          🔗 Seguimiento en línea
-                        </a>
                       )}
                     </div>
                   );
