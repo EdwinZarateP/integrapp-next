@@ -1891,6 +1891,7 @@
 
 .DC-filtroCliente,
   .DC-filtroDestFinal,
+  .DC-filtroTipoServ,
   .DC-botonActualizar { grid-column: 1 / -1; }
   .DC-dropdownFiltroBtn,
   .DC-botonActualizar { height: 42px; width: 100%; }

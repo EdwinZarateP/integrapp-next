@@ -40,6 +40,16 @@ const SkeletonTacometro: React.FC = () => (
   </div>
 );
 
+/** (2026-11-03) Tipos de servicio del Excel real (fórmula BB) — opciones del
+ * filtro «Tipo servicio». Espejo de TIPOS_SERVICIO_OT del backend. */
+const TIPOS_SERVICIO = [
+  'CARGA',
+  'SERVICIO TECNICO',
+  'RECOLECCION',
+  'DEVOLUCION',
+  'MUESTRA DE CALIDAD',
+] as const;
+
 /** Buscador de destinatarios con estado PROPIO: cada tecla re-renderiza
  * solo este componente (antes escribía en el estado del dashboard y cada
  * letra re-renderizaba TODOS los gráficos — se sentía lento). Avisa al padre
@@ -500,6 +510,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const [destSel, setDestSel] = useState<string[]>([]);       // borrador
   const [destAplicado, setDestAplicado] = useState<string[]>([]); // los que viajan
 
+  // (2026-11-03) Filtro «Tipo servicio» (fórmula BB del Excel OT): 5 opciones
+  // fijas, multi-selección; se aplica con «Filtrar» (a la derecha de Cliente
+  // final). SOLO viaja en las consultas de guías (como el sub-grupo y el
+  // cliente final — cajas/uso son por NIT en Mongo, no aplica).
+  const [tipoServDropdownAbierto, setTipoServDropdownAbierto] = useState(false);
+  const [tipoServSel, setTipoServSel] = useState<string[]>([]);       // borrador
+  const [tipoServAplicado, setTipoServAplicado] = useState<string[]>([]); // los que viajan
+
   // Filtros aplicados (los que realmente se consultan)
   const [filtrosAplicados, setFiltrosAplicados] = useState({
     anios: [new Date().getFullYear()] as number[],
@@ -540,6 +558,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     const params = construirParams();
     if (grupoAplicado) params.set('grupo', grupoAplicado);
     destAplicado.forEach(d => params.append('destinatario', d));
+    tipoServAplicado.forEach(t => params.append('tipo_servicio', t));
     if (modoExterno) {
       const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2];
       if (u) params.set('usuario', u);
@@ -755,7 +774,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   useEffect(() => {
     if (cliente && !trazaActiva) obtenerInformeGuias();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtrosAplicados, clienteId, diaOT, destAplicado]);
+  }, [filtrosAplicados, clienteId, diaOT, destAplicado, tipoServAplicado]);
 
   const alternarInforme = () => {
     setInformeAbierto(o => !o);
@@ -784,6 +803,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const aplicarFiltros = () => {
     setGrupoAplicado(grupoSeleccionado);
     setDestAplicado(destSel);
+    setTipoServAplicado(tipoServSel);
     setFiltrosAplicados({ anios: aniosSeleccionados, meses: mesesSeleccionados });
   };
 
@@ -791,6 +811,13 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const quitarDestMiga = () => {
     setDestSel([]);
     setDestAplicado([]);
+  };
+
+  // Quitar el filtro de tipo de servicio (miga): limpia borrador y aplicado
+  // (tipoServAplicado está en las deps del useEffect → re-consulta solo).
+  const quitarTipoServMiga = () => {
+    setTipoServSel([]);
+    setTipoServAplicado([]);
   };
 
   // Quitar el grupo de las migas: sincroniza el dropdown y re-consulta (pisa
@@ -841,10 +868,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     if (filtrosAplicados.anios.length > 0) p.push(lblAnios);
     if (filtrosAplicados.meses.length > 0) p.push(lblMeses);
     if (grupoAplicado) p.push(grupoAplicado);
+    if (tipoServAplicado.length === 1) p.push(tipoServAplicado[0]);
+    else if (tipoServAplicado.length > 1) p.push(`${tipoServAplicado.length} tipos`);
     if (trazaActiva) p.push('🔎 traza');
     return p.length ? p.join(' · ') : 'Sin filtros';
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtrosAplicados, grupoAplicado, trazaActiva, lblAnios, lblMeses]);
+  }, [filtrosAplicados, grupoAplicado, tipoServAplicado, trazaActiva, lblAnios, lblMeses]);
 
   // ── Serie OT por período ──
   // Desde 2026-10-29 los buckets los agrega el BACKEND sobre la pasada
@@ -2294,7 +2323,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           <div className="DC-filtroGrupo DC-filtroAnio">
             <label>Año:</label>
             <div className="DC-dropdownFiltro">
-              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); }}>
+              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownAnioAbierto(!dropdownAnioAbierto); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); setDestDropdownAbierto(false); setTipoServDropdownAbierto(false); }}>
                 <span className="DC-dropdownFiltroTexto">
                   {aniosSeleccionados.length === 0
                     ? 'Todos'
@@ -2329,7 +2358,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           <div className="DC-filtroGrupo DC-filtroMes">
             <label>Mes:</label>
             <div className="DC-dropdownFiltro">
-              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); setDropdownGrupoAbierto(false); }}>
+              <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownMesAbierto(!dropdownMesAbierto); setDropdownAnioAbierto(false); setDropdownGrupoAbierto(false); setDestDropdownAbierto(false); setTipoServDropdownAbierto(false); }}>
                 <span className="DC-dropdownFiltroTexto">
                   {mesesSeleccionados.length === 0
                     ? 'Todos'
@@ -2369,7 +2398,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
             <div className="DC-filtroGrupo DC-filtroCliente">
               <label title="Sub-grupo del cliente en el TMS (Fresenius Kabi / FK Servicio Técnico)">Cliente interno:</label>
               <div className="DC-dropdownFiltro">
-                <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownGrupoAbierto(!dropdownGrupoAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); }}>
+                <button className="DC-dropdownFiltroBtn" onClick={() => { setDropdownGrupoAbierto(!dropdownGrupoAbierto); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDestDropdownAbierto(false); setTipoServDropdownAbierto(false); }}>
                   <span className="DC-dropdownFiltroTexto">{grupoSeleccionado ?? 'Todos'}</span>
                   <span className="DC-dropdownFiltroFlecha">▾</span>
                 </button>
@@ -2403,6 +2432,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                   setDropdownAnioAbierto(false);
                   setDropdownMesAbierto(false);
                   setDropdownGrupoAbierto(false);
+                  setTipoServDropdownAbierto(false);
                 }}
               >
                 <span className="DC-dropdownFiltroTexto">
@@ -2446,7 +2476,55 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
             </div>
           </div>
 
-          <button className="DC-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); setDestDropdownAbierto(false); }}>
+          {/* (2026-11-03) Tipo servicio (fórmula BB del Excel OT): 5 opciones
+              fijas, multi-selección; se aplica con Filtrar. */}
+          <div className="DC-filtroGrupo DC-filtroTipoServ">
+            <label title="Tipo de servicio derivado de la guía y el cliente (fórmula del Excel OT)">Tipo servicio:</label>
+            <div className="DC-dropdownFiltro">
+              <button
+                className="DC-dropdownFiltroBtn"
+                onClick={() => {
+                  setTipoServDropdownAbierto(o => !o);
+                  setDropdownAnioAbierto(false);
+                  setDropdownMesAbierto(false);
+                  setDropdownGrupoAbierto(false);
+                  setDestDropdownAbierto(false);
+                }}
+              >
+                <span className="DC-dropdownFiltroTexto">
+                  {tipoServSel.length === 0
+                    ? 'Todos'
+                    : tipoServSel.length === 1
+                      ? (tipoServSel[0].length > 16 ? `${tipoServSel[0].slice(0, 15)}…` : tipoServSel[0])
+                      : `${tipoServSel.length} seleccionados`}
+                </span>
+                <span className="DC-dropdownFiltroFlecha">▾</span>
+              </button>
+              {tipoServDropdownAbierto && (
+                <div className="DC-dropdownFiltroLista">
+                  {TIPOS_SERVICIO.map(t => (
+                    <label key={t} className={`DC-dropdownFiltroItem ${tipoServSel.includes(t) ? 'seleccionado' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={tipoServSel.includes(t)}
+                        onChange={() => {
+                          setTipoServSel(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+                        }}
+                      />
+                      {t}
+                    </label>
+                  ))}
+                  {tipoServSel.length > 0 && (
+                    <button type="button" className="DC-destLimpiar" onClick={() => setTipoServSel([])}>
+                      ✕ Limpiar selección ({tipoServSel.length})
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button className="DC-botonActualizar" onClick={() => { aplicarFiltros(); setDropdownAnioAbierto(false); setDropdownMesAbierto(false); setDropdownGrupoAbierto(false); setDestDropdownAbierto(false); setTipoServDropdownAbierto(false); }}>
             Filtrar
           </button>
         </div>
@@ -2504,7 +2582,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
               </li>
             )}
           </ol>
-          {(grupoAplicado || trazaActiva || destAplicado.length > 0) && (
+          {(grupoAplicado || trazaActiva || destAplicado.length > 0 || tipoServAplicado.length > 0) && (
             <div className="DC-bcChips">
               {grupoAplicado && (
                 <button type="button" className="DC-miga" onClick={quitarGrupoMiga} title="Quitar el filtro de cliente interno">
@@ -2514,6 +2592,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
               {destAplicado.length > 0 && (
                 <button type="button" className="DC-miga" onClick={quitarDestMiga} title="Quitar el filtro de cliente final">
                   🎭 {destAplicado.length === 1 ? (destAplicado[0].length > 22 ? `${destAplicado[0].slice(0, 21)}…` : destAplicado[0]) : `${destAplicado.length} clientes finales`} <span className="DC-migaX">✕</span>
+                </button>
+              )}
+              {tipoServAplicado.length > 0 && (
+                <button type="button" className="DC-miga" onClick={quitarTipoServMiga} title="Quitar el filtro de tipo de servicio">
+                  🚚 {tipoServAplicado.length === 1 ? tipoServAplicado[0] : `${tipoServAplicado.length} tipos de servicio`} <span className="DC-migaX">✕</span>
                 </button>
               )}
               {trazaActiva && (
