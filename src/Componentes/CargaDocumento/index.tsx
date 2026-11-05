@@ -88,6 +88,10 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
 
   const tipoDoc = tiposMapping[documentName.trim().toLowerCase()] || '';
   const esDosCaras = TIPOS_DOS_CARAS.includes(tipoDoc);
+  // Planillas de Seguridad Social (la del VEHÍCULO y la del 2º conductor,
+  // 2026-11-05): comparten semántica — multi-archivo (≤3 por tanda), fecha de
+  // vencimiento obligatoria y un request por archivo.
+  const esPlanillaSS = ['planillaEpsArl', 'cond2PlanillaSegSocial'].includes(tipoDoc);
 
   const validarArchivo = (file: File): boolean => {
     // soloCamara (foto del conductor): solo imágenes tomadas con la cámara —
@@ -152,7 +156,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           return;
         }
         // Planilla en varios archivos (2026-10-15): EPS y ARL juntos, máx. 3.
-        if (tipoDoc === 'planillaEpsArl' && validFiles.length > 3) {
+        if (esPlanillaSS && validFiles.length > 3) {
           validFiles = validFiles.slice(0, 3);
           Swal.fire({
             icon: 'info', title: 'Máximo 3 archivos',
@@ -281,7 +285,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     // OBLIGATORIA — se pide al subir (por si la IA no la lee), no puede estar
     // vencida ni superar 31 días desde hoy. Sin ella no se sube nada.
     let fechaVencimiento: string | undefined;
-    if (tipoDoc === 'planillaEpsArl') {
+    if (esPlanillaSS) {
       const isoLocal = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const hoy = isoLocal(new Date());
@@ -322,7 +326,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
     // Planilla (2026-10-11): la fecha ya viene DIGITADA (obligatoria arriba) —
     // no se espera la lectura IA del backend, que mantenía el request abierto
     // 30-120 s con el modal «pensando» aunque el documento sí se guardaba.
-    if (tipoDoc === 'planillaEpsArl' && fechaVencimiento) {
+    if (esPlanillaSS && fechaVencimiento) {
       formData.append('extraer', 'false');
     }
 
@@ -356,7 +360,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
       // en PDFs separados — cada archivo viaja en su propio request (el backend
       // guarda uno por subida y acumula en el historial) compartiendo la MISMA
       // fecha de vencimiento digitada para la tanda.
-      if (tipoDoc === 'planillaEpsArl' && fechaVencimiento && files.length > 1) {
+      if (esPlanillaSS && fechaVencimiento && files.length > 1) {
         let subidos = 0;
         for (const file of files) {
           const fd = new FormData();
@@ -453,7 +457,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           // Aviso SIEMPRE (2026-10-11): sin lectura IA (ej. planilla, que ya
           // trae la fecha digitada) la subida terminaba en SILENCIO — solo
           // quedaba un texto pequeño y la gente creía que nunca terminó.
-          if (tipoDoc === 'planillaEpsArl' && fechaVencimiento) {
+          if (esPlanillaSS && fechaVencimiento) {
             const [a, m, d] = fechaVencimiento.split('-');
             Swal.fire({
               icon: 'success',
@@ -516,7 +520,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
             no se admite archivo de galería.
           </p>
         )}
-        {tipoDoc === 'planillaEpsArl' && (
+        {esPlanillaSS && (
           <p className="CargaDocumento-hint">
             🏥 Si tienes la <b>EPS</b> y la <b>ARL</b> en archivos separados,
             selecciónalos <b>juntos</b> (hasta 3) — comparten la misma fecha de
@@ -542,7 +546,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
           )}
           {!soloCamara && (
             <label className="CargaDocumento-btn-file" htmlFor="file-upload">
-              {documentName === "Fotos" || tipoDoc === 'planillaEpsArl' ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
+              {documentName === "Fotos" || esPlanillaSS ? "📎 Elegir Archivos" : "📎 Elegir Archivo"}
             </label>
           )}
           {!soloCamara && (
@@ -555,7 +559,7 @@ const CargaDocumento: React.FC<CargaDocumentoProps> = ({
               id="file-upload"
               type="file"
               accept={soloPdf ? 'application/pdf' : 'image/jpeg, image/png, image/jpg, application/pdf'}
-              multiple={documentName === "Fotos" || tipoDoc === 'planillaEpsArl'}
+              multiple={documentName === "Fotos" || esPlanillaSS}
               onChange={handleFileChange}
               disabled={uploading || preparando}
               className="CargaDocumento-input-hidden"

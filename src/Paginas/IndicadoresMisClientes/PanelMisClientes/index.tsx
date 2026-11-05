@@ -11,8 +11,9 @@ import '@/Componentes/IndicadoresChrome/estilos.css';
 import './estilos.css';
 
 // Perfiles que entran al portal «Mis Indicadores»: CLIENTE (externo, solo ve
-// sus clientes asignados) y ADMIN (pruebas/soporte).
-const PERFILES_PERMITIDOS = ['CLIENTE', 'ADMIN'];
+// sus clientes asignados), ADMIN (pruebas/soporte) y VISUALIZADOR (solo
+// lectura, ve todos los dashboards publicados — 2026-11-05).
+const PERFILES_PERMITIDOS = ['CLIENTE', 'ADMIN', 'VISUALIZADOR'];
 
 // Cliente del panel (respuesta de /indicadores-cliente/mis-indicadores)
 interface ClienteAsignado {

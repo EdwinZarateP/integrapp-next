@@ -84,8 +84,10 @@ const IndicadoresMenu: React.FC = () => {
   // (2026-10-29) ADMIN: tarjeta del portal «Mis Indicadores» (clientes externos,
   // perfil CLIENTE). Los CLIENTE no ven este menú (el login los aterriza directo
   // y /indicadores los redirige) — la tarjeta es el acceso del ADMIN para probarlo.
+  // (2026-11-05) También para VISUALIZADOR (solo lectura, ve los dashboards
+  // publicados sin asignación).
   const indicadoresAdmin =
-    datosUsuario?.perfil === 'ADMIN'
+    ['ADMIN', 'VISUALIZADOR'].includes(datosUsuario?.perfil || '')
       ? [
           {
             id: 'mis-clientes',

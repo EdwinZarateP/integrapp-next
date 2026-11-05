@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine, Customized, BarChart, Bar, Cell } from 'recharts';
-import * as XLSX from 'xlsx';
+// (2026-11-05) XLSX (SheetJS, ~90KB gz) SOLO se usa en los botones de Excel:
+// import dinámico al clic — ya no viaja en la carga inicial del dashboard.
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaUpload } from 'react-icons/fa';
@@ -562,6 +563,10 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     if (modoExterno) {
       const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2];
       if (u) params.set('usuario', u);
+      // (2026-11-05) El portal externo no renderiza la tabla del informe
+      // (sus exports consultan /guias/filas aparte): sin la 1ª página de
+      // filas el payload baja ~148KB.
+      params.set('sin_filas', '1');
     }
     return params;
   };
@@ -1099,7 +1104,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   };
 
   // Export Excel del alcance visible del drill-down.
-  const exportarUsoExcel = () => {
+  const exportarUsoExcel = async () => {
+    const XLSX = await import('xlsx');
     const datos = filasUsoAlcance.map(f => ({
       'Vehículo': f.consecutivo_vehiculo,
       'Fecha': f.fecha ? formatearFechaExcel(f.fecha) : '',
@@ -1364,8 +1370,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     // 79% del ancho); ahora lo llena y con alto para las cifras 0/100.
     return (
       <svg viewBox="26 0 272 232" className="DC-tacometro" role="img" aria-label={`On Time ${txt}`}>
-        {/* pista del dial */}
-        <path d={arco(0, 100, r)} fill="none" stroke="#22314e" strokeWidth={16} />
+        {/* pista del dial (tema claro: gris suave sobre tarjeta blanca) */}
+        <path d={arco(0, 100, r)} fill="none" stroke="#e5e9f0" strokeWidth={16} />
         {/* avance */}
         {val > 0 && (
           <path d={arco(0, val, r)} fill="none" stroke={color} strokeWidth={16} strokeLinecap="round" />
@@ -1377,8 +1383,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           const [tx, ty] = pt(t, r + 20);
           return (
             <g key={t}>
-              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#566a89" strokeWidth={2.5} />
-              <text x={tx} y={ty + 4} textAnchor="middle" fontSize={11} fill="#7d8ea8">{t}</text>
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth={2.5} />
+              <text x={tx} y={ty + 4} textAnchor="middle" fontSize={11} fill="#64748b">{t}</text>
             </g>
           );
         })}
@@ -1386,11 +1392,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
         {[10, 20, 30, 40, 60, 70, 80, 90].map(t => {
           const [x1, y1] = pt(t, r - 12);
           const [x2, y2] = pt(t, r - 21);
-          return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a4c6b" strokeWidth={1.5} />;
+          return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#cbd5e1" strokeWidth={1.5} />;
         })}
         {/* aguja + cubo */}
         <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth={4} strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r={9} fill="#0b1526" stroke={color} strokeWidth={3} />
+        <circle cx={cx} cy={cy} r={9} fill="#fff" stroke={color} strokeWidth={3} />
         {/* cifra central */}
         <text x={cx} y={cy + 54} textAnchor="middle" fontSize={34} fontWeight={800} fill={color}>
           {txt}
@@ -1811,6 +1817,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       const { filas } = await obtenerFilasGuias(extra);
       const datos = filas.map(filaGuiaAExport);
 
+      const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(datos);
       ws['!cols'] = [
@@ -1877,13 +1884,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     }
   };
 
-  const exportarDetalleDia = () => {
+  const exportarDetalleDia = async () => {
     const seg = SEGMENTOS_OT.find(s => s.clave === detalleSegOT);
     if (!seg || !filasDetalleDia.length) return;
     // (2026-10-31) Misma fila analizadora que la hoja «Guías» del export OT:
     // cálculo del OT adelante (emisión → promesa y su origen → entrega →
     // veredicto) + estado y, si la tiene, la justificación al final.
     const datos = filasDetalleDia.map(filaOTExcel);
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(datos);
     ws['!cols'] = [
@@ -1959,6 +1967,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       if (filtrandoSeg) filasHoja = filasHoja.filter(f => segSelOT.has(segmentoDeFila(f)));
       const hojaGuias = filasHoja.map(filaOTExcel);
 
+      const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
       const wsOT = XLSX.utils.json_to_sheet(hojaOT);
       wsOT['!cols'] = [{ wch: 12 }, ...segActivosOT.map(() => ({ wch: 13 })), { wch: 11 }, { wch: 8 }, { wch: 7 }];
@@ -2247,8 +2256,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   }, [cliente, modoExterno]);
 
   return (
-    // modoExterno (portal Mis Indicadores): tema OSCURO + ancho completo.
-    <div className={modoExterno ? 'DC-container DC-portalOscuro' : 'DC-container'}>
+    // modoExterno (portal Mis Indicadores): tema CLARO (blancos y tonos
+    // suaves con el verde de marca #98C74C) + ancho completo.
+    <div className={modoExterno ? 'DC-container DC-portalClaro' : 'DC-container'}>
       {/* Header */}
       <header className="DC-header">
         <div className="DC-headerInner">
@@ -2275,15 +2285,24 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
 
             {menuAbierto && (
               <div className="DC-dropdown">
-                <button className="DC-dropItem" onClick={() => { setMenuAbierto(false); router.push(rutaPanel); }}>
-                  <FaChartBar /> {modoExterno ? 'Mis indicadores' : 'Panel de clientes'}
-                </button>
+                {/* (2026-11-05) El CLIENTE externo no ve «Mis indicadores»:
+                    su portal ES esa ruta y aterriza directo al login (la
+                    opción solo tiene sentido para ADMIN/VISUALIZADOR, que
+                    llegan al portal desde el panel o el menú de indicadores). */}
+                {(!modoExterno || (datosUsuario?.perfil || '').toUpperCase() !== 'CLIENTE') && (
+                  <button className="DC-dropItem" onClick={() => { setMenuAbierto(false); router.push(rutaPanel); }}>
+                    <FaChartBar /> {modoExterno ? 'Mis indicadores' : 'Panel de clientes'}
+                  </button>
+                )}
                 {!modoExterno && (
                   <button className="DC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
                     <FaChartBar /> Menú de indicadores
                   </button>
                 )}
-                <div className="DC-dropDivider" />
+                {/* Divisor solo si hay algo arriba de «Cerrar sesión» */}
+                {(!modoExterno || (datosUsuario?.perfil || '').toUpperCase() !== 'CLIENTE') && (
+                  <div className="DC-dropDivider" />
+                )}
                 <button className="DC-dropItem DC-dropItemDanger" onClick={cerrarSesion}>
                   <FaSignOutAlt /> Cerrar sesión
                 </button>

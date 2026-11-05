@@ -39,7 +39,7 @@ const anguloFotoLleno = (veh: any, campo: string): boolean => {
 // Espejo de CAMPOS_REMOLQUE del backend.
 const CAMPOS_REMOLQUE: string[] = [
   'RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria',
-  'RemolAlto', 'RemolLargo', 'RemolAncho',
+  'RemolAlto', 'RemolLargo', 'RemolAncho', 'RemolVin', 'RemolPbvMax',
   'RemolDuenoNombre', 'RemolDuenoDocumento', 'RemolDuenoCorreo',
 ];
 
@@ -89,13 +89,23 @@ export const avanceDocumentosVehiculo = (veh: any): number => {
   });
   // Propietario empresa: el RUT reemplaza la cédula.
   if (propEmpresa) requeridos.push('rutPropietario');
-  // Remolque declarado: la tarjeta de remolque es obligatoria.
-  if (tieneRemolque(veh)) requeridos.push('tarjetaRemolque');
-  // SEGUNDO CONDUCTOR (2026-10-14): sus 6 documentos SOLO si está vinculado
+  // Remolque declarado: la tarjeta de remolque es obligatoria, y también la
+  // cédula del dueño (frente + reverso, 2026-11-05) — salvo dueño EMPRESA
+  // (NIT), que no tiene cédula (espejo de _documentos_faltantes).
+  if (tieneRemolque(veh)) {
+    requeridos.push('tarjetaRemolque');
+    if (!String(veh.RemolDuenoTipoDocumento || '').toUpperCase().includes('NIT')) {
+      requeridos.push('documentoIdentidadRemolque', 'documentoIdentidadRemolqueReverso');
+    }
+  }
+  // SEGUNDO CONDUCTOR (2026-10-14): sus documentos SOLO si está vinculado
   // (espejo de DOCUMENTOS_REQUERIDOS_CONDUCTOR2 del backend; sin gemelos).
+  // Incluye su Planilla de Seguridad Social PROPIA (2026-11-05) — el campo
+  // exigido es el espejo de la última subida.
   if (veh.idConductor2) requeridos.push(
     'documentoIdentidadConductor2', 'documentoIdentidadConductor2Reverso',
     'licencia2', 'licencia2Reverso', 'cond2Foto', 'cond2CertificacionBancaria',
+    'cond2PlanillaSegSocial',
   );
 
   if (requeridos.length === 0) return 0;

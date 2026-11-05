@@ -302,18 +302,45 @@
 
 .DC-otLeyenda { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.35rem 0 0.55rem; }
 
-/* ── (2026-10-30) Portal de clientes (modoExterno): tema OSCURO + ancho
-   completo. Solo aplica con .DC-portalOscuro en la raíz — el dashboard
-   interno no cambia. ─────────────────────────────────────────── */
-.DC-portalOscuro {
-  background: linear-gradient(180deg, #070d18 0%, #0b1526 55%, #0a121f 100%);
-  color: #dbe4f0;
+/* ── (2026-11-05) Portal de clientes (modoExterno): tema CLARO — blancos y
+   tonos suaves con el verde de marca #98C74C (antes oscuro, 2026-10-30) —
+   + ancho completo. Solo aplica con .DC-portalClaro en la raíz — el
+   dashboard interno no cambia. ───────────────────────────────────── */
+.DC-portalClaro {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9f1 45%, #f4f6f9 100%);
+  color: #1e293b;
+}
+
+/* Header del portal en claro: blanco con filo inferior verde de marca. */
+.DC-portalClaro .DC-header {
+  background: #fff;
+  color: #0f1928;
+  border-bottom: 3px solid #98c74c;
+  box-shadow: 0 2px 12px rgba(15, 25, 40, 0.08);
+}
+.DC-portalClaro .DC-brandName,
+.DC-portalClaro .DC-nombreCliente { color: #0f1928; }
+.DC-portalClaro .DC-brand:hover { background: rgba(152, 199, 76, 0.16); }
+.DC-portalClaro .DC-userBtn {
+  background: #f4f8ec;
+  border-color: #dbe7c6;
+  color: #0f1928;
+}
+.DC-portalClaro .DC-userBtn:hover { background: #e9f3d8; }
+.DC-portalClaro .DC-userPerfil,
+.DC-portalClaro .DC-chevron { color: #64748b; }
+
+/* Footer del portal en claro */
+.DC-portalClaro .DC-footer {
+  background: #fff;
+  color: #64748b;
+  border-top: 1px solid #e5e9f0;
 }
 
 /* Ancho completo: la página usa todo el ancho disponible; las tarjetas se
    separan con un gap uniforme (IG-graficoContainer no trae margen propio en
    escritorio). */
-.DC-portalOscuro .DC-main {
+.DC-portalClaro .DC-main {
   width: 100%;
   max-width: none;
   padding: 1.4rem 1.5rem 3rem;
@@ -345,75 +372,41 @@
   overscroll-behavior: contain;
   border-radius: 8px;
 }
-/* Scrollbar discreta acorde al tema oscuro (Chromium) */
+/* Scrollbar discreta acorde al tema claro (Chromium) */
 .DC-otCampoScroll::-webkit-scrollbar { width: 8px; }
-.DC-otCampoScroll::-webkit-scrollbar-thumb { background: #2c3d5c; border-radius: 999px; }
-.DC-otCampoScroll::-webkit-scrollbar-thumb:hover { background: #3d5378; }
+.DC-otCampoScroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+.DC-otCampoScroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 .DC-otCampoScroll::-webkit-scrollbar-track { background: transparent; }
 
-/* Tarjetas de gráficos oscuras */
-.DC-portalOscuro .IG-graficoContainer {
-  background: #101a2c;
-  border: 1px solid #1e2b45;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+/* Tarjetas de gráficos: blancas con borde suave y sombra ligera */
+.DC-portalClaro .IG-graficoContainer {
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  box-shadow: 0 6px 24px rgba(15, 25, 40, 0.06);
 }
-.DC-portalOscuro .IG-graficoTitulo,
-.DC-portalOscuro .DC-guiaTitulo { color: #eaf1f9; }
-.DC-portalOscuro .IG-graficoSub { color: #9fb0c7; }
-.DC-portalOscuro .IG-sinDatos { color: #9fb0c7; }
 
-/* Barra de filtros y navegación */
-.DC-portalOscuro .DC-filtrosSection { background: #0b1322; border-bottom-color: #1b2942; }
-.DC-portalOscuro .DC-filtroGrupo > label { color: #7d8ea8; }
-.DC-portalOscuro .DC-dropdownFiltroBtn {
-  background: #0f1a2e; border-color: #2a3a58; color: #e7eef7;
+/* Barra de filtros y navegación: botones con acento verde de marca */
+.DC-portalClaro .DC-dropdownFiltroBtn:hover { border-color: #98c74c; }
+.DC-portalClaro .DC-botonActualizar { background: #98c74c; color: #0f1928; }
+.DC-portalClaro .DC-botonActualizar:hover { background: #7fb03a; }
+.DC-portalClaro .DC-bcLink { color: #5e8a28; }
+.DC-portalClaro .DC-bcLink:hover { color: #4a7c1f; }
+.DC-portalClaro .DC-otLeyendaTodo { color: #5e8a28; }
+.DC-portalClaro .DC-otLeyendaTodo:hover { color: #4a7c1f; }
+
+/* Toggle Mensual/Diario: activo en verde de marca */
+.DC-portalClaro .IG-toggleBtn {
+  background: #fff; color: #475569; border: 1px solid #d7dde8;
 }
-.DC-portalOscuro .DC-dropdownFiltroBtn:hover { border-color: #98c74c; }
-.DC-portalOscuro .DC-botonActualizar { background: #98c74c; color: #0b1526; }
-.DC-portalOscuro .DC-botonActualizar:hover { background: #7fb03a; }
-.DC-portalOscuro .DC-breadcrumb { color: #c6d2e4; }
-.DC-portalOscuro .DC-bcActual { color: #eaf1f9; }
-.DC-portalOscuro .DC-bcLink { color: #7cb0ff; }
-.DC-portalOscuro .DC-bcSep { color: #566a89; }
-.DC-portalOscuro .DC-miga { background: #16233c; border-color: #2c3d5c; color: #dbe4f0; }
-.DC-portalOscuro .DC-miga:hover { background: #3a1d24; border-color: #6b2c33; }
+.DC-portalClaro .IG-toggleBtnActivo { background: #98c74c; color: #0f1928; border-color: #98c74c; }
 
-/* Toggle Mensual/Diario y botón Excel */
-.DC-portalOscuro .IG-toggleBtn {
-  background: #0f1a2e; color: #c9d6e8; border: 1px solid #2a3a58;
-}
-.DC-portalOscuro .IG-toggleBtnActivo { background: #98c74c; color: #0b1526; border-color: #98c74c; }
-
-/* Leyenda del OT */
-.DC-portalOscuro .DC-otLeyendaToggle { background: #0f1a2e; border-color: #22314e; color: #dbe4f0; }
-.DC-portalOscuro .DC-otLeyendaResumen { color: #7d8ea8; }
-.DC-portalOscuro .DC-otChip { background: #0f1a2e; border-color: #2a3a58; color: #d7e2f0; }
-.DC-portalOscuro .DC-otChip:hover { border-color: #46587c; }
-.DC-portalOscuro .DC-otLeyendaInfo { color: #7d8ea8; }
-.DC-portalOscuro .DC-otLeyendaTodo { color: #7cb0ff; }
-.DC-portalOscuro .DC-otCtx { color: #7d8ea8; }
-
-/* Detalle del día (tabla) */
-.DC-portalOscuro .DC-detalleDia { border-top-color: #1e2b45; }
-.DC-portalOscuro .DC-detalleDiaTitulo { color: #eaf1f9; }
-.DC-portalOscuro .DC-detalleDiaCerrar { background: #16233c; border-color: #2c3d5c; color: #dbe4f0; }
-.DC-portalOscuro .DC-detalleDiaTabla { border-color: #1e2b45; }
-
-/* Textos de recharts (ejes y etiquetas llevan fills claros pensados para
-   fondo blanco — se invierten con !important porque van inline) */
-.DC-portalOscuro .recharts-cartesian-axis text,
-.DC-portalOscuro .DC-detalleDiaTabla text { fill: #9fb0c7; }
-.DC-portalOscuro .recharts-label-list text { fill: #eaf1f9 !important; }
-.DC-portalOscuro .recharts-cartesian-grid line { stroke: #1e2b45; }
-
-/* Skeleton acorde al tema */
-.DC-portalOscuro .DC-skelCard { background: #101a2c; border: 1px solid #1e2b45; }
-.DC-portalOscuro .DC-skel { background: linear-gradient(90deg, #16233c 25%, #1f3050 50%, #16233c 75%); }
+/* Grid de recharts acorde al tema claro */
+.DC-portalClaro .recharts-cartesian-grid line { stroke: #e5e9f0; }
 
 /* ── (2026-10-30) Lista táctil del OT-por-campo (SOLO móvil): nombre a la
    izquierda, % a la derecha y barra a ANCHO COMPLETO debajo con la misma
    escala 0-100 del gráfico de escritorio. Tocar una fila despliega su
-   detalle. Colores directos del tema oscuro del portal. ── */
+   detalle. Colores directos del tema claro del portal. ── */
 /* Los flex/grid items no encogen por debajo de su contenido por defecto:
    sin esto, un nombre largo en nowrap desborda la página en móvil. */
 .DC-portalGrid > .IG-graficoContainer { min-width: 0; }
@@ -445,7 +438,7 @@
 .DC-otCampoNombre {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #d7e2f0;
+  color: #0f1928;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -458,20 +451,22 @@
   width: 100%; /* stretch dentro de <button> no aplica solo */
   height: 10px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.16);
+  background: rgba(148, 163, 184, 0.24);
   overflow: hidden;
 }
 .DC-otCampoBarra { display: block; height: 100%; border-radius: 999px; }
-.DC-otCampoDetalle { font-size: 0.72rem; color: #7d8ea8; text-align: left; }
+.DC-otCampoDetalle { font-size: 0.72rem; color: #64748b; text-align: left; }
 
-/* ── (2026-10-30) Pestañas del portal: Gerenciales / Operación ── */
+/* ── (2026-10-30) Pestañas del portal: Gerenciales / Operación / Trazabilidad
+   (tema claro desde 2026-11-05: contenedor blanco, activo verde de marca) ── */
 .DC-pestanas {
   display: flex;
   gap: 0.4rem;
-  background: #0f1a2e;
-  border: 1px solid #22314e;
+  background: #fff;
+  border: 1px solid #e5e9f0;
   border-radius: 12px;
   padding: 0.35rem;
+  box-shadow: 0 6px 24px rgba(15, 25, 40, 0.06);
 }
 .DC-pestanaBtn {
   flex: 1;
@@ -479,17 +474,17 @@
   border: none;
   border-radius: 9px;
   background: transparent;
-  color: #9fb0c7;
+  color: #64748b;
   font: inherit;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-.DC-pestanaBtn:hover { color: #dbe4f0; }
+.DC-pestanaBtn:hover { color: #0f1928; }
 .DC-pestanaBtnActiva {
   background: #98c74c;
-  color: #0b1526;
+  color: #0f1928;
 }
 
 /* ── (2026-10-30) Vista Operación: consulta de guía en Siscore ── */
@@ -506,17 +501,18 @@
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  background: #101a2c;
-  border: 1px solid #22314e;
+  background: #fff;
+  border: 1px solid #e5e9f0;
   border-radius: 12px;
   padding: 1.1rem 1rem;
   text-align: center;
+  box-shadow: 0 6px 24px rgba(15, 25, 40, 0.06);
 }
 .DC-opStatIcono { font-size: 1.7rem; line-height: 1; }
 .DC-opStatValor {
   font-size: 1.9rem;
   font-weight: 800;
-  color: #e7eef7;
+  color: #0f1928;
   line-height: 1.15;
   min-height: 1.15em;
 }
@@ -525,8 +521,8 @@
   width: 72px;
   height: 1em;
   border-radius: 6px;
-  background: #16233c;
-  background-image: linear-gradient(90deg, #16233c 25%, #1f3050 50%, #16233c 75%);
+  background: #e9edf3;
+  background-image: linear-gradient(90deg, #e9edf3 25%, #f5f7fa 50%, #e9edf3 75%);
   background-size: 400px 100%;
   background-repeat: no-repeat;
   animation: DC-shimmer 1.4s ease-in-out infinite;
@@ -534,7 +530,7 @@
 .DC-opStatLabel {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #7d8ea8;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -548,20 +544,20 @@
 .DC-opInput {
   flex: 1;
   min-width: 180px;
-  background: #0f1a2e;
-  border: 1px solid #2a3a58;
+  background: #fff;
+  border: 1px solid #d7dde8;
   border-radius: 8px;
   padding: 0.55rem 0.8rem;
   font: inherit;
   font-size: 0.95rem;
-  color: #e7eef7;
+  color: #0f1928;
   min-height: 42px;
 }
-.DC-opInput::placeholder { color: #5b6b85; }
-.DC-opInput:focus { outline: none; border-color: #98c74c; background: #0b1526; }
+.DC-opInput::placeholder { color: #94a3b8; }
+.DC-opInput:focus { outline: none; border-color: #98c74c; background: #fff; }
 .DC-opBtn {
   background: #98c74c;
-  color: #0b1526;
+  color: #0f1928;
   border: none;
   border-radius: 8px;
   padding: 0 1.3rem;
@@ -577,8 +573,8 @@
   outline: 2px solid #2a78d6;
   outline-offset: 2px;
 }
-.DC-opCargando { color: #9fb0c7; font-size: 0.85rem; }
-.DC-opError { color: #fca5a5; font-size: 0.85rem; font-weight: 600; }
+.DC-opCargando { color: #64748b; font-size: 0.85rem; }
+.DC-opError { color: #b91c1c; font-size: 0.85rem; font-weight: 600; }
 
 .DC-opResultado { display: flex; flex-direction: column; gap: 0.9rem; }
 
@@ -588,8 +584,8 @@
   display: flex;
   align-items: stretch;
   gap: 1rem;
-  background: linear-gradient(135deg, #12233c 0%, #0f1a2e 100%);
-  border: 1px solid #2c3d5c;
+  background: linear-gradient(135deg, #f7faf0 0%, #ffffff 100%);
+  border: 1px solid #e5e9f0;
   border-left: 4px solid #98c74c;
   border-radius: 12px;
   padding: 0.85rem 1.1rem;
@@ -609,14 +605,14 @@
   justify-content: center;
   gap: 0.3rem;
   padding-left: 1rem;
-  border-left: 1px solid #2c3d5c;
+  border-left: 1px solid #e5e9f0;
   text-align: right;
   max-width: 45%;
 }
 .DC-opEstadoLabel {
   font-size: 0.65rem;
   font-weight: 800;
-  color: #7d8ea8;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -629,30 +625,30 @@
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
-.DC-opEstadoChipOk { background: rgba(152, 199, 76, 0.18); border: 1px solid #98c74c80; color: #c9e89a; }
-.DC-opEstadoChipCurso { background: rgba(237, 161, 0, 0.16); border: 1px solid #eda10080; color: #f5c667; }
+.DC-opEstadoChipOk { background: rgba(152, 199, 76, 0.22); border: 1px solid #98c74c; color: #4a7c1f; }
+.DC-opEstadoChipCurso { background: #fff7e0; border: 1px solid #eda10080; color: #92600a; }
 /* (2026-10-31) Veredicto OT de la consulta de guía — mismos colores de los
    segmentos del gráfico (rojo #b91c1c, morado #4a3aa7, gris sin info). */
-.DC-opChipOTOk { background: rgba(21, 128, 61, 0.22); border: 1px solid #15803d; color: #b7e4c0; }
-.DC-opChipOTNo { background: rgba(185, 28, 28, 0.2); border: 1px solid #b91c1c; color: #fca5a5; }
-.DC-opChipOTJust { background: rgba(74, 58, 167, 0.24); border: 1px solid #4a3aa7; color: #cdc7f0; }
-.DC-opChipOTSin { background: rgba(148, 163, 184, 0.14); border: 1px solid #94a3b880; color: #9fb0c7; }
+.DC-opChipOTOk { background: #ecfdf5; border: 1px solid #15803d; color: #15803d; }
+.DC-opChipOTNo { background: #fef2f2; border: 1px solid #b91c1c; color: #b91c1c; }
+.DC-opChipOTJust { background: #f3f0fd; border: 1px solid #4a3aa7; color: #4a3aa7; }
+.DC-opChipOTSin { background: #f1f5f9; border: 1px solid #cbd5e1; color: #64748b; }
 .DC-opEstadoFecha {
   font-size: 0.7rem;
-  color: #7d8ea8;
+  color: #64748b;
   font-variant-numeric: tabular-nums;
 }
 .DC-opDestacadoTitulo {
   font-size: 0.7rem;
   font-weight: 800;
-  color: #98c74c;
+  color: #5e8a28;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 .DC-opDestacadoNombre {
   font-size: 1.35rem;
   font-weight: 800;
-  color: #eaf1f9;
+  color: #0f1928;
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -666,24 +662,24 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: #16233c;
-  border: 1px solid #2c3d5c;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 999px;
   padding: 0.22rem 0.7rem;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #dbe4f0;
+  color: #334155;
   max-width: 100%;
   overflow-wrap: anywhere;
 }
-.DC-opChipCiudad { background: rgba(152, 199, 76, 0.16); border-color: #98c74c80; color: #c9e89a; }
-.DC-opChipPlaca { background: rgba(42, 120, 214, 0.16); border-color: #2a78d680; color: #a9c9f5; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.DC-opChipCiudad { background: rgba(152, 199, 76, 0.2); border-color: #98c74c80; color: #4a7c1f; }
+.DC-opChipPlaca { background: rgba(42, 120, 214, 0.1); border-color: #2a78d680; color: #1d4f8c; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
 
 /* (2026-10-30) Novedad JUSTIFICADA de la guía (Mongo /NovedadesOT): panel
    morado — mismo color del segmento «Justificadas» del gráfico OT. */
 .DC-opJustificada {
-  background: rgba(74, 58, 167, 0.14);
-  border: 1px solid #4a3aa780;
+  background: rgba(74, 58, 167, 0.06);
+  border: 1px solid #4a3aa740;
   border-left: 4px solid #4a3aa7;
   border-radius: 12px;
   padding: 0.75rem 1rem;
@@ -694,31 +690,31 @@
 .DC-opJustificadaTitulo {
   font-size: 0.8rem;
   font-weight: 800;
-  color: #c3b8f0;
+  color: #4a3aa7;
 }
 .DC-opJustificadaTexto {
   margin: 0;
   font-size: 0.85rem;
-  color: #dbe4f0;
+  color: #334155;
   overflow-wrap: anywhere;
 }
 .DC-opJustificadaPor {
   font-size: 0.72rem;
-  color: #7d8ea8;
+  color: #64748b;
 }
 
 /* (2026-10-30) Otras guías del mismo vehículo (misma placa, mismo día de
    emisión): listado aparte al pie — tocar una fila la consulta. */
 .DC-opCompaneras { display: flex; flex-direction: column; gap: 0.4rem; }
-.DC-opCompanerasSub { margin: 0; font-size: 0.72rem; color: #7d8ea8; }
+.DC-opCompanerasSub { margin: 0; font-size: 0.72rem; color: #64748b; }
 .DC-opCompanerasLista { display: flex; flex-direction: column; gap: 0.4rem; }
 .DC-opCompanera {
   display: flex;
   align-items: center;
   gap: 0.8rem;
   flex-wrap: wrap;
-  background: #0f1a2e;
-  border: 1px solid #22314e;
+  background: #fff;
+  border: 1px solid #e5e9f0;
   border-radius: 10px;
   padding: 0.5rem 0.8rem;
   font: inherit;
@@ -727,17 +723,17 @@
   transition: border-color 0.15s, background 0.15s;
   min-height: 42px;
 }
-.DC-opCompanera:hover { border-color: #46587c; background: #122036; }
+.DC-opCompanera:hover { border-color: #98c74c; background: #f7faf0; }
 .DC-opCompaneraGuia {
   font-size: 0.85rem;
   font-weight: 800;
-  color: #e7eef7;
+  color: #0f1928;
   font-variant-numeric: tabular-nums;
   flex: none;
 }
 .DC-opCompaneraDest {
   font-size: 0.78rem;
-  color: #9fb0c7;
+  color: #64748b;
   flex: 1;
   min-width: 140px;
   overflow: hidden;
@@ -753,17 +749,17 @@
 .DC-opCampoTitulo {
   font-size: 0.68rem;
   font-weight: 700;
-  color: #7d8ea8;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 .DC-opCampoValor {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #e7eef7;
+  color: #0f1928;
   overflow-wrap: anywhere;
 }
-.DC-opMovTitulo { font-size: 0.9rem; font-weight: 800; color: #dbe4f0; margin: 0.3rem 0 0; }
+.DC-opMovTitulo { font-size: 0.9rem; font-weight: 800; color: #0f1928; margin: 0.3rem 0 0; }
 
 /* (2026-10-30, v2) Trayectoria = LÍNEA DE TIEMPO HORIZONTAL en TODOS los
    dispositivos. La CAJA 📦 es el marcador que avanza sobre la línea (verde
@@ -784,7 +780,7 @@
   justify-content: flex-start;
 }
 .DC-opTimeline::-webkit-scrollbar { height: 8px; }
-.DC-opTimeline::-webkit-scrollbar-thumb { background: #2c3d5c; border-radius: 999px; }
+.DC-opTimeline::-webkit-scrollbar-thumb { background: #d3dce8; border-radius: 999px; }
 .DC-opTlPaso {
   flex: 1 0 175px;
   min-width: 175px;
@@ -800,7 +796,7 @@
 .DC-opTlTitulo {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #c6d2e4;
+  color: #475569;
   line-height: 1.25;
   /* Alto fijo: garantiza que TODOS los marcadores queden sobre la misma
      línea sin importar cuántas líneas ocupe el nombre (máx 4 — mensajes
@@ -842,35 +838,35 @@
 .DC-opTlCaja {
   font-size: 15px;
   line-height: 1;
-  background: #101a2c; /* corta la línea bajo la caja */
+  background: #fff; /* corta la línea bajo la caja */
   padding: 2px;
   border-radius: 7px;
   filter: drop-shadow(0 0 0 rgba(152, 199, 76, 0));
 }
-/* ÚLTIMO paso = estado actual: caja mayor con halo verde, textos brillantes */
+/* ÚLTIMO paso = estado actual: caja mayor con halo verde, texto oscuro fuerte */
 .DC-opTlPaso:last-child .DC-opTlCaja {
   font-size: 21px;
-  box-shadow: 0 0 0 4px rgba(152, 199, 76, 0.3);
+  box-shadow: 0 0 0 4px rgba(152, 199, 76, 0.35);
   border-radius: 9px;
 }
 .DC-opTlPaso:last-child .DC-opTlTitulo {
-  color: #fff;
+  color: #0f1928;
   font-weight: 800;
 }
 .DC-opTlFecha {
   font-size: 0.7rem;
-  color: #7d8ea8;
+  color: #64748b;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.DC-opTlPaso:last-child .DC-opTlFecha { color: #b9c8dd; font-weight: 700; }
+.DC-opTlPaso:last-child .DC-opTlFecha { color: #475569; font-weight: 700; }
 .DC-opTlHint {
   font-size: 0.7rem;
-  color: #7d8ea8;
+  color: #64748b;
   text-align: right;
   margin: 0;
 }
-.DC-opSinMov { color: #7d8ea8; font-size: 0.85rem; }
+.DC-opSinMov { color: #64748b; font-size: 0.85rem; }
 
 /* (2026-10-30) Trayectoria VERTICAL — SOLO móvil: cajas 📦 a la izquierda
    sobre una línea vertical continua; nombre + fecha a la derecha; el último
@@ -906,7 +902,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  background: #101a2c; /* corta la línea bajo la caja */
+  background: #fff; /* corta la línea bajo la caja */
   z-index: 1;
   padding: 3px 0;
   height: 100%;
@@ -923,13 +919,13 @@
 .DC-opTlVTitulo {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #c6d2e4;
+  color: #334155;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
 .DC-opTlVFecha {
   font-size: 0.7rem;
-  color: #7d8ea8;
+  color: #64748b;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -939,24 +935,23 @@
   filter: drop-shadow(0 0 6px rgba(152, 199, 76, 0.55));
 }
 .DC-opTlVActual .DC-opTlVTitulo {
-  color: #fff;
+  color: #0f1928;
   font-weight: 800;
 }
-.DC-opTlVActual .DC-opTlVFecha { color: #b9c8dd; font-weight: 700; }
+.DC-opTlVActual .DC-opTlVFecha { color: #475569; font-weight: 700; }
 .DC-opTracking {
   align-self: flex-start;
-  color: #7cb0ff;
+  color: #5e8a28;
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: underline dotted;
 }
-.DC-opTracking:hover { color: #a5c8ff; }
+.DC-opTracking:hover { color: #4a7c1f; }
 
 /* ── Tacómetro del OT (SVG estilo velocímetro) ── */
 .DC-gaugeWrap { max-width: 560px; margin: 0 auto; }
 .DC-tacometro { width: 100%; height: auto; display: block; }
-.DC-gaugeSub { font-size: 0.8rem; color: #7d8ea8; margin: 0.4rem 0 0; text-align: center; }
-.DC-portalOscuro .DC-gaugeSub { color: #9fb0c7; }
+.DC-gaugeSub { font-size: 0.8rem; color: #64748b; margin: 0.4rem 0 0; text-align: center; }
 
 /* (2026-10-29) Chip de guía con novedad justificada (morado, del segmento
    «Justificadas» del OT) — el detalle viaja en el title del chip. */
@@ -997,7 +992,6 @@
   from { opacity: 0; transform: translateY(10px) scale(0.985); }
   to   { opacity: 1; transform: none; }
 }
-.DC-portalOscuro .DC-modalCard { background: #101a2c; border-color: #22314e; }
 @media (prefers-reduced-motion: reduce) {
   .DC-modalCard { animation: none; }
 }
@@ -1043,9 +1037,7 @@
   border: 1px solid #e5e9f0;
   border-radius: 10px;
 }
-/* La tabla usa texto oscuro: en el portal oscuro el área de tabla va con
-   fondo claro para que siga legible dentro del modal. */
-.DC-portalOscuro .DC-detalleDiaTabla { background: #fff; }
+/* La tabla usa texto oscuro sobre fondo claro (tema claro del portal). */
 .DC-detalleDiaTabla .IG-tabla { margin: 0; }
 .DC-detalleDiaTabla thead { position: sticky; top: 0; z-index: 1; }
 
@@ -1830,24 +1822,10 @@
 }
 .DC-destLimpiar:hover { text-decoration: underline; }
 
-/* Portal oscuro: TODAS las listas de filtros (año/mes/grupo/cliente final)
-   pasan a tema oscuro — antes flotaba un panel blanco sobre el portal. */
-.DC-portalOscuro .DC-dropdownFiltroLista {
-  background: #0f1a2e;
-  border-color: #2a3a58;
-  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55);
-}
-.DC-portalOscuro .DC-dropdownFiltroItem { color: #d7e2f0; }
-.DC-portalOscuro .DC-dropdownFiltroItem:hover { background: #16233c; }
-.DC-portalOscuro .DC-dropdownFiltroItem.seleccionado { background: rgba(152, 199, 76, 0.15); color: #c9e89a; }
-.DC-portalOscuro .DC-destBuscar { background: #0b1526; border-color: #2a3a58; }
-.DC-portalOscuro .DC-destBuscar:focus-within { background: #0b1526; border-color: #98c74c; }
-.DC-portalOscuro .DC-destBuscar input { color: #e7eef7; }
-.DC-portalOscuro .DC-destBuscar input::placeholder { color: #5b6b85; }
-.DC-portalOscuro .DC-destBuscarX { background: #16233c; color: #9fb0c7; }
-.DC-portalOscuro .DC-destEstado { color: #7d8ea8; }
-.DC-portalOscuro .DC-destLimpiar { border-top-color: #22314e; }
-.DC-portalOscuro .DC-clienteOpcion { color: #9fb0c7; }
+/* Portal claro (2026-11-05): las listas de filtros (año/mes/grupo/cliente
+   final/tipo servicio) ya son blancas por defecto — aquí solo el acento
+   verde de marca en la opción seleccionada. */
+.DC-portalClaro .DC-dropdownFiltroItem.seleccionado { background: rgba(152, 199, 76, 0.18); color: #4a7c1f; }
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -1951,7 +1929,7 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     border-left: none;
-    border-top: 1px solid #2c3d5c;
+    border-top: 1px solid #e5e9f0;
     padding: 0.6rem 0 0;
     max-width: none;
     text-align: left;

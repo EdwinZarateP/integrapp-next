@@ -67,6 +67,11 @@ const GestionUsuariosP: React.FC = () => {
   const [filtroClientes, setFiltroClientes] = useState('');
   // (2026-11-04) Sección «Otros clientes (avanzado)» colapsada por defecto.
   const [avanzadoClientes, setAvanzadoClientes] = useState(false);
+  // (2026-11-05) Mismos controles para el formulario «Nuevo usuario» (los
+  // checks grandes de portal + catálogo avanzado colapsado viven aparte del
+  // modal para no compartir el filtro/plegado entre ambos).
+  const [avanzadoClientesForm, setAvanzadoClientesForm] = useState(false);
+  const [filtroClientesForm, setFiltroClientesForm] = useState('');
   const [guardandoClientes, setGuardandoClientes] = useState(false);
   const [errorClientes, setErrorClientes] = useState('');
   const [guardandoPerfil, setGuardandoPerfil] = useState<string | null>(null);
@@ -184,6 +189,25 @@ const GestionUsuariosP: React.FC = () => {
       || (c.nit || '').toLowerCase().includes(f)
     );
   };
+
+  // (2026-11-05) Versión del filtro para el formulario «Nuevo usuario» (usa
+  // su propio input de búsqueda) + toggle de NIT sobre form.clientes_siscore.
+  const clientesFiltradosForm = () => {
+    const base = clientesSiscore.filter(c => !NITS_PORTALES.includes(c.nit));
+    const f = filtroClientesForm.trim().toLowerCase();
+    if (!f) return base;
+    return base.filter(c =>
+      (c.entidad || '').toLowerCase().includes(f)
+      || (c.razon || '').toLowerCase().includes(f)
+      || (c.nit || '').toLowerCase().includes(f)
+    );
+  };
+  const toggleClienteSiscoreForm = (nit: string) => setForm(f => ({
+    ...f,
+    clientes_siscore: (f.clientes_siscore || []).includes(nit)
+      ? (f.clientes_siscore || []).filter(n => n !== nit)
+      : [...(f.clientes_siscore || []), nit],
+  }));
 
   // ── Apartado: catálogo de clientes de Otros Costos (2026-10-21) ────────────
   const crearClienteOcSubmit = async (e: React.FormEvent) => {
@@ -864,32 +888,67 @@ const GestionUsuariosP: React.FC = () => {
                     Clientes {form.perfil === 'CLIENTE' ? '*' : ''}
                     <span className="GU-formLabel--opcional"> (catálogo clientes_siscore — definen sus portales y tableros)</span>
                   </label>
-                  <div className="GU-alcance-lista GU-alcance-lista--form">
-                    {clientesSiscore.length === 0 && (
-                      <p className="GU-notif-mc-opcion-desc">No se pudo cargar el catálogo clientes_siscore; recargue la página.</p>
-                    )}
-                    {clientesSiscore.map(c => {
-                      const checked = (form.clientes_siscore || []).includes(c.nit);
+                  {/* (2026-11-05) PORTALES: checks grandes y visibles — mismo
+                      look del modal 👥 Clientes (2026-11-04). El 95% de los
+                      casos es solo esto (habilitar Kabi / Medical Care). */}
+                  <div className="GU-portalesGrid">
+                    {PORTALES_CLIENTES.map(p => {
+                      const checked = (form.clientes_siscore || []).includes(p.nit);
                       return (
-                        <label key={c.id} className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                        <label key={p.nit} className={`GU-portalCheck${checked ? ' GU-portalCheck--activo' : ''}`}>
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => setForm(f => ({
-                              ...f,
-                              clientes_siscore: checked
-                                ? (f.clientes_siscore || []).filter(n => n !== c.nit)
-                                : [...(f.clientes_siscore || []), c.nit],
-                            }))}
+                            onChange={() => toggleClienteSiscoreForm(p.nit)}
                           />
                           <div className="GU-notif-mc-opcion-info">
-                            <span className="GU-notif-mc-opcion-label">{c.razon || c.entidad}</span>
-                            <span className="GU-notif-mc-opcion-desc">{c.entidad} — NIT {c.nit}</span>
+                            <span className="GU-portalCheck-nombre">Portal {p.nombre}</span>
+                            <span className="GU-notif-mc-opcion-desc">{p.desc}</span>
                           </div>
                         </label>
                       );
                     })}
                   </div>
+                  {/* Catálogo completo (avanzado), colapsado por defecto —
+                      mismo patrón del modal 👥. */}
+                  <button type="button" className="GU-avanzadoToggle" onClick={() => setAvanzadoClientesForm(v => !v)}>
+                    {avanzadoClientesForm ? '▾' : '▸'} Otros clientes (avanzado) — filtro de guías/indicadores
+                  </button>
+                  {avanzadoClientesForm && (
+                    <>
+                      <input
+                        type="text"
+                        className="GU-formInput"
+                        placeholder="Buscar cliente (nombre, razón social o NIT)…"
+                        value={filtroClientesForm}
+                        onChange={e => setFiltroClientesForm(e.target.value)}
+                      />
+                      <div className="GU-alcance-lista GU-alcance-lista--form">
+                        {clientesSiscore.length === 0 && (
+                          <p className="GU-notif-mc-opcion-desc">No se pudo cargar el catálogo clientes_siscore; recargue la página.</p>
+                        )}
+                        {clientesFiltradosForm().map(c => {
+                          const checked = (form.clientes_siscore || []).includes(c.nit);
+                          return (
+                            <label key={c.id} className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleClienteSiscoreForm(c.nit)}
+                              />
+                              <div className="GU-notif-mc-opcion-info">
+                                <span className="GU-notif-mc-opcion-label">{c.razon || c.entidad}</span>
+                                <span className="GU-notif-mc-opcion-desc">{c.entidad} — NIT {c.nit}</span>
+                              </div>
+                            </label>
+                          );
+                        })}
+                        {clientesSiscore.length > 0 && clientesFiltradosForm().length === 0 && (
+                          <p className="GU-notif-mc-opcion-desc">Ningún cliente coincide con «{filtroClientesForm}».</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
                 )}
               </div>

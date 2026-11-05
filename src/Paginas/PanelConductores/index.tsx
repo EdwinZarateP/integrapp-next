@@ -228,6 +228,9 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
         { nombre: 'Licencia de Conducción Conductor 2', progreso: 0 },
         { nombre: 'Foto Conductor 2', progreso: 0 },
         { nombre: 'Certificación Bancaria Conductor 2', progreso: 0 },
+        // Planilla PROPIA del 2º conductor (2026-11-05): multi-archivo con
+        // vencimiento, igual que la del vehículo.
+        { nombre: 'Planilla de Seguridad Social Conductor 2', progreso: 0 },
       ],
     });
   }
@@ -239,17 +242,13 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
   // pide el RUT de la empresa (propietario; el tenedor ya exige RUT).
   const propEmpresa = String(vehiculo?.propTipoDocumento || '').toUpperCase().includes('NIT');
   const tenedEmpresa = String(vehiculo?.tenedTipoDocumento || '').toUpperCase().includes('NIT');
-  // Dueño del remolque (2026-10-05): su cédula solo se pide cuando el vehículo
-  // TIENE remolque (placa del remolque o documento del dueño diligenciados).
-  const tieneRemolque = Boolean(
-    String(vehiculo?.RemolPlaca || '').trim() ||
-    String(vehiculo?.RemolDuenoDocumento || '').replace(/\D/g, ''));
   // Remolque declarado con CUALQUIER dato de la sección (espejo de
   // _tiene_remolque del backend): con remolque, la Tarjeta de Remolque pasa a
-  // ser OBLIGATORIA (2026-10-06, pedido del usuario).
+  // ser OBLIGATORIA (2026-10-06, pedido del usuario) y también la cédula del
+  // dueño (2026-11-05, pedido del usuario).
   const remolqueDeclarado = [
     'RemolPlaca', 'RemolModelo', 'RemolClase', 'RemolTipoCarroceria',
-    'RemolAlto', 'RemolLargo', 'RemolAncho',
+    'RemolAlto', 'RemolLargo', 'RemolAncho', 'RemolVin', 'RemolPbvMax',
     'RemolDuenoNombre', 'RemolDuenoDocumento', 'RemolDuenoCorreo',
   ].some(k => {
     const v = String(vehiculo?.[k] || '').trim();
@@ -275,10 +274,18 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       && !docEstaLleno(vehiculo?.revisionTecnomecanica)) {
       items = items.filter((i: DocumentoItem) => tiposMapping[normalizeKey(i.nombre)] !== 'revisionTecnomecanica');
     }
-    if (tieneRemolque && sec.subtitulo === '1. Documentos del Vehículo') {
+    // (2026-11-05, pedido del usuario) OBLIGATORIA con remolque declarado
+    // (espejo de _documentos_faltantes): sin ella no hay verificación de
+    // identidad contra la Tarjeta del Remolque (409) ni identidad para el
+    // estudio de seguridad. Dueño EMPRESA (NIT): no hay cédula que exigir.
+    const remolEmpresa = String(vehiculo?.RemolDuenoTipoDocumento || '').toUpperCase().includes('NIT');
+    if (remolqueDeclarado && sec.subtitulo === '1. Documentos del Vehículo') {
       items = [...items, {
-        nombre: 'Cédula del Dueño del Remolque', progreso: 0, opcional: true,
-        hint: 'Frente y reverso — su cédula entra al estudio de seguridad',
+        nombre: 'Cédula del Dueño del Remolque', progreso: 0,
+        opcional: remolEmpresa,
+        hint: remolEmpresa
+          ? 'Dueño empresa (NIT): opcional'
+          : 'Frente y reverso — su cédula entra al estudio de seguridad',
       }];
     }
     if (propEmpresa && sec.subtitulo === '4. Documentos del Propietario') {
@@ -334,14 +341,20 @@ const construirSeccionesDesdeVehiculo = (vehiculo: any): SeccionDocumentos[] => 
       const reutilizableDe = !cubiertoPor && !docEstaLleno(vehiculo?.[field])
         ? reutilizableDeItem(field, vehiculo)
         : undefined;
-      // Planilla en VARIOS archivos (2026-10-19): el ítem lista los archivos
-      // de la planilla VIGENTE (los del historial con el vencimiento actual,
-      // p.ej. EPS y ARL en PDFs separados) — «Ver» los recorre todos y
-      // «＋ Cargar más» suma sin borrar los ya subidos.
+      // Planilla en VARIOS archivos (2026-10-19; la del 2º conductor
+      // 2026-11-05): el ítem lista los archivos de la planilla VIGENTE (los
+      // del historial con el vencimiento actual, p.ej. EPS y ARL en PDFs
+      // separados) — «Ver» los recorre todos y «＋ Cargar más» suma sin
+      // borrar los ya subidos.
       let valorCampo = vehiculo[field];
-      if (field === 'planillaEpsArl' && Array.isArray(vehiculo.documentosPlanillaSegSocial)) {
-        const venceActual = String(vehiculo.planillaVencimiento || '').slice(0, 10);
-        const rutasPlanilla = vehiculo.documentosPlanillaSegSocial
+      const planillaSSFields: Record<string, { historial: string; vence: string }> = {
+        planillaEpsArl: { historial: 'documentosPlanillaSegSocial', vence: 'planillaVencimiento' },
+        cond2PlanillaSegSocial: { historial: 'cond2DocumentosPlanilla', vence: 'cond2PlanillaVencimiento' },
+      };
+      const planillaSS = planillaSSFields[field];
+      if (planillaSS && Array.isArray(vehiculo[planillaSS.historial])) {
+        const venceActual = String(vehiculo[planillaSS.vence] || '').slice(0, 10);
+        const rutasPlanilla = vehiculo[planillaSS.historial]
           .filter((p: any) => !venceActual || String(p?.vence || '').slice(0, 10) === venceActual)
           .map((p: any) => p?.ruta)
           .filter((r: any) => r && String(r).trim());
@@ -1125,10 +1138,11 @@ const PanelConductoresVista: React.FC = () => {
             const urlLimpia = String(rawUrl).split("?")[0];
             await fetch(`${API_BASE}/vehiculos/eliminar-foto?placa=${selectedPlate}&url=${encodeURIComponent(urlLimpia)}${qsActor}`, { method: "DELETE" });
           }
-        } else if (tipo === "planillaEpsArl" && Array.isArray(item.url)) {
-          // Planilla en VARIOS archivos (2026-10-19): se borra CADA archivo
-          // del historial por su URL (el backend reasigna el espejo/vence a
-          // la más reciente restante y limpia todo con la última).
+        } else if (["planillaEpsArl", "cond2PlanillaSegSocial"].includes(tipo) && Array.isArray(item.url)) {
+          // Planilla en VARIOS archivos (2026-10-19; la del 2º conductor
+          // 2026-11-05): se borra CADA archivo del historial por su URL (el
+          // backend reasigna el espejo/vence a la más reciente restante y
+          // limpia todo con la última).
           for (const rawUrl of item.url) {
             const urlLimpia = String(rawUrl).split("?")[0];
             const res = await fetch(`${API_BASE}/vehiculos/eliminar-documento?placa=${selectedPlate}&tipo=${tipo}&url=${encodeURIComponent(urlLimpia)}${qsActor}`, { method: "DELETE" });
@@ -1892,11 +1906,12 @@ const PanelConductoresVista: React.FC = () => {
                                                                 ＋ Cargar más
                                                             </button>
                                                         )}
-                                                        {/* Planilla de Seguridad Social (2026-10-19):
-                                                            la EPS y la ARL suelen venir en PDFs separados —
-                                                            se pueden añadir MÁS archivos sin borrar los ya
-                                                            subidos (máx. 3 por carga, una fecha por tanda). */}
-                                                        {!modoLectura && normalizeKey(item.nombre) === 'planilla de seguridad social' && (
+                                                        {/* Planilla de Seguridad Social (2026-10-19; la del
+                                                            2º conductor 2026-11-05): la EPS y la ARL suelen
+                                                            venir en PDFs separados — se pueden añadir MÁS
+                                                            archivos sin borrar los ya subidos (máx. 3 por
+                                                            carga, una fecha por tanda). */}
+                                                        {!modoLectura && ['planilla de seguridad social', 'planilla de seguridad social conductor 2'].includes(normalizeKey(item.nombre)) && (
                                                             <button
                                                                 className="btn-doc-action upload"
                                                                 onClick={() => handleOpenDoc(idx, iIdx, item.nombre)}
@@ -2085,7 +2100,7 @@ const PanelConductoresVista: React.FC = () => {
                   item.hint = undefined;
                }
 
-               if (normalizeKey(item.nombre) === 'fotos' || normalizeKey(item.nombre) === 'planilla de seguridad social') {
+               if (['fotos', 'planilla de seguridad social', 'planilla de seguridad social conductor 2'].includes(normalizeKey(item.nombre))) {
                   // Acumular SIN duplicados: si el array traía URLs repetidas
                   // (bug de numeración) o el backend devolvió una ya existente,
                   // se muestran una sola vez.

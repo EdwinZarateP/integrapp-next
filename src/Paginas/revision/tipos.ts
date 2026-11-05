@@ -56,6 +56,13 @@ export interface Vehiculo {
   // cada carga ACUMULA acá (tope 24); `planillaEpsArl` es el espejo de la
   // última. Las rutas llegan firmadas.
   documentosPlanillaSegSocial?: Array<{ ruta: string; fecha: string; nombre?: string }>;
+  // Planilla PROPIA del 2º conductor (2026-11-05): misma semántica —
+  // historial multi-archivo (tope 24), `cond2PlanillaSegSocial` espejo de la
+  // última y `cond2PlanillaVencimiento` su fecha de vencimiento (VENCIDA
+  // avisa, NO inhabilita el vehículo).
+  cond2PlanillaSegSocial?: string | null;
+  cond2PlanillaVencimiento?: string | null;
+  cond2DocumentosPlanilla?: Array<{ ruta: string; fecha: string; nombre?: string; vence?: string }>;
   // Historial UNIVERSAL de documentos: toda subida de cualquier documento
   // (frente/reverso/reutilización) queda acá con su propio archivo; el campo
   // del documento apunta a la última versión. Tope 200 en el backend.

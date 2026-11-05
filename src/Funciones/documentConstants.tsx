@@ -56,7 +56,10 @@ export const endpoints: Record<string, string> = Object.fromEntries(
     "Licencia de Conducción Conductor 2": `${API_BASE_URL}/subir-documento`,
     "Licencia de Conducción Conductor 2 (Reverso)": `${API_BASE_URL}/subir-documento`,
     "Foto Conductor 2": `${API_BASE_URL}/subir-documento`,
-    "Certificación Bancaria Conductor 2": `${API_BASE_URL}/subir-documento`
+    "Certificación Bancaria Conductor 2": `${API_BASE_URL}/subir-documento`,
+    // Planilla PROPIA del 2º conductor (2026-11-05): multi-archivo con
+    // vencimiento, igual que la del vehículo.
+    "Planilla de Seguridad Social Conductor 2": `${API_BASE_URL}/subir-documento`
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 
@@ -99,7 +102,8 @@ export const tiposMapping: Record<string, string> = Object.fromEntries(
     "Licencia de Conducción Conductor 2": "licencia2",
     "Licencia de Conducción Conductor 2 (Reverso)": "licencia2Reverso",
     "Foto Conductor 2": "cond2Foto",
-    "Certificación Bancaria Conductor 2": "cond2CertificacionBancaria"
+    "Certificación Bancaria Conductor 2": "cond2CertificacionBancaria",
+    "Planilla de Seguridad Social Conductor 2": "cond2PlanillaSegSocial"
   }).map(([key, value]) => [normalizeKey(key), value])
 );
 

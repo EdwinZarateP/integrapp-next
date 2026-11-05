@@ -47,7 +47,7 @@ const esEmpresa = (v: any, campoTipo: string): boolean =>
 
 const CAMPOS_REMOLQUE = [
   "RemolPlaca", "RemolModelo", "RemolClase", "RemolTipoCarroceria",
-  "RemolAlto", "RemolLargo", "RemolAncho",
+  "RemolAlto", "RemolLargo", "RemolAncho", "RemolVin", "RemolPbvMax",
   "RemolDuenoNombre", "RemolDuenoDocumento", "RemolDuenoCorreo",
 ];
 
@@ -150,6 +150,8 @@ const PestanaDocumentos: React.FC<{
   const [verHistorialPlanillas, setVerHistorialPlanillas] = useState(false);
   const inputHV = useRef<HTMLInputElement | null>(null);
   const inputPlanilla = useRef<HTMLInputElement | null>(null);
+  const [verHistorialPlanillas2, setVerHistorialPlanillas2] = useState(false);
+  const inputPlanilla2 = useRef<HTMLInputElement | null>(null);
   const inputAdicional = useRef<HTMLInputElement | null>(null);
 
   /* ── Construcción de filas con las reglas del backend ─────────────────── */
@@ -208,6 +210,13 @@ const PestanaDocumentos: React.FC<{
       // trae organismo de tránsito y fechas. Se sube con lectura IA desde
       // «Datos del Remolque» del paso 2 (o aquí para Seguridad).
       add({ key: "tarjetaRemolque", etiqueta: "Tarjeta de propiedad del remolque", grupo: "vehiculo", obligatorio: conRemolque, dosCaras: true, frente: v.tarjetaRemolque, reverso: v.tarjetaRemolqueReverso, nota: conRemolque ? undefined : "Sin remolque declarado", campoRecorte: "tarjetaRemolque" });
+      // Cédula del dueño del remolque (2026-11-05): OBLIGATORIA con remolque
+      // declarado (verifica identidad contra la tarjeta, 409) — dueño EMPRESA
+      // (NIT): sin cédula que exigir.
+      if (conRemolque || docLleno(v, "documentoIdentidadRemolque")) {
+        const remolEmpresa = esEmpresa(v, "RemolDuenoTipoDocumento");
+        add({ key: "documentoIdentidadRemolque", etiqueta: "Cédula del dueño del remolque", grupo: "vehiculo", obligatorio: conRemolque && !remolEmpresa, dosCaras: true, frente: v.documentoIdentidadRemolque, reverso: v.documentoIdentidadRemolqueReverso, nota: conRemolque ? (remolEmpresa ? "Dueño empresa (NIT): opcional" : undefined) : "Sin remolque declarado", campoRecorte: "documentoIdentidadRemolque" });
+      }
     }
     // 4 ángulos exigidos (2026-10-14).
     const angulos: Array<[string, string]> = [
@@ -348,7 +357,9 @@ const PestanaDocumentos: React.FC<{
     }
   };
 
-  const subirPlanilla = async (archivosEntrada: File[]) => {
+  const subirPlanilla = async (archivosEntrada: File[], tipoPlanilla: 'planillaEpsArl' | 'cond2PlanillaSegSocial' = 'planillaEpsArl') => {
+    const esCond2 = tipoPlanilla === 'cond2PlanillaSegSocial';
+    const etiqueta = esCond2 ? 'planilla del conductor 2' : 'planilla';
     const archivos = archivosEntrada.slice(0, 3);
     if (archivosEntrada.length > 3) {
       Swal.fire({ icon: 'info', title: 'Máximo 3 archivos', text: 'Se suben los primeros 3.', timer: 3500, showConfirmButton: false });
@@ -370,8 +381,8 @@ const PestanaDocumentos: React.FC<{
     const topeIso = isoLocal(tope);
     const resFecha = await Swal.fire({
       icon: 'info',
-      title: 'Fecha de vencimiento de la planilla',
-      html: `${archivos.length > 1 ? `Vas a subir <b>${archivos.length} archivos</b> (EPS/ARL): todos comparten esta fecha.<br/>` : ''}¿Hasta qué fecha está <b>vigente</b> esta planilla?<br/><small>Máximo 31 días desde hoy. Vencida esa fecha, el vehículo queda inhabilitado hasta que suban una planilla nueva.</small>`,
+      title: `Fecha de vencimiento de la ${etiqueta}`,
+      html: `${archivos.length > 1 ? `Vas a subir <b>${archivos.length} archivos</b> (EPS/ARL): todos comparten esta fecha.<br/>` : ''}¿Hasta qué fecha está <b>vigente</b> esta ${etiqueta}?<br/><small>Máximo 31 días desde hoy.${esCond2 ? ' Vencida esa fecha, el aviso VENCIDA se muestra en la ficha (no inhabilita el vehículo).' : ' Vencida esa fecha, el vehículo queda inhabilitado hasta que suban una planilla nueva.'}</small>`,
       input: 'date',
       inputAttributes: { min: hoy, max: topeIso },
       showCancelButton: true,
@@ -380,7 +391,7 @@ const PestanaDocumentos: React.FC<{
       confirmButtonColor: '#2c5f9e',
       allowOutsideClick: false,
       inputValidator: (valor) => {
-        if (!valor) return 'Indica la fecha de vencimiento de la planilla.';
+        if (!valor) return `Indica la fecha de vencimiento de la ${etiqueta}.`;
         if (valor < hoy) return 'Esa fecha ya pasó: sube una planilla VIGENTE.';
         if (valor > topeIso) return `La fecha no puede ser superior a 31 días desde hoy (tope: ${topeIso}).`;
         return null;
@@ -393,7 +404,7 @@ const PestanaDocumentos: React.FC<{
       for (const archivo of archivos) {
         const body = new FormData();
         body.append('placa', veh.placa);
-        body.append('tipo', 'planillaEpsArl');
+        body.append('tipo', tipoPlanilla);
         body.append('archivo', archivo);
         body.append('fecha_vencimiento', resFecha.value as string);
         body.append('extraer', 'false');
@@ -407,10 +418,10 @@ const PestanaDocumentos: React.FC<{
       Swal.fire({
         icon: 'success',
         title: 'Planilla cargada',
-        html: `Subimos <b>${subidos}</b> archivo${subidos === 1 ? '' : 's'} de la planilla.`,
+        html: `Subimos <b>${subidos}</b> archivo${subidos === 1 ? '' : 's'} de la ${etiqueta}.`,
         timer: 1800, showConfirmButton: false,
       });
-      alCambiar(`Planilla de Seguridad Social actualizada en ${veh.placa} (${subidos} archivo${subidos === 1 ? '' : 's'})`);
+      alCambiar(`${esCond2 ? 'Planilla del Conductor 2' : 'Planilla de Seguridad Social'} actualizada en ${veh.placa} (${subidos} archivo${subidos === 1 ? '' : 's'})`);
     } catch (e: any) {
       Swal.fire('Error', e?.message || 'No se pudo subir la planilla.', 'error');
     }
@@ -471,6 +482,18 @@ const PestanaDocumentos: React.FC<{
   const anteriores = filasPlanilla.slice(1);
   const vencePlanilla = typeof veh.planillaVencimiento === "string" ? veh.planillaVencimiento.slice(0, 10) : "";
   const planillaVencida = vencePlanilla && vencePlanilla < new Date().toISOString().slice(0, 10);
+
+  /* ── Planilla del CONDUCTOR 2 (2026-11-05): misma estructura; VENCIDA
+     avisa pero NO inhabilita el vehículo (decisión del usuario). ───────── */
+  const historialPlanillas2: Array<{ ruta?: string; fecha?: string; nombre?: string; vence?: string }> =
+    Array.isArray(veh.cond2DocumentosPlanilla) ? veh.cond2DocumentosPlanilla : [];
+  const filasPlanilla2 = historialPlanillas2.length
+    ? historialPlanillas2
+    : (veh.cond2PlanillaSegSocial ? [{ ruta: veh.cond2PlanillaSegSocial as string }] : []);
+  const vigente2 = filasPlanilla2[0];
+  const anteriores2 = filasPlanilla2.slice(1);
+  const vencePlanilla2 = typeof veh.cond2PlanillaVencimiento === "string" ? veh.cond2PlanillaVencimiento.slice(0, 10) : "";
+  const planilla2Vencida = vencePlanilla2 && vencePlanilla2 < new Date().toISOString().slice(0, 10);
 
   const fotos = Array.isArray(veh.fotos)
     ? veh.fotos.filter((u: any) => u && String(u).trim()) : [];
@@ -749,6 +772,103 @@ const PestanaDocumentos: React.FC<{
           const archivos = Array.from(e.target.files || []);
           e.target.value = '';
           if (archivos.length) subirPlanilla(archivos);
+        }}
+      />
+
+      {/* ── PLANILLA DEL CONDUCTOR 2 (2026-11-05): espejo del bloque del
+             vehículo — SOLO si el slot 2 está vinculado. VENCIDA avisa, no
+             inhabilita. ─────────────────────────────────────────────────── */}
+      {veh.idConductor2 && (
+        <div className="rev-planilla rev-planilla--cond2">
+          <div className="rev-planilla-head">
+            <div className="rev-planilla-titulo">
+              <strong><FaFileAlt aria-hidden="true" /> Planilla de Seguridad Social — Conductor 2</strong>
+              {vigente2 ? (
+                vencePlanilla2 ? (
+                  <span className={`rev-planilla-vence${planilla2Vencida ? " rev-planilla-vence--vencida" : ""}`}>
+                    Vence: {vencePlanilla2.split("-").reverse().join("/")}{planilla2Vencida ? " · VENCIDA" : ""}
+                  </span>
+                ) : (
+                  <span className="rev-planilla-sub">Sin fecha de vencimiento registrada</span>
+                )
+              ) : (
+                <span className="rev-planilla-sub">Sin planilla cargada todavía</span>
+              )}
+            </div>
+            {!esPadrino && (
+              <button type="button" className="rev-planilla-btn" onClick={() => inputPlanilla2.current?.click()}>
+                <FaUpload /> Cargar nueva
+              </button>
+            )}
+          </div>
+          {vigente2 && (
+            <div className="rev-planilla-lista">
+              <button
+                type="button"
+                className="rev-planilla-item rev-planilla-item--vigente"
+                onClick={() => setDocAbierto({
+                  items: [{ etiqueta: "Planilla del Conductor 2 (vigente)", dueno: "Conductor 2", frente: vigente2.ruta }],
+                  indice: 0,
+                  cara: "frente",
+                })}
+              >
+                <span className="rev-planilla-chip">Vigente</span>
+                <span className="rev-planilla-fecha">{vigente2.fecha ? fechaLegible(vigente2.fecha) : "—"}</span>
+                <span className="rev-planilla-nombre">{vigente2.nombre || "Planilla"}</span>
+                {vigente2.vence && (
+                  <span className="rev-planilla-vence-mini">
+                    Vence {String(vigente2.vence).slice(0, 10).split("-").reverse().join("/")}
+                  </span>
+                )}
+                <span className="rev-planilla-ver">Ver</span>
+              </button>
+              {anteriores2.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className="rev-planilla-toggle"
+                    onClick={() => setVerHistorialPlanillas2(v => !v)}
+                    aria-expanded={verHistorialPlanillas2}
+                  >
+                    {verHistorialPlanillas2 ? "Ocultar historial" : `Ver historial (${anteriores2.length})`}
+                  </button>
+                  {verHistorialPlanillas2 && anteriores2.map((p, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="rev-planilla-item"
+                      onClick={() => p.ruta && setDocAbierto({
+                        items: [{ etiqueta: "Planilla del Conductor 2 (historial)", dueno: "Conductor 2", frente: p.ruta }],
+                        indice: 0,
+                        cara: "frente",
+                      })}
+                    >
+                      <span className="rev-planilla-fecha">{p.fecha ? fechaLegible(p.fecha) : "Anterior al historial"}</span>
+                      <span className="rev-planilla-nombre">{p.nombre || "Planilla"}</span>
+                      {p.vence && (
+                        <span className="rev-planilla-vence-mini">
+                          Venció {String(p.vence).slice(0, 10).split("-").reverse().join("/")}
+                        </span>
+                      )}
+                      <span className="rev-planilla-ver">Ver</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      <input
+        ref={inputPlanilla2}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const archivos = Array.from(e.target.files || []);
+          e.target.value = '';
+          if (archivos.length) subirPlanilla(archivos, 'cond2PlanillaSegSocial');
         }}
       />
 
