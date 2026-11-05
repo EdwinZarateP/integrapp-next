@@ -14,7 +14,7 @@ import {
   listarActivos, obtenerDetalleActivo, buscarPedidos, crearSolicitud, editarSolicitud,
   enviarAprobacion, aprobarSolicitud, devolverSolicitud, rechazarSolicitud,
   registrarPago, anularSolicitud, exportarExcel, marcarTramiteVulcano,
-  getTiposCosto, getBancos, getTiposCuenta, getClientes, getProveedores, obtenerMiAlcance,
+  getTiposCosto, getBancos, getTiposCuenta, getClientes, getProveedores, getAforadores, obtenerMiAlcance,
   exportarPago, importarPago, verificarManifiesto, listarPagables,
   type OtroCosto, type CostoConcepto, type ResultadoBusquedaPedidos, type PedidoEncontrado, type BancoCatalogo,
   type Adjunto,
@@ -36,6 +36,10 @@ const ACCEPT_ADJUNTOS = 'image/jpeg,image/jpg,image/png,application/pdf';
 
 // Tipos de costo que EXIGEN proveedor (cargues y descargues: siempre debe ir una opción).
 const TIPOS_COSTO_REQUIEREN_PROVEEDOR = ['CARGUE', 'DESCARGUE'];
+
+// (2026-11-04) En AFORO el concepto lleva AFORADOR (nombre + teléfono, opcionales)
+// en lugar de proveedor; van a la BD y a los reportes de Excel.
+const TIPO_COSTO_AFORADOR = 'AFORO';
 
 const formatTamano = (bytes: number): string => {
   const b = Number(bytes || 0);
@@ -141,7 +145,7 @@ const formVacio = (): FormState => ({
   pedido_encontrado: true,
   motivo_no_encontrado: '',
   datos_servicio: { cliente: '', centro_distribucion: '', fecha_servicio: '', piezas: 0, peso_real: 0, tipo_vehiculo: '', placa: '', municipio_destino: '', departamento_destino: '', transportador: '', manifiesto: '' },
-  costos: [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '' }],
+  costos: [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '', aforador: '', telefono_aforador: '' }],
   datos_bancarios: { banco: '', tipo_cuenta: '', numero_cuenta: '', tipo_id_titular: 'CC', cedula_titular: '', nombre_titular: '' },
   conductor: { nombre: '', telefono: '' },
 });
@@ -162,6 +166,8 @@ const OtrosCostosP: React.FC = () => {
   const [tiposCuenta, setTiposCuenta] = useState<string[]>([]);
   const [clientes, setClientes] = useState<string[]>([]);
   const [proveedores, setProveedores] = useState<string[]>([]);
+  // (2026-11-04) Autocompletar del campo «Aforador» (concepto AFORO).
+  const [aforadores, setAforadores] = useState<string[]>([]);
   // Alcance de aprobación por cliente del usuario (COORDINADOR/CONTROL)
   const [alcance, setAlcance] = useState<{ perfil: string; todos: boolean; clientes: string[] } | null>(null);
 
@@ -212,6 +218,8 @@ const OtrosCostosP: React.FC = () => {
     getTiposCuenta().then(setTiposCuenta).catch(() => {});
     getClientes().then(setClientes).catch(() => {});
     getProveedores().then(setProveedores).catch(() => {});
+    // (2026-11-04) Aforadores para el autocompletar (catálogo auto-alimentado).
+    getAforadores().then(setAforadores).catch(() => {});
     // Alcance de aprobación por cliente (sólo informativo; el backend filtra y valida)
     obtenerMiAlcance(u).then(a => setAlcance((p === 'COORDINADOR' || p === 'CONTROL') ? a : null)).catch(() => {});
     cargarListado(u, p);
@@ -438,7 +446,7 @@ const OtrosCostosP: React.FC = () => {
       return { ...f, costos };
     });
   };
-  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '' }] }));
+  const addCosto = () => setForm((f) => ({ ...f, costos: [...f.costos, { tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '', aforador: '', telefono_aforador: '' }] }));
   const removeCosto = (i: number) => setForm((f) => ({ ...f, costos: f.costos.length > 1 ? f.costos.filter((_, idx) => idx !== i) : f.costos }));
 
   // ── Abrir modales ──────────────────────────────────────────────────────────
@@ -472,7 +480,7 @@ const OtrosCostosP: React.FC = () => {
         pedido_encontrado: d.pedido_encontrado,
         motivo_no_encontrado: d.motivo_no_encontrado,
         datos_servicio: { ...d.datos_servicio, fecha_servicio: d.datos_servicio.fecha_servicio || '' },
-        costos: d.costos.length ? d.costos.map((c) => ({ ...c, proveedor: c.proveedor || '', oc_proveedor: c.oc_proveedor || '' })) : [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '' }],
+        costos: d.costos.length ? d.costos.map((c) => ({ ...c, proveedor: c.proveedor || '', oc_proveedor: c.oc_proveedor || '', aforador: c.aforador || '', telefono_aforador: c.telefono_aforador || '' })) : [{ tipo_costo: '', descripcion: '', valor: 0, proveedor: '', oc_proveedor: '', aforador: '', telefono_aforador: '' }],
         datos_bancarios: { ...d.datos_bancarios, tipo_id_titular: d.datos_bancarios?.tipo_id_titular || 'CC' },
         conductor: d.conductor,
       });
@@ -617,6 +625,9 @@ const OtrosCostosP: React.FC = () => {
       }
       cerrarModal();
       cargarListado();
+      // (2026-11-04) El guardado pudo registrar aforadores nuevos → refresca
+      // el autocompletar (best-effort).
+      getAforadores().then(setAforadores).catch(() => {});
     } catch (e: any) {
       Swal.fire('Error', extraerErrorApi(e, 'No se pudo guardar'), 'error');
     } finally {
@@ -1082,12 +1093,12 @@ const OtrosCostosP: React.FC = () => {
             <div className="OC-modalSection">Conceptos del costo</div>
             <div className="OC-tableContainer" style={{ boxShadow: 'none' }}>
               <table className="OC-table" style={{ minWidth: 0 }}>
-                <thead><tr><th>Tipo</th><th>Descripción</th><th>Proveedor</th><th>OC Proveedor</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
+                <thead><tr><th>Tipo</th><th>Descripción</th><th>Proveedor</th><th>OC Proveedor</th><th>Aforador</th><th>Tel. Aforador</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
                 <tbody>
                   {(detalle.costos || []).map((c, i) => (
-                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td>{c.proveedor || '-'}</td><td>{c.oc_proveedor || '-'}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
+                    <tr key={i}><td>{c.tipo_costo}</td><td>{c.descripcion}</td><td>{c.proveedor || '-'}</td><td>{c.oc_proveedor || '-'}</td><td>{c.aforador || '-'}</td><td>{c.telefono_aforador || '-'}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{formatMoney(c.valor)}</td></tr>
                   ))}
-                  <tr><td colSpan={3} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: 'right', fontWeight: 700 }}>Total</td><td style={{ textAlign: 'right', fontWeight: 800, color: '#005f56' }}>{formatMoney(detalle.valor_total)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1292,11 +1303,28 @@ const OtrosCostosP: React.FC = () => {
 
             {/* Sección 2: costos */}
             <div className="OC-modalSection">2. Información del otro costo</div>
-            {form.costos.map((c, i) => (
+            {form.costos.map((c, i) => {
+              const esAforo = (c.tipo_costo || '').trim().toUpperCase() === TIPO_COSTO_AFORADOR;
+              return (
               <div className="OC-costRow" key={i}>
                 <div className="OC-field">
                   <label className="OC-label">Tipo de costo *</label>
-                  <select className="OC-select" value={c.tipo_costo} onChange={(e) => updateCosto(i, 'tipo_costo', e.target.value)}>
+                  <select
+                    className="OC-select"
+                    value={c.tipo_costo}
+                    onChange={(e) => {
+                      const t = e.target.value;
+                      // (2026-11-04) AFORO usa aforador (no proveedor) y viceversa:
+                      // al cambiar de tipo se limpia lo que no aplica para no guardar datos huérfanos.
+                      setForm((f) => ({ ...f, costos: f.costos.map((cc, j) => j === i ? {
+                        ...cc,
+                        tipo_costo: t,
+                        ...(t.toUpperCase() === TIPO_COSTO_AFORADOR
+                          ? { proveedor: '', oc_proveedor: '' }
+                          : { aforador: '', telefono_aforador: '' }),
+                      } : cc) }));
+                    }}
+                  >
                     <option value="">Seleccione...</option>
                     {tiposCosto.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -1308,6 +1336,34 @@ const OtrosCostosP: React.FC = () => {
                     updateCosto(i, 'valor', v === '' ? '' : Math.min(Number(v), LIMITE_VALOR_TOTAL));
                   }} onWheel={(e) => e.currentTarget.blur()} />
                 </div>
+                {esAforo ? (
+                  /* (2026-11-04) AFORO: aforador + teléfono en lugar de proveedor (opcionales) */
+                  <>
+                    <div className="OC-field">
+                      <label className="OC-label">Aforador</label>
+                      {/* (2026-11-04) Autocompletar con los aforadores ya usados
+                          (datalist: muestra sugerencias Y admite nombre nuevo). */}
+                      <input
+                        className="OC-input"
+                        placeholder="Nombre del aforador (opcional)"
+                        maxLength={80}
+                        list="OC-aforadores"
+                        value={c.aforador || ''}
+                        onChange={(e) => updateCosto(i, 'aforador', e.target.value.toUpperCase())}
+                      />
+                    </div>
+                    <div className="OC-field">
+                      <label className="OC-label">Teléfono del aforador</label>
+                      <input
+                        className="OC-input"
+                        placeholder="Ej: 3101234567 (opcional)"
+                        maxLength={15}
+                        value={c.telefono_aforador || ''}
+                        onChange={(e) => updateCosto(i, 'telefono_aforador', e.target.value.replace(/\D/g, ''))}
+                      />
+                    </div>
+                  </>
+                ) : (
                 <div className="OC-field">
                   <label className="OC-label">
                     {TIPOS_COSTO_REQUIEREN_PROVEEDOR.includes((c.tipo_costo || '').trim().toUpperCase()) ? 'Proveedor *' : 'Proveedor'}
@@ -1325,6 +1381,7 @@ const OtrosCostosP: React.FC = () => {
                     )}
                   </select>
                 </div>
+                )}
                 <button className="OC-btnAction" title="Quitar" style={{ background: '#dc2626', alignSelf: 'end' }} onClick={() => removeCosto(i)}><FaTrash /></button>
                 {(c.proveedor || '').trim() && (
                   <div className="OC-field" style={{ gridColumn: '1 / -1' }}>
@@ -1345,7 +1402,11 @@ const OtrosCostosP: React.FC = () => {
                   <textarea className="OC-textarea" rows={4} value={c.descripcion} onChange={(e) => updateCosto(i, 'descripcion', e.target.value.toUpperCase())} />
                 </div>
               </div>
-            ))}
+              );
+            })}
+            <datalist id="OC-aforadores">
+              {aforadores.map((a) => <option key={a} value={a} />)}
+            </datalist>
             <button className="OC-btn OC-btnGhost OC-costAdd" onClick={addCosto}><FaPlus /> Agregar concepto</button>
             <div className="OC-resumen">
               <span>Valor total</span>

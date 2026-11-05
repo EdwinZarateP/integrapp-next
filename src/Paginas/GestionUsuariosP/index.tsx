@@ -38,6 +38,15 @@ const NOTIFICACIONES_MC = [
 
 const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CLIENTE_ESTUDIOS', 'CONDUCTOR', 'CONTROL', 'COORDINADOR', 'DESPACHADOR', 'FINANCIERO', 'OPERADOR', 'OPERATIVO', 'SEGURIDAD', 'VISUALIZADOR'];
 
+// (2026-11-04) Portales clásicos: los 2 NITs que el backend mapea a portal
+// (PORTALES_POR_NIT en baseusuarios.py). Se muestran como checks grandes
+// arriba del catálogo; el resto del catálogo queda como "avanzado".
+const PORTALES_CLIENTES = [
+  { nit: '900402080', nombre: 'Kabi', desc: 'Portal Kabi — programación de pedidos (/Pedidos)' },
+  { nit: '901689684', nombre: 'Medical Care', desc: 'Portal Medical Care (/MedicalCare)' },
+];
+const NITS_PORTALES = PORTALES_CLIENTES.map(p => p.nit);
+
 const USUARIO_VACIO: BaseUsuario = {
   nombre: '', correo: '', regional: '', celular: '',
   perfil: 'OPERATIVO', usuario: '', clave: '', clientes: [], clientes_siscore: [],
@@ -56,6 +65,8 @@ const GestionUsuariosP: React.FC = () => {
   const [modalClientes, setModalClientes] = useState<BaseUsuario | null>(null);
   const [clientesSel, setClientesSel] = useState<string[]>([]);
   const [filtroClientes, setFiltroClientes] = useState('');
+  // (2026-11-04) Sección «Otros clientes (avanzado)» colapsada por defecto.
+  const [avanzadoClientes, setAvanzadoClientes] = useState(false);
   const [guardandoClientes, setGuardandoClientes] = useState(false);
   const [errorClientes, setErrorClientes] = useState('');
   const [guardandoPerfil, setGuardandoPerfil] = useState<string | null>(null);
@@ -134,6 +145,7 @@ const GestionUsuariosP: React.FC = () => {
     setModalClientes(u);
     setErrorClientes('');
     setFiltroClientes('');
+    setAvanzadoClientes(false);
     setClientesSel(u.clientes_siscore || []);
   };
 
@@ -159,10 +171,14 @@ const GestionUsuariosP: React.FC = () => {
     }
   };
 
+  // (2026-11-04) El catálogo «avanzado» EXCLUYE los 2 NITs de portal: esos se
+  // gestionan con los checks grandes de arriba (varias entidades de Medical
+  // Care comparten el NIT 901689684 — cualquier de ellas activa el mismo portal).
   const clientesFiltrados = () => {
+    const base = clientesSiscore.filter(c => !NITS_PORTALES.includes(c.nit));
     const f = filtroClientes.trim().toLowerCase();
-    if (!f) return clientesSiscore;
-    return clientesSiscore.filter(c =>
+    if (!f) return base;
+    return base.filter(c =>
       (c.entidad || '').toLowerCase().includes(f)
       || (c.razon || '').toLowerCase().includes(f)
       || (c.nit || '').toLowerCase().includes(f)
@@ -1089,42 +1105,76 @@ const GestionUsuariosP: React.FC = () => {
               {modalClientes.clientes_siscore == null && (
                 <p className="GU-notif-mc-opcion-desc">
                   Este usuario es anterior a la asignación por cliente y aún usa los portales clásicos
-                  ({(modalClientes.clientes || []).join(', ') || 'ninguno'}). Al guardar, la lista de abajo pasa a ser la fuente de verdad.
+                  ({(modalClientes.clientes || []).join(', ') || 'ninguno'}). Al guardar, esta selección pasa a ser la fuente de verdad.
                 </p>
               )}
-              <input
-                type="text"
-                className="GU-formInput"
-                placeholder="Buscar cliente (nombre, razón social o NIT)…"
-                value={filtroClientes}
-                onChange={e => setFiltroClientes(e.target.value)}
-                disabled={guardandoClientes}
-              />
-              <div className="GU-alcance-lista">
-                {clientesSiscore.length === 0 && (
-                  <p className="GU-notif-mc-opcion-desc">No se pudo cargar el catálogo clientes_siscore; recargue la página.</p>
-                )}
-                {clientesFiltrados().map(c => {
-                  const checked = clientesSel.includes(c.nit);
+              {/* (2026-11-04) PORTALES: checks grandes y visibles — el 95% de los
+                  casos es solo esto (habilitar Kabi / Medical Care). */}
+              <div className="GU-portalesGrid">
+                {PORTALES_CLIENTES.map(p => {
+                  const checked = clientesSel.includes(p.nit);
                   return (
-                    <label key={c.id} className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                    <label key={p.nit} className={`GU-portalCheck${checked ? ' GU-portalCheck--activo' : ''}`}>
                       <input
                         type="checkbox"
                         checked={checked}
                         disabled={guardandoClientes}
-                        onChange={() => toggleClienteSiscore(c.nit)}
+                        onChange={() => toggleClienteSiscore(p.nit)}
                       />
                       <div className="GU-notif-mc-opcion-info">
-                        <span className="GU-notif-mc-opcion-label">{c.razon || c.entidad}</span>
-                        <span className="GU-notif-mc-opcion-desc">{c.entidad} — NIT {c.nit}</span>
+                        <span className="GU-portalCheck-nombre">Portal {p.nombre}</span>
+                        <span className="GU-notif-mc-opcion-desc">{p.desc}</span>
                       </div>
                     </label>
                   );
                 })}
-                {clientesSiscore.length > 0 && clientesFiltrados().length === 0 && (
-                  <p className="GU-notif-mc-opcion-desc">Ningún cliente coincide con «{filtroClientes}».</p>
-                )}
               </div>
+              {/* Catálogo completo (avanzado), colapsado por defecto */}
+              <button
+                type="button"
+                className="GU-avanzadoToggle"
+                onClick={() => setAvanzadoClientes(v => !v)}
+                disabled={guardandoClientes}
+              >
+                {avanzadoClientes ? '▾' : '▸'} Otros clientes (avanzado) — filtro de guías/indicadores
+              </button>
+              {avanzadoClientes && (
+                <>
+                  <input
+                    type="text"
+                    className="GU-formInput"
+                    placeholder="Buscar cliente (nombre, razón social o NIT)…"
+                    value={filtroClientes}
+                    onChange={e => setFiltroClientes(e.target.value)}
+                    disabled={guardandoClientes}
+                  />
+                  <div className="GU-alcance-lista">
+                    {clientesSiscore.length === 0 && (
+                      <p className="GU-notif-mc-opcion-desc">No se pudo cargar el catálogo clientes_siscore; recargue la página.</p>
+                    )}
+                    {clientesFiltrados().map(c => {
+                      const checked = clientesSel.includes(c.nit);
+                      return (
+                        <label key={c.id} className={`GU-notif-mc-opcion${checked ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={guardandoClientes}
+                            onChange={() => toggleClienteSiscore(c.nit)}
+                          />
+                          <div className="GU-notif-mc-opcion-info">
+                            <span className="GU-notif-mc-opcion-label">{c.razon || c.entidad}</span>
+                            <span className="GU-notif-mc-opcion-desc">{c.entidad} — NIT {c.nit}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                    {clientesSiscore.length > 0 && clientesFiltrados().length === 0 && (
+                      <p className="GU-notif-mc-opcion-desc">Ningún cliente coincide con «{filtroClientes}».</p>
+                    )}
+                  </div>
+                </>
+              )}
               {clientesSel.length > 0 && (
                 <p className="GU-notif-mc-opcion-desc">{clientesSel.length} cliente(s) seleccionado(s).</p>
               )}

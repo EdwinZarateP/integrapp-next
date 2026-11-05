@@ -28,6 +28,7 @@ import {
   FaUndoAlt,
   FaBullseye,
   FaHeadset,
+  FaDatabase,
 } from "react-icons/fa";
 
 // ── Perfiles con acceso a cada portal (mismos sets que usaba el login) ──
@@ -96,6 +97,17 @@ const ITEMS_DIRECTOS: ItemModulo[] = [
     desc: "Órdenes de servicio — Vulcano",
     icono: FaFileSignature,
     externo: "https://vulcano.nescanis.com/auth/jwt/login/",
+  },
+  {
+    // (2026-11-03) PERSONAL: abre el planeador de Access LOCAL de Edwin vía
+    // protocolo de Windows «planeadorkabi:» (registrado en HKCU\Software\
+    // Classes de SU PC — ver abrir() en ModulosP). En PCs sin el registro
+    // el clic no hace nada. Quitar este ítem cuando deje de usarse.
+    id: "planeacion",
+    etiqueta: "PLANEACIÓN",
+    desc: "Planeador Kabi (archivo local)",
+    icono: FaDatabase,
+    externo: "planeadorkabi:abrir",
   },
   {
     id: "torre_control",

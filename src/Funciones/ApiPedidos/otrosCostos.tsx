@@ -10,6 +10,8 @@ export interface CostoConcepto {
   valor: number;
   proveedor?: string;  // por concepto; obligatorio en CARGUE/DESCARGUE
   oc_proveedor?: string;  // orden de compra del proveedor; opcional, sólo si hay proveedor
+  aforador?: string;  // (2026-11-04) nombre del aforador; opcional, sólo para AFORO (sin proveedor)
+  telefono_aforador?: string;  // (2026-11-04) teléfono del aforador; opcional, sólo dígitos
 }
 
 export interface DatosServicio {
@@ -194,6 +196,13 @@ export const cambiarEstadoClienteOc = async (id: string, activo: boolean): Promi
 // Proveedores del campo opcional del formulario (catálogo editable en Mongo)
 export const getProveedores = async (): Promise<string[]> => {
   const res = await axios.get<string[]>(`${BASE_URL}/proveedores`);
+  return res.data;
+};
+
+// (2026-11-04) Aforadores usados en solicitudes (catálogo auto-alimentado):
+// alimenta el autocompletar del campo «Aforador» (concepto AFORO).
+export const getAforadores = async (): Promise<string[]> => {
+  const res = await axios.get<string[]>(`${BASE_URL}/aforadores`);
   return res.data;
 };
 

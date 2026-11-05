@@ -87,6 +87,17 @@ const Modulos: React.FC = () => {
   const abrir = (item: ItemModulo) => {
     if (item.deshabilitado) return;
 
+    // (2026-11-03) Protocolo LOCAL de Windows (p. ej. «planeadorkabi:» del
+    // ítem PLANEACIÓN): abre el planeador de Access del PC de Edwin al
+    // clic. La navegación a un protocolo registrado SÍ está permitida desde
+    // https (a diferencia de file://, que los navegadores bloquean); el
+    // navegador pide confirmación la primera vez y ofrece «Permitir
+    // siempre». En PCs sin el registro, el clic no hace nada.
+    if (item.externo && !/^https?:/i.test(item.externo)) {
+      window.location.href = item.externo;
+      return;
+    }
+
     // Link externo: nueva pestaña, sin tocar la sesión actual.
     if (item.externo) {
       window.open(item.externo, "_blank", "noopener,noreferrer");
@@ -155,7 +166,7 @@ const Modulos: React.FC = () => {
       <>
         <Icono />
         <span className="modx-nav-texto">{item.etiqueta}</span>
-        {item.deshabilitado && item.badge && <span className="modx-nav-badge">{item.badge}</span>}
+        {item.badge && <span className="modx-nav-badge">{item.badge}</span>}
         {item.externo && <FaExternalLinkAlt className="modx-nav-externo" />}
       </>
     );
