@@ -2,6 +2,29 @@
    (IndicadoresChrome/estilos.css) para gráficos/toggle/tooltip; aquí solo el
    shell propio: header con nombre del cliente, filtros y footer (prefijo DC-). */
 
+/* ── (2026-11-05) Tokens del sistema de diseño Integra Logística (SB Admin
+   Pro / Smart Logistics): paleta oficial --ea-* que usa el tema claro del
+   portal externo (.DC-portalClaro). ─────────────────────────────────── */
+:root {
+  --ea-primary: #349F4A;        /* Verde corporativa: botones/pestañas activas */
+  --ea-primary-hover: #2B863E;
+  --ea-primary-light: #E8F5E9;
+  --ea-secondary: #8EC045;      /* Verde lima: filo inferior del header */
+  --ea-secondary-light: #F4F9E8;
+  --ea-accent-cyan: #00A8C6;
+  --ea-warning: #F2D200;        /* Amarillo operativo oficial */
+  --ea-success: #16A34A;
+  --ea-danger: #DC2626;
+  --ea-info: #0284C7;
+  --ea-bg: #F4F6F9;
+  --ea-surface: #FFFFFF;
+  --ea-surface-header: #FAFAFA;
+  --ea-border: #E5E7EB;
+  --ea-text-primary: #111827;
+  --ea-text-secondary: #374151;
+  --ea-text-muted: #6B7280;
+}
+
 .DC-container {
   min-height: 100vh;
   display: flex;
@@ -124,6 +147,19 @@
 .DC-dropItem svg { color: #64748b; }
 
 .DC-dropDivider { height: 1px; background: #e5e9f0; }
+
+/* (2026-11-05) Cabecera del menú de usuario del portal (nombre + rol) —
+   solo se renderiza en modoExterno. */
+.DC-dropCabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.6rem 1rem;
+  background: var(--ea-surface-header);
+  border-bottom: 1px solid var(--ea-border);
+}
+.DC-dropCabeceraNombre { font-size: 0.82rem; font-weight: 700; color: var(--ea-text-primary); }
+.DC-dropCabeceraRol { font-size: 0.72rem; color: var(--ea-text-muted); }
 
 .DC-dropItemDanger { color: #dc2626; }
 .DC-dropItemDanger svg { color: #dc2626; }
@@ -302,40 +338,87 @@
 
 .DC-otLeyenda { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.35rem 0 0.55rem; }
 
-/* ── (2026-11-05) Portal de clientes (modoExterno): tema CLARO — blancos y
-   tonos suaves con el verde de marca #98C74C (antes oscuro, 2026-10-30) —
-   + ancho completo. Solo aplica con .DC-portalClaro en la raíz — el
-   dashboard interno no cambia. ───────────────────────────────────── */
+/* ── (2026-11-05) Portal de clientes (modoExterno): tema CLARO según el
+   sistema de diseño Integra (SB Admin Pro / Smart Logistics) — fondo gris
+   corporativo plano #F4F6F9, superficies blancas con borde #E5E7EB, verde
+   corporativo #349F4A y filo lima #8EC045 en el header (antes: verde de
+   marca #98C74C con degradado, 2026-11-05 mañana). Solo aplica con
+   .DC-portalClaro en la raíz — el dashboard interno no cambia. ─────────── */
 .DC-portalClaro {
-  background: linear-gradient(180deg, #ffffff 0%, #f6f9f1 45%, #f4f6f9 100%);
-  color: #1e293b;
+  background: var(--ea-bg);
+  color: var(--ea-text-secondary);
+  /* Nunito Sans oficial del sistema de diseño: la variable --fuente-portal
+     la inyecta next/font desde el route page del portal (con fallback). */
+  font-family: var(--fuente-portal, 'Nunito Sans'), 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
 }
 
-/* Header del portal en claro: blanco con filo inferior verde de marca. */
+/* Header institucional: blanco con filo inferior de 2px en VERDE LIMA. */
 .DC-portalClaro .DC-header {
-  background: #fff;
-  color: #0f1928;
-  border-bottom: 3px solid #98c74c;
-  box-shadow: 0 2px 12px rgba(15, 25, 40, 0.08);
+  background: var(--ea-surface);
+  color: var(--ea-text-primary);
+  border-bottom: 2px solid var(--ea-secondary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
-.DC-portalClaro .DC-brandName,
-.DC-portalClaro .DC-nombreCliente { color: #0f1928; }
-.DC-portalClaro .DC-brand:hover { background: rgba(152, 199, 76, 0.16); }
+.DC-portalClaro .DC-brandName { color: var(--ea-text-primary); }
+.DC-portalClaro .DC-brandAccent { color: var(--ea-primary); }
+.DC-portalClaro .DC-brand:hover { background: var(--ea-primary-light); }
+
+/* Título del módulo (TMS <cliente>): junto al logo, tras un divisor
+   vertical sutil — una línea, uppercase (patrón .header-module-title). */
+.DC-portalClaro .DC-logoCliente {
+  flex: 0 1 auto;
+  justify-content: flex-start;
+  min-height: 48px;
+  padding: 0.15rem 0.9rem;
+  margin-left: 0.25rem;
+  border-left: 1px solid var(--ea-border);
+}
+.DC-portalClaro .DC-nombreCliente {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ea-text-primary);
+}
+
+/* Perfil ejecutivo: botón transparente + avatar circular verde con la
+   inicial (reemplaza el ícono FaUserCircle en modoExterno). */
 .DC-portalClaro .DC-userBtn {
-  background: #f4f8ec;
-  border-color: #dbe7c6;
-  color: #0f1928;
+  background: transparent;
+  border: none;
+  color: var(--ea-text-primary);
 }
-.DC-portalClaro .DC-userBtn:hover { background: #e9f3d8; }
+.DC-portalClaro .DC-userBtn:hover { background: #F3F4F6; }
+.DC-portalClaro .DC-userName { color: var(--ea-text-primary); font-weight: 600; }
 .DC-portalClaro .DC-userPerfil,
-.DC-portalClaro .DC-chevron { color: #64748b; }
+.DC-portalClaro .DC-chevron { color: var(--ea-text-muted); }
+
+/* Avatar circular con inicial (solo portal externo) */
+.DC-avatarInicial {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ea-primary);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  flex: none;
+}
 
 /* Footer del portal en claro */
 .DC-portalClaro .DC-footer {
-  background: #fff;
-  color: #64748b;
-  border-top: 1px solid #e5e9f0;
+  background: var(--ea-surface);
+  color: var(--ea-text-muted);
+  border-top: 1px solid var(--ea-border);
 }
+
+/* Barra de filtros del portal */
+.DC-portalClaro .DC-filtrosSection { border-bottom: 1px solid var(--ea-border); }
+.DC-portalClaro .DC-filtrosToggle { border-bottom: 1px solid var(--ea-border); }
 
 /* Ancho completo: la página usa todo el ancho disponible; las tarjetas se
    separan con un gap uniforme (IG-graficoContainer no trae margen propio en
@@ -378,30 +461,61 @@
 .DC-otCampoScroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 .DC-otCampoScroll::-webkit-scrollbar-track { background: transparent; }
 
-/* Tarjetas de gráficos: blancas con borde suave y sombra ligera */
+/* Tarjetas de gráficos: blancas con borde sutil 1px y sombra ligera
+   (patrón .kpi-operation-card del sistema de diseño: radius ~10px). */
 .DC-portalClaro .IG-graficoContainer {
-  background: #fff;
-  border: 1px solid #e5e9f0;
-  box-shadow: 0 6px 24px rgba(15, 25, 40, 0.06);
+  background: var(--ea-surface);
+  border: 1px solid var(--ea-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
 }
 
-/* Barra de filtros y navegación: botones con acento verde de marca */
-.DC-portalClaro .DC-dropdownFiltroBtn:hover { border-color: #98c74c; }
-.DC-portalClaro .DC-botonActualizar { background: #98c74c; color: #0f1928; }
-.DC-portalClaro .DC-botonActualizar:hover { background: #7fb03a; }
-.DC-portalClaro .DC-bcLink { color: #5e8a28; }
-.DC-portalClaro .DC-bcLink:hover { color: #4a7c1f; }
-.DC-portalClaro .DC-otLeyendaTodo { color: #5e8a28; }
-.DC-portalClaro .DC-otLeyendaTodo:hover { color: #4a7c1f; }
+/* Barra de filtros y navegación: acentos en verde corporativo, acciones
+   primarias con texto BLANCO (btn-integra-primary). */
+.DC-portalClaro .DC-dropdownFiltroBtn:hover,
+.DC-portalClaro .DC-dropdownFiltroBtn:focus-visible { border-color: var(--ea-primary); }
+.DC-portalClaro .DC-botonActualizar {
+  background: var(--ea-primary);
+  color: #fff;
+  border: 1px solid var(--ea-primary);
+}
+.DC-portalClaro .DC-botonActualizar:hover { background: var(--ea-primary-hover); border-color: var(--ea-primary-hover); }
+.DC-portalClaro .DC-bcLink { color: var(--ea-info); }
+.DC-portalClaro .DC-bcLink:hover { color: #0369A1; }
+.DC-portalClaro .DC-otLeyendaTodo { color: var(--ea-info); }
+.DC-portalClaro .DC-otLeyendaTodo:hover { color: #0369A1; }
 
-/* Toggle Mensual/Diario: activo en verde de marca */
+/* Migas de filtros (chips removibles): neutras, hover suave peligro */
+.DC-portalClaro .DC-miga {
+  background: #F3F4F6;
+  border-color: var(--ea-border);
+  color: var(--ea-text-primary);
+}
+.DC-portalClaro .DC-miga:hover { background: #FEE2E2; border-color: #FECACA; }
+.DC-portalClaro .DC-migaX { color: var(--ea-text-muted); }
+.DC-portalClaro .DC-miga:hover .DC-migaX { color: #B91C1C; }
+.DC-portalClaro .DC-bcActual { color: var(--ea-text-primary); }
+.DC-portalClaro .DC-otChip { border-color: var(--ea-border); color: var(--ea-text-secondary); }
+.DC-portalClaro .DC-otChip:focus-visible { outline-color: var(--ea-primary); }
+
+/* Toggle Mensual/Diario: activo en verde corporativo con texto blanco */
 .DC-portalClaro .IG-toggleBtn {
-  background: #fff; color: #475569; border: 1px solid #d7dde8;
+  background: #fff; color: var(--ea-text-secondary); border: 1px solid #d7dde8;
 }
-.DC-portalClaro .IG-toggleBtnActivo { background: #98c74c; color: #0f1928; border-color: #98c74c; }
+.DC-portalClaro .IG-toggleBtnActivo {
+  background: var(--ea-primary);
+  color: #fff;
+  border-color: var(--ea-primary);
+}
 
 /* Grid de recharts acorde al tema claro */
-.DC-portalClaro .recharts-cartesian-grid line { stroke: #e5e9f0; }
+.DC-portalClaro .recharts-cartesian-grid line { stroke: var(--ea-border); }
+
+/* Opción seleccionada de los dropdowns de filtro: badge suave primary */
+.DC-portalClaro .DC-dropdownFiltroItem.seleccionado {
+  background: #DCFCE7;
+  color: #15803D;
+}
 
 /* ── (2026-10-30) Lista táctil del OT-por-campo (SOLO móvil): nombre a la
    izquierda, % a la derecha y barra a ANCHO COMPLETO debajo con la misma
@@ -449,7 +563,7 @@
 .DC-otCampoPista {
   display: block;
   width: 100%; /* stretch dentro de <button> no aplica solo */
-  height: 10px;
+  height: 6px; /* barras delgadas del panel de indicadores (sistema de diseño) */
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.24);
   overflow: hidden;
@@ -458,33 +572,34 @@
 .DC-otCampoDetalle { font-size: 0.72rem; color: #64748b; text-align: left; }
 
 /* ── (2026-10-30) Pestañas del portal: Gerenciales / Operación / Trazabilidad
-   (tema claro desde 2026-11-05: contenedor blanco, activo verde de marca) ── */
+   (sistema de diseño Integra desde 2026-11-05: contenedor blanco con borde
+   #E5E7EB, activo en verde corporativo con texto blanco) ── */
 .DC-pestanas {
   display: flex;
   gap: 0.4rem;
-  background: #fff;
-  border: 1px solid #e5e9f0;
-  border-radius: 12px;
+  background: var(--ea-surface);
+  border: 1px solid var(--ea-border);
+  border-radius: 10px;
   padding: 0.35rem;
-  box-shadow: 0 6px 24px rgba(15, 25, 40, 0.06);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
 }
 .DC-pestanaBtn {
   flex: 1;
   min-height: 42px;
   border: none;
-  border-radius: 9px;
+  border-radius: 8px;
   background: transparent;
-  color: #64748b;
+  color: var(--ea-text-muted);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-.DC-pestanaBtn:hover { color: #0f1928; }
+.DC-pestanaBtn:hover { color: var(--ea-text-primary); }
 .DC-pestanaBtnActiva {
-  background: #98c74c;
-  color: #0f1928;
+  background: var(--ea-primary);
+  color: #fff;
 }
 
 /* ── (2026-10-30) Vista Operación: consulta de guía en Siscore ── */
@@ -501,18 +616,26 @@
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  background: #fff;
-  border: 1px solid #e5e9f0;
-  border-radius: 12px;
+  background: var(--ea-surface);
+  border: 1px solid var(--ea-border);
+  /* Semáforo ejecutivo del sistema de diseño: filo izquierdo de 4px
+     (.kpi-border-good) + elevación sutil al pasar el mouse. */
+  border-left: 4px solid var(--ea-success);
+  border-radius: 10px;
   padding: 1.1rem 1rem;
   text-align: center;
-  box-shadow: 0 6px 24px rgba(15, 25, 40, 0.06);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.DC-opStat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
 .DC-opStatIcono { font-size: 1.7rem; line-height: 1; }
 .DC-opStatValor {
   font-size: 1.9rem;
   font-weight: 800;
-  color: #0f1928;
+  color: var(--ea-text-primary);
   line-height: 1.15;
   min-height: 1.15em;
 }
@@ -521,8 +644,8 @@
   width: 72px;
   height: 1em;
   border-radius: 6px;
-  background: #e9edf3;
-  background-image: linear-gradient(90deg, #e9edf3 25%, #f5f7fa 50%, #e9edf3 75%);
+  background: #E5E7EB;
+  background-image: linear-gradient(90deg, #E5E7EB 25%, #F3F4F6 50%, #E5E7EB 75%);
   background-size: 400px 100%;
   background-repeat: no-repeat;
   animation: DC-shimmer 1.4s ease-in-out infinite;
@@ -530,7 +653,7 @@
 .DC-opStatLabel {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--ea-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -554,11 +677,11 @@
   min-height: 42px;
 }
 .DC-opInput::placeholder { color: #94a3b8; }
-.DC-opInput:focus { outline: none; border-color: #98c74c; background: #fff; }
+.DC-opInput:focus { outline: none; border-color: var(--ea-primary); background: #fff; }
 .DC-opBtn {
-  background: #98c74c;
-  color: #0f1928;
-  border: none;
+  background: var(--ea-primary);
+  color: #fff;
+  border: 1px solid var(--ea-primary);
   border-radius: 8px;
   padding: 0 1.3rem;
   min-height: 42px;
@@ -567,14 +690,14 @@
   font-weight: 800;
   cursor: pointer;
 }
-.DC-opBtn:hover { background: #7fb03a; }
+.DC-opBtn:hover { background: var(--ea-primary-hover); border-color: var(--ea-primary-hover); }
 .DC-opBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .DC-opBtn:focus-visible, .DC-pestanaBtn:focus-visible, .DC-opInput:focus-visible {
-  outline: 2px solid #2a78d6;
+  outline: 2px solid var(--ea-primary);
   outline-offset: 2px;
 }
-.DC-opCargando { color: #64748b; font-size: 0.85rem; }
-.DC-opError { color: #b91c1c; font-size: 0.85rem; font-weight: 600; }
+.DC-opCargando { color: var(--ea-text-muted); font-size: 0.85rem; }
+.DC-opError { color: var(--ea-danger); font-size: 0.85rem; font-weight: 600; }
 
 .DC-opResultado { display: flex; flex-direction: column; gap: 0.9rem; }
 
@@ -584,10 +707,10 @@
   display: flex;
   align-items: stretch;
   gap: 1rem;
-  background: linear-gradient(135deg, #f7faf0 0%, #ffffff 100%);
-  border: 1px solid #e5e9f0;
-  border-left: 4px solid #98c74c;
-  border-radius: 12px;
+  background: linear-gradient(135deg, var(--ea-secondary-light) 0%, #ffffff 100%);
+  border: 1px solid var(--ea-border);
+  border-left: 4px solid var(--ea-secondary);
+  border-radius: 10px;
   padding: 0.85rem 1.1rem;
 }
 .DC-opResumenDestino {
@@ -625,14 +748,14 @@
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
-.DC-opEstadoChipOk { background: rgba(152, 199, 76, 0.22); border: 1px solid #98c74c; color: #4a7c1f; }
-.DC-opEstadoChipCurso { background: #fff7e0; border: 1px solid #eda10080; color: #92600a; }
-/* (2026-10-31) Veredicto OT de la consulta de guía — mismos colores de los
-   segmentos del gráfico (rojo #b91c1c, morado #4a3aa7, gris sin info). */
-.DC-opChipOTOk { background: #ecfdf5; border: 1px solid #15803d; color: #15803d; }
-.DC-opChipOTNo { background: #fef2f2; border: 1px solid #b91c1c; color: #b91c1c; }
+.DC-opEstadoChipOk { background: #D1FAE5; border: 1px solid #16A34A; color: #065F46; }
+.DC-opEstadoChipCurso { background: #FEF9C3; border: 1px solid #F2D20080; color: #854D0E; }
+/* (2026-10-31) Veredicto OT de la consulta de guía — soft badges del sistema
+   de diseño (success/danger); «Justificada» conserva el morado del segmento. */
+.DC-opChipOTOk { background: #D1FAE5; border: 1px solid #16A34A; color: #065F46; }
+.DC-opChipOTNo { background: #FEE2E2; border: 1px solid #DC2626; color: #B91C1C; }
 .DC-opChipOTJust { background: #f3f0fd; border: 1px solid #4a3aa7; color: #4a3aa7; }
-.DC-opChipOTSin { background: #f1f5f9; border: 1px solid #cbd5e1; color: #64748b; }
+.DC-opChipOTSin { background: #F1F5F9; border: 1px solid var(--ea-border); color: var(--ea-text-muted); }
 .DC-opEstadoFecha {
   font-size: 0.7rem;
   color: #64748b;
@@ -641,7 +764,7 @@
 .DC-opDestacadoTitulo {
   font-size: 0.7rem;
   font-weight: 800;
-  color: #5e8a28;
+  color: var(--ea-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -672,8 +795,10 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
-.DC-opChipCiudad { background: rgba(152, 199, 76, 0.2); border-color: #98c74c80; color: #4a7c1f; }
-.DC-opChipPlaca { background: rgba(42, 120, 214, 0.1); border-color: #2a78d680; color: #1d4f8c; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+/* Chips de contexto (ciudad 📍 / placa 🚛): soft badge INFO del sistema de
+   diseño (#E0F2FE / #0369A1) — antes verde/azules ad-hoc. */
+.DC-opChipCiudad { background: #E0F2FE; border-color: #0284C766; color: #0369A1; }
+.DC-opChipPlaca { background: #E0F2FE; border-color: #0284C766; color: #0369A1; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
 
 /* (2026-10-30) Novedad JUSTIFICADA de la guía (Mongo /NovedadesOT): panel
    morado — mismo color del segmento «Justificadas» del gráfico OT. */
@@ -723,7 +848,7 @@
   transition: border-color 0.15s, background 0.15s;
   min-height: 42px;
 }
-.DC-opCompanera:hover { border-color: #98c74c; background: #f7faf0; }
+.DC-opCompanera:hover { border-color: var(--ea-primary); background: var(--ea-secondary-light); }
 .DC-opCompaneraGuia {
   font-size: 0.85rem;
   font-weight: 800;
@@ -831,7 +956,7 @@
   right: 0;
   top: 50%;
   height: 2px;
-  background: rgba(152, 199, 76, 0.35);
+  background: rgba(52, 159, 74, 0.35);
 }
 .DC-opTlPaso:first-child .DC-opTlMarca::before { left: 50%; }
 .DC-opTlPaso:last-child .DC-opTlMarca::before { right: 50%; }
@@ -841,12 +966,12 @@
   background: #fff; /* corta la línea bajo la caja */
   padding: 2px;
   border-radius: 7px;
-  filter: drop-shadow(0 0 0 rgba(152, 199, 76, 0));
+  filter: drop-shadow(0 0 0 rgba(52, 159, 74, 0));
 }
 /* ÚLTIMO paso = estado actual: caja mayor con halo verde, texto oscuro fuerte */
 .DC-opTlPaso:last-child .DC-opTlCaja {
   font-size: 21px;
-  box-shadow: 0 0 0 4px rgba(152, 199, 76, 0.35);
+  box-shadow: 0 0 0 4px rgba(52, 159, 74, 0.35);
   border-radius: 9px;
 }
 .DC-opTlPaso:last-child .DC-opTlTitulo {
@@ -893,7 +1018,7 @@
   top: 4px;
   bottom: -4px;
   width: 2px;
-  background: rgba(152, 199, 76, 0.3);
+  background: rgba(52, 159, 74, 0.3);
 }
 .DC-opTlV:first-child::before { top: 18px; }
 .DC-opTlV:last-child::before { bottom: auto; height: 0; }
@@ -932,7 +1057,7 @@
 /* Último evento = estado actual */
 .DC-opTlVActual .DC-opTlCaja {
   font-size: 20px;
-  filter: drop-shadow(0 0 6px rgba(152, 199, 76, 0.55));
+  filter: drop-shadow(0 0 6px rgba(52, 159, 74, 0.55));
 }
 .DC-opTlVActual .DC-opTlVTitulo {
   color: #0f1928;
@@ -941,12 +1066,12 @@
 .DC-opTlVActual .DC-opTlVFecha { color: #475569; font-weight: 700; }
 .DC-opTracking {
   align-self: flex-start;
-  color: #5e8a28;
+  color: var(--ea-info);
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: underline dotted;
 }
-.DC-opTracking:hover { color: #4a7c1f; }
+.DC-opTracking:hover { color: #0369A1; }
 
 /* ── Tacómetro del OT (SVG estilo velocímetro) ── */
 .DC-gaugeWrap { max-width: 560px; margin: 0 auto; }
@@ -1486,12 +1611,12 @@
   text-transform: uppercase;
 }
 
-.DC-guiaTileExito { background: #ecfdf5; }
-.DC-guiaTileExito .DC-guiaTileValor { color: #15803d; }
-.DC-guiaTileProceso { background: #fffbeb; }
-.DC-guiaTileProceso .DC-guiaTileValor { color: #b45309; }
-.DC-guiaTileMuta { background: #f1f5f9; }
-.DC-guiaTileMuta .DC-guiaTileValor { color: #64748b; }
+.DC-guiaTileExito { background: #D1FAE5; }
+.DC-guiaTileExito .DC-guiaTileValor { color: #065F46; }
+.DC-guiaTileProceso { background: #FEF9C3; }
+.DC-guiaTileProceso .DC-guiaTileValor { color: #854D0E; }
+.DC-guiaTileMuta { background: #F1F5F9; }
+.DC-guiaTileMuta .DC-guiaTileValor { color: #6B7280; }
 
 .DC-guiaCuerpo {
   padding: 0.6rem 1.4rem 1.4rem;
@@ -1566,16 +1691,16 @@
   white-space: nowrap;
 }
 
-.DC-guiaChipEntregada { background: #ecfdf5; color: #15803d; }
-.DC-guiaChipProceso { background: #fff7e0; color: #92600a; }
-.DC-guiaChipAnulada { background: #f1f5f9; color: #64748b; }
+.DC-guiaChipEntregada { background: #D1FAE5; color: #065F46; }
+.DC-guiaChipProceso { background: #FEF9C3; color: #854D0E; }
+.DC-guiaChipAnulada { background: #F1F5F9; color: #6B7280; }
 
 /* ── On Time ── */
 .DC-guiaTileOT { background: #eef2ff; }
 .DC-guiaTileOT .DC-guiaTileValor { color: #3730a3; }
 
-.DC-guiaChipOTSi { background: #ecfdf5; color: #15803d; }
-.DC-guiaChipOTNo { background: #fef2f2; color: #b91c1c; }
+.DC-guiaChipOTSi { background: #D1FAE5; color: #065F46; }
+.DC-guiaChipOTNo { background: #FEE2E2; color: #B91C1C; }
 
 /* Sufijo ' cita'/' prom' junto a la fecha promesa */
 .DC-guiaOrigPromesa {
@@ -1822,10 +1947,8 @@
 }
 .DC-destLimpiar:hover { text-decoration: underline; }
 
-/* Portal claro (2026-11-05): las listas de filtros (año/mes/grupo/cliente
-   final/tipo servicio) ya son blancas por defecto — aquí solo el acento
-   verde de marca en la opción seleccionada. */
-.DC-portalClaro .DC-dropdownFiltroItem.seleccionado { background: rgba(152, 199, 76, 0.18); color: #4a7c1f; }
+/* Portal claro (2026-11-05): la opción seleccionada de los dropdowns de
+   filtro vive arriba, en el bloque .DC-portalClaro (badge suave primary). */
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -1938,6 +2061,41 @@
   .DC-main { width: 94%; padding-top: 1.2rem; }
   .DC-guiaTiles { display: none; }
   .DC-guiaCeldaVeh { max-width: 150px; }
+}
+
+/* ── (2026-11-05) Sistema de diseño Integra — overrides del portal externo
+   (.DC-portalClaro) sobre selectores COMPARTIDOS con el dashboard interno
+   (que conserva su chrome navy/ámbar). Nivel raíz, fuera de @media. ── */
+
+/* Cabeceras de tabla del portal: superficie #FAFAFA + texto muted uppercase
+   (el interno conserva el degradado navy). Cubre el modal de detalle del
+   día, el detalle de segmento y cualquier IG-tabla del portal. */
+.DC-portalClaro .IG-tabla thead,
+.DC-portalClaro .IG-tabla thead th {
+  background: var(--ea-surface-header);
+  color: var(--ea-text-muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--ea-border);
+}
+.DC-portalClaro .DC-guiaTablaWrapper .IG-tabla thead th {
+  background: var(--ea-surface-header);
+  border-bottom: 1px solid var(--ea-border);
+}
+
+/* Buscador «Cliente final» (píldora): foco en verde corporativo */
+.DC-portalClaro .DC-destBuscar:focus-within { border-color: var(--ea-primary); background: #fff; }
+
+/* Header en móvil: el título del módulo pasa a fila completa — sin divisor
+   vertical (a todo el ancho queda raro) y un punto más pequeño. */
+@media (max-width: 768px) {
+  .DC-portalClaro .DC-logoCliente {
+    border-left: none;
+    padding-left: 0.4rem;
+    margin-left: 0;
+  }
+  .DC-portalClaro .DC-nombreCliente { font-size: 0.85rem; }
 }
 
 /* recarga */

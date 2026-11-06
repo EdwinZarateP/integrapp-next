@@ -191,10 +191,10 @@ const useEsMovil = () => {
 // (2026-10-31) 4 segmentos de VEREDICTO (lógica del Excel real): «No
 // cumplieron» incluye guías en curso ya VENCIDAS; «Con novedad» auto-cumple.
 const SEGMENTOS_OT: { clave: keyof BucketOT; color: string; etiqueta: string; explica: string }[] = [
-  { clave: 'cumplieron', color: '#15803d', etiqueta: 'Cumplieron', explica: 'Entregadas (o en curso sin vencer) dentro de la cita o la fecha promesa' },
-  { clave: 'noCumplieron', color: '#b91c1c', etiqueta: 'No cumplieron', explica: 'Después de la cita/promesa — incluye guías en curso ya VENCIDAS' },
+  { clave: 'cumplieron', color: '#16A34A', etiqueta: 'Cumplieron', explica: 'Entregadas (o en curso sin vencer) dentro de la cita o la fecha promesa' },
+  { clave: 'noCumplieron', color: '#DC2626', etiqueta: 'No cumplieron', explica: 'Después de la cita/promesa — incluye guías en curso ya VENCIDAS' },
   { clave: 'conNovedad', color: '#4a3aa7', etiqueta: 'Con novedad', explica: 'Con novedad del TMS o justificada (/Novedades OT): cuentan como cumplidas en el % OT' },
-  { clave: 'noAplica', color: '#94a3b8', etiqueta: 'No aplica', explica: 'Sin promesa evaluable (no cuentan en el % OT)' },
+  { clave: 'noAplica', color: '#9CA3AF', etiqueta: 'No aplica', explica: 'Sin promesa evaluable (no cuentan en el % OT)' },
 ];
 
 // (2026-10-30) OT agregado por un campo PG (ciudad_destino / destinatario)
@@ -276,10 +276,11 @@ const TOPES_USO: Record<string, number> = {
 };
 
 // Color del % de uso: rojo < 80 (subutilizado), verde ≥ 80.
+// (2026-11-05) Semántica del sistema de diseño Integra (#DC2626/#16A34A).
 const colorUso = (uso: number | null): string => {
-  if (uso == null) return '#94a3b8';
-  if (uso < 80) return '#e34948';
-  return '#1baf7a';
+  if (uso == null) return '#9CA3AF';
+  if (uso < 80) return '#DC2626';
+  return '#16A34A';
 };
 
 // Mismo azul de la etapa media milla en Costo de Operación.
@@ -516,8 +517,15 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // final). SOLO viaja en las consultas de guías (como el sub-grupo y el
   // cliente final — cajas/uso son por NIT en Mongo, no aplica).
   const [tipoServDropdownAbierto, setTipoServDropdownAbierto] = useState(false);
-  const [tipoServSel, setTipoServSel] = useState<string[]>([]);       // borrador
-  const [tipoServAplicado, setTipoServAplicado] = useState<string[]>([]); // los que viajan
+  // (2026-11-05) El portal externo de Kabi arranca con «CARGA» aplicado por
+  // defecto (pedido del usuario): mismo efecto que si lo marcaran y dieran
+  // «Filtrar» — viaja en el fetch inicial, dropdown marcado y miga removible.
+  const [tipoServSel, setTipoServSel] = useState<string[]>(
+    modoExterno && clienteId === 'fresenius-kabi' ? ['CARGA'] : []
+  );                                                                  // borrador
+  const [tipoServAplicado, setTipoServAplicado] = useState<string[]>(
+    modoExterno && clienteId === 'fresenius-kabi' ? ['CARGA'] : []
+  );                                                            // los que viajan
 
   // Filtros aplicados (los que realmente se consultan)
   const [filtrosAplicados, setFiltrosAplicados] = useState({
@@ -1149,11 +1157,16 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // evaluables / % OT / total — con leyenda filtrada: Selección de Total y el
   // % OT recalculado sobre los segmentos OT seleccionados.
   // ── (2026-10-30) Portal de clientes: gauge del OT + barras por campo ──
-  // Color del % OT por umbral (gauge y barras): ≥90 verde, ≥75 ámbar, <75 rojo.
-  const colorOT = (pct: number) => (pct >= 90 ? '#15803d' : pct >= 75 ? '#eda100' : '#b91c1c');
+  // Color del % OT por umbral (gauge y barras): ≥90 verde, ≥75 amarillo
+  // warning, <75 rojo. (2026-11-05) Paleta del sistema de diseño Integra
+  // (#16A34A/#F2D200/#DC2626).
+  const colorOT = (pct: number) => (pct >= 90 ? '#16A34A' : pct >= 75 ? '#F2D200' : '#DC2626');
+  // Variante TEXTO de colorOT: el amarillo #F2D200 sobre fondo blanco no se
+  // lee — para cifras/etiquetas fuera de la barra se usa el ocre del badge.
+  const colorOTTexto = (pct: number) => (pct >= 90 ? '#065F46' : pct >= 75 ? '#854D0E' : '#B91C1C');
   // (2026-10-30) Escala alineada a la META (96): la usan el tacómetro On Time
   // y las barras del «On Time vs meta». Distinta de colorOT (ciudad/destinatario).
-  const colorMetaOT = (pct: number) => (pct >= 96 ? '#15803d' : pct >= 90 ? '#ea580c' : '#b91c1c');
+  const colorMetaOT = (pct: number) => (pct >= 96 ? '#16A34A' : pct >= 90 ? '#F2D200' : '#DC2626');
 
   // % del gauge: el del DÍA en zoom si hay, si no el del período filtrado
   // (resumen.ot_pct — «con novedad» cuentan como cumplidas).
@@ -1212,6 +1225,10 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     const angulo = vistaOT === 'diaria' ? -90 : -45;
     const cx = Number(x) + Number(width) / 2;
     const cy = Number(y) + Number(height) / 2;
+    // (2026-11-05) Sobre barras AMARILLAS (#F2D200) el blanco no se lee:
+    // en la franja 90-95,9 la etiqueta va en ocre (#854D0E).
+    const v = Number(value);
+    const fill = v >= 90 && v < 96 ? '#854D0E' : '#fff';
     return (
       <text
         x={cx}
@@ -1219,11 +1236,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
         transform={`rotate(${angulo} ${cx} ${cy})`}
         textAnchor="middle"
         dominantBaseline="central"
-        fill="#fff"
+        fill={fill}
         fontSize={13}
         fontWeight={700}
       >
-        {`${Number(value).toFixed(1).replace('.', ',')}%`}
+        {`${v.toFixed(1).replace('.', ',')}%`}
       </text>
     );
   };
@@ -1317,11 +1334,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
             <Tooltip content={tooltipOTMeta} cursor={{ fill: 'rgba(15, 25, 40, 0.06)' }} />
             <ReferenceLine
               y={META_OT}
-              stroke="#98c74c"
+              stroke="#349F4A"
               strokeDasharray="6 4"
               /* Etiqueta ARRIBA de la línea (dy negativo), pegada al extremo
                  derecho — antes quedaba debajo y se perdía. */
-              label={{ value: `Meta ${META_OT}%`, fill: '#98c74c', fontSize: 11, fontWeight: 700, position: 'insideTopRight', dy: -14, dx: -6 }}
+              label={{ value: `Meta ${META_OT}%`, fill: '#349F4A', fontSize: 11, fontWeight: 700, position: 'insideTopRight', dy: -14, dx: -6 }}
             />
             <Bar
               dataKey="pct"
@@ -1344,8 +1361,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   );
 
   // Tacómetro del OT (2026-10-30): SVG puro estilo velocímetro de vehículo —
-  // dial de 240° con pista, ticks mayores/menores con cifras (0..100), arco de
-  // avance con color por umbral, aguja con cubo central y % grande al pie.
+  // dial de 240° con ticks mayores/menores con cifras (0..100), aguja con cubo
+  // central y % grande al pie. (2026-11-05) Tacómetro OTIF del sistema de
+  // diseño Integra: el ARCO se lee en 3 ZONAS semánticas (gris 0-65 · amarillo
+  // #F2D200 65-90 · verde #349F4A 90-100) y la AGUJA fina oscura apunta el
+  // valor; el % al pie conserva la escala de la meta (colorMetaOT).
   const TacometroOT = ({ pct }: { pct: number | null }) => {
     const cx = 160, cy = 150, r = 118;
     const A0 = 210, A1 = -30; // ángulos matemáticos: entrada/fin del dial
@@ -1361,7 +1381,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radio} ${radio} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
     };
     const val = pct ?? 0;
-    const color = pct != null ? colorMetaOT(pct) : '#334155';
+    const colorTexto = pct != null ? colorMetaOT(pct) : '#334155';
     const [nx, ny] = pt(val, r - 34);
     // % con UN decimal y coma (85,4%) — igual que el resumen del backend.
     const txt = pct != null ? `${pct.toFixed(1).replace('.', ',')}%` : '—';
@@ -1370,12 +1390,10 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     // 79% del ancho); ahora lo llena y con alto para las cifras 0/100.
     return (
       <svg viewBox="26 0 272 232" className="DC-tacometro" role="img" aria-label={`On Time ${txt}`}>
-        {/* pista del dial (tema claro: gris suave sobre tarjeta blanca) */}
-        <path d={arco(0, 100, r)} fill="none" stroke="#e5e9f0" strokeWidth={16} />
-        {/* avance */}
-        {val > 0 && (
-          <path d={arco(0, val, r)} fill="none" stroke={color} strokeWidth={16} strokeLinecap="round" />
-        )}
+        {/* arco en 3 ZONAS semánticas (OTIF): base / warning / meta */}
+        <path d={arco(0, 65, r)} fill="none" stroke="#E5E7EB" strokeWidth={16} />
+        <path d={arco(65, 90, r)} fill="none" stroke="#F2D200" strokeWidth={16} />
+        <path d={arco(90, 100, r)} fill="none" stroke="#349F4A" strokeWidth={16} strokeLinecap="round" />
         {/* ticks mayores con cifra */}
         {[0, 25, 50, 75, 100].map(t => {
           const [x1, y1] = pt(t, r - 12);
@@ -1384,7 +1402,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           return (
             <g key={t}>
               <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth={2.5} />
-              <text x={tx} y={ty + 4} textAnchor="middle" fontSize={11} fill="#64748b">{t}</text>
+              <text x={tx} y={ty + 4} textAnchor="middle" fontSize={11} fill="#6B7280">{t}</text>
             </g>
           );
         })}
@@ -1394,11 +1412,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
           const [x2, y2] = pt(t, r - 21);
           return <line key={t} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#cbd5e1" strokeWidth={1.5} />;
         })}
-        {/* aguja + cubo */}
-        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth={4} strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r={9} fill="#fff" stroke={color} strokeWidth={3} />
-        {/* cifra central */}
-        <text x={cx} y={cy + 54} textAnchor="middle" fontSize={34} fontWeight={800} fill={color}>
+        {/* aguja oscura + cubo blanco (la zona la pinta el arco) */}
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#111827" strokeWidth={3} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={9} fill="#fff" stroke="#111827" strokeWidth={3} />
+        {/* cifra central (color por meta: verde ≥96 / amarillo 90-96 / rojo <90) */}
+        <text x={cx} y={cy + 54} textAnchor="middle" fontSize={34} fontWeight={800} fill={colorTexto}>
           {txt}
         </text>
       </svg>
@@ -1471,7 +1489,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                   >
                     <span className="DC-otCampoFilaTop">
                       <span className="DC-otCampoNombre" title={d.clave}>{d.clave}</span>
-                      <span className="DC-otCampoPct" style={{ color: colorOT(d.pct) }}>
+                      <span className="DC-otCampoPct" style={{ color: colorOTTexto(d.pct) }}>
                         {d.pct.toFixed(1).replace('.', ',')}%
                       </span>
                     </span>
@@ -2178,7 +2196,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                     {f.costo_teorico ? formatearMoneda(f.costo_teorico) : '—'}
                   </td>
                   <td className="DC-guiaCeldaNum" title={f.sobrecosto > 0 ? 'Sobrecosto: el real supera el teórico' : f.sobrecosto < 0 ? 'Ahorro: el real quedó por debajo del teórico' : 'Real = teórico'}>
-                    <b style={{ color: f.sobrecosto > 0 ? '#b91c1c' : f.sobrecosto < 0 ? '#047857' : undefined }}>
+                    <b style={{ color: f.sobrecosto > 0 ? '#DC2626' : f.sobrecosto < 0 ? '#16A34A' : undefined }}>
                       {f.sobrecosto ? formatearMoneda(f.sobrecosto) : '—'}
                     </b>
                   </td>
@@ -2273,7 +2291,15 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
 
           <div className="DC-userZone" ref={menuRef}>
             <button className="DC-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="DC-userIcon" />
+              {/* (2026-11-05) Portal externo: avatar circular verde con la
+                  inicial (perfil ejecutivo del sistema de diseño Integra). */}
+              {modoExterno ? (
+                <span className="DC-avatarInicial" aria-hidden="true">
+                  {(datosUsuario?.usuario || 'U').charAt(0)}
+                </span>
+              ) : (
+                <FaUserCircle className="DC-userIcon" />
+              )}
               <div className="DC-userInfo">
                 <span className="DC-userName">{datosUsuario?.usuario || 'Usuario'}</span>
                 <span className="DC-userPerfil">
@@ -2285,6 +2311,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
 
             {menuAbierto && (
               <div className="DC-dropdown">
+                {/* (2026-11-05) Cabecera del menú de usuario (portal externo):
+                    nombre + rol, patrón del sistema de diseño Integra. */}
+                {modoExterno && (
+                  <div className="DC-dropCabecera">
+                    <span className="DC-dropCabeceraNombre">{datosUsuario?.usuario || 'Usuario'}</span>
+                    <span className="DC-dropCabeceraRol">{datosUsuario?.perfil || 'Colaborador'}</span>
+                  </div>
+                )}
                 {/* (2026-11-05) El CLIENTE externo no ve «Mis indicadores»:
                     su portal ES esa ruta y aterriza directo al login (la
                     opción solo tiene sentido para ADMIN/VISUALIZADOR, que
@@ -3625,8 +3659,8 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                     </div>
 
                     <p className="IG-graficoSub">
-                      <span style={{ color: '#1baf7a' }}>●</span> ≥ 80% (bien utilizado) &nbsp;&nbsp;
-                      <span style={{ color: '#e34948' }}>●</span> &lt; 80% (subutilizado) &nbsp;&nbsp;
+                      <span style={{ color: '#16A34A' }}>●</span> ≥ 80% (bien utilizado) &nbsp;&nbsp;
+                      <span style={{ color: '#DC2626' }}>●</span> &lt; 80% (subutilizado) &nbsp;&nbsp;
                       <span style={{ color: '#64748b' }}>–</span> % uso = kg reales ÷ tope del tipo solicitado
                     </p>
 
