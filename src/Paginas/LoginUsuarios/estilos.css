@@ -1,27 +1,37 @@
-/* â”€â”€ Layout raÃ­z â”€â”€ */
+/* ── (2026-11-05) Login según el sistema de diseño Integra Logística (SB
+   Admin Pro / Smart Logistics — layout «guest»): header blanco con filo
+   lima 2px, canvas #F4F6F9, tarjeta blanca borde #E5E7EB, botón primario
+   verde #349F4A con texto blanco, footer claro de una fila. Paleta espejo de
+   los tokens --ea-* de DashboardCliente/estilos.css (esta página no carga
+   esa hoja, por eso van inline). Prefijo LU-. ───────────────────────────── */
+
+/* ── Layout raíz ── */
 .LU-layout {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-  background: #f0f2f5;
+  font-family: var(--fuente-integra, 'Nunito Sans'), 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #F4F6F9;
+  color: #111827;
 }
 
-/* â”€â”€ HEADER â”€â”€ */
+/* ── HEADER público: blanco + filo inferior Verde Lima de 2px ── */
 .LU-header {
-  background: #000;
-  height: 64px;
+  background: #FFFFFF;
+  height: 70px;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+  border-bottom: 2px solid #8EC045;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .LU-headerInner {
   display: flex;
   align-items: center;
+  gap: 0.75rem;
   width: 100%;
-  padding: 0 28px;
+  padding: 0 1.25rem;
 }
 
 .LU-brand {
@@ -31,22 +41,43 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 8px;
+  transition: background 0.15s;
 }
+.LU-brand:hover { background: #E8F5E9; }
 
 .LU-brandName {
   font-size: 1.3rem;
   font-weight: 800;
   /* Sin uppercase (2026-10-06, pedido del usuario): el wordmark se muestra
-     tal cual Â«IntegrAppÂ» â€” igual que el home. */
-  color: #fff;
+     tal cual «IntegrApp» — igual que el home. */
+  color: #111827;
   letter-spacing: -0.3px;
 }
 
-/* Â«AppÂ» del wordmark en VERDE (2026-10-06, pedido del usuario â€” igual que el home). */
-.LU-brandAccent { color: #98C74C; }
+/* «App» del wordmark en verde corporativo (antes #98C74C). */
+.LU-brandAccent { color: #349F4A; }
 
-/* â”€â”€ MAIN â”€â”€ */
+/* Divisor vertical + título del módulo (patrón header institucional). */
+.LU-headerDivider {
+  width: 1px;
+  height: 26px;
+  background: #E5E7EB;
+  flex-shrink: 0;
+}
+.LU-headerTitulo {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── MAIN ── */
 .LU-main {
   flex: 1;
   display: flex;
@@ -55,11 +86,12 @@
   padding: 48px 24px;
 }
 
-/* Tarjeta de login */
+/* Tarjeta de login: superficie blanca, borde sutil y sombra ligera */
 .LU-card {
-  background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(15,25,40,.12);
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
   padding: 40px 36px;
   width: 100%;
   max-width: 400px;
@@ -79,13 +111,13 @@
 .LU-titulo {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #0f1928;
+  color: #111827;
   margin: 0;
 }
 
 .LU-subtitulo {
   font-size: 0.88rem;
-  color: #6b7a8d;
+  color: #6B7280;
   margin: 0;
 }
 
@@ -105,18 +137,18 @@
 .LU-label {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #6b7a8d;
+  color: #6B7280;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
 .LU-input {
   padding: 11px 14px;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 10px;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 8px;
   font-size: 0.95rem;
-  color: #1e2f45;
-  background: #f8fafc;
+  color: #111827;
+  background: #FFFFFF;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   width: 100%;
@@ -125,10 +157,12 @@
 }
 
 .LU-input:focus {
-  border-color: #0f1928;
+  border-color: #349F4A;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(15,25,40,.08);
+  box-shadow: 0 0 0 3px rgba(52, 159, 74, 0.12);
 }
+
+.LU-input::placeholder { color: #9CA3AF; }
 
 .LU-inputPassword { padding-right: 44px; }
 
@@ -144,32 +178,35 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #6b7a8d;
+  color: #6B7280;
   font-size: 1rem;
   padding: 0;
   display: flex;
   align-items: center;
   transition: color 0.2s;
 }
-.LU-ojito:hover { color: #0f1928; }
+.LU-ojito:hover { color: #349F4A; }
 
+/* Botón primario corporativo (btn-integra-primary): verde, texto BLANCO */
 .LU-boton {
   padding: 12px;
-  background: linear-gradient(90deg, #0f1928 0%, #1e2f45 100%);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
+  background: #349F4A;
+  color: #FFFFFF;
+  border: 1px solid #349F4A;
+  border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
   margin-top: 4px;
   font-family: inherit;
 }
 .LU-boton:hover:not(:disabled) {
-  opacity: 0.88;
+  background: #2B863E;
+  border-color: #2B863E;
   transform: translateY(-1px);
 }
+.LU-boton:focus-visible { outline: 2px solid #349F4A; outline-offset: 2px; }
 .LU-boton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -179,26 +216,28 @@
   display: block;
   text-align: center;
   font-size: 0.85rem;
-  color: #6b7a8d;
+  color: #0284C7;
   text-decoration: none;
   font-weight: 600;
   transition: color 0.2s;
   margin-top: -4px;
 }
-.LU-olvidaste:hover { color: #0f1928; }
+.LU-olvidaste:hover { color: #0369A1; }
 
+/* Error: soft badge danger del sistema de diseño */
 .LU-error {
-  color: #dc3545;
+  color: #B91C1C;
   font-size: 0.85rem;
   text-align: center;
-  background: #fff5f5;
-  border: 1px solid #fecaca;
+  background: #FEE2E2;
+  border: 1px solid #FECACA;
   border-radius: 8px;
   padding: 8px 12px;
   margin: 0;
 }
 
-/* â”€â”€ Selector de cliente â”€â”€ */
+/* ── Selector de cliente (legacy: hoy no se renderiza — el login aterriza
+   directo según perfil; se conserva por si vuelve) ── */
 .LU-cardClientes {
   max-width: 440px;
 }
@@ -214,17 +253,18 @@
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  border: 2px solid #0f1928;
-  border-radius: 14px;
-  background: #f8fafc;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  background: #FFFFFF;
   cursor: pointer;
   text-align: left;
-  transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.12s, border-color 0.18s;
   width: 100%;
 }
 .LU-clienteCard:hover {
-  background: #fff;
-  box-shadow: 0 4px 18px rgba(15,25,40,.14);
+  border-color: #349F4A;
+  background: #F4F9E8;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
   transform: translateY(-2px);
 }
 
@@ -245,16 +285,16 @@
 .LU-clienteCardNombre {
   font-size: 0.97rem;
   font-weight: 700;
-  color: #0f1928;
+  color: #111827;
 }
 
 .LU-clienteCardDesc {
   font-size: 0.78rem;
-  color: #6b7a8d;
+  color: #6B7280;
 }
 
 .LU-clienteCardFlecha {
-  color: #6b7a8d;
+  color: #6B7280;
   font-size: 0.85rem;
   flex-shrink: 0;
 }
@@ -263,7 +303,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #6b7a8d;
+  color: #6B7280;
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0;
@@ -271,12 +311,13 @@
   transition: color 0.2s;
   font-family: inherit;
 }
-.LU-volverBtn:hover { color: #0f1928; }
+.LU-volverBtn:hover { color: #349F4A; }
 
-/* â”€â”€ FOOTER â”€â”€ */
+/* ── FOOTER claro de UNA fila: fondo blanco, borde superior 1px (patrón del
+   sistema de diseño — sin bloques oscuros recargados) ── */
 .LU-footer {
-  background: #0f1928;
-  border-top: 1px solid rgba(255,255,255,.05);
+  background: #FFFFFF;
+  border-top: 1px solid #E5E7EB;
   flex-shrink: 0;
 }
 
@@ -295,7 +336,7 @@
   gap: 8px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(255,255,255,.75);
+  color: #374151;
 }
 
 .LU-footerLinks {
@@ -310,21 +351,23 @@
   align-items: center;
   gap: 5px;
   font-size: 0.78rem;
-  color: rgba(255,255,255,.4);
+  color: #6B7280;
   text-decoration: none;
   transition: color 0.2s;
 }
-.LU-footerLink:hover { color: #e8a000; }
+.LU-footerLink:hover { color: #349F4A; }
 
 .LU-footerCopy {
   font-size: 0.75rem;
-  color: rgba(255,255,255,.25);
+  color: #9CA3AF;
 }
 
-/* â”€â”€ Responsive â”€â”€ */
+/* ── Responsive ── */
 @media (max-width: 600px) {
   .LU-card { padding: 28px 20px; }
   .LU-footerInner { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
   .LU-footerLinks { display: none; }
   .LU-headerInner { padding: 0 16px; }
+  /* Título del módulo: en pantallas angostas se recorta antes de chocar. */
+  .LU-headerTitulo { max-width: 40vw; }
 }

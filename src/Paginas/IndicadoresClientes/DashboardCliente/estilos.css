@@ -347,9 +347,9 @@
 .DC-portalClaro {
   background: var(--ea-bg);
   color: var(--ea-text-secondary);
-  /* Nunito Sans oficial del sistema de diseño: la variable --fuente-portal
+  /* Nunito Sans oficial del sistema de diseño: la variable --fuente-integra
      la inyecta next/font desde el route page del portal (con fallback). */
-  font-family: var(--fuente-portal, 'Nunito Sans'), 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--fuente-integra, 'Nunito Sans'), 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
 }
 
 /* Header institucional: blanco con filo inferior de 2px en VERDE LIMA. */

@@ -168,7 +168,8 @@ const LoginUsuario: React.FC = () => {
   return (
     <div className="LU-layout">
 
-      {/* ── HEADER ── */}
+      {/* ── HEADER ── (2026-11-05) Layout «guest» del sistema de diseño
+          Integra: blanco + filo lima, divisor vertical y título de módulo. */}
       <header className="LU-header">
         <div className="LU-headerInner">
           <button className="LU-brand" onClick={() => router.push('/')} title="Inicio">
@@ -177,6 +178,8 @@ const LoginUsuario: React.FC = () => {
               Integr<span className="LU-brandAccent">App</span>
             </span>
           </button>
+          <div className="LU-headerDivider" aria-hidden="true" />
+          <span className="LU-headerTitulo">Torre de Control</span>
         </div>
       </header>
 
