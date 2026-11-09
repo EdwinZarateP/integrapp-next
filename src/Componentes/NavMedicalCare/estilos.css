@@ -90,12 +90,24 @@
   top: calc(100% + 8px);
   right: 0;
   min-width: 210px;
+  /* (2026-11-09) Con 16 ítems el menú superaba el alto de la pantalla y se
+     perdía el final (incluido «Cerrar sesión»): scroll INTERNO con tope al
+     viewport — el header es sticky, así que 100px cubren header + margen. */
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 28px rgba(0,0,0,.18);
   padding: 6px;
   z-index: 100;
 }
+
+/* Scrollbar discreta del menú (mismo look de las tablas del portal) */
+.NMC-dropdown::-webkit-scrollbar { width: 8px; }
+.NMC-dropdown::-webkit-scrollbar-track { background: transparent; }
+.NMC-dropdown::-webkit-scrollbar-thumb { background: #d3dce8; border-radius: 4px; }
+.NMC-dropdown::-webkit-scrollbar-thumb:hover { background: #b9c6d8; }
 
 .NMC-dropItem {
   display: flex;
