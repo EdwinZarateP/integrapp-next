@@ -828,6 +828,100 @@
   color: #64748b;
 }
 
+/* (2026-11-09) Cita de entrega asignada manualmente (/CitasEntrega): panel
+   verde con la fecha vigente (la que se usó para el veredicto OT), la franja,
+   quién la asignó y las re-agendas anteriores colapsadas. */
+.DC-opCitaEntrega {
+  background: rgba(22, 163, 74, 0.06);
+  border: 1px solid #16a34a40;
+  border-left: 4px solid #16a34a;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.DC-opCitaEntregaTitulo {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #15803d;
+}
+.DC-opCitaEntregaTexto {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #334155;
+}
+.DC-opCitaEntregaPor {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+.DC-opCitaEntregaHist summary {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #15803d;
+  cursor: pointer;
+}
+.DC-opCitaEntregaHist ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+/* (2026-11-09) UBICACIÓN DEL VEHÍCULO (API Monitor/Mayasoft): panel azul —
+   solo guías no entregadas con placa. Ubicación textual, chips de telemetría,
+   reporte GPS/ETA, mapa embebido (Google Maps output=embed, sin API key) y
+   link externo de respaldo. */
+.DC-opVehiculo {
+  background: rgba(3, 105, 161, 0.06);
+  border: 1px solid #0369A140;
+  border-left: 4px solid #0369A1;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.DC-opVehiculoTitulo {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #0369A1;
+}
+.DC-opVehiculoTexto {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+.DC-opVehiculoChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.DC-opVehiculoChip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0369A1;
+  background: #E0F2FE;
+  border: 1px solid #0284C766;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  white-space: nowrap;
+}
+.DC-opVehiculoPor {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+.DC-opVehiculoMapa {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  max-height: 320px;
+  border: 1px solid #0369A133;
+  border-radius: 10px;
+  margin-top: 0.2rem;
+}
+
 /* (2026-10-30) Otras guías del mismo vehículo (misma placa, mismo día de
    emisión): listado aparte al pie — tocar una fila la consulta. */
 .DC-opCompaneras { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -1951,6 +2045,17 @@
    filtro vive arriba, en el bloque .DC-portalClaro (badge suave primary). */
 
 /* ── Responsive ─────────────────────────────────────────── */
+
+/* (2026-11-09) Tablet (≤1024px): el resumen de la guía consulta DESTINO en
+   fila completa y los tres estados (Estado actual / ETA / On Time) bajan a
+   una segunda fila, uno al lado del otro — antes se estrujaban en una sola
+   línea con la ETA nueva. */
+@media (max-width: 1024px) {
+  .DC-opResumen { flex-wrap: wrap; }
+  .DC-opResumenDestino { flex-basis: 100%; }
+  .DC-opEstadoActual { max-width: none; }
+}
+
 @media (max-width: 768px) {
   .DC-headerInner { flex-wrap: wrap; }
   .DC-logoCliente { order: -1; width: 100%; min-height: auto; }
@@ -2044,19 +2149,31 @@
   .DC-opDestacadoNombre { font-size: 1.1rem; }
   .DC-opTlHint { text-align: center; }
 
-  /* Resumen en móvil: apilado — estado actual como fila debajo del destino */
-  .DC-opResumen { flex-direction: column; gap: 0.6rem; }
+  /* (2026-11-09) Resumen en móvil: destino arriba y los tres estados
+     (Estado actual / ETA / On Time) como FILAS tipo lista — etiqueta en
+     columna fija (los tres chips quedan alineados verticalmente) y el
+     detalle (fecha, km, explicación OT) baja a su propia línea para no
+     estrujar el chip. Grid de 2 columnas: etiqueta | contenido. */
+  .DC-opResumen { flex-direction: column; gap: 0.4rem; }
   .DC-opEstadoActual {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: 5.4rem 1fr;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    column-gap: 0.7rem;
+    row-gap: 0.3rem;
     border-left: none;
     border-top: 1px solid #e5e9f0;
-    padding: 0.6rem 0 0;
+    padding: 0.55rem 0 0.15rem;
     max-width: none;
     text-align: left;
   }
+  .DC-opEstadoActual .DC-opEstadoLabel {
+    font-size: 0.62rem;
+    line-height: 1.3;
+  }
+  .DC-opEstadoChip { justify-self: start; font-size: 0.8rem; padding: 0.26rem 0.8rem; }
+  /* El detalle ocupa la segunda columna de su propia fila (debajo del chip) */
+  .DC-opEstadoActual .DC-opEstadoFecha { grid-column: 2; line-height: 1.35; }
 
   .DC-main { width: 94%; padding-top: 1.2rem; }
   .DC-guiaTiles { display: none; }

@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
-  FaExchangeAlt, FaBan, FaWallet, FaIdCard, FaTruckMoving, FaClipboardCheck,
+  FaExchangeAlt, FaBan, FaWallet, FaIdCard, FaTruckMoving, FaClipboardCheck, FaRegCalendarCheck,
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
-export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca' | 'estadovehiculos' | 'novedadesot';
+export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca' | 'estadovehiculos' | 'novedadesot' | 'citasentrega';
 
 interface Props {
   paginaActual: PaginaMC;
@@ -31,6 +31,7 @@ const ITEMS: { id: PaginaMC; label: string; ruta: string; icono: React.ReactNode
   { id: 'cuentasplaca',   label: 'Cuentas por Placa',      ruta: '/CuentasPlaca',         icono: <FaIdCard /> },
   { id: 'estadovehiculos', label: 'Estado de Vehículos',   ruta: '/EstadoVehiculos',      icono: <FaTruckMoving /> },
   { id: 'novedadesot',     label: 'Novedades OT Justificadas', ruta: '/NovedadesOT',       icono: <FaClipboardCheck /> },
+  { id: 'citasentrega',    label: 'Citas de Entrega',          ruta: '/CitasEntrega',      icono: <FaRegCalendarCheck /> },
 ];
 
 const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
@@ -157,6 +158,11 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                 // Novedades OT Justificadas: carga del Excel de guías con causal
                 // + justificación para el On Time (2026-10-29)
                 if (item.id === 'novedadesot' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+                  return null;
+                }
+                // Citas de Entrega: registro manual de fecha + franja horaria
+                // que GANA sobre la cita agendada en el cálculo OT (2026-11-09)
+                if (item.id === 'citasentrega' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
                   return null;
                 }
                 return (

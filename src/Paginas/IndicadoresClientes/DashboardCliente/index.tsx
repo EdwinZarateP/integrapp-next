@@ -2806,6 +2806,26 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                             </span>
                           )}
                         </div>
+                        {/* (2026-11-09) ETA del vehículo (API Monitor Mayasoft)
+                            PROMOVIDA al resumen — entre «Estado actual» y «On
+                            Time», que es lo primero que el cliente quiere ver;
+                            el detalle completo sigue en el panel 🚛 de abajo. */}
+                        {resultadoGuiaOp.vehiculo?.ok && resultadoGuiaOp.vehiculo.existe
+                          && resultadoGuiaOp.vehiculo.vehiculo?.eta_fecha && (() => {
+                          const v = resultadoGuiaOp.vehiculo!.vehiculo!;
+                          return (
+                            <div
+                              className="DC-opEstadoActual DC-opEta"
+                              title="Hora estimada de llegada según el GPS del vehículo (API Monitor Mayasoft)"
+                            >
+                              <span className="DC-opEstadoLabel">ETA</span>
+                              <span className="DC-opEstadoChip DC-opEstadoChipCurso">🕒 {fechaMov(v.eta_fecha)}</span>
+                              {v.eta_distancia_km != null && (
+                                <span className="DC-opEstadoFecha">{v.eta_distancia_km} km</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {/* (2026-10-31) Veredicto OT de la guía — mismo cálculo
                             del informe (backend _calcular_ot_filas, lógica del
                             Excel real): en curso se juzga contra HOY y la
@@ -2814,6 +2834,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           const ot = resultadoGuiaOp.ot;
                           const fmt = (f: string) => f ? formatearFecha(f.slice(0, 10)).replaceAll('-', '/') : '';
                           const conNovedad = ot.cumple_novedad || resultadoGuiaOp.justificada;
+                          // (2026-11-09) Cuando se juzgó contra la CITA, la fecha
+                          // que se muestra es la cita REAL usada (manual de
+                          // /CitasEntrega o agendada) — antes ponía la promesa.
+                          const porCita = ot.origen_promesa === 'CITA';
+                          const fechaRef = (porCita ? (ot.fecha_cita_usada || ot.fecha_promesa) : ot.fecha_promesa) as string | undefined;
+                          const lblRef = porCita ? 'cita' : 'promesa';
                           let chip = 'No aplica', clase = 'DC-opChipOTSin', detalle = '';
                           if (conNovedad) {
                             chip = '✔ Con novedad';
@@ -2825,14 +2851,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                             chip = ot.entregada ? '✔ Cumplió' : '✔ En curso';
                             clase = 'DC-opChipOTOk';
                             detalle = ot.entregada
-                              ? `Entrega ${fmt(ot.fecha_entrega)} ≤ ${ot.origen_promesa === 'CITA' ? 'cita' : 'promesa'} ${fmt(ot.fecha_promesa)}`
-                              : `Promesa ${fmt(ot.fecha_promesa)} aún no vence`;
+                              ? `Entrega ${fmt(ot.fecha_entrega)} ≤ ${lblRef} ${fmt(fechaRef || '')}`
+                              : `${lblRef[0].toUpperCase()}${lblRef.slice(1)} ${fmt(fechaRef || '')} aún no vence`;
                           } else if (ot.ot === 0) {
                             chip = ot.entregada ? '✘ No cumplió' : '✘ Vencida (en curso)';
                             clase = 'DC-opChipOTNo';
                             detalle = ot.entregada
-                              ? `Entrega ${fmt(ot.fecha_entrega)} > ${ot.origen_promesa === 'CITA' ? 'cita' : 'promesa'} ${fmt(ot.fecha_promesa)}`
-                              : `Promesa ${fmt(ot.fecha_promesa)} ya venció`;
+                              ? `Entrega ${fmt(ot.fecha_entrega)} > ${lblRef} ${fmt(fechaRef || '')}`
+                              : `${lblRef[0].toUpperCase()}${lblRef.slice(1)} ${fmt(fechaRef || '')} ya venció`;
                           } else if (ot.entregada) {
                             detalle = 'Entregada sin fecha de promesa evaluable';
                           } else {
@@ -2840,7 +2866,8 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           }
                           const title = [
                             'On Time: entrega (o hoy si va en curso) vs cita/fecha promesa — misma regla del informe',
-                            ot.fecha_promesa ? `Promesa ${fmt(ot.fecha_promesa)} (${ot.origen_promesa === 'CITA' ? 'cita' : ot.origen_promesa === 'FALLBACK' ? 'fallback 12/8' : 'tabla de tiempos'})` : null,
+                            fechaRef ? `${porCita ? 'Cita' : 'Promesa'} ${fmt(fechaRef)}${ot.cita_manual ? ' (asignada manualmente)' : ''}` : null,
+                            ot.fecha_promesa && !porCita ? `Promesa ${fmt(ot.fecha_promesa)} (${ot.origen_promesa === 'FALLBACK' ? 'fallback 12/8' : 'tabla de tiempos'})` : null,
                             ot.tipo_servicio ? `Tipo ${ot.tipo_servicio}${ot.ruta ? ` · ruta ${ot.ruta.toLowerCase()}` : ''}` : null,
                             ot.dias_habiles != null ? `${ot.dias_habiles} días hábiles hasta la entrega` : null,
                           ].filter(Boolean).join('\n');
@@ -2932,6 +2959,57 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           🔗 Seguimiento en línea
                         </a>
                       )}
+                      {/* (2026-11-09) UBICACIÓN DEL VEHÍCULO (API Monitor de
+                          Mayasoft): el backend la adjunta SOLO en guías no
+                          entregadas con placa — última posición GPS del
+                          despacho vigente de esa placa + mapa embebido. */}
+                      {resultadoGuiaOp.vehiculo?.ok && resultadoGuiaOp.vehiculo.existe && resultadoGuiaOp.vehiculo.vehiculo && (() => {
+                        const vh = resultadoGuiaOp.vehiculo.vehiculo;
+                        const tieneCoordenadas = typeof vh.lat === 'number' && typeof vh.lng === 'number';
+                        const mapsUrl = `https://www.google.com/maps?q=${vh.lat},${vh.lng}`;
+                        return (
+                          <div className="DC-opVehiculo">
+                            <span className="DC-opVehiculoTitulo">
+                              🚛 Ubicación del vehículo{vh.placa ? ` · ${vh.placa}` : ''}
+                            </span>
+                            {vh.ubicacion && <p className="DC-opVehiculoTexto">{vh.ubicacion}</p>}
+                            <div className="DC-opVehiculoChips">
+                              {vh.velocidad != null && <span className="DC-opVehiculoChip">⏱ {vh.velocidad} km/h</span>}
+                              {vh.estado_gps && (
+                                <span className="DC-opVehiculoChip">
+                                  {vh.estado_gps === 'stopped' ? '🅿️ Detenido' : vh.estado_gps === 'moving' ? '▶️ En movimiento' : vh.estado_gps}
+                                </span>
+                              )}
+                              {vh.estado_viaje && <span className="DC-opVehiculoChip">🛣️ {vh.estado_viaje}</span>}
+                              {vh.manifiesto && <span className="DC-opVehiculoChip">Manifiesto {vh.manifiesto}</span>}
+                              {vh.conductor && <span className="DC-opVehiculoChip">👤 {vh.conductor}</span>}
+                            </div>
+                            {(vh.fecha_reporte_gps || vh.eta_fecha) && (
+                              <span className="DC-opVehiculoPor">
+                                {vh.fecha_reporte_gps ? `Reporte GPS: ${fechaMov(vh.fecha_reporte_gps)}` : ''}
+                                {vh.fecha_reporte_gps && vh.eta_fecha ? ' · ' : ''}
+                                {vh.eta_fecha
+                                  ? `ETA: ${fechaMov(vh.eta_fecha)}${vh.eta_distancia_km != null ? ` (${vh.eta_distancia_km} km)` : ''}`
+                                  : ''}
+                              </span>
+                            )}
+                            {tieneCoordenadas && (
+                              <>
+                                <iframe
+                                  className="DC-opVehiculoMapa"
+                                  src={`https://maps.google.com/maps?q=${vh.lat},${vh.lng}&z=13&output=embed`}
+                                  title="Ubicación del vehículo"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer-when-downgrade"
+                                />
+                                <a className="DC-opTracking" href={mapsUrl} target="_blank" rel="noopener noreferrer">
+                                  🗺️ Ver en Google Maps
+                                </a>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {/* (2026-10-30; 2026-11-02 a pedido del usuario, antes
                           iba al final) Novedad JUSTIFICADA de la guía (Mongo,
                           /NovedadesOT): panel morado con causal, justificación
@@ -2953,6 +3031,51 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           )}
                         </div>
                       )}
+                      {/* (2026-11-09) CITA DE ENTREGA asignada manualmente
+                          (/CitasEntrega): fecha vigente (la que se usó para el
+                          veredicto OT de arriba) + franja + quién la asignó;
+                          las re-agendas anteriores quedan listadas abajo. */}
+                      {resultadoGuiaOp.cita_entrega && (() => {
+                        const ce = resultadoGuiaOp.cita_entrega;
+                        return (
+                          <div className="DC-opCitaEntrega">
+                            <span className="DC-opCitaEntregaTitulo">
+                              📅 Cita de entrega: {formatearFecha(ce.fecha)}
+                              {ce.hora_inicio && ce.hora_fin ? ` · ${ce.hora_inicio}–${ce.hora_fin}` : ''}
+                            </span>
+                            <span className="DC-opCitaEntregaTexto">
+                              Franja en la que el cliente puede recibir — es la fecha con la que se evaluó el On Time.
+                            </span>
+                            {(ce.nombre || ce.fecha_asignada) && (
+                              <span className="DC-opCitaEntregaPor">
+                                Asignada por: {ce.nombre || '—'}
+                                {ce.fecha_asignada ? ` · ${formatearFecha(String(ce.fecha_asignada).slice(0, 10))}` : ''}
+                              </span>
+                            )}
+                            {Array.isArray(ce.anteriores) && ce.anteriores.length > 0 && (
+                              <details className="DC-opCitaEntregaHist">
+                                <summary>Citas anteriores ({ce.anteriores.length}) · de la más reciente a la más antigua</summary>
+                                <ul>
+                                  {ce.anteriores.map((a: {
+                                    previo?: { fecha?: string; hora_inicio?: string; hora_fin?: string };
+                                    nuevo?: { fecha?: string; hora_inicio?: string; hora_fin?: string };
+                                    nombre?: string; cambiada?: string;
+                                  }, i: number) => (
+                                    <li key={i}>
+                                      {a.nuevo?.fecha
+                                        ? `Cambió a ${formatearFecha(a.nuevo.fecha)}${a.nuevo.hora_inicio && a.nuevo.hora_fin ? ` · ${a.nuevo.hora_inicio}–${a.nuevo.hora_fin}` : ''}`
+                                        : (a.previo?.fecha ? `Cita ${formatearFecha(a.previo.fecha)}` : 'Cita anterior')}
+                                      {a.previo?.fecha && a.nuevo?.fecha ? ` (antes ${formatearFecha(a.previo.fecha)})` : ''}
+                                      {a.nombre ? ` — ${a.nombre}` : ''}
+                                      {a.cambiada ? ` · ${formatearFecha(String(a.cambiada).slice(0, 10))}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </details>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {/* Otras guías del mismo vehículo emitidas el mismo
                           día (remesa compañera, solo visible en el TMS).
                           Tocar una la consulta. */}

@@ -771,3 +771,44 @@ A pedido del usuario, todos los headers pasaron al look del portal Mis Indicador
 - **Shells teal → verde**: `revision` (tokens `--revx-acento*` + topbar negra + teales quemados #006b77/#006f7a/#9fd8dd/#f0fafb) y `PortalSeguridadP` (`--psx-teal*` + topbar negra; ⚠️ portal con marca seguriDatia — revertir tokens si se quiere conservar su teal).
 - **NavMedicalCare**: gradiente teal #004d40→#006b5e → #000; «App» verde; pill de usuario redondo; dropItemActive verde.
 - **No tocado**: `/VerificarEstudio` (portal público claro) y el contenido interno naranja de IndicadoresChrome/costo-operación.
+
+## Actualizaciones Recientes (2026-11-09)
+
+### Nuevo módulo: Citas de Entrega (`/CitasEntrega`)
+
+Registro MANUAL de la cita de entrega de una guía (fecha + franja horaria en
+la que el cliente puede recibir) cuya fecha **GANA sobre la cita agendada en
+el cálculo On Time** del dashboard de clientes (backend: ver
+`integrappi/README.md` 2026-11-09). Patrón de NovedadesOT: wrapper
+`app/CitasEntrega/page.tsx` + `Paginas/CitasEntregaP` (clases `CE-*`), ítem
+**📅 Citas de Entrega** en `NavMedicalCare` (ADMIN/COORDINADOR/CONTROL/
+OPERATIVO — mismo filtro que novedadesot).
+
+- **Modal nueva/editar**: guía (readonly al editar), fecha `<input type="date">`
+  y horas en **dropdowns 24h de MEDIA HORA** (48 opciones `00:00…23:30`; no
+  `<input type="time">`, que muestra AM/PM según locale del SO). Al elegir la
+  hora de inicio, **el fin se autocompleta a inicio + 2h** (tope 23:30) y el
+  dropdown de fin solo ofrece horas ≥ inicio (franja invertida imposible); si
+  la inicio sube por encima del fin ya elegido, el fin se recorre a inicio+2h.
+- **Historial de cambios en el modal**: tabla «Cambió a | Nueva franja |
+  Antes | Hecho por | Cuándo» **de la más reciente a la más antigua** (cada
+  entrada es el cambio completo {previo → nuevo}); badge «🔁 N» en la tabla
+  principal. Entradas viejas planas se muestran solo en «Antes».
+- **Carga Excel** (todo-o-nada; plantilla con columna «FECHA (DD/MM/AAAA)»),
+  export, y **buscador de guía EN VIVO** (debounce 350 ms); sin resultados y
+  ≥3 caracteres → botón «＋ Crear cita para la guía 'X'» (modal precargado).
+- **🗑 Citas eliminadas** (auditoría, solo ADMIN/CONTROL): desplegable al pie
+  con quién borró cada cita y cuándo (carga al abrir la 1ª vez;
+  `GET /citas-entrega/eliminadas`).
+
+### Portal Mis Indicadores — cita de entrega en la Trazabilidad (`DashboardCliente`)
+
+- **Panel verde «📅 Cita de entrega: {fecha} · {franja}»** en el resultado de la
+  consulta de guía (junto al panel morado de novedad): quién la asignó y
+  cuándo, con las **re-agendas anteriores colapsadas** (más reciente primero,
+  formato «Cambió a X (antes Y) — quién · fecha»).
+- **Chip On Time**: cuando se juzgó contra la CITA, muestra la **cita real
+  usada** (`ot.fecha_cita_usada`) — antes mostraba la fecha promesa con
+  etiqueta «cita»; el tooltip marca «(asignada manualmente)» cuando aplica.
+
+Dep backend + frontend JUNTOS.

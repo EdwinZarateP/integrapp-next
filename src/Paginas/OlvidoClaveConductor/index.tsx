@@ -3,8 +3,10 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import { FaPhone, FaEnvelope, FaMapMarkerAlt } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
-import HeaderLogo from "@/Componentes/HeaderLogo";
+import "../LoginConductores/estilos.css";
 import "./estilos.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
@@ -18,7 +20,7 @@ interface RespuestaCodigo {
 }
 
 const OlvidoClaveConductor = () => {
-  const [usuario, setUsuario] = useState("");
+  const [correo, setCorreo] = useState("");
   const [codigo, setCodigo] = useState("");
   const [nuevaClave, setNuevaClave] = useState("");
   const [confirmarClave, setConfirmarClave] = useState("");
@@ -39,20 +41,20 @@ const OlvidoClaveConductor = () => {
 
     try {
       const response = await axios.post<RespuestaVerificacion>(`${API_BASE}/conductores/recuperar/verificar`, {
-        usuario: usuario,
+        usuario: correo.trim(),
         perfil: "CONDUCTOR"
       });
 
       if (response.data.existe) {
         setStep(2);
-        setMensaje("¡Usuario encontrado! Hemos enviado un código de verificación a tu correo.");
+        setMensaje("¡Correo encontrado! Te enviamos un código de verificación.");
       } else {
-        setError("El usuario no existe o no es conductor.");
+        setError("No hay ninguna cuenta de conductor con ese correo.");
       }
     } catch (err: any) {
       console.error(err);
       if (err.response?.status === 404) {
-        setError("Usuario no encontrado.");
+        setError("Correo no encontrado.");
       } else {
         setError("Error al enviar el código. Intente nuevamente.");
       }
@@ -70,7 +72,7 @@ const OlvidoClaveConductor = () => {
 
     try {
         const response = await axios.post<RespuestaCodigo>(`${API_BASE}/conductores/recuperar/validar`, {
-            usuario: usuario,
+            usuario: correo.trim(),
             codigo: codigo,
             perfil: "CONDUCTOR"
         });
@@ -108,7 +110,7 @@ const OlvidoClaveConductor = () => {
 
     try {
       await axios.post(`${API_BASE}/conductores/recuperar/cambiar`, {
-        usuario: usuario,
+        usuario: correo.trim(),
         nuevaClave: nuevaClave,
         codigo: codigo,
         perfil: "CONDUCTOR"
@@ -129,77 +131,85 @@ const OlvidoClaveConductor = () => {
     switch(step) {
       case 1:
         return (
-          <form onSubmit={enviarCodigo} style={{ width: '100%' }}>
-            <div className="LoginConductores-grupo-input">
-                <label>Usuario / Cédula</label>
-                <input
-                  type="text"
-                  placeholder="Ingrese su usuario"
-                  value={usuario}
-                  onChange={(e) => setUsuario(e.target.value)}
-                  className="LoginConductores-input"
-                  required
-                  autoFocus
-                />
+          <form className="LC-formulario" onSubmit={enviarCodigo}>
+            <div className="LC-grupo">
+              <label className="LC-label">Correo Electrónico</label>
+              <input
+                className="LC-input"
+                type="email"
+                placeholder="ejemplo@correo.com"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                required
+                autoFocus
+              />
             </div>
-            <button type="submit" className="LoginConductores-boton" disabled={loading}>
-              {loading ? "Buscando..." : "Enviar Código"}
+            <button className="LC-boton" type="submit" disabled={loading}>
+              {loading ? "Buscando…" : "Enviar Código"}
             </button>
           </form>
         );
       case 2:
         return (
-          <form onSubmit={validarCodigo} style={{ width: '100%' }}>
-             <div className="alert-box" style={{ marginBottom: '15px' }}>
-                Código enviado al correo asociado a: <strong>{usuario}</strong>
-             </div>
-            <div className="LoginConductores-grupo-input">
-                <label>Código de Verificación</label>
-                <input
-                  type="text"
-                  placeholder="Ingrese el código (Ej: 1234)"
-                  value={codigo}
-                  onChange={(e) => setCodigo(e.target.value)}
-                  className="LoginConductores-input"
-                  required
-                  autoFocus
-                />
+          <form className="LC-formulario" onSubmit={validarCodigo}>
+            <div className="OC-infoBox">
+              Enviamos un código a <strong>{correo}</strong>
             </div>
-            <button type="submit" className="LoginConductores-boton" disabled={loading}>
-              {loading ? "Verificando..." : "Validar Código"}
+            <div className="LC-grupo">
+              <label className="LC-label">Código de Verificación</label>
+              <input
+                className="LC-input"
+                type="text"
+                placeholder="Ingrese el código (Ej: 1234)"
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            <button className="LC-boton" type="submit" disabled={loading}>
+              {loading ? "Verificando…" : "Validar Código"}
             </button>
-            <p style={{textAlign: 'center', marginTop: '10px', fontSize: '0.8rem', cursor: 'pointer', color: '#666'}} onClick={() => setStep(1)}>
-               ¿No recibiste el código? Volver
-            </p>
+            <div className="LC-linksFila">
+              <button
+                type="button"
+                className="LC-link"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
+                onClick={() => setStep(1)}
+              >
+                ¿No recibiste el código? Volver
+              </button>
+            </div>
           </form>
         );
       case 3:
         return (
-          <form onSubmit={cambiarClave} style={{ width: '100%' }}>
-            <div className="LoginConductores-grupo-input">
-                <label>Nueva Contraseña</label>
-                <input
-                  type="password"
-                  placeholder="Nueva contraseña"
-                  value={nuevaClave}
-                  onChange={(e) => setNuevaClave(e.target.value)}
-                  className="LoginConductores-input"
-                  required
-                />
+          <form className="LC-formulario" onSubmit={cambiarClave}>
+            <div className="LC-grupo">
+              <label className="LC-label">Nueva Contraseña</label>
+              <input
+                className="LC-input"
+                type="password"
+                placeholder="Nueva contraseña"
+                value={nuevaClave}
+                onChange={(e) => setNuevaClave(e.target.value)}
+                required
+                autoFocus
+              />
             </div>
-            <div className="LoginConductores-grupo-input">
-                <label>Confirmar Contraseña</label>
-                <input
-                  type="password"
-                  placeholder="Repita la contraseña"
-                  value={confirmarClave}
-                  onChange={(e) => setConfirmarClave(e.target.value)}
-                  className="LoginConductores-input"
-                  required
-                />
+            <div className="LC-grupo">
+              <label className="LC-label">Confirmar Contraseña</label>
+              <input
+                className="LC-input"
+                type="password"
+                placeholder="Repita la contraseña"
+                value={confirmarClave}
+                onChange={(e) => setConfirmarClave(e.target.value)}
+                required
+              />
             </div>
-            <button type="submit" className="LoginConductores-boton" disabled={loading}>
-              {loading ? "Actualizando..." : "Confirmar Cambio"}
+            <button className="LC-boton" type="submit" disabled={loading}>
+              {loading ? "Actualizando…" : "Confirmar Cambio"}
             </button>
           </form>
         );
@@ -209,30 +219,61 @@ const OlvidoClaveConductor = () => {
   };
 
   return (
-    <div className="LoginConductores-contenedor" style={{ position: 'relative' }}>
-      <div style={{ position: "absolute", top: 0, left: 0, width: "100%", zIndex: 10 }}>
-          <HeaderLogo />
-      </div>
+    <div className="LC-layout">
 
-      <img src={logo.src} alt="logo" className="LoginConductores-Logo" style={{ marginTop: '80px' }} />
-
-      <div className="LoginConductores-titulo-app">
-          <h1>Recuperar</h1>
-          <h1>Acceso Conductor</h1>
-      </div>
-
-      <div className="LoginConductores-formulario">
-        {renderFormulario()}
-
-        {error && <p className="LoginConductores-error" style={{ marginTop: '15px' }}>{error}</p>}
-        {mensaje && <p className="text-success" style={{ marginTop: '15px', color: '#27ae60', fontWeight: 'bold', textAlign: 'center' }}>{mensaje}</p>}
-
-        <div className="LoginConductores-links" style={{ marginTop: '20px', justifyContent: 'center' }}>
-          <Link href="/LoginConductores" className="LoginConductores-link">
-              ← Volver al Login
-          </Link>
+      {/* ── HEADER ── */}
+      <header className="LC-header">
+        <div className="LC-headerInner">
+          <button className="LC-brand" onClick={() => router.push('/')} title="Inicio">
+            <Image src={logo} alt="Integra" height={40} priority />
+            <span className="LC-brandName">
+              Integr<span className="LC-brandAccent">App</span>
+            </span>
+          </button>
         </div>
-      </div>
+      </header>
+
+      {/* ── MAIN ── */}
+      <main className="LC-main">
+        <div className="LC-card">
+          <div className="LC-cardHeader">
+            <Image src={logo} alt="Logo Integra" height={64} priority />
+            <h2 className="LC-titulo">Recuperar Acceso</h2>
+            <p className="LC-subtitulo">
+              {step === 1 && "Conductores — recupera tu clave con tu correo"}
+              {step === 2 && "Ingresa el código que enviamos a tu correo"}
+              {step === 3 && "Crea tu nueva contraseña"}
+            </p>
+          </div>
+
+          {renderFormulario()}
+
+          {error && <p className="LC-error" style={{ marginTop: '12px' }}>{error}</p>}
+          {mensaje && <p className="LC-reenvioMensaje" style={{ marginTop: '12px' }}>{mensaje}</p>}
+
+          <div className="LC-linksFila" style={{ marginTop: '18px' }}>
+            <Link href="/LoginConductores" className="LC-link">
+              ← Volver al Login
+            </Link>
+          </div>
+        </div>
+      </main>
+
+      {/* ── FOOTER ── */}
+      <footer className="LC-footer">
+        <div className="LC-footerInner">
+          <div className="LC-footerBrand">
+            <Image src={logo} alt="Integra" height={28} />
+            <span>Integra Cadena de Servicios S.A.S.</span>
+          </div>
+          <div className="LC-footerLinks">
+            <a href="tel:+573125443396" className="LC-footerLink"><FaPhone /> +57 312 544 3396</a>
+            <a href="mailto:edwin.zarate@integralogistica.com" className="LC-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="LC-footerLink"><FaMapMarkerAlt /> Colombia</span>
+          </div>
+          <span className="LC-footerCopy">© {new Date().getFullYear()} Integra — Conductores</span>
+        </div>
+      </footer>
     </div>
   );
 };
