@@ -755,6 +755,8 @@
 .DC-opChipOTOk { background: #D1FAE5; border: 1px solid #16A34A; color: #065F46; }
 .DC-opChipOTNo { background: #FEE2E2; border: 1px solid #DC2626; color: #B91C1C; }
 .DC-opChipOTJust { background: #f3f0fd; border: 1px solid #4a3aa7; color: #4a3aa7; }
+/* (2026-11-10) Guía en curso (sin entrega): «Pendiente»/«Pendiente (vencida)» — fuera del % OT */
+.DC-opChipOTPend { background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; }
 .DC-opChipOTSin { background: #F1F5F9; border: 1px solid var(--ea-border); color: var(--ea-text-muted); }
 .DC-opEstadoFecha {
   font-size: 0.7rem;
@@ -1795,6 +1797,9 @@
 
 .DC-guiaChipOTSi { background: #D1FAE5; color: #065F46; }
 .DC-guiaChipOTNo { background: #FEE2E2; color: #B91C1C; }
+/* (2026-11-10) En curso sin entrega: chip «🕒 Pend.»/«🕒 Venc.» — no cuenta en el % OT */
+.DC-guiaChipOTPend { background: #FEF3C7; color: #92400E; }
+.DC-guiaChipOTPendVenc { background: #FFEDD5; color: #9A3412; }
 
 /* Sufijo ' cita'/' prom' junto a la fecha promesa */
 .DC-guiaOrigPromesa {
@@ -2214,5 +2219,129 @@
   }
   .DC-portalClaro .DC-nombreCliente { font-size: 0.85rem; }
 }
+
+/* ── (2026-11-10) Guías EN CURSO (pestaña Operación) + guía clicable ── */
+
+/* Guía clicable → Trazabilidad en pestaña nueva (detalle del día y tablas de
+   pendientes): look de link, hereda la fuente tabular de la celda. */
+.DC-guiaLinkTraza {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.DC-guiaLinkTraza:hover { color: #1e40af; }
+.DC-guiaLinkTraza:focus-visible { outline: 2px solid #98C74C; outline-offset: 2px; border-radius: 3px; }
+
+/* Cards de las tablas de pendientes: margen sobre las stats y altura acotada
+   (reusa el wrapper con scroll del detalle del día, más bajito). */
+.DC-pendCard { margin-top: 1rem; }
+.DC-pendTabla { max-height: 420px; }
+@media (max-width: 768px) {
+  .DC-pendTabla { max-height: 55vh; }
+}
+
+/* Días vs el límite (cita o promesa): rojo retraso, verde en plazo, ámbar hoy. */
+.DC-pendDias { font-weight: 700; white-space: nowrap; }
+.DC-pendDiasVenc { color: #DC2626; }
+.DC-pendDiasOk { color: #16A34A; }
+.DC-pendDiasHoy { color: #B45309; }
+
+/* (2026-11-10, tarde) UX tablas de pendientes: buscador + encabezados
+   ordenables + zebra/hover de filas. */
+.DC-pendToolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0.2rem 0.55rem;
+}
+.DC-pendBuscar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.DC-pendBuscar input {
+  width: min(320px, 68vw);
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #d7dee8;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: #fff;
+  color: #0f1928;
+}
+.DC-pendBuscar input:focus { outline: none; border-color: #98C74C; box-shadow: 0 0 0 2px rgba(152, 199, 76, 0.25); }
+.DC-pendBuscarLimpiar {
+  border: none;
+  background: #eef1f5;
+  color: #475569;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.DC-pendBuscarLimpiar:hover { background: #e2e8f0; color: #0f1928; }
+
+/* Encabezado ordenable: botón que hereda el estilo del th; flecha discreta
+   (⇅) que se enciende al estar activo. Ciclo: asc → desc → orden origen. */
+.DC-pendOrd {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.DC-pendOrd:hover { color: #1d4ed8; }
+.DC-pendOrdFlecha { font-size: 0.7rem; opacity: 0.4; }
+.DC-pendOrdActivo { color: #5e8a28; } /* verde de marca con contraste sobre claro */
+.DC-pendOrdActivo .DC-pendOrdFlecha { opacity: 1; }
+
+/* Zebra + hover de filas (la guía es link: la fila invita al clic). */
+.DC-pendTabla tbody tr:nth-child(even) { background: #f8fafc; }
+.DC-pendTabla tbody tr:hover { background: #f0f7e8; }
+
+/* (2026-11-10, tarde) Card de sección clicable (vencidas / en curso / No
+   aplica): abre SU tabla bajo demanda. Reset de los estilos UA del <button>
+   REPITIENDO los tokens de .DC-opStat (fondo, borde y filo verde de 4px) —
+   con `background: inherit`/borde transparente la card se veía distinta a
+   sus hermanas estáticas. */
+.DC-opStatBtn {
+  background: var(--ea-surface);
+  border: 1px solid var(--ea-border);
+  border-left: 4px solid var(--ea-success);
+  border-radius: 10px;
+  padding: 1.1rem 1rem;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.DC-opStatBtn:hover { border-color: #98C74C; background: #fbfdf7; }
+.DC-opStatBtnActiva { border-color: #98C74C; background: #f4faec; }
+.DC-opStatAccion { font-size: 0.7rem; opacity: 0.55; }
+.DC-opStatBtnActiva .DC-opStatAccion { opacity: 1; color: #5e8a28; }
+
+/* Badge de conteo junto al título (tablas de pendientes y detalle del día):
+   margen para no pegarse al texto que lo precede. */
+.DC-detalleDiaN { margin-left: 0.5rem; }
+
+/* (2026-11-10) Tick del eje Y del zoom de día: etiqueta de segmento clicable
+   (abre el detalle igual que tocar la barra — la barra puede quedar muy
+   angosta con pocas guías). */
+.DC-tickSegmento { cursor: pointer; }
+.DC-tickSegmento text { fill: #334155; font-size: 12px; }
+.DC-tickSegmento:hover text,
+.DC-tickSegmento:focus-visible text { fill: #1d4ed8; text-decoration: underline; }
+.DC-tickSegmento:focus-visible { outline: none; }
 
 /* recarga */

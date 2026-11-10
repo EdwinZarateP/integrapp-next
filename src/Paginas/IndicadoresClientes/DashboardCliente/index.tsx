@@ -11,6 +11,8 @@ import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaUpload } from 
 import logo from '@/Imagenes/albatros.png';
 import { obtenerCliente } from '../clientes';
 import '@/Componentes/IndicadoresChrome/estilos.css';
+// (2026-11-10) Camión Lottie de marca para la espera de la consulta de guía.
+import CamionCargando from '@/Componentes/CamionCargando';
 import './estilos.css';
 
 // Perfiles que pueden cargar el Excel de citas (plan B del OT). Espejo de
@@ -135,6 +137,13 @@ type FilaGuia = {
   ruta?: string;               // URBANO | NACIONAL
   dias_promesa?: number | null;
   cumple_novedad?: boolean;    // novedad del TMS: auto-cumple
+  // (2026-11-10) Guía EN CURSO (sin fecha de entrega): segmento Pendientes,
+  // fuera del % OT (ot viaja null).
+  ot_pendiente?: boolean;
+  ot_pendiente_vencida?: boolean;
+  // (2026-11-10) Guía ANULADA (estado del informe o detectada por el WS de
+  // Siscore en vivo): auto-cumple como «Con novedad».
+  anulada?: boolean;
 };
 
 type ResumenGuias = {
@@ -148,6 +157,10 @@ type ResumenGuias = {
   ot_no_cumplen: number;
   ot_justificadas: number;
   ot_no_evaluables: number;
+  // (2026-11-10) Guías EN CURSO (sin fecha de entrega) — segmentos Pendientes,
+  // ambos fuera del % OT.
+  ot_pendientes?: number;
+  ot_pendientes_vencidas?: number;
   ot_pct: number | null;
   // (2026-10-31) Cards de la pestaña Operación: distintos sobre las guías
   // ENTREGADAS del período filtrado.
@@ -158,14 +171,17 @@ type ResumenGuias = {
 type PaginacionGuias = { pagina: number; limite: number; total: number; hay_mas: boolean };
 
 // Bucket del gráfico OT — lo agrega el BACKEND (misma pasada que la tabla).
-// (2026-10-31) Bucket = FECHA DE EMISIÓN; segmentos = los 4 VEREDICTOS del
-// Excel real: las guías en curso SÍ se juzgan (contra HOY) y cualquier
-// novedad auto-cumple. evaluables YA incluye a conNovedad.
+// (2026-10-31) Bucket = FECHA DE EMISIÓN; segmentos = VEREDICTOS del Excel
+// real y cualquier novedad auto-cumple. (2026-11-10) Las guías EN CURSO van
+// a pendientes/pendientesVencidas y quedan FUERA de evaluables (no cuentan
+// en el % OT).
 type BucketOT = {
   periodo: string;
   cumplieron: number;
   noCumplieron: number;
   conNovedad: number;
+  pendientes: number;
+  pendientesVencidas: number;
   noAplica: number;
   evaluables: number;
   total: number;
@@ -188,12 +204,15 @@ const useEsMovil = () => {
 
 // Definición única de los segmentos del gráfico OT (orden de la pila, color,
 // etiqueta y explicación para title/tooltip) — barras, leyenda y tooltip.
-// (2026-10-31) 4 segmentos de VEREDICTO (lógica del Excel real): «No
-// cumplieron» incluye guías en curso ya VENCIDAS; «Con novedad» auto-cumple.
+// (2026-10-31) Segmentos de VEREDICTO (lógica del Excel real); «Con novedad»
+// auto-cumple. (2026-11-10) Las guías EN CURSO (sin fecha de entrega) pasan a
+// «Pendientes»/«Pendientes vencidas» y NO cuentan en el % OT.
 const SEGMENTOS_OT: { clave: keyof BucketOT; color: string; etiqueta: string; explica: string }[] = [
-  { clave: 'cumplieron', color: '#16A34A', etiqueta: 'Cumplieron', explica: 'Entregadas (o en curso sin vencer) dentro de la cita o la fecha promesa' },
-  { clave: 'noCumplieron', color: '#DC2626', etiqueta: 'No cumplieron', explica: 'Después de la cita/promesa — incluye guías en curso ya VENCIDAS' },
-  { clave: 'conNovedad', color: '#4a3aa7', etiqueta: 'Con novedad', explica: 'Con novedad del TMS o justificada (/Novedades OT): cuentan como cumplidas en el % OT' },
+  { clave: 'cumplieron', color: '#16A34A', etiqueta: 'Cumplieron', explica: 'Entregadas dentro de la cita o la fecha promesa' },
+  { clave: 'noCumplieron', color: '#DC2626', etiqueta: 'No cumplieron', explica: 'Entregadas después de la cita/promesa' },
+  { clave: 'conNovedad', color: '#4a3aa7', etiqueta: 'Con novedad', explica: 'Con novedad del TMS, justificada (/Novedades OT) o guía ANULADA: cuentan como cumplidas en el % OT' },
+  { clave: 'pendientes', color: '#F59E0B', etiqueta: 'Pendientes', explica: 'En curso sin fecha de entrega, aún dentro de la cita/promesa (no cuentan en el % OT)' },
+  { clave: 'pendientesVencidas', color: '#EA580C', etiqueta: 'Pendientes vencidas', explica: 'En curso que ya pasó su cita/promesa sin entrega (no cuentan en el % OT)' },
   { clave: 'noAplica', color: '#9CA3AF', etiqueta: 'No aplica', explica: 'Sin promesa evaluable (no cuentan en el % OT)' },
 ];
 
@@ -231,6 +250,66 @@ type FilasGuiasResponse = {
   success: boolean;
   data?: { cliente: string; filas: FilaGuia[]; paginacion: PaginacionGuias };
   error?: string;
+};
+
+// (2026-11-10) Guías EN CURSO del cliente (segmentos Pendientes / Pendientes
+// vencidas del OT) para la pestaña Operación del portal — endpoint /pendientes.
+// `dias_vs_limite` = días calendario HOY − límite (>0 retraso, <0 aún en plazo,
+// null sin cita ni promesa evaluable); el límite es la CITA con la que se juzga
+// (manual de /CitasEntrega o agendada) y si no hay, la fecha promesa.
+type FilaPendiente = {
+  guia: string;
+  nombre_cliente: string | null;
+  planilla: string | null;
+  destinatario: string | null;
+  ciudad_destino: string | null;
+  estado: string | null;
+  estado_crudo: string | null;
+  tipo_servicio?: string | null;
+  fecha_emision: string | null;
+  fecha_cita_tms: string | null;
+  fecha_cita_usada: string | null;
+  fecha_promesa: string | null;
+  origen_limite: 'CITA' | 'PROMESA' | null;
+  dias_vs_limite: number | null;
+};
+
+type PendientesResponse = {
+  success: boolean;
+  data?: { cliente: string; vencidas: FilaPendiente[]; pendientes: FilaPendiente[]; no_aplica: FilaPendiente[]; generado: string };
+  detail?: string;
+};
+
+// (2026-11-10) Secciones de guías en curso de la pestaña Operación.
+type SeccionPend = 'vencidas' | 'pendientes' | 'no_aplica';
+
+// (2026-11-10, tarde) Columnas de las tablas de pendientes: TODAS ordenables
+// (clic encabezado asc → desc → orden del backend). `clave` alimenta
+// valorOrdenPend. «No aplica» no lleva columna de días (no tiene límite
+// evaluable, que es justamente su definición).
+const COLUMNAS_PEND = (seccion: SeccionPend): { clave: string; etiqueta: string; title?: string }[] => [
+  { clave: 'guia', etiqueta: 'Guía' },
+  { clave: 'destinatario', etiqueta: 'Destinatario' },
+  { clave: 'ciudad', etiqueta: 'Ciudad' },
+  { clave: 'emision', etiqueta: 'F. Emisión' },
+  { clave: 'limite', etiqueta: 'Cita / Promesa', title: 'Fecha con la que se juzga: la CITA de entrega (manual o agendada) si hay; si no, la fecha promesa' },
+  ...(seccion !== 'no_aplica'
+    ? [{ clave: 'dias', etiqueta: seccion === 'vencidas' ? 'Retraso' : 'Vence', title: seccion === 'vencidas' ? 'Días de retraso vs la cita o la fecha promesa' : 'Tiempo restante hasta su cita o fecha promesa' }]
+    : []),
+  { clave: 'estado', etiqueta: 'Estado' },
+];
+
+// Clave de orden de una fila (los ISO 'YYYY-MM-DD' ordenan bien como string).
+const valorOrdenPend = (p: FilaPendiente, campo: string): string | number => {
+  switch (campo) {
+    case 'guia': return p.guia;
+    case 'destinatario': return (p.destinatario || '').toLowerCase();
+    case 'ciudad': return (p.ciudad_destino || '').toLowerCase();
+    case 'emision': return p.fecha_emision || '';
+    case 'limite': return p.fecha_cita_usada || p.fecha_promesa || '';
+    case 'dias': return p.dias_vs_limite ?? -1e9; // sin límite evaluable al final en desc
+    default: return (p.estado || '').toLowerCase();
+  }
 };
 
 type UsoVehiculosResponse = {
@@ -350,7 +429,21 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // gráficos), «Operación» (cards de atención del período) y «Trazabilidad»
   // (consulta de guía en Siscore por SOAP — el mismo servicio del bot de
   // WhatsApp; nació como «Operación» y se movió aquí 2026-10-31).
-  const [pestanaPortal, setPestanaPortal] = useState<'gerenciales' | 'operacion' | 'trazabilidad'>('gerenciales');
+  // (2026-11-10) La pestaña activa vive en la URL (`?pestana=`): recargar o
+  // compartir el link devuelve a la MISMA pestaña. El componente monta con
+  // ssr:false → window siempre está disponible en el inicializador.
+  const [pestanaPortal, setPestanaPortal] = useState<'gerenciales' | 'operacion' | 'trazabilidad'>(() => {
+    const p = new URLSearchParams(window.location.search).get('pestana');
+    return p === 'operacion' || p === 'trazabilidad' ? p : 'gerenciales';
+  });
+  // Cambia la pestaña y refleja SIEMPRE el slug en la URL (replaceState: sin
+  // ensuciar el historial — atrás no cicla pestañas).
+  const cambiarPestana = (p: 'gerenciales' | 'operacion' | 'trazabilidad') => {
+    setPestanaPortal(p);
+    const url = new URL(window.location.href);
+    url.searchParams.set('pestana', p);
+    window.history.replaceState(null, '', url);
+  };
   const [inputGuiaOp, setInputGuiaOp] = useState('');
   const [tlHayMas, setTlHayMas] = useState(false);
   const tlRef = useRef<HTMLDivElement | null>(null);
@@ -385,12 +478,146 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       const j = await res.json().catch(() => null);
       if (!res.ok || !j?.success) throw new Error(j?.detail || 'No se pudo consultar la guía en este momento');
       setResultadoGuiaOp(j.data);
+      // (2026-11-10, tarde) La consulta puede haber DETECTADO una guía
+      // anulada (el WS en vivo la persiste y mueve de segmento) — las tablas
+      // de la pestaña Operación quedan VIEJAS en memoria: se invalidan para
+      // que se re-consulten al volver a esa pestaña (efecto lazy).
+      setFirmaPendCargados(null);
     } catch (err) {
       setErrorGuiaOp(err instanceof Error ? err.message : 'No se pudo consultar la guía en este momento');
     } finally {
       setConsultandoGuiaOp(false);
     }
   };
+
+  // (2026-11-10) Guía clicable (portal): abre la pestaña Trazabilidad en una
+  // PESTAÑA NUEVA del navegador con esa guía ya consultada — se usa en el
+  // detalle del día (modal del zoom de OT) y en las tablas de pendientes.
+  const abrirTrazabilidad = (guia: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('pestana', 'trazabilidad');
+    url.searchParams.set('guia', guia);
+    window.open(url.toString(), '_blank', 'noopener');
+  };
+  const celdaGuiaTraza = (guia: string) =>
+    modoExterno ? (
+      <button
+        type="button"
+        className="DC-guiaLinkTraza"
+        onClick={() => abrirTrazabilidad(guia)}
+        title="Ver la trazabilidad de esta guía (se abre en una pestaña nueva)"
+      >
+        {guia}
+      </button>
+    ) : (
+      <>{guia}</>
+    );
+
+  // (2026-11-10) ?guia= en la URL (links de las tablas del portal): al entrar
+  // a Trazabilidad con el parámetro, consulta esa guía de una vez y limpia el
+  // parámetro (navegar de vuelta a la pestaña NO re-consulta).
+  useEffect(() => {
+    if (!modoExterno || pestanaPortal !== 'trazabilidad') return;
+    const g = new URLSearchParams(window.location.search).get('guia')?.trim();
+    if (!g) return;
+    setInputGuiaOp(g);
+    consultarGuiaSiscore(g);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('guia');
+    window.history.replaceState(null, '', url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pestanaPortal, modoExterno]);
+
+  // (2026-11-10) Pestaña Operación: guías EN CURSO / NO APLICA con sus días
+  // vs la CITA o la PROMESA (endpoint /pendientes). Respeta los MISMOS
+  // filtros aplicados del dashboard (año/mes, grupo, destinatario y tipo de
+  // servicio — el portal externo arranca con CARGA por defecto).
+  // ⚠️ CARGA PEREZOSA: las cards solo muestran contadores (del resumen de
+  // /guias, que ya viaja); el fetch de /pendientes SOLO se dispara al ABRIR
+  // una card (clic) y al cambiar los filtros con la tabla abierta — nada de
+  // tablas cargadas con la página.
+  const [pendientesOp, setPendientesOp] = useState<Record<SeccionPend, FilaPendiente[]> | null>(null);
+  const [cargandoPendientes, setCargandoPendientes] = useState(false);
+  const [errorPendientes, setErrorPendientes] = useState<string | null>(null);
+  // Tabla abierta (una a la vez) y firma de los filtros con que se cargaron
+  // los datos — para detectar datos viejos al cambiar filtros.
+  const [tablaPendAbierta, setTablaPendAbierta] = useState<SeccionPend | null>(null);
+  const [firmaPendCargados, setFirmaPendCargados] = useState<string | null>(null);
+
+  const obtenerPendientes = async () => {
+    if (cargandoPendientes) return;
+    setCargandoPendientes(true);
+    setErrorPendientes(null);
+    try {
+      // Mismos filtros que construirParamsGuias (sin sin_filas ni dia).
+      const params = new URLSearchParams();
+      filtrosAplicados.anios.forEach(a => params.append('anio', String(a)));
+      filtrosAplicados.meses.forEach(m => params.append('mes', String(m)));
+      if (grupoAplicado) params.set('grupo', grupoAplicado);
+      destAplicado.forEach(d => params.append('destinatario', d));
+      tipoServAplicado.forEach(t => params.append('tipo_servicio', t));
+      if (modoExterno) {
+        const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2];
+        if (u) params.set('usuario', u);
+      }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/indicadores-cliente/${clienteId}/pendientes?${params.toString()}`);
+      const j: PendientesResponse = await res.json().catch(() => null);
+      if (!res.ok || !j?.success || !j.data) throw new Error(j?.detail || 'No se pudieron cargar las guías en curso');
+      setPendientesOp({
+        vencidas: j.data.vencidas || [],
+        pendientes: j.data.pendientes || [],
+        no_aplica: j.data.no_aplica || [],
+      });
+      setFirmaPendCargados(firmaFiltrosGuias());
+    } catch (err) {
+      setErrorPendientes(err instanceof Error ? err.message : 'No se pudieron cargar las guías en curso');
+    } finally {
+      setCargandoPendientes(false);
+    }
+  };
+
+  // Celda de días vs el límite: >0 retraso (rojo), <0 en plazo (verde), 0 vence hoy.
+  const celdaDiasLimite = (p: FilaPendiente, vencida: boolean) => {
+    if (p.dias_vs_limite == null) return <span title="Sin cita ni promesa evaluable">—</span>;
+    const d = p.dias_vs_limite;
+    if (vencida || d > 0) return <span className="DC-pendDias DC-pendDiasVenc" title="Días de retraso vs la cita o la fecha promesa">{d}d</span>;
+    if (d === 0) return <span className="DC-pendDias DC-pendDiasHoy" title="Su cita o promesa vence hoy">vence hoy</span>;
+    return <span className="DC-pendDias DC-pendDiasOk" title="Días que faltan para su cita o promesa">en {-d}d</span>;
+  };
+
+  // (2026-11-10, tarde) UX de las tablas de pendientes: orden por columna
+  // (asc → desc → orden del backend: clic cicla; 3º clic vuelve al de
+  // origen) y buscador por guía/destinatario/ciudad. Estado POR TABLA.
+  const [ordenPend, setOrdenPend] = useState<Record<SeccionPend, { campo: string; asc: boolean } | null>>({ vencidas: null, pendientes: null, no_aplica: null });
+  const [filtroPend, setFiltroPend] = useState<Record<SeccionPend, string>>({ vencidas: '', pendientes: '', no_aplica: '' });
+
+  const alternarOrdenPend = (seccion: SeccionPend, campo: string) =>
+    setOrdenPend(prev => {
+      const actual = prev[seccion];
+      if (actual?.campo === campo) {
+        // asc → desc → sin orden (el del backend)
+        return { ...prev, [seccion]: actual.asc ? { campo, asc: false } : null };
+      }
+      return { ...prev, [seccion]: { campo, asc: true } };
+    });
+
+  // Clic en una card de la pestaña Operación: abre/cierra SU tabla (una a la
+  // vez). El fetch lo dispara el efecto de abajo si no hay datos (o quedaron
+  // viejos por cambio de filtros).
+  const alternarTablaPend = (seccion: SeccionPend) =>
+    setTablaPendAbierta(prev => (prev === seccion ? null : seccion));
+  // Celda de la fecha límite (la CITA usada si hay; si no, la promesa).
+  const celdaLimite = (p: FilaPendiente) => {
+    const limite = p.fecha_cita_usada || p.fecha_promesa;
+    if (!limite) return <span title="Sin cita ni promesa evaluable">—</span>;
+    return (
+      <span title={p.origen_limite === 'CITA' ? 'Cita de entrega (la manual de /CitasEntrega o la agendada)' : 'Fecha promesa (emisión + días del destino)'}>
+        {formatearFecha(limite).replaceAll('-', '/')}
+        {p.origen_limite === 'CITA' && <span className="DC-guiaOrigPromesa DC-guiaOrigPromesaCita"> cita</span>}
+      </span>
+    );
+  };
+
   // Paginación de la tabla (la 1ª página viaja en /guias; el resto en /filas).
   const [paginacionGuias, setPaginacionGuias] = useState<PaginacionGuias | null>(null);
   const [cargandoMasGuias, setCargandoMasGuias] = useState(false);
@@ -577,6 +804,56 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       params.set('sin_filas', '1');
     }
     return params;
+  };
+
+  // (2026-11-10, tarde) Firma de los filtros aplicados: identifica los datos
+  // de /pendientes cargados (para no servir tabla vieja tras un «Filtrar»).
+  const firmaFiltrosGuias = () =>
+    [filtrosAplicados.anios.join(','), filtrosAplicados.meses.join(','), grupoAplicado ?? '',
+     [...destAplicado].sort().join(','), [...tipoServAplicado].sort().join(',')].join('|');
+
+  // Pendientes de la pestaña Operación — CARGA PEREZOSA: el fetch SOLO corre
+  // con una tabla abierta (clic en la card) y sin datos frescos para los
+  // filtros vigentes. Vive acá (después de las defs de los filtros) para
+  // poder listarlos como dependencias.
+  useEffect(() => {
+    if (modoExterno && pestanaPortal === 'operacion' && tablaPendAbierta
+        && (!pendientesOp || firmaPendCargados !== firmaFiltrosGuias() || errorPendientes)) {
+      obtenerPendientes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modoExterno, pestanaPortal, tablaPendAbierta, filtrosAplicados, grupoAplicado, destAplicado, tipoServAplicado]);
+
+  // (2026-11-10, tarde) Excel de una sección de pendientes: TODAS las guías
+  // de esa sección con los filtros del dashboard aplicados (el buscador de la
+  // tabla NO filtra el export — es solo ayuda visual). SheetJS dinámico.
+  const exportarPendientesExcel = async (seccion: SeccionPend) => {
+    const filas = pendientesOp?.[seccion] ?? [];
+    if (!filas.length) return;
+    const datos = filas.map(p => ({
+      'Guía': p.guia,
+      'Cliente': p.nombre_cliente || '',
+      'Tipo Servicio': p.tipo_servicio || '',
+      'F. Emisión': formatearFechaExcel(p.fecha_emision),
+      'Destinatario': p.destinatario || '',
+      'Ciudad': p.ciudad_destino || '',
+      'Cita usada': formatearFechaExcel(p.fecha_cita_usada),
+      'F. Cita TMS': p.fecha_cita_tms || '',
+      'F. Promesa': formatearFechaExcel(p.fecha_promesa),
+      'Origen límite': p.origen_limite || '',
+      'Días vs límite': p.dias_vs_limite ?? '',
+      'Estado': p.estado || '',
+    }));
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(datos);
+    ws['!cols'] = [
+      { wch: 13 }, { wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 20 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 18 },
+    ];
+    const nombreSeccion = seccion === 'vencidas' ? 'vencidas' : seccion === 'pendientes' ? 'en-curso' : 'no-aplica';
+    XLSX.utils.book_append_sheet(wb, ws, 'Guías');
+    XLSX.writeFile(wb, `${nombreSeccion}_${clienteId}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
   const obtenerDatos = async () => {
@@ -1696,8 +1973,10 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     return String(Math.round(n));
   };
 
-  // Chip de estado del TMS: ENTREGADO → verde; el resto → ámbar. (La regla
-  // ANULADA desapareció con la migración a PG puro: toda fila viene del TMS.)
+  // Chip de estado del TMS: ENTREGADO → verde; el resto → ámbar. (2026-11-10:
+  // ANULADA vuelve al catálogo de estados — su chip de ESTADO es ámbar, pero
+  // el OT la muestra con chip morado «⊘ Anul.» porque auto-cumple como
+  // «Con novedad».)
   const claseChipEstado = (estado: string) =>
     estado.toUpperCase() === 'ENTREGADO' ? 'DC-guiaChipEntregada' : 'DC-guiaChipProceso';
 
@@ -1790,10 +2069,13 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const filaOTExcel = (f: FilaGuia) => {
     const base = filaGuiaAExport(f);
     const seg = SEGMENTOS_OT.find(s => s.clave === segmentoDeFila(f));
-    const enCurso = !f.fecha_entrega;
+    // (2026-11-10) En curso = segmento Pendientes: fuera del % OT; sin «Días
+    // vs Promesa» (no hay entrega con qué comparar).
     let cumplio = '';
-    if (f.ot === 1) cumplio = enCurso ? 'SÍ (en curso)' : 'SÍ';
-    else if (f.ot === 0) cumplio = enCurso ? 'NO (en curso, vencida)' : 'NO';
+    if (f.anulada || f.estado === 'ANULADA') cumplio = 'SÍ (anulada)';
+    else if (f.ot_pendiente) cumplio = f.ot_pendiente_vencida ? 'PENDIENTE (VENCIDA)' : 'PENDIENTE';
+    else if (f.ot === 1) cumplio = 'SÍ';
+    else if (f.ot === 0) cumplio = 'NO';
     return {
       'Cliente': base['Cliente'],
       'Guía': base['Guía'],
@@ -1802,7 +2084,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       'F. Entrega': base['F. Entrega'],
       'F. Promesa': base['F. Promesa'],
       'Origen Promesa': base['Origen Promesa'],
-      'Días vs Promesa': diasVsPromesa(f),
+      'Días vs Promesa': f.ot_pendiente ? '' : diasVsPromesa(f),
       'Días Hábiles': base['Días Hábiles'],
       'Cumplió': cumplio,
       'Estado': base['Estado'],
@@ -1855,13 +2137,14 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   };
 
   // Segmento OT de una fila de guía — ESPEJO del _serie_ot del backend (mismo
-  // orden de prioridad: novedad > ot > estado) para filtrar el Excel del OT
+  // orden de prioridad: novedad > pendiente > ot) para filtrar el Excel del OT
   // por el filtro de leyenda activo y para el detalle del día.
   // (2026-10-31) Segmento de VEREDICTO (lógica del Excel real): novedad (TMS
-  // o justificada manual) auto-cumple; las en curso se juzgan contra HOY así
-  // que caen en cumplieron/noCumplieron según venza o no su cita/promesa.
+  // o justificada manual) auto-cumple. (2026-11-10) Las guías EN CURSO (sin
+  // fecha de entrega) van a pendientes/pendientesVencidas — fuera del % OT.
   const segmentoDeFila = (f: FilaGuia): string => {
     if (f.novedad || f.cumple_novedad) return 'conNovedad';
+    if (f.ot_pendiente) return f.ot_pendiente_vencida ? 'pendientesVencidas' : 'pendientes';
     if (f.ot === 1) return 'cumplieron';
     if (f.ot === 0) return 'noCumplieron';
     return 'noAplica';
@@ -1900,6 +2183,48 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     } finally {
       setCargandoDetalleOT(false);
     }
+  };
+
+  // (2026-11-10) Tick del eje Y del zoom de día: la ETIQUETA del segmento
+  // («Con novedad», «Pendientes»…) también abre el detalle — con pocas guías
+  // la barra queda muy angosta para darle clic, pero la etiqueta siempre está
+  // completa. Mismo toggle que la barra (clic en la activa cierra).
+  // ⚠️ Trampas de recharts (corregidas al vuelo el mismo día): el texto va en
+  // `payload.value` (NO en `props.value`), y `x`/`y` son el punto de ANCLAJE
+  // del texto (y = CENTRO de la fila, como el render por defecto con
+  // verticalAnchor="middle") — sumarle height/2 lo corre media fila hacia
+  // abajo y la etiqueta queda "al lado de la otra barra".
+  // ⚠️ (fix 2026-11-10, mismo día por la tarde) `width`/`height` del tick NO
+  // son de la FILA: recharts fusiona los props del EJE completo con los del
+  // tick (height ≈ 296px = todo el chart). Con `h = height` el rect de hit de
+  // CADA etiqueta cubría la columna entera y el del ÚLTIMO tick (la fila de
+  // arriba) se pintaba encima: tocar «Cumplieron» disparaba «Con novedad».
+  // Alto de fila = alto del eje ÷ ticks visibles (`visibleTicksCount`, que
+  // recharts SÍ pasa), acotado 18..28 para no invadir la fila vecina.
+  const tickSegmentoDia = (props: any) => {
+    const { x, y, width, height, visibleTicksCount, payload } = props;
+    const etiqueta = String(payload?.value ?? '');
+    const w = Number(width) || 110;
+    const fila = (Number(height) || 24) / Math.max(1, Number(visibleTicksCount) || 1);
+    const h = Math.min(28, Math.max(18, fila));
+    return (
+      <g
+        className="DC-tickSegmento"
+        onClick={() => abrirDetalleSegmento(etiqueta)}
+        role="button"
+        tabIndex={0}
+        aria-label={`Ver las guías de ${etiqueta}`}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') abrirDetalleSegmento(etiqueta); }}
+      >
+        <title>Ver las guías de {etiqueta}</title>
+        {/* hit area de toda la celda de la etiqueta (rect transparente ATRÁS,
+            centrado en y — y es el CENTRO, no el tope) */}
+        <rect x={Number(x) - w - 4} y={Number(y) - h / 2} width={w + 8} height={h} fill="transparent" />
+        <text x={Number(x)} y={Number(y)} textAnchor="end" dominantBaseline="central">
+          {etiqueta}
+        </text>
+      </g>
+    );
   };
 
   const exportarDetalleDia = async () => {
@@ -2686,7 +3011,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                   role="tab"
                   aria-selected={pestanaPortal === 'gerenciales'}
                   className={`DC-pestanaBtn ${pestanaPortal === 'gerenciales' ? 'DC-pestanaBtnActiva' : ''}`}
-                  onClick={() => setPestanaPortal('gerenciales')}
+                  onClick={() => cambiarPestana('gerenciales')}
                 >
                   📊 Gerenciales
                 </button>
@@ -2695,7 +3020,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                   role="tab"
                   aria-selected={pestanaPortal === 'operacion'}
                   className={`DC-pestanaBtn ${pestanaPortal === 'operacion' ? 'DC-pestanaBtnActiva' : ''}`}
-                  onClick={() => setPestanaPortal('operacion')}
+                  onClick={() => cambiarPestana('operacion')}
                 >
                   🚛 Operación
                 </button>
@@ -2704,7 +3029,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                   role="tab"
                   aria-selected={pestanaPortal === 'trazabilidad'}
                   className={`DC-pestanaBtn ${pestanaPortal === 'trazabilidad' ? 'DC-pestanaBtnActiva' : ''}`}
-                  onClick={() => setPestanaPortal('trazabilidad')}
+                  onClick={() => cambiarPestana('trazabilidad')}
                 >
                   🧭 Trazabilidad
                 </button>
@@ -2712,24 +3037,210 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
             )}
 
             {/* (2026-10-31) Vista OPERACIÓN: cards de atención del período
-                filtrado (mismos datos del fetch de /guias). */}
-            {modoExterno && pestanaPortal === 'operacion' && (
-              <div className="DC-opStats">
-                {([
-                  { icono: '📦', etiqueta: 'Pedidos entregados', valor: resumenGuias?.entregadas },
-                  { icono: '👥', etiqueta: 'Destinatarios atendidos', valor: resumenGuias?.destinatarios_atendidos },
-                  { icono: '📍', etiqueta: 'Ciudades atendidas', valor: resumenGuias?.ciudades_atendidas },
-                ] as const).map(c => (
-                  <div key={c.etiqueta} className="DC-opStat">
-                    <span className="DC-opStatIcono" aria-hidden="true">{c.icono}</span>
-                    <span className={`DC-opStatValor ${cargandoGuias ? 'DC-opStatShimmer' : ''}`}>
-                      {cargandoGuias ? '' : formatearEntero(c.valor ?? 0)}
-                    </span>
-                    <span className="DC-opStatLabel">{c.etiqueta}</span>
+                filtrado (mismos datos del fetch de /guias). (2026-11-10,
+                tarde) + cards CLICABLES de guías en curso / No aplica: el
+                contador sale del resumen de /guias (gratis) y el clic abre SU
+                tabla bajo demanda (carga perezosa — /pendientes NO se
+                consulta con la carga de la página). */}
+            {modoExterno && pestanaPortal === 'operacion' && (() => {
+              // «No aplica» = no evaluables − pendientes − vencidas (las
+              // anuladas/novedad ya están en los evaluables del resumen).
+              const noAplica = Math.max(
+                0,
+                (resumenGuias?.ot_no_evaluables ?? 0)
+                  - (resumenGuias?.ot_pendientes ?? 0)
+                  - (resumenGuias?.ot_pendientes_vencidas ?? 0),
+              );
+              return (
+                <div className="DC-opStats">
+                  {([
+                    { icono: '📦', etiqueta: 'Pedidos entregados', valor: resumenGuias?.entregadas },
+                    { icono: '👥', etiqueta: 'Destinatarios atendidos', valor: resumenGuias?.destinatarios_atendidos },
+                    { icono: '📍', etiqueta: 'Ciudades atendidas', valor: resumenGuias?.ciudades_atendidas },
+                  ] as const).map(c => (
+                    <div key={c.etiqueta} className="DC-opStat">
+                      <span className="DC-opStatIcono" aria-hidden="true">{c.icono}</span>
+                      <span className={`DC-opStatValor ${cargandoGuias ? 'DC-opStatShimmer' : ''}`}>
+                        {cargandoGuias ? '' : formatearEntero(c.valor ?? 0)}
+                      </span>
+                      <span className="DC-opStatLabel">{c.etiqueta}</span>
+                    </div>
+                  ))}
+                  {([
+                    { seccion: 'vencidas', icono: '🔴', etiqueta: 'Pendientes vencidas', valor: resumenGuias?.ot_pendientes_vencidas },
+                    { seccion: 'pendientes', icono: '🕒', etiqueta: 'Pendientes en curso', valor: resumenGuias?.ot_pendientes },
+                    { seccion: 'no_aplica', icono: '⚪', etiqueta: 'No aplica', valor: noAplica },
+                  ] as const).map(c => (
+                    <button
+                      key={c.seccion}
+                      type="button"
+                      className={`DC-opStat DC-opStatBtn ${tablaPendAbierta === c.seccion ? 'DC-opStatBtnActiva' : ''}`}
+                      onClick={() => alternarTablaPend(c.seccion)}
+                      aria-expanded={tablaPendAbierta === c.seccion}
+                      title={tablaPendAbierta === c.seccion ? 'Cerrar la tabla' : 'Ver el detalle en tabla (con export a Excel)'}
+                    >
+                      <span className="DC-opStatIcono" aria-hidden="true">{c.icono}</span>
+                      <span className={`DC-opStatValor ${cargandoGuias ? 'DC-opStatShimmer' : ''}`}>
+                        {cargandoGuias ? '' : formatearEntero(c.valor ?? 0)}
+                      </span>
+                      <span className="DC-opStatLabel">
+                        {c.etiqueta} <span className="DC-opStatAccion" aria-hidden="true">{tablaPendAbierta === c.seccion ? '▲' : '▾'}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* (2026-11-10, tarde) Tabla de la card ABIERTA (una a la vez):
+                /pendientes se consulta SOLO al abrir la card y al cambiar los
+                filtros con la tabla abierta (carga perezosa). Encabezados
+                ORDENABLES (asc → desc → orden de origen), buscador, guía
+                clicable a la Trazabilidad y EXPORT EXCEL de la sección (respeta
+                los filtros del dashboard; el buscador es solo ayuda visual). */}
+            {modoExterno && pestanaPortal === 'operacion' && tablaPendAbierta && (() => {
+              const seccion = tablaPendAbierta;
+              const esVencidas = seccion === 'vencidas';
+              const filas = pendientesOp?.[seccion] ?? [];
+              const columnas = COLUMNAS_PEND(seccion);
+              const q = filtroPend[seccion].trim().toLowerCase();
+              const ord = ordenPend[seccion];
+              const filtradas = q
+                ? filas.filter(p =>
+                    [p.guia, p.destinatario, p.ciudad_destino]
+                      .some(v => (v || '').toString().toLowerCase().includes(q)))
+                : filas;
+              const visibles = ord
+                ? [...filtradas].sort((a, b) => {
+                    const va = valorOrdenPend(a, ord.campo);
+                    const vb = valorOrdenPend(b, ord.campo);
+                    const cmp = typeof va === 'number' && typeof vb === 'number'
+                      ? va - vb
+                      : String(va).localeCompare(String(vb), 'es');
+                    return ord.asc ? cmp : -cmp;
+                  })
+                : filtradas;
+              const titulos: Record<SeccionPend, string> = {
+                vencidas: '🔴 Pendientes vencidas',
+                pendientes: '🕒 Pendientes en curso',
+                no_aplica: '⚪ No aplica',
+              };
+              const subs: Record<SeccionPend, string> = {
+                vencidas: 'En curso que ya pasaron su cita o fecha promesa sin entrega — de la más atrasada a la menos',
+                pendientes: 'En curso aún dentro de su cita o fecha promesa — la que vence primero arriba',
+                no_aplica: 'Sin cita ni fecha promesa evaluable — fuera del % OT — la más reciente primero',
+              };
+              const vacios: Record<SeccionPend, string> = {
+                vencidas: 'No hay guías pendientes vencidas',
+                pendientes: 'No hay guías en curso pendientes',
+                no_aplica: 'No hay guías sin promesa evaluable',
+              };
+              return (
+                <div className="IG-graficoContainer DC-opCard DC-pendCard">
+                  <div className="IG-graficoHeader">
+                    <div className="IG-graficoTituloWrap">
+                      <h2 className="IG-graficoTitulo">
+                        {titulos[seccion]}
+                        <span className="DC-detalleDiaN">
+                          {cargandoPendientes
+                            ? '…'
+                            : `${formatearEntero(visibles.length)}${visibles.length !== filas.length ? ` de ${formatearEntero(filas.length)}` : ''} guías`}
+                        </span>
+                      </h2>
+                      <p className="IG-graficoSub">{subs[seccion]}</p>
+                    </div>
+                    <div className="DC-detalleDiaAcciones">
+                      <button
+                        className="DC-botonExcelOT"
+                        onClick={() => exportarPendientesExcel(seccion)}
+                        disabled={!filas.length}
+                        title="Descargar TODAS las guías de esta sección en Excel (respeta los filtros del dashboard)"
+                      >
+                        <span className="DC-iconoExcel" aria-hidden="true">X</span> Excel
+                      </button>
+                      <button className="DC-detalleDiaCerrar" onClick={() => setTablaPendAbierta(null)} title="Cerrar la tabla">
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  {!cargandoPendientes && !errorPendientes && filas.length > 0 && (
+                    /* Buscador de la tabla (guía / destinatario / ciudad). */
+                    <div className="DC-pendToolbar">
+                      <div className="DC-pendBuscar">
+                        <span aria-hidden="true">🔎</span>
+                        <input
+                          type="text"
+                          placeholder="Buscar guía, destinatario o ciudad…"
+                          value={filtroPend[seccion]}
+                          onChange={e => setFiltroPend(prev => ({ ...prev, [seccion]: e.target.value }))}
+                        />
+                        {filtroPend[seccion] && (
+                          <button
+                            type="button"
+                            className="DC-pendBuscarLimpiar"
+                            onClick={() => setFiltroPend(prev => ({ ...prev, [seccion]: '' }))}
+                            title="Limpiar la búsqueda"
+                          >✕</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {cargandoPendientes ? (
+                    <CamionCargando texto="Cargando guías…" alto={120} />
+                  ) : errorPendientes ? (
+                    <p className="DC-opError">❗ {errorPendientes} <button type="button" className="DC-reintentar" onClick={obtenerPendientes}>Reintentar</button></p>
+                  ) : filas.length === 0 ? (
+                    <div className="IG-sinDatos"><p>{vacios[seccion]}</p></div>
+                  ) : visibles.length === 0 ? (
+                    <div className="IG-sinDatos"><p>Sin resultados para «{filtroPend[seccion].trim()}»</p></div>
+                  ) : (
+                    <div className="DC-detalleDiaTabla DC-pendTabla">
+                      <table className="IG-tabla">
+                        <thead>
+                          <tr>
+                            {columnas.map(c => {
+                              const activo = ord?.campo === c.clave;
+                              return (
+                                <th key={c.clave} title={c.title} aria-sort={activo ? (ord!.asc ? 'ascending' : 'descending') : 'none'}>
+                                  <button
+                                    type="button"
+                                    className={`DC-pendOrd ${activo ? 'DC-pendOrdActivo' : ''}`}
+                                    onClick={() => alternarOrdenPend(seccion, c.clave)}
+                                    title={`Ordenar por ${c.etiqueta}${activo ? (ord!.asc ? ' (ascendente)' : ' (descendente)') : ''}`}
+                                  >
+                                    {c.etiqueta}
+                                    <span className="DC-pendOrdFlecha" aria-hidden="true">
+                                      {activo ? (ord!.asc ? '▲' : '▼') : '⇅'}
+                                    </span>
+                                  </button>
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibles.map(p => (
+                            <tr key={p.guia}>
+                              <td className="DC-guiaCeldaNum">{celdaGuiaTraza(p.guia)}</td>
+                              <td className="DC-guiaCeldaDest">{p.destinatario ?? '—'}</td>
+                              <td className="DC-guiaCeldaDest">{p.ciudad_destino || '—'}</td>
+                              <td>{p.fecha_emision ? formatearFecha(p.fecha_emision).replaceAll('-', '/') : '—'}</td>
+                              <td>{celdaLimite(p)}</td>
+                              {seccion !== 'no_aplica' && <td>{celdaDiasLimite(p, esVencidas)}</td>}
+                              <td>
+                                {p.estado
+                                  ? <span className={`DC-guiaChip ${claseChipEstado(p.estado)}`}>{p.estado}</span>
+                                  : <span title={`Estado original del TMS: ${p.estado_crudo || '(vacío)'}`}>—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* (2026-10-30) Vista TRAZABILIDAD (nació como Operación): consulta
                 de guía en Siscore por SOAP — mismo servicio del bot de
@@ -2757,7 +3268,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                     {consultandoGuiaOp ? 'Consultando…' : 'Consultar'}
                   </button>
                 </div>
-                {consultandoGuiaOp && <p className="DC-opCargando">Buscando la guía…</p>}
+                {/* (2026-11-10) Espera de la consulta: camión Lottie de marca
+                    (ruedas + pista + rebote) en vez del texto plano. */}
+                {consultandoGuiaOp && <CamionCargando texto="Buscando la guía…" alto={140} />}
                 {errorGuiaOp && <p className="DC-opError">❗ {errorGuiaOp}</p>}
                 {resultadoGuiaOp && !resultadoGuiaOp.exists && (
                   <div className="IG-sinDatos"><p>La guía <b>{resultadoGuiaOp.guia}</b> no fue encontrada. Verifica el número e intenta de nuevo</p></div>
@@ -2841,31 +3354,42 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           const fechaRef = (porCita ? (ot.fecha_cita_usada || ot.fecha_promesa) : ot.fecha_promesa) as string | undefined;
                           const lblRef = porCita ? 'cita' : 'promesa';
                           let chip = 'No aplica', clase = 'DC-opChipOTSin', detalle = '';
-                          if (conNovedad) {
+                          if (ot.anulada) {
+                            // (2026-11-10) ANULADA: el servicio se canceló —
+                            // cuenta como cumplida («Con novedad»), con chip
+                            // propio para no confundir con una novedad real.
+                            chip = '⊘ Anulada';
+                            clase = 'DC-opChipOTJust';
+                            detalle = 'Guía anulada — cuenta como cumplida, no afecta el % OT en contra';
+                          } else if (conNovedad) {
                             chip = '✔ Con novedad';
                             clase = 'DC-opChipOTJust';
                             detalle = ot.entregada
                               ? `Entregada el ${fmt(ot.fecha_entrega)} — cuenta como cumplida`
                               : 'En curso — cuenta como cumplida';
+                          } else if (ot.pendiente) {
+                            // (2026-11-10) En curso = «Pendientes»/«Pendientes
+                            // vencidas»: fuera del % OT hasta que se entregue.
+                            chip = ot.pendiente_vencida ? '🕒 Pendiente (vencida)' : '🕒 Pendiente';
+                            clase = 'DC-opChipOTPend';
+                            detalle = fechaRef
+                              ? `${lblRef[0].toUpperCase()}${lblRef.slice(1)} ${fmt(fechaRef)}${ot.pendiente_vencida ? ' ya venció' : ' aún no vence'} — fuera del % OT mientras esté en curso`
+                              : 'En curso sin fecha de entrega — fuera del % OT';
                           } else if (ot.ot === 1) {
-                            chip = ot.entregada ? '✔ Cumplió' : '✔ En curso';
+                            chip = '✔ Cumplió';
                             clase = 'DC-opChipOTOk';
-                            detalle = ot.entregada
-                              ? `Entrega ${fmt(ot.fecha_entrega)} ≤ ${lblRef} ${fmt(fechaRef || '')}`
-                              : `${lblRef[0].toUpperCase()}${lblRef.slice(1)} ${fmt(fechaRef || '')} aún no vence`;
+                            detalle = `Entrega ${fmt(ot.fecha_entrega)} ≤ ${lblRef} ${fmt(fechaRef || '')}`;
                           } else if (ot.ot === 0) {
-                            chip = ot.entregada ? '✘ No cumplió' : '✘ Vencida (en curso)';
+                            chip = '✘ No cumplió';
                             clase = 'DC-opChipOTNo';
-                            detalle = ot.entregada
-                              ? `Entrega ${fmt(ot.fecha_entrega)} > ${lblRef} ${fmt(fechaRef || '')}`
-                              : `${lblRef[0].toUpperCase()}${lblRef.slice(1)} ${fmt(fechaRef || '')} ya venció`;
+                            detalle = `Entrega ${fmt(ot.fecha_entrega)} > ${lblRef} ${fmt(fechaRef || '')}`;
                           } else if (ot.entregada) {
                             detalle = 'Entregada sin fecha de promesa evaluable';
                           } else {
                             detalle = 'En curso sin promesa evaluable';
                           }
                           const title = [
-                            'On Time: entrega (o hoy si va en curso) vs cita/fecha promesa — misma regla del informe',
+                            'On Time: entrega vs cita/fecha promesa — misma regla del informe; las guías en curso son Pendientes y no cuentan en el % OT',
                             fechaRef ? `${porCita ? 'Cita' : 'Promesa'} ${fmt(fechaRef)}${ot.cita_manual ? ' (asignada manualmente)' : ''}` : null,
                             ot.fecha_promesa && !porCita ? `Promesa ${fmt(ot.fecha_promesa)} (${ot.origen_promesa === 'FALLBACK' ? 'fallback 12/8' : 'tabla de tiempos'})` : null,
                             ot.tipo_servicio ? `Tipo ${ot.tipo_servicio}${ot.ruta ? ` · ruta ${ot.ruta.toLowerCase()}` : ''}` : null,
@@ -3426,7 +3950,11 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                               type="category"
                               dataKey="etiqueta"
                               width={130}
-                              tick={{ fontSize: 12 }}
+                              /* (2026-11-10) Etiquetas CLICABLES: abren el mismo
+                                  detalle que tocar la barra (la barra puede ser
+                                  demasiado angosta con pocas guías). */
+                              tick={tickSegmentoDia}
+                              interval={0}
                             />
                             {/* Sin tooltip en móvil (mismo criterio que la pila):
                                 el tap abre el detalle de guías directamente. */}
@@ -3590,13 +4118,18 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                                       <th>F. Entrega</th>
                                       <th title="Fecha límite: la de CITA si es válida; si no, emisión + promesa del destino (días hábiles)">F. Promesa</th>
                                       <th title="Días hábiles transcurridos (sin sáb/dom/festivos)">Días háb.</th>
-                                      <th title="1 = entregada dentro de la fecha promesa; 0 = tarde; — = no evaluable">OT</th>
+                                      <th title="1 = entregada dentro de la fecha promesa; 0 = tarde; 🕒 = en curso (pendiente, no cuenta en el % OT); — = no evaluable">OT</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {filasDetalleDia.map(f => (
                                       <tr key={f.guia}>
-                                        <td className="DC-guiaCeldaNum">{f.guia}</td>
+                                        {/* (2026-11-10) Guía clicable: abre la
+                                            Trazabilidad del portal en una
+                                            pestaña nueva con esa guía (solo
+                                            modoExterno — el dashboard interno
+                                            no tiene pestañas). */}
+                                        <td className="DC-guiaCeldaNum">{celdaGuiaTraza(f.guia)}</td>
                                         <td className="DC-guiaCeldaDest">{f.ciudad_destino || '—'}</td>
                                         <td className="DC-guiaCeldaDest">{f.destinatario ?? '—'}</td>
                                         <td>{formatearFecha(f.fecha_emision).replaceAll('-', '/')}</td>
@@ -3625,7 +4158,19 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                                         </td>
                                         <td className="DC-guiaCeldaNum">{f.dias_habiles ?? '—'}</td>
                                         <td>
-                                          {f.ot === null
+                                          {(f.anulada || f.estado === 'ANULADA')
+                                            ? <span
+                                                className="DC-guiaChip DC-guiaChipJustificada"
+                                                title="Guía anulada — cuenta como novedad que cumple (segmento «Con novedad»)"
+                                              >⊘ Anul.</span>
+                                            : f.ot_pendiente
+                                            ? <span
+                                                className={`DC-guiaChip ${f.ot_pendiente_vencida ? 'DC-guiaChipOTPendVenc' : 'DC-guiaChipOTPend'}`}
+                                                title={f.ot_pendiente_vencida
+                                                  ? 'En curso: ya pasó su cita/promesa sin entrega — Pendiente vencida, no cuenta en el % OT'
+                                                  : 'En curso sin fecha de entrega — Pendiente, no cuenta en el % OT'}
+                                              >🕒 {f.ot_pendiente_vencida ? 'Venc.' : 'Pend.'}</span>
+                                            : f.ot === null
                                             ? '—'
                                             : <span className={`DC-guiaChip ${f.ot === 1 ? 'DC-guiaChipOTSi' : 'DC-guiaChipOTNo'}`}>{f.ot === 1 ? '✓ 1' : '✗ 0'}</span>}
                                         </td>
@@ -4052,7 +4597,7 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                               <th>F. Entrega</th>
                               <th title="Fecha límite: la de CITA si es válida; si no, emisión + promesa del destino (días hábiles)">F. Promesa</th>
                               <th title="Días hábiles transcurridos (sin sáb/dom/festivos)">Días háb.</th>
-                              <th title="1 = entregada dentro de la fecha promesa; 0 = tarde; — = no evaluable">OT</th>
+                              <th title="1 = entregada dentro de la fecha promesa; 0 = tarde; 🕒 = en curso (pendiente, no cuenta en el % OT); — = no evaluable">OT</th>
                               <th>F. Digitalización</th>
                               <th>F. Cita</th>
                             </tr>
@@ -4092,7 +4637,19 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                                 </td>
                                 <td className="DC-guiaCeldaNum">{f.dias_habiles ?? '—'}</td>
                                 <td>
-                                  {f.ot === null
+                                  {(f.anulada || f.estado === 'ANULADA')
+                                    ? <span
+                                        className="DC-guiaChip DC-guiaChipJustificada"
+                                        title="Guía anulada — cuenta como novedad que cumple (segmento «Con novedad»)"
+                                      >⊘ Anul.</span>
+                                    : f.ot_pendiente
+                                    ? <span
+                                        className={`DC-guiaChip ${f.ot_pendiente_vencida ? 'DC-guiaChipOTPendVenc' : 'DC-guiaChipOTPend'}`}
+                                        title={f.ot_pendiente_vencida
+                                          ? 'En curso: ya pasó su cita/promesa sin entrega — Pendiente vencida, no cuenta en el % OT'
+                                          : 'En curso sin fecha de entrega — Pendiente, no cuenta en el % OT'}
+                                      >🕒 {f.ot_pendiente_vencida ? 'Venc.' : 'Pend.'}</span>
+                                    : f.ot === null
                                     ? '—'
                                     : <span className={`DC-guiaChip ${f.ot === 1 ? 'DC-guiaChipOTSi' : 'DC-guiaChipOTNo'}`}>{f.ot === 1 ? '✓ 1' : '✗ 0'}</span>}
                                 </td>

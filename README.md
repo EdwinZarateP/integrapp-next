@@ -812,3 +812,26 @@ OPERATIVO — mismo filtro que novedadesot).
   etiqueta «cita»; el tooltip marca «(asignada manualmente)» cuando aplica.
 
 Dep backend + frontend JUNTOS.
+
+## Actualizaciones Recientes (2026-11-10)
+
+### ANALISTA entra al portal «Mis Indicadores»
+
+El perfil **ANALISTA** ve los indicadores del portal de clientes externos, con el mismo tratamiento que VISUALIZADOR (todos los dashboards publicados, sin asignación — backend en `integrappi/README.md` 2026-11-10):
+
+- **Menú `/indicadores`** (`app/indicadores/page.tsx`): la tarjeta «Mis Indicadores (portal clientes)» (`indicadoresAdmin`) ahora incluye ANALISTA.
+- **Gate del panel** (`Paginas/IndicadoresMisClientes/PanelMisClientes`): `PERFILES_PERMITIDOS` = CLIENTE/ADMIN/VISUALIZADOR/ANALISTA.
+- El menú hamburguesa del dashboard ya mostraba «Mis indicadores» para cualquier perfil ≠ CLIENTE (sin cambio).
+
+Dep backend + frontend JUNTOS.
+
+### Portal Kabi — guías en curso en Operación + guía clicable → Trazabilidad
+
+- **Pestaña Operación**: bajo las 3 cards de atención, **3 cards CLICABLES** — 🔴 Pendientes vencidas / 🕒 Pendientes en curso / ⚪ No aplica — con contadores del resumen de `/guias` (No aplica = no evaluables − pendientes − vencidas). **Carga perezosa**: el clic abre SU tabla (una a la vez, ✕/re-clic cierra) y SOLO entonces se consulta `GET /pendientes` (backend: `integrappi/README.md` 2026-11-10); con la tabla abierta, cambiar filtros re-consulta (`firmaFiltrosGuias` vs `firmaPendCargados`). La tabla: columnas ordenables (asc→desc→origen), buscador guía/destinatario/ciudad, guía clicable → Trazabilidad, zebra+hover, **botón Excel** (SheetJS dinámico) con TODAS las guías de la sección respetando los filtros del dashboard (el buscador NO filtra el export), y el camión Lottie mientras carga. «No aplica» sin columna de días (sin límite evaluable por definición), la más reciente primero.
+- **Guía clicable** (solo `modoExterno`): en el modal del detalle del día (zoom de día del OT) y en las tablas de pendientes, la guía es un link (`DC-guiaLinkTraza`) que abre `?pestana=trazabilidad&guia=<nº>` en una **pestaña nueva**; la pestaña Trazabilidad al montar con `?guia=` consulta esa guía de una vez y limpia el parámetro (volver a la pestaña no re-consulta).
+- **ANULADAS** (caso 801232571): chip morado **«⊘ Anulada»** en el bloque On Time de la Trazabilidad («cuenta como cumplida»), «⊘ Anul.» en la columna OT del informe y del detalle del día, y «SÍ (anulada)» en el Cumplió de los Excel — el backend las manda a «Con novedad» (ver `integrappi/README.md` 2026-11-10).
+- **Zoom de día — etiquetas del eje Y clicables**: en «On Time por período» (vista de día), la etiqueta del segmento («Con novedad», «Pendientes»…) abre el MISMO detalle que tocar la barra (mismo toggle) — con pocas guías la barra queda demasiado angosta para darle (`tickSegmentoDia` + `.DC-tickSegmento`, hover azul subrayado, teclado Enter/Espacio). ⚠️ **Trampas recharts**: en los ticks custom el texto va en **`props.payload.value`**, NO en `props.value` (undefined → etiquetas desaparecen); y `x`/`y` son el punto de ANCLAJE del texto (**y = CENTRO de la fila**, igual que el render por defecto con `verticalAnchor="middle"`) — sumarle `height/2` corre la etiqueta media fila hacia abajo y queda al lado de la barra siguiente. Además el tipo del `tick` exige retornar SIEMPRE un elemento (sin `return null`).
+
+### Camión Lottie de marca en la espera de la Trazabilidad (`CamionCargando`)
+
+Al consultar una guía, en vez del texto plano «Buscando la guía…» sale un **camión animado Lottie de marca** (caja verde #98C74C + cabina oscura + ruedas girando + pista pasando + rebote de suspensión, 2 s de loop perfecto). Componente **reutilizable**: `Componentes/CamionCargando` (`{texto, alto}`) — dependencia nueva **`lottie-react`**, con import DINÁMICO al montar (patrón XLSX/@react-pdf: ~250KB fuera del bundle inicial); la animación (`camion.json`) es un Lottie **escrito a mano con builder** (no hay asset externo con licencia). Respeta `prefers-reduced-motion` (emoji 🚛 + texto). ⚠️ **Trampa Lottie**: el `tr` (transform) de cada grupo debe ir como **ÚLTIMO item DENTRO de `it`** — como hermano de `it` lottie lo ignora silenciosamente y no renderiza NADA (0 `<path>`, sin error). Validado con Edge headless (`--dump-dom` + `--screenshot` + análisis de píxeles). Dep solo frontend.

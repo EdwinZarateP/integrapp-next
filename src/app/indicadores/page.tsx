@@ -86,8 +86,9 @@ const IndicadoresMenu: React.FC = () => {
   // y /indicadores los redirige) — la tarjeta es el acceso del ADMIN para probarlo.
   // (2026-11-05) También para VISUALIZADOR (solo lectura, ve los dashboards
   // publicados sin asignación).
+  // (2026-11-10) También para ANALISTA (ve los indicadores del portal cliente).
   const indicadoresAdmin =
-    ['ADMIN', 'VISUALIZADOR'].includes(datosUsuario?.perfil || '')
+    ['ADMIN', 'VISUALIZADOR', 'ANALISTA'].includes(datosUsuario?.perfil || '')
       ? [
           {
             id: 'mis-clientes',

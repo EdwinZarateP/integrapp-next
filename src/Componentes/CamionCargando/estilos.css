@@ -1,0 +1,32 @@
+/* ── CamionCargando (2026-11-10): camión Lottie de marca para estados de
+   espera. Clases CC-* propias del componente (no del portal). ── */
+
+.CC-camion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem 0 0.2rem;
+}
+
+.CC-lottie {
+  width: min(320px, 78vw);
+  display: flex;
+  justify-content: center;
+}
+.CC-lottie svg { width: 100%; height: 100%; }
+
+.CC-texto {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #5b6b7f;
+  text-align: center;
+}
+
+/* Fallback discreto para quien desactiva las animaciones: sin Lottie, el
+   emoji + texto bastan (el SVG queda oculto). */
+.CC-emoji { display: none; font-size: 1.6rem; line-height: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .CC-lottie { display: none; }
+  .CC-emoji { display: inline; }
+}

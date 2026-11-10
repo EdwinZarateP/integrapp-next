@@ -11,9 +11,10 @@ import '@/Componentes/IndicadoresChrome/estilos.css';
 import './estilos.css';
 
 // Perfiles que entran al portal «Mis Indicadores»: CLIENTE (externo, solo ve
-// sus clientes asignados), ADMIN (pruebas/soporte) y VISUALIZADOR (solo
-// lectura, ve todos los dashboards publicados — 2026-11-05).
-const PERFILES_PERMITIDOS = ['CLIENTE', 'ADMIN', 'VISUALIZADOR'];
+// sus clientes asignados), ADMIN (pruebas/soporte), VISUALIZADOR (solo
+// lectura, ve todos los dashboards publicados — 2026-11-05) y ANALISTA
+// (mismo tratamiento — 2026-11-10).
+const PERFILES_PERMITIDOS = ['CLIENTE', 'ADMIN', 'VISUALIZADOR', 'ANALISTA'];
 
 // Cliente del panel (respuesta de /indicadores-cliente/mis-indicadores)
 interface ClienteAsignado {
@@ -43,7 +44,7 @@ const PanelMisClientes: React.FC = () => {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Gate: solo CLIENTE/ADMIN (los internos usan /indicadores/clientes).
+  // Gate: solo perfiles del portal (los demás internos usan /indicadores/clientes).
   useEffect(() => {
     const usuarioMatch = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     const perfilMatch = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/);
