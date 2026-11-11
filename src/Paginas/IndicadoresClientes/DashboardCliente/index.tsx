@@ -3318,8 +3318,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           el manifiesto vigente de la placa no declara ninguna
                           de las guías del viaje → la posición de Monitor puede
                           ser de OTRO despacho. El CLIENTE externo no ve nada
-                          de Monitor, así que tampoco este aviso. */}
+                          de Monitor, así que tampoco este aviso. Tampoco si el
+                          manifiesto está Finalizado: no hay viaje en curso, no
+                          tiene sentido hablar de carro sin planillar (y no se
+                          ve NADA de Monitor). */}
                       {resultadoGuiaOp.vehiculo?.vehiculo?.coincide_guia === false
+                        && String(resultadoGuiaOp.vehiculo.vehiculo.estado_viaje || '').trim().toLowerCase() !== 'finalizado'
                         && !ocultarMonitorSinCoincidencia(resultadoGuiaOp.vehiculo.vehiculo, datosUsuario?.perfil) && (
                         <p
                           className="DC-opVehiculoAviso"
@@ -3360,7 +3364,10 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           // (2026-11-11) Sin coincidencia de guías en el
                           // manifiesto, la ETA es de OTRO viaje: el CLIENTE
                           // externo no la ve (perfiles internos sí, con el
-                          // aviso en el panel 🚛).
+                          // aviso en el panel 🚛). Tampoco si el manifiesto
+                          // está Finalizado — la ETA sería de un viaje que ya
+                          // terminó (caso 801227068: ETA de hace 2 meses).
+                          && String(resultadoGuiaOp.vehiculo.vehiculo.estado_viaje || '').trim().toLowerCase() !== 'finalizado'
                           && !ocultarMonitorSinCoincidencia(resultadoGuiaOp.vehiculo.vehiculo, datosUsuario?.perfil) && (() => {
                           const v = resultadoGuiaOp.vehiculo!.vehiculo!;
                           return (
@@ -3586,7 +3593,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                         // perfiles internos del portal (ADMIN/VISUALIZADOR/
                         // ANALISTA) sí lo ven, con el aviso «posible carro
                         // sin planillar».
-                        && !ocultarMonitorSinCoincidencia(resultadoGuiaOp.vehiculo.vehiculo, datosUsuario?.perfil) && (() => {
+                        && !ocultarMonitorSinCoincidencia(resultadoGuiaOp.vehiculo.vehiculo, datosUsuario?.perfil)
+                        // (2026-11-11, caso 801227068) Manifiesto FINALIZADO:
+                        // no se ve NADA de Monitor — la placa no tiene viaje
+                        // en curso y la posición/ETA son de un despacho que ya
+                        // terminó (podría ser de hace meses).
+                        && String(resultadoGuiaOp.vehiculo.vehiculo.estado_viaje || '').trim().toLowerCase() !== 'finalizado' && (() => {
                         const vh = resultadoGuiaOp.vehiculo.vehiculo;
                         const tieneCoordenadas = typeof vh.lat === 'number' && typeof vh.lng === 'number';
                         const mapsUrl = `https://www.google.com/maps?q=${vh.lat},${vh.lng}`;
