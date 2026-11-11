@@ -156,13 +156,15 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
                   return null;
                 }
                 // Novedades OT Justificadas: carga del Excel de guías con causal
-                // + justificación para el On Time (2026-10-29)
-                if (item.id === 'novedadesot' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+                // + justificación para el On Time (2026-10-29; +ANALISTA
+                // 2026-11-11)
+                if (item.id === 'novedadesot' && !['ADMIN', 'ANALISTA', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
                   return null;
                 }
                 // Citas de Entrega: registro manual de fecha + franja horaria
-                // que GANA sobre la cita agendada en el cálculo OT (2026-11-09)
-                if (item.id === 'citasentrega' && !['ADMIN', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
+                // que GANA sobre la cita agendada en el cálculo OT
+                // (2026-11-09; +ANALISTA 2026-11-11)
+                if (item.id === 'citasentrega' && !['ADMIN', 'ANALISTA', 'OPERATIVO', 'CONTROL', 'COORDINADOR'].includes(perfil)) {
                   return null;
                 }
                 return (

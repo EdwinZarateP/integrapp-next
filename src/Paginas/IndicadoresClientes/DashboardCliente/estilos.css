@@ -889,6 +889,20 @@
   font-weight: 800;
   color: #0369A1;
 }
+/* (2026-11-11) Aviso URGENTE perfiles internos: el manifiesto vigente de la
+   placa no declara las guías consultadas (otro viaje) — posible carro sin
+   planillar. Rojo de alerta (#DC2626, mismo del segmento «No cumplieron»). */
+.DC-opVehiculoAviso {
+  margin: 0.4rem 0 0;
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+  background: #FEE2E2;
+  border: 1px solid #DC2626;
+  color: #B91C1C;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
 .DC-opVehiculoTexto {
   margin: 0;
   font-size: 0.85rem;

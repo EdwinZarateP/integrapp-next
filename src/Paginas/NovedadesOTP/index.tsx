@@ -9,8 +9,8 @@
  * Todo queda con trazabilidad: quién registró/actualizó cada justificación y
  * bitácora de auditoría (carga/actualización/borrado) en el backend.
  *
- * Perfiles: ADMIN, COORDINADOR, CONTROL, OPERATIVO (el backend también lo
- * exige; aquí solo se oculta la UI).
+ * Perfiles: ADMIN, ANALISTA, COORDINADOR, CONTROL, OPERATIVO (el backend
+ * también lo exige; aquí solo se oculta la UI).
  */
 'use client';
 
@@ -20,7 +20,7 @@ import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import './estilos.css';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-const PERFILES_AUTORIZADOS = ['ADMIN', 'COORDINADOR', 'CONTROL', 'OPERATIVO'];
+const PERFILES_AUTORIZADOS = ['ADMIN', 'ANALISTA', 'COORDINADOR', 'CONTROL', 'OPERATIVO'];
 
 type Novedad = {
   id: string;

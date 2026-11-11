@@ -144,6 +144,9 @@ type FilaGuia = {
   // (2026-11-10) Guía ANULADA (estado del informe o detectada por el WS de
   // Siscore en vivo): auto-cumple como «Con novedad».
   anulada?: boolean;
+  // (2026-11-11) DEVOLUCIÓN TOTAL (novedad del informe TMS: la carga volvió
+  // completa al remitente): auto-cumple como «Con novedad».
+  devolucion_total?: boolean;
 };
 
 type ResumenGuias = {
@@ -210,11 +213,24 @@ const useEsMovil = () => {
 const SEGMENTOS_OT: { clave: keyof BucketOT; color: string; etiqueta: string; explica: string }[] = [
   { clave: 'cumplieron', color: '#16A34A', etiqueta: 'Cumplieron', explica: 'Entregadas dentro de la cita o la fecha promesa' },
   { clave: 'noCumplieron', color: '#DC2626', etiqueta: 'No cumplieron', explica: 'Entregadas después de la cita/promesa' },
-  { clave: 'conNovedad', color: '#4a3aa7', etiqueta: 'Con novedad', explica: 'Con novedad del TMS, justificada (/Novedades OT) o guía ANULADA: cuentan como cumplidas en el % OT' },
+  { clave: 'conNovedad', color: '#4a3aa7', etiqueta: 'Con novedad', explica: 'Con novedad del TMS, justificada (/Novedades OT), guía ANULADA o con DEVOLUCIÓN TOTAL: cuentan como cumplidas en el % OT' },
   { clave: 'pendientes', color: '#F59E0B', etiqueta: 'Pendientes', explica: 'En curso sin fecha de entrega, aún dentro de la cita/promesa (no cuentan en el % OT)' },
   { clave: 'pendientesVencidas', color: '#EA580C', etiqueta: 'Pendientes vencidas', explica: 'En curso que ya pasó su cita/promesa sin entrega (no cuentan en el % OT)' },
   { clave: 'noAplica', color: '#9CA3AF', etiqueta: 'No aplica', explica: 'Sin promesa evaluable (no cuentan en el % OT)' },
 ];
+
+// (2026-11-11) El manifiesto VIGENTE que devuelve Monitor no siempre es el
+// viaje de las guías consultadas (la placa puede estar despachada para OTRO
+// cliente). `coincide_guia=false` = ninguna guía del vehículo aparece en el
+// `clientreferencenumber` de las remesas del manifiesto. En ese caso el
+// CLIENTE externo NO ve nada de Monitor; los perfiles internos habilitados
+// para el portal lo ven con el aviso «posible carro sin planillar».
+// (2026-11-11: +OPERATIVO, que entró al portal el mismo día)
+const PERFILES_PORTAL_INTERNO = ['ADMIN', 'VISUALIZADOR', 'ANALISTA', 'OPERATIVO'];
+const ocultarMonitorSinCoincidencia = (vh: unknown, perfil?: string) =>
+  (vh as { coincide_guia?: boolean } | null)?.coincide_guia === false
+  && !PERFILES_PORTAL_INTERNO.includes((perfil || '').toUpperCase());
+
 
 // (2026-10-30) OT agregado por un campo PG (ciudad_destino / destinatario)
 // para las barras horizontales del portal de clientes — mismos conteos del
@@ -2073,6 +2089,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     // vs Promesa» (no hay entrega con qué comparar).
     let cumplio = '';
     if (f.anulada || f.estado === 'ANULADA') cumplio = 'SÍ (anulada)';
+    else if (f.devolucion_total) cumplio = 'SÍ (devolución total)';
     else if (f.ot_pendiente) cumplio = f.ot_pendiente_vencida ? 'PENDIENTE (VENCIDA)' : 'PENDIENTE';
     else if (f.ot === 1) cumplio = 'SÍ';
     else if (f.ot === 0) cumplio = 'NO';
@@ -3296,6 +3313,21 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                     : null;
                   return (
                     <div className="DC-opResultado">
+                      {/* (2026-11-11) ADVERTENCIA «posible carro sin planillar»
+                          PRIMERO en pantalla (perfiles internos del portal):
+                          el manifiesto vigente de la placa no declara ninguna
+                          de las guías del viaje → la posición de Monitor puede
+                          ser de OTRO despacho. El CLIENTE externo no ve nada
+                          de Monitor, así que tampoco este aviso. */}
+                      {resultadoGuiaOp.vehiculo?.vehiculo?.coincide_guia === false
+                        && !ocultarMonitorSinCoincidencia(resultadoGuiaOp.vehiculo.vehiculo, datosUsuario?.perfil) && (
+                        <p
+                          className="DC-opVehiculoAviso"
+                          title="Ninguna de las guías de este vehículo aparece en las remesas del manifiesto vigente de Monitor: la posición puede ser de otro despacho de la placa (p. ej. de otro cliente) y no del viaje de esta guía."
+                        >
+                          🚨 Posible carro sin planillar
+                        </p>
+                      )}
                       {/* RESUMEN: destino (principal) + ESTADO ACTUAL en badge
                           (lo primero que el cliente quiere saber). */}
                       <div className="DC-opResumen">
@@ -3324,7 +3356,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                             Time», que es lo primero que el cliente quiere ver;
                             el detalle completo sigue en el panel 🚛 de abajo. */}
                         {resultadoGuiaOp.vehiculo?.ok && resultadoGuiaOp.vehiculo.existe
-                          && resultadoGuiaOp.vehiculo.vehiculo?.eta_fecha && (() => {
+                          && resultadoGuiaOp.vehiculo.vehiculo?.eta_fecha
+                          // (2026-11-11) Sin coincidencia de guías en el
+                          // manifiesto, la ETA es de OTRO viaje: el CLIENTE
+                          // externo no la ve (perfiles internos sí, con el
+                          // aviso en el panel 🚛).
+                          && !ocultarMonitorSinCoincidencia(resultadoGuiaOp.vehiculo.vehiculo, datosUsuario?.perfil) && (() => {
                           const v = resultadoGuiaOp.vehiculo!.vehiculo!;
                           return (
                             <div
@@ -3361,6 +3398,13 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                             chip = '⊘ Anulada';
                             clase = 'DC-opChipOTJust';
                             detalle = 'Guía anulada — cuenta como cumplida, no afecta el % OT en contra';
+                          } else if (ot.devolucion_total) {
+                            // (2026-11-11) DEVOLUCIÓN TOTAL (novedad del TMS):
+                            // la carga volvió completa al remitente — mismo
+                            // trato que la anulada, con chip propio.
+                            chip = '↩ Devolución total';
+                            clase = 'DC-opChipOTJust';
+                            detalle = 'La carga se devolvió completa al remitente — cuenta como cumplida, no afecta el % OT en contra';
                           } else if (conNovedad) {
                             chip = '✔ Con novedad';
                             clase = 'DC-opChipOTJust';
@@ -3483,11 +3527,66 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           🔗 Seguimiento en línea
                         </a>
                       )}
+                      {/* (2026-11-09; movida 2026-11-11 a pedido del usuario
+                          para que salga ANTES del mapa) CITA DE ENTREGA
+                          asignada manualmente (/CitasEntrega, Mongo): fecha
+                          vigente (la que se usó para el veredicto OT de
+                          arriba) + franja + quién la asignó; las re-agendas
+                          anteriores quedan listadas abajo. */}
+                      {resultadoGuiaOp.cita_entrega && (() => {
+                        const ce = resultadoGuiaOp.cita_entrega;
+                        return (
+                          <div className="DC-opCitaEntrega">
+                            <span className="DC-opCitaEntregaTitulo">
+                              📅 Cita de entrega: {formatearFecha(ce.fecha)}
+                              {ce.hora_inicio && ce.hora_fin ? ` · ${ce.hora_inicio}–${ce.hora_fin}` : ''}
+                            </span>
+                            <span className="DC-opCitaEntregaTexto">
+                              Franja en la que el cliente puede recibir — es la fecha con la que se evaluó el On Time.
+                            </span>
+                            {(ce.nombre || ce.fecha_asignada) && (
+                              <span className="DC-opCitaEntregaPor">
+                                Asignada por: {ce.nombre || '—'}
+                                {ce.fecha_asignada ? ` · ${formatearFecha(String(ce.fecha_asignada).slice(0, 10))}` : ''}
+                              </span>
+                            )}
+                            {Array.isArray(ce.anteriores) && ce.anteriores.length > 0 && (
+                              <details className="DC-opCitaEntregaHist">
+                                <summary>Citas anteriores ({ce.anteriores.length}) · de la más reciente a la más antigua</summary>
+                                <ul>
+                                  {ce.anteriores.map((a: {
+                                    previo?: { fecha?: string; hora_inicio?: string; hora_fin?: string };
+                                    nuevo?: { fecha?: string; hora_inicio?: string; hora_fin?: string };
+                                    nombre?: string; cambiada?: string;
+                                  }, i: number) => (
+                                    <li key={i}>
+                                      {a.nuevo?.fecha
+                                        ? `Cambió a ${formatearFecha(a.nuevo.fecha)}${a.nuevo.hora_inicio && a.nuevo.hora_fin ? ` · ${a.nuevo.hora_inicio}–${a.nuevo.hora_fin}` : ''}`
+                                        : (a.previo?.fecha ? `Cita ${formatearFecha(a.previo.fecha)}` : 'Cita anterior')}
+                                      {a.previo?.fecha && a.nuevo?.fecha ? ` (antes ${formatearFecha(a.previo.fecha)})` : ''}
+                                      {a.nombre ? ` — ${a.nombre}` : ''}
+                                      {a.cambiada ? ` · ${formatearFecha(String(a.cambiada).slice(0, 10))}` : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </details>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {/* (2026-11-09) UBICACIÓN DEL VEHÍCULO (API Monitor de
                           Mayasoft): el backend la adjunta SOLO en guías no
                           entregadas con placa — última posición GPS del
                           despacho vigente de esa placa + mapa embebido. */}
-                      {resultadoGuiaOp.vehiculo?.ok && resultadoGuiaOp.vehiculo.existe && resultadoGuiaOp.vehiculo.vehiculo && (() => {
+                      {resultadoGuiaOp.vehiculo?.ok && resultadoGuiaOp.vehiculo.existe && resultadoGuiaOp.vehiculo.vehiculo
+                        // (2026-11-11) Sin coincidencia de guías en el
+                        // manifiesto de Monitor (coincide_guia=false): el
+                        // CLIENTE externo NO ve el panel — la posición es de
+                        // otro viaje de la placa, mostrarla confundiría. Los
+                        // perfiles internos del portal (ADMIN/VISUALIZADOR/
+                        // ANALISTA) sí lo ven, con el aviso «posible carro
+                        // sin planillar».
+                        && !ocultarMonitorSinCoincidencia(resultadoGuiaOp.vehiculo.vehiculo, datosUsuario?.perfil) && (() => {
                         const vh = resultadoGuiaOp.vehiculo.vehiculo;
                         const tieneCoordenadas = typeof vh.lat === 'number' && typeof vh.lng === 'number';
                         const mapsUrl = `https://www.google.com/maps?q=${vh.lat},${vh.lng}`;
@@ -3496,6 +3595,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                             <span className="DC-opVehiculoTitulo">
                               🚛 Ubicación del vehículo{vh.placa ? ` · ${vh.placa}` : ''}
                             </span>
+                            {/* (2026-11-11) El aviso «posible carro sin planillar»
+                                se muestra PRIMERO en pantalla (top del
+                                resultado), no aquí dentro. */}
                             {vh.ubicacion && <p className="DC-opVehiculoTexto">{vh.ubicacion}</p>}
                             <div className="DC-opVehiculoChips">
                               {vh.velocidad != null && <span className="DC-opVehiculoChip">⏱ {vh.velocidad} km/h</span>}
@@ -3555,51 +3657,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                           )}
                         </div>
                       )}
-                      {/* (2026-11-09) CITA DE ENTREGA asignada manualmente
-                          (/CitasEntrega): fecha vigente (la que se usó para el
-                          veredicto OT de arriba) + franja + quién la asignó;
-                          las re-agendas anteriores quedan listadas abajo. */}
-                      {resultadoGuiaOp.cita_entrega && (() => {
-                        const ce = resultadoGuiaOp.cita_entrega;
-                        return (
-                          <div className="DC-opCitaEntrega">
-                            <span className="DC-opCitaEntregaTitulo">
-                              📅 Cita de entrega: {formatearFecha(ce.fecha)}
-                              {ce.hora_inicio && ce.hora_fin ? ` · ${ce.hora_inicio}–${ce.hora_fin}` : ''}
-                            </span>
-                            <span className="DC-opCitaEntregaTexto">
-                              Franja en la que el cliente puede recibir — es la fecha con la que se evaluó el On Time.
-                            </span>
-                            {(ce.nombre || ce.fecha_asignada) && (
-                              <span className="DC-opCitaEntregaPor">
-                                Asignada por: {ce.nombre || '—'}
-                                {ce.fecha_asignada ? ` · ${formatearFecha(String(ce.fecha_asignada).slice(0, 10))}` : ''}
-                              </span>
-                            )}
-                            {Array.isArray(ce.anteriores) && ce.anteriores.length > 0 && (
-                              <details className="DC-opCitaEntregaHist">
-                                <summary>Citas anteriores ({ce.anteriores.length}) · de la más reciente a la más antigua</summary>
-                                <ul>
-                                  {ce.anteriores.map((a: {
-                                    previo?: { fecha?: string; hora_inicio?: string; hora_fin?: string };
-                                    nuevo?: { fecha?: string; hora_inicio?: string; hora_fin?: string };
-                                    nombre?: string; cambiada?: string;
-                                  }, i: number) => (
-                                    <li key={i}>
-                                      {a.nuevo?.fecha
-                                        ? `Cambió a ${formatearFecha(a.nuevo.fecha)}${a.nuevo.hora_inicio && a.nuevo.hora_fin ? ` · ${a.nuevo.hora_inicio}–${a.nuevo.hora_fin}` : ''}`
-                                        : (a.previo?.fecha ? `Cita ${formatearFecha(a.previo.fecha)}` : 'Cita anterior')}
-                                      {a.previo?.fecha && a.nuevo?.fecha ? ` (antes ${formatearFecha(a.previo.fecha)})` : ''}
-                                      {a.nombre ? ` — ${a.nombre}` : ''}
-                                      {a.cambiada ? ` · ${formatearFecha(String(a.cambiada).slice(0, 10))}` : ''}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </details>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      {/* (2026-11-09) CITA DE ENTREGA asignada manualmente —
+                          MOVIDA (2026-11-11) para que aparezca ANTES del mapa
+                          del vehículo: ver el bloque junto al panel 🚛. */}
                       {/* Otras guías del mismo vehículo emitidas el mismo
                           día (remesa compañera, solo visible en el TMS).
                           Tocar una la consulta. */}
@@ -4163,6 +4223,11 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                                                 className="DC-guiaChip DC-guiaChipJustificada"
                                                 title="Guía anulada — cuenta como novedad que cumple (segmento «Con novedad»)"
                                               >⊘ Anul.</span>
+                                            : f.devolucion_total
+                                            ? <span
+                                                className="DC-guiaChip DC-guiaChipJustificada"
+                                                title="Devolución total: la carga volvió completa al remitente — cuenta como novedad que cumple (segmento «Con novedad»)"
+                                              >↩ Dev.Tot.</span>
                                             : f.ot_pendiente
                                             ? <span
                                                 className={`DC-guiaChip ${f.ot_pendiente_vencida ? 'DC-guiaChipOTPendVenc' : 'DC-guiaChipOTPend'}`}
@@ -4642,6 +4707,11 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                                         className="DC-guiaChip DC-guiaChipJustificada"
                                         title="Guía anulada — cuenta como novedad que cumple (segmento «Con novedad»)"
                                       >⊘ Anul.</span>
+                                    : f.devolucion_total
+                                    ? <span
+                                        className="DC-guiaChip DC-guiaChipJustificada"
+                                        title="Devolución total: la carga volvió completa al remitente — cuenta como novedad que cumple (segmento «Con novedad»)"
+                                      >↩ Dev.Tot.</span>
                                     : f.ot_pendiente
                                     ? <span
                                         className={`DC-guiaChip ${f.ot_pendiente_vencida ? 'DC-guiaChipOTPendVenc' : 'DC-guiaChipOTPend'}`}

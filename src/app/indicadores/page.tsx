@@ -87,8 +87,9 @@ const IndicadoresMenu: React.FC = () => {
   // (2026-11-05) También para VISUALIZADOR (solo lectura, ve los dashboards
   // publicados sin asignación).
   // (2026-11-10) También para ANALISTA (ve los indicadores del portal cliente).
+  // (2026-11-11) También para OPERATIVO (Trazabilidad: citas/novedades del día).
   const indicadoresAdmin =
-    ['ADMIN', 'VISUALIZADOR', 'ANALISTA'].includes(datosUsuario?.perfil || '')
+    ['ADMIN', 'VISUALIZADOR', 'ANALISTA', 'OPERATIVO'].includes(datosUsuario?.perfil || '')
       ? [
           {
             id: 'mis-clientes',

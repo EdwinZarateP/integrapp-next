@@ -12,9 +12,9 @@ import './estilos.css';
 
 // Perfiles que entran al portal «Mis Indicadores»: CLIENTE (externo, solo ve
 // sus clientes asignados), ADMIN (pruebas/soporte), VISUALIZADOR (solo
-// lectura, ve todos los dashboards publicados — 2026-11-05) y ANALISTA
-// (mismo tratamiento — 2026-11-10).
-const PERFILES_PERMITIDOS = ['CLIENTE', 'ADMIN', 'VISUALIZADOR', 'ANALISTA'];
+// lectura, ve todos los dashboards publicados — 2026-11-05), ANALISTA
+// (mismo tratamiento — 2026-11-10) y OPERATIVO (2026-11-11).
+const PERFILES_PERMITIDOS = ['CLIENTE', 'ADMIN', 'VISUALIZADOR', 'ANALISTA', 'OPERATIVO'];
 
 // Cliente del panel (respuesta de /indicadores-cliente/mis-indicadores)
 interface ClienteAsignado {
