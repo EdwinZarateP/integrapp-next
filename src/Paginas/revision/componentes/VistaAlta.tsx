@@ -156,64 +156,91 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
 
   useEffect(() => { cargarSinVehiculo(); }, []);
 
-  /** (2026-11-17) Modal compartido: pide el celular de WhatsApp (prellenado,
-   *  editable — rescata cuentas registradas sin número) antes de disparar el
-   *  envío. Sin número → solo correo, como siempre. */
-  const pedirCelular = async (c: CuentaSinVehiculo, titulo: string): Promise<string | null> => {
+  /** (2026-11-17) Modal compartido: CORREO y CELULAR editables antes del
+   *  envío — corrige el clásico GMAIL.XOM en el mismo reenvío (si no, el
+   *  WhatsApp rescata la activación pero la cuenta queda con un correo
+   *  muerto) y habilita el WhatsApp. Vacíos = lo que ya tenía la cuenta. */
+  const pedirContacto = async (
+    c: CuentaSinVehiculo, titulo: string,
+  ): Promise<{ correo: string; celular: string } | null> => {
+    const esc = (v: string) => (v || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
     const res = await Swal.fire({
       icon: "question",
       title: titulo,
-      html: `El enlace llegará por <b>correo a ${c.correo}</b>.<br/>
-             Si quieres que <b>también llegue por WhatsApp</b>, confirma o digita el celular:`,
-      input: "tel",
-      inputValue: c.celular || "",
-      inputPlaceholder: "3XX XXX XXXX (vacío = solo correo)",
+      html: `
+        <div style="text-align:left; font-size:0.88rem; line-height:1.35;">
+          <label for="swal-correo" style="display:block; font-weight:600; margin-bottom:2px;">
+            Correo <span style="font-weight:400; color:#7f8c8d;">(revisa que esté bien escrito)</span>
+          </label>
+          <input id="swal-correo" class="swal2-input" style="margin:0 0 12px; max-width:100%;"
+                 value="${esc(c.correo)}" autocomplete="off" />
+          <label for="swal-celular" style="display:block; font-weight:600; margin-bottom:2px;">
+            Celular — WhatsApp <span style="font-weight:400; color:#7f8c8d;">(opcional)</span>
+          </label>
+          <input id="swal-celular" class="swal2-input" style="margin:0; max-width:100%;"
+                 value="${esc(c.celular)}" placeholder="3XX XXX XXXX" inputmode="tel" />
+        </div>`,
       showCancelButton: true,
       confirmButtonText: "Enviar",
       cancelButtonText: "Cancelar",
       confirmButtonColor: "#2c5f9e",
+      preConfirm: () => ({
+        correo: ((document.getElementById("swal-correo") as HTMLInputElement)?.value || "").trim(),
+        celular: ((document.getElementById("swal-celular") as HTMLInputElement)?.value || "").trim(),
+      }),
     });
-    return res.isConfirmed ? (res.value || "").trim() : null;
+    return res.isConfirmed ? (res.value as { correo: string; celular: string }) : null;
   };
 
-  /** Reenvía el CORREO DE VERIFICACIÓN (y WhatsApp con celular) a una cuenta
+  /** Cuerpo del envío: solo lo que CAMBIÓ respecto a la cuenta (el backend
+   *  persiste correo/celular corregidos). */
+  const bodyContacto = (c: CuentaSinVehiculo, contacto: { correo: string; celular: string }) => {
+    const body: { correo?: string; celular?: string } = {};
+    if (contacto.correo && contacto.correo.toUpperCase() !== (c.correo || "").toUpperCase())
+      body.correo = contacto.correo;
+    if (contacto.celular && contacto.celular.replace(/\D/g, "") !== (c.celular || "").replace(/\D/g, ""))
+      body.celular = contacto.celular;
+    return body;
+  };
+
+  /** Reenvía el CORREO DE VERIFICACIÓN (corregible) y WhatsApp a una cuenta
    *  sin verificar: el backend regenera el enlace (el anterior muere) y
-   *  persiste el celular si viene. */
+   *  persiste lo corregido. */
   const reenviarVerificacion = async (c: CuentaSinVehiculo) => {
-    const celular = await pedirCelular(c, `Reenviar verificación`);
-    if (celular === null) return;
+    const contacto = await pedirContacto(c, "Reenviar verificación");
+    if (!contacto) return;
+    const body = bodyContacto(c, contacto);
     setEnviandoCorreo(c.id);
     try {
       const res = await axios.post<{ mensaje: string; whatsapp: boolean }>(
-        `${API_BASE}/conductores/${c.id}/reenviar-verificacion`,
-        celular ? { celular } : {});
+        `${API_BASE}/conductores/${c.id}/reenviar-verificacion`, body);
       Swal.fire({
-        icon: res.data.whatsapp ? "success" : (celular ? "warning" : "success"),
+        icon: res.data.whatsapp ? "success" : (body.celular ? "warning" : "success"),
         title: "Enlace reenviado",
         text: res.data.mensaje,
       });
-      if (celular) cargarSinVehiculo();  // el celular quedó guardado en la cuenta
+      if (body.correo || body.celular) cargarSinVehiculo();  // lo corregido quedó guardado
     } catch (err: any) {
       Swal.fire("No se pudo reenviar", err?.response?.data?.detail || "Error de conexión.", "error");
     } finally { setEnviandoCorreo(null); }
   };
 
-  /** Recordatorio (correo + WhatsApp con celular) a una cuenta VERIFICADA
+  /** Recordatorio (correo corregible + WhatsApp) a una cuenta VERIFICADA
    *  que aún no inscribe su vehículo. */
   const enviarRecordatorio = async (c: CuentaSinVehiculo) => {
-    const celular = await pedirCelular(c, `Enviar recordatorio`);
-    if (celular === null) return;
+    const contacto = await pedirContacto(c, "Enviar recordatorio");
+    if (!contacto) return;
+    const body = bodyContacto(c, contacto);
     setEnviandoCorreo(c.id);
     try {
       const res = await axios.post<{ mensaje: string; whatsapp: boolean }>(
-        `${API_BASE}/conductores/${c.id}/recordatorio-vehiculo`,
-        celular ? { celular } : {});
+        `${API_BASE}/conductores/${c.id}/recordatorio-vehiculo`, body);
       Swal.fire({
-        icon: res.data.whatsapp ? "success" : (celular ? "warning" : "success"),
+        icon: res.data.whatsapp ? "success" : (body.celular ? "warning" : "success"),
         title: "Recordatorio enviado",
         text: res.data.mensaje,
       });
-      if (celular) cargarSinVehiculo();
+      if (body.correo || body.celular) cargarSinVehiculo();
     } catch (err: any) {
       Swal.fire("No se pudo enviar", err?.response?.data?.detail || "Error de conexión.", "error");
     } finally { setEnviandoCorreo(null); }

@@ -835,3 +835,39 @@ Dep backend + frontend JUNTOS.
 ### Camión Lottie de marca en la espera de la Trazabilidad (`CamionCargando`)
 
 Al consultar una guía, en vez del texto plano «Buscando la guía…» sale un **camión animado Lottie de marca** (caja verde #98C74C + cabina oscura + ruedas girando + pista pasando + rebote de suspensión, 2 s de loop perfecto). Componente **reutilizable**: `Componentes/CamionCargando` (`{texto, alto}`) — dependencia nueva **`lottie-react`**, con import DINÁMICO al montar (patrón XLSX/@react-pdf: ~250KB fuera del bundle inicial); la animación (`camion.json`) es un Lottie **escrito a mano con builder** (no hay asset externo con licencia). Respeta `prefers-reduced-motion` (emoji 🚛 + texto). ⚠️ **Trampa Lottie**: el `tr` (transform) de cada grupo debe ir como **ÚLTIMO item DENTRO de `it`** — como hermano de `it` lottie lo ignora silenciosamente y no renderiza NADA (0 `<path>`, sin error). Validado con Edge headless (`--dump-dom` + `--screenshot` + análisis de píxeles). Dep solo frontend.
+
+## Actualizaciones Recientes (2026-11-17)
+
+### WhatsApp como segundo canal: autorización de datos y verificación de cuenta
+
+Motivación de soporte: los implicados «crean un correo y el link no llega» y quedan
+atascados sin poder continuar (cambio backend en `integrappi/README.md` 2026-11-17;
+requiere las plantillas Meta `autorizacion_datos`, `enruta_continuar_registro`
+y `recordatorio_cuenta`, pendientes de aprobación — la del registro EVITA
+lenguaje de verificación en nombre/cuerpo porque Meta reclasifica eso a
+Autenticación, categoría que no admite enlaces con URL).
+
+- **RegistroConductor**: campo **«Celular — WhatsApp (opcional)»** (el formulario no
+  lo pedía desde el 2026-10-06) — el enlace de verificación llega por correo **y**
+  WhatsApp desde el primer minuto; la vista post-registro menciona ambos canales.
+- **TarjetaHabeasData** (pestañas Estudios/Cambios y Estudios por antigüedad):
+  campo «WhatsApp (opcional)» junto al correo (prellenado de `condCelular`/
+  `propCelular`/`tenedCelular` de la ficha) en el envío manual por persona; el Swal
+  reporta si el WA llegó (`whatsapp: true` = 200 de Meta); etiqueta de canal
+  **«Link por WhatsApp»** (`vinculo_whatsapp`) y el aviso de link pendiente muestra
+  «…y por WhatsApp a +57 …» (`token_pendiente_celular`).
+- **Estudios por antigüedad (`/revision/estudios`)**: botón ✈️ **«Reenviar»** junto al
+  chip ⏳ de la columna «Autorización de datos» — confirmación y reenvío MASIVO
+  (correo + WhatsApp) a todas las personas pendientes de la placa
+  (`POST /conductores/autorizacion/reenviar-pendientes`), con resumen por cédula
+  («CC X → correo + WhatsApp ✓» / «sin correo en la ficha»).
+- **Cuentas sin vehículo (`VistaAlta`)**: Reenviar y Recordatorio abren un Swal con
+  **DOS campos editables — CORREO y CELULAR**. El correo corregible en el mismo
+  reenvío resuelve el caso **GMAIL.XOM** (sin el fix, el WhatsApp rescataba la
+  activación pero la cuenta quedaba «✓ Verificado» con un correo muerto: recuperar
+  clave, recordatorios e invitaciones fallarían para siempre). El backend valida
+  dominio y colisión con otra cuenta, persiste lo corregido y reporta si el WhatsApp
+  llegó de verdad.
+
+⚠️ **No confundir los enlaces**: `/VerificarCorreo` (48 h) = activar la CUENTA;
+`/AutorizacionDatos` (30 días) = habeas data. Dep **backend + frontend JUNTOS**.
