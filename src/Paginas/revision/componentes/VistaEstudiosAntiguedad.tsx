@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import Cookies from "js-cookie";
-import { FaChevronDown, FaHistory, FaRedo, FaSyncAlt } from "react-icons/fa";
+import { FaChevronDown, FaHistory, FaPaperPlane, FaRedo, FaSyncAlt } from "react-icons/fa";
 import TarjetaHabeasData from "./TarjetaHabeasData";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -197,6 +197,46 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
       Swal.fire('Error', e?.message || 'No se pudo generar la hoja de vida.', 'error');
     } finally {
       setDescargandoHv(null);
+    }
+  };
+
+  // (2026-11-17) Reenvío MASIVO de autorización de datos por placa: correo +
+  // WhatsApp (si la ficha tiene celular) a todas las personas que siguen sin
+  // aceptar. Invalida el link anterior de cada una (mismo «forzar» del botón
+  // manual de la tarjeta habeas).
+  const [reenviandoAut, setReenviandoAut] = useState<string | null>(null);
+  const reenviarAutorizaciones = async (f: FilaAntiguedad) => {
+    if (reenviandoAut) return;
+    const pendientes = f.sujetos.filter(s => s.tipo === 'persona' && s.autorizado === false);
+    const confirmo = await Swal.fire({
+      icon: 'question',
+      title: `Reenviar autorización — ${f.placa}`,
+      html: `Se reenvía el enlace de autorización de datos <b>por correo y WhatsApp
+             (cuando la ficha tiene celular)</b> a <b>${pendientes.length}</b> persona(s)
+             pendiente(s) de esta placa.<br>
+             <small>Su enlace anterior queda anulado. Vigencia 30 días.</small>`,
+      showCancelButton: true, confirmButtonText: 'Reenviar', cancelButtonText: 'Cancelar',
+    });
+    if (!confirmo.isConfirmed) return;
+    setReenviandoAut(f.placa);
+    try {
+      const res = await axios.post<{ placa: string; reenviados: Array<{ cedula: string; correo: string; whatsapp: boolean }>; sin_correo: string[] }>(
+        `${API_BASE}/conductores/autorizacion/reenviar-pendientes`,
+        { placa: f.placa, solicitado_por: 'seguridad' });
+      const d = res.data || { reenviados: [], sin_correo: [] };
+      const lineas = (d.reenviados || []).map(r =>
+        `• CC ${r.cedula} → ${r.correo}${r.whatsapp ? ' <b>+ WhatsApp ✓</b>' : ' (solo correo)'}`);
+      (d.sin_correo || []).forEach(c => lineas.push(`• CC ${c} → <b style="color:#c0392b">sin correo en la ficha</b>`));
+      await Swal.fire({
+        title: 'Reenvío enviado',
+        html: lineas.join('<br>') || 'Nadie quedaba pendiente.',
+        icon: 'success', timer: 6000,
+      });
+      await buscar();
+    } catch (err: any) {
+      Swal.fire('Error', err?.response?.data?.detail || 'No se pudo reenviar la autorización.', 'error');
+    } finally {
+      setReenviandoAut(null);
     }
   };
 
@@ -492,11 +532,29 @@ const VistaEstudiosAntiguedad: React.FC<{ onVolver: () => void }> = ({ onVolver 
                       {f.personas === 0 ? (
                         <span style={{ color: '#7f8c8d', fontSize: '0.78rem' }}>sin personas</span>
                       ) : f.pendientes_autorizacion > 0 ? (
-                        <span style={{
-                          display: 'inline-block', background: '#fdeeec', color: '#c0392b',
-                          borderRadius: 999, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
-                        }}>
-                          ⏳ {f.pendientes_autorizacion} de {f.personas} pendiente(s)
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{
+                            display: 'inline-block', background: '#fdeeec', color: '#c0392b',
+                            borderRadius: 999, padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
+                          }}>
+                            ⏳ {f.pendientes_autorizacion} de {f.personas} pendiente(s)
+                          </span>
+                          {/* (2026-11-17) Reenvío masivo a los pendientes de la placa. */}
+                          <button
+                            type="button"
+                            onClick={() => reenviarAutorizaciones(f)}
+                            disabled={reenviandoAut !== null}
+                            title="Reenvía el enlace de autorización por correo y WhatsApp (si la ficha tiene celular) a los pendientes de esta placa"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              border: '1px solid #c9d3de', borderRadius: 6,
+                              background: reenviandoAut === f.placa ? '#eef6f7' : '#fafbfc',
+                              padding: '2px 8px', cursor: 'pointer', fontSize: '0.75rem',
+                              color: '#008794', fontWeight: 600,
+                            }}
+                          >
+                            <FaPaperPlane /> {reenviandoAut === f.placa ? 'Enviando…' : 'Reenviar'}
+                          </button>
                         </span>
                       ) : (
                         <span style={{

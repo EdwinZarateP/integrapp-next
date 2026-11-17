@@ -22,7 +22,8 @@ const RegistroConductor: React.FC = () => {
 
   const [formData, setFormData] = useState({
       email: '',
-      password: ''
+      password: '',
+      celular: ''
   });
   // ¿Quién se registra: el que maneja (CONDUCTOR) o el dueño del vehículo (TENEDOR)?
   const [perfil, setPerfil] = useState<'CONDUCTOR' | 'TENEDOR'>('CONDUCTOR');
@@ -60,7 +61,10 @@ const RegistroConductor: React.FC = () => {
         regional: 'N/A',
         correo: formData.email,
         clave: formData.password,
-        perfil: perfil
+        perfil: perfil,
+        // (2026-11-17) Opcional: con celular, el enlace de verificación
+        // también llega por WhatsApp (respaldo si el correo no llega).
+        celular: formData.celular.trim() || undefined
       };
 
       const response = await fetch(`${API_BASE}/conductores/registrar`, {
@@ -118,7 +122,8 @@ const RegistroConductor: React.FC = () => {
               <h2 className="LC-titulo">¡Casi listo!</h2>
               <p className="RegVer-texto">
                 Enviamos un <strong>enlace de verificación</strong> a{' '}
-                <strong>{formData.email}</strong>.
+                <strong>{formData.email}</strong>
+                {formData.celular.trim() && <> y por <strong>WhatsApp</strong> al {formData.celular.trim()}</>}.
               </p>
               <p className="RegVer-texto">
                 Ábrelo para activar tu cuenta y poder iniciar sesión. Revisa también la carpeta de
@@ -189,6 +194,24 @@ const RegistroConductor: React.FC = () => {
                     value={formData.email} onChange={manejarCambio} required
                     disabled={cargando}
                     autoComplete="email"
+                  />
+                </div>
+
+                {/* (2026-11-17) Opcional: con celular, el enlace de verificación
+                    también llega por WhatsApp — respaldo para cuando el correo
+                    no llega y la persona queda atascada sin poder continuar. */}
+                <div className="LC-grupo">
+                  <label className="LC-label" htmlFor="celular">
+                    Celular — WhatsApp <span style={{ fontWeight: 400, color: '#7f8c8d' }}>(opcional)</span>
+                  </label>
+                  <input
+                    id="celular" name="celular" type="tel" inputMode="tel"
+                    placeholder="3XX XXX XXXX"
+                    className="LC-input"
+                    value={formData.celular} onChange={manejarCambio}
+                    disabled={cargando}
+                    autoComplete="tel"
+                    maxLength={20}
                   />
                 </div>
 

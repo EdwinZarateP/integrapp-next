@@ -156,26 +156,64 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
 
   useEffect(() => { cargarSinVehiculo(); }, []);
 
-  /** Reenvía el CORREO DE VERIFICACIÓN a una cuenta sin verificar: el
-   *  backend regenera el enlace (el anterior, aunque haya expirado, muere). */
+  /** (2026-11-17) Modal compartido: pide el celular de WhatsApp (prellenado,
+   *  editable — rescata cuentas registradas sin número) antes de disparar el
+   *  envío. Sin número → solo correo, como siempre. */
+  const pedirCelular = async (c: CuentaSinVehiculo, titulo: string): Promise<string | null> => {
+    const res = await Swal.fire({
+      icon: "question",
+      title: titulo,
+      html: `El enlace llegará por <b>correo a ${c.correo}</b>.<br/>
+             Si quieres que <b>también llegue por WhatsApp</b>, confirma o digita el celular:`,
+      input: "tel",
+      inputValue: c.celular || "",
+      inputPlaceholder: "3XX XXX XXXX (vacío = solo correo)",
+      showCancelButton: true,
+      confirmButtonText: "Enviar",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#2c5f9e",
+    });
+    return res.isConfirmed ? (res.value || "").trim() : null;
+  };
+
+  /** Reenvía el CORREO DE VERIFICACIÓN (y WhatsApp con celular) a una cuenta
+   *  sin verificar: el backend regenera el enlace (el anterior muere) y
+   *  persiste el celular si viene. */
   const reenviarVerificacion = async (c: CuentaSinVehiculo) => {
+    const celular = await pedirCelular(c, `Reenviar verificación`);
+    if (celular === null) return;
     setEnviandoCorreo(c.id);
     try {
-      const res = await axios.post<{ mensaje: string }>(
-        `${API_BASE}/conductores/${c.id}/reenviar-verificacion`);
-      Swal.fire("Enlace reenviado", res.data.mensaje, "success");
+      const res = await axios.post<{ mensaje: string; whatsapp: boolean }>(
+        `${API_BASE}/conductores/${c.id}/reenviar-verificacion`,
+        celular ? { celular } : {});
+      Swal.fire({
+        icon: res.data.whatsapp ? "success" : (celular ? "warning" : "success"),
+        title: "Enlace reenviado",
+        text: res.data.mensaje,
+      });
+      if (celular) cargarSinVehiculo();  // el celular quedó guardado en la cuenta
     } catch (err: any) {
       Swal.fire("No se pudo reenviar", err?.response?.data?.detail || "Error de conexión.", "error");
     } finally { setEnviandoCorreo(null); }
   };
 
-  /** Recordatorio a una cuenta VERIFICADA que aún no inscribe su vehículo. */
+  /** Recordatorio (correo + WhatsApp con celular) a una cuenta VERIFICADA
+   *  que aún no inscribe su vehículo. */
   const enviarRecordatorio = async (c: CuentaSinVehiculo) => {
+    const celular = await pedirCelular(c, `Enviar recordatorio`);
+    if (celular === null) return;
     setEnviandoCorreo(c.id);
     try {
-      const res = await axios.post<{ mensaje: string }>(
-        `${API_BASE}/conductores/${c.id}/recordatorio-vehiculo`);
-      Swal.fire("Recordatorio enviado", res.data.mensaje, "success");
+      const res = await axios.post<{ mensaje: string; whatsapp: boolean }>(
+        `${API_BASE}/conductores/${c.id}/recordatorio-vehiculo`,
+        celular ? { celular } : {});
+      Swal.fire({
+        icon: res.data.whatsapp ? "success" : (celular ? "warning" : "success"),
+        title: "Recordatorio enviado",
+        text: res.data.mensaje,
+      });
+      if (celular) cargarSinVehiculo();
     } catch (err: any) {
       Swal.fire("No se pudo enviar", err?.response?.data?.detail || "Error de conexión.", "error");
     } finally { setEnviandoCorreo(null); }
@@ -786,9 +824,9 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
         <p className="revx-alta-nota">
           Personas que <b>se registraron con su correo</b> pero todavía no han
           inscrito <b>ninguna placa</b>. A las que no han verificado su correo
-          puedes <b>reenviarles el enlace</b> (se genera uno nuevo); a las
-          verificadas que no vuelven, un <b>recordatorio</b> para que registren
-          su vehículo.
+          puedes <b>reenviarles el enlace</b> (se genera uno nuevo) — por correo
+          y, con celular, <b>también por WhatsApp</b>; a las verificadas que no
+          vuelven, un <b>recordatorio</b> para que registren su vehículo.
         </p>
         {cargandoSinVehiculo ? (
           <p className="revx-alta-nota">Cargando…</p>
@@ -828,13 +866,13 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
                       {c.correo_verificado ? (
                         <button className="revx-alta-btn-mini"
                           onClick={() => enviarRecordatorio(c)} disabled={enviandoCorreo === c.id}
-                          title="Enviar recordatorio para que inscriba su vehículo">
+                          title="Enviar recordatorio (correo y WhatsApp con celular) para que inscriba su vehículo">
                           <FaPaperPlane aria-hidden="true" />
                         </button>
                       ) : (
                         <button className="revx-alta-btn-mini"
                           onClick={() => reenviarVerificacion(c)} disabled={enviandoCorreo === c.id}
-                          title="Reenviar el enlace de verificación del correo">
+                          title="Reenviar el enlace de verificación (correo y WhatsApp con celular)">
                           <FaEnvelopeOpenText aria-hidden="true" />
                         </button>
                       )}
