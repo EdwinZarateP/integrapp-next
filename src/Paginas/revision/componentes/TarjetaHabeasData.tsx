@@ -11,6 +11,7 @@ const ETIQUETA_CANAL: Record<string, string> = {
   invitacion_tenedor: 'Invitación del tenedor',
   alta_seguridad: 'Alta por Seguridad (primer ingreso)',
   vinculo_correo: 'Link por correo',
+  vinculo_whatsapp: 'Link por WhatsApp',
   papel: 'Firma en papel',
 };
 
@@ -60,6 +61,8 @@ interface PersonaHabeas {
   politicas_pendientes?: boolean;
   token_pendiente?: string;
   token_pendiente_correo?: string;
+  /** (2026-11-17) Celular al que se envió el link por WhatsApp, si aplicó. */
+  token_pendiente_celular?: string;
   aceptaciones: Aceptacion[];
 }
 
@@ -88,7 +91,8 @@ interface TarjetaHabeasDataProps {
  *
  * Sujetos SIN evidencia → acciones de Seguridad (2026-10-05):
  *  - «✉️ Enviar autorización»: link por correo (30 días) a la página pública
- *    /AutorizacionDatos donde la persona acepta las declaraciones.
+ *    /AutorizacionDatos donde la persona acepta las declaraciones. Con
+ *    celular (2026-11-17) el link TAMBIÉN llega por WhatsApp al implicado.
  *  - «📄 Registrar firma en papel»: sube la autorización física firmada.
  */
 const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, correos }) => {
@@ -104,6 +108,9 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
   const [detalleAbierto, setDetalleAbierto] = useState<string | null>(null);
   // Correo en edición por cédula (prellenado del vehículo/endpoint).
   const [correosEdicion, setCorreosEdicion] = useState<Record<string, string>>({});
+  // (2026-11-17) Celular WhatsApp en edición por cédula (opcional, prellenado
+  // de la ficha del vehículo).
+  const [celularesEdicion, setCelularesEdicion] = useState<Record<string, string>>({});
   const [enviandoA, setEnviandoA] = useState<string | null>(null);
   const inputPapelRef = useRef<HTMLInputElement>(null);
   const cedulaPapelRef = useRef<string | null>(null);
@@ -135,6 +142,20 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
           const correo = String(veh[campoCorreo] || '').trim();
           if (correo) return correo;
         }
+      }
+    }
+    return '';
+  };
+
+  /** Celular de la ficha para una cédula (WhatsApp del implicado). */
+  const celularDe = (cedula: string): string => {
+    if (!veh) return '';
+    for (const { campo } of ROLES_VEHICULO) {
+      if (soloDigitos(veh[campo]) === cedula) {
+        const campoCelular = campo.replace('CedulaCiudadania', 'Celular')
+          .replace('Documento', 'Celular');
+        const celular = String(veh[campoCelular] || '').trim();
+        if (celular) return celular;
       }
     }
     return '';
@@ -181,6 +202,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
 
   const enviarAutorizacion = async (p: PersonaHabeas) => {
     const correo = (correosEdicion[p.cedula] ?? correoDe(p.cedula)).trim();
+    const celular = (celularesEdicion[p.cedula] ?? celularDe(p.cedula)).trim();
     if (!correo || !correo.includes('@')) {
       // Swal no está en esta página: mensaje inline por estado.
       setError(`Escribe un correo válido para CC ${p.cedula}.`);
@@ -198,6 +220,8 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
           correo,
           nombre: p.nombre || '',
           solicitado_por: 'seguridad',
+          // (2026-11-17) Celular opcional: el link también llega por WhatsApp.
+          celular: celular || undefined,
           // (2026-10-16) El botón manual SIEMPRE envía: invalida el link
           // vigente y manda correo nuevo (aunque sea a otro correo). El
           // «no duplicar» queda solo para el envío automático del sistema.
@@ -207,10 +231,18 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.detail || 'No se pudo enviar.');
       await cargar();
-      const estado = data.estado === 'ya_autorizado'
-        ? 'La persona ya tenía autorización registrada.'
-        : `Correo enviado a ${correo} — el enlace anterior quedó anulado (vigencia 30 días).`;
-      Swal.fire({ title: 'Autorización', text: estado, icon: data.estado === 'enviado' ? 'success' : 'info', timer: 3200, showConfirmButton: false });
+      let estado: string;
+      if (data.estado === 'ya_autorizado') {
+        estado = 'La persona ya tenía autorización registrada.';
+      } else {
+        estado = `Correo enviado a ${correo}`;
+        // whatsapp=true solo cuando Meta respondió 200.
+        if (celular) estado += data.whatsapp
+          ? ` y WhatsApp a ${celular}`
+          : ' (WhatsApp no enviado: revisa el celular o la plantilla en Meta)';
+        estado += ' — el enlace anterior quedó anulado (vigencia 30 días).';
+      }
+      Swal.fire({ title: 'Autorización', text: estado, icon: data.estado === 'enviado' ? 'success' : 'info', timer: 3800, showConfirmButton: false });
     } catch (e: any) {
       setError(e?.message || 'No se pudo enviar el correo.');
     } finally {
@@ -311,6 +343,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                 {p.token_pendiente && (
                   <p style={{ margin: '4px 0 0', color: '#b9770e' }}>
                     ✉️ Enlace enviado{p.token_pendiente_correo ? <> a <strong>{p.token_pendiente_correo}</strong></> : ''}
+                    {p.token_pendiente_celular && <> y por WhatsApp a <strong>+57 {p.token_pendiente_celular}</strong></>}
                     {' '}el {fechaLegible(p.token_pendiente)} — aún sin aceptar.
                   </p>
                 )}
@@ -417,6 +450,17 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                         borderRadius: 6, padding: '4px 8px', fontSize: '0.78rem',
                       }}
                     />
+                    <input
+                      type="tel"
+                      value={celularesEdicion[p.cedula] ?? celularDe(p.cedula)}
+                      onChange={(e) => setCelularesEdicion(prev => ({ ...prev, [p.cedula]: e.target.value }))}
+                      placeholder="WhatsApp (opcional)"
+                      style={{
+                        flex: '1 1 130px', minWidth: 0, border: '1px solid #d6dee8',
+                        borderRadius: 6, padding: '4px 8px', fontSize: '0.78rem',
+                      }}
+                      title="Si lo diligencias, el enlace también llega por WhatsApp al implicado"
+                    />
                     <button
                       type="button"
                       onClick={() => enviarAutorizacion(p)}
@@ -426,7 +470,7 @@ const TarjetaHabeasData: React.FC<TarjetaHabeasDataProps> = ({ cedulas, veh, cor
                         background: '#008794', color: '#fff', fontSize: '0.75rem',
                         cursor: 'pointer', fontWeight: 600,
                       }}
-                      title="Envía un enlace (30 días) para que la persona acepte las declaraciones"
+                      title="Envía un enlace (30 días) por correo y, si hay celular, también por WhatsApp"
                     >
                       <FaEnvelope /> {p.token_pendiente ? 'Reenviar' : 'Enviar autorización'}
                     </button>
