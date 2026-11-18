@@ -7,8 +7,9 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import "./estilos.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
@@ -192,10 +193,7 @@ const LoginConductores = () => {
       <header className="LC-header">
         <div className="LC-headerInner">
           <button className="LC-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="LC-brandName">
-              Integr<span className="LC-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
         </div>
       </header>
@@ -287,8 +285,7 @@ const LoginConductores = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="LC-footerLinks">
-            <a href="tel:+573125443396" className="LC-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="LC-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="LC-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="LC-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="LC-footerCopy">© {new Date().getFullYear()} Integra — Conductores</span>

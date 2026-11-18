@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { loginUsuario } from "@/Funciones/ApiPedidos/usuarios";
 import confetti from "canvas-confetti";
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 import Link from "next/link";
 import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import "./estilos.css";
 
 const LoginUsuario: React.FC = () => {
@@ -173,10 +174,7 @@ const LoginUsuario: React.FC = () => {
       <header className="LU-header">
         <div className="LU-headerInner">
           <button className="LU-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="LU-brandName">
-              Integr<span className="LU-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
           <div className="LU-headerDivider" aria-hidden="true" />
           <span className="LU-headerTitulo">Torre de Control</span>
@@ -251,8 +249,7 @@ const LoginUsuario: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="LU-footerLinks">
-            <a href="tel:+573125443396" className="LU-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="LU-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="LU-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="LU-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="LU-footerCopy">© {new Date().getFullYear()} Integra — Torre de Control</span>

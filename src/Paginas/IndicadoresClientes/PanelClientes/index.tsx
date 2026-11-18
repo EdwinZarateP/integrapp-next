@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaBuilding } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import { CLIENTES } from '../clientes';
 import './estilos.css';
 
@@ -57,10 +57,7 @@ const PanelClientes: React.FC = () => {
       <header className="PC-header">
         <div className="PC-headerInner">
           <button className="PC-brand" onClick={() => router.push('/indicadores')} title="Menú de indicadores">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="PC-brandName">
-              Integr<span className="PC-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
 
           <h1 className="PC-titulo">Indicadores por cliente</h1>

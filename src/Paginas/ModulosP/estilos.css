@@ -62,24 +62,15 @@
   min-height: 56px;
 }
 
+/* (2026-11-18) Logo horizontal Integra ONE (ratio ~5:1). */
 .modx-logo {
-  width: 34px;
-  height: 34px;
+  width: auto;
+  height: 30px;
   object-fit: contain;
   flex-shrink: 0;
 }
 
-.modx-logo-texto { display: flex; flex-direction: column; min-width: 0; }
-
-.modx-logo-texto span {
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--modx-texto);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.modx-logo-texto span span { color: var(--modx-acento-oscuro); }
+.modx-logo-texto { display: none; }
 
 .modx-sidebar-nav {
   display: flex;

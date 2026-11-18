@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaChevronDown,
+  FaMapMarkerAlt, FaUserCircle, FaChevronDown,
   FaPlus, FaTimes, FaFileUpload, FaFileDownload, FaCloudUploadAlt, FaUsers, FaTable,
   FaBars, FaExchangeAlt,
 } from 'react-icons/fa';
@@ -14,6 +14,7 @@ import ExportarAutorizados from '@/Componentes/PedidosComponentes/ExportarAutori
 import ImportarPedidosVulcano from '@/Componentes/PedidosComponentes/importarPedidosVulcano';
 import Cookies from 'js-cookie';
 import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const Pedidos: React.FC = () => {
@@ -72,10 +73,7 @@ const Pedidos: React.FC = () => {
 
           {/* Logo */}
           <button className="Ped-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="Ped-brandName">
-              <span>Integr</span><span className="Ped-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
 
 
@@ -178,8 +176,7 @@ const Pedidos: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="Ped-footerLinks">
-            <a href="tel:+573125443396" className="Ped-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="Ped-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="Ped-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="Ped-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="Ped-footerCopy">

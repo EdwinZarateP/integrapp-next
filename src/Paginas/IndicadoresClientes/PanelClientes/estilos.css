@@ -13,12 +13,13 @@
 
 /* ── Header ─────────────────────────────────────────────── */
 .PC-header {
-  background: #000;
-  color: #fff;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
+  color: #111827;
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: 0 2px 12px rgba(15, 25, 40, 0.35);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
 
 .PC-headerInner {
@@ -42,20 +43,12 @@
   border-radius: 8px;
   transition: background 0.15s;
 }
-.PC-brand:hover { background: rgba(255, 255, 255, 0.08); }
-
-.PC-brandName {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  color: #fff;
-}
-.PC-brandAccent { color: #98C74C; }
+.PC-brand:hover { background: #f3f4f6; }
 
 .PC-titulo {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #fff;
+  color: #111827;
   text-align: center;
   flex: 1;
 }
@@ -67,23 +60,23 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
   cursor: pointer;
-  color: #fff;
+  color: #111827;
   transition: background 0.15s;
 }
-.PC-userBtn:hover { background: rgba(255, 255, 255, 0.12); }
+.PC-userBtn:hover { background: #e8eaed; }
 
-.PC-userIcon { font-size: 1.4rem; color: #98C74C; }
+.PC-userIcon { font-size: 1.4rem; color: #349F4A; }
 
 .PC-userInfo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .PC-userName { font-size: 0.82rem; font-weight: 700; }
-.PC-userPerfil { font-size: 0.68rem; color: #b9c2d0; }
+.PC-userPerfil { font-size: 0.68rem; color: #6b7280; }
 
-.PC-chevron { font-size: 0.7rem; color: #b9c2d0; transition: transform 0.2s; }
+.PC-chevron { font-size: 0.7rem; color: #9ca3af; transition: transform 0.2s; }
 .PC-chevronOpen { transform: rotate(180deg); }
 
 .PC-dropdown {

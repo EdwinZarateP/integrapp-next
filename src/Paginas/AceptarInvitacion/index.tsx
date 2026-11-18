@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaCheckCircle, FaTimesCircle, FaSpinner, FaEye, FaEyeSlash } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import '../VerificarCorreo/estilos.css';
 import './estilos.css';
 
@@ -170,10 +170,7 @@ const AceptarInvitacion: React.FC = () => {
       <header className="VC-header">
         <div className="VC-headerInner">
           <button className="VC-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="VC-brandName">
-              Integr<span className="VC-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
         </div>
       </header>

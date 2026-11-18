@@ -9,7 +9,7 @@ import BotonSencillo from "@/Componentes/BotonSencillo";
 import HeaderApp from "@/Componentes/HeaderApp";
 import { ContextoApp } from "@/Contexto/index";
 import HashLoader from "react-spinners/HashLoader";
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 import "./estilos.css";
 
 const InicioPropietarios: React.FC = () => {
@@ -148,8 +148,7 @@ const InicioPropietarios: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="IP-footerLinks">
-            <a href="tel:+573125443396" className="IP-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="IP-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="IP-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="IP-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="IP-footerCopy">© {new Date().getFullYear()} Integra — Portal Transportadores</span>

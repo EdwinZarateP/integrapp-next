@@ -4,64 +4,46 @@
   align-items: center; /* Centrado vertical */
   justify-content: flex-start; /* Alineado a la izquierda */
   padding: 0 30px; /* Espacio a los lados */
-  background-color: #000; /* (2026-10-31) Branding general: negro + verde #98C74C */
+  background-color: #fff; /* (2026-11-18) Header claro + logo Integra ONE */
+  border-bottom: 2px solid #8EC045;
   height: 70px; /* Altura fija compacta */
   width: 100%;
   cursor: pointer;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Sombra suave abajo */
+  box-shadow: 0 4px 6px rgba(15, 23, 42, 0.06); /* Sombra suave abajo */
   position: fixed; /* CAMBIO CLAVE: Fixed para pegarlo a la pantalla, no al contenedor */
-  top: 0;       
-  left: 0;      
+  top: 0;
+  left: 0;
   z-index: 1000;
   box-sizing: border-box; /* Asegura que el padding no rompa el ancho */
 }
 
 /* Efecto hover sutil en toda la barra */
 .HeaderLogo-contenedor:hover {
-  background-color: #1a1a1a;
+  background-color: #f3f4f6;
 }
 
-/* Imagen del logo */
+/* Imagen del logo (horizontal ~5:1, texto negro + emblema verde) */
 .HeaderLogo-img {
-  height: 65px;
+  height: 44px;
   width: auto;
-  margin-right: 15px;
-  margin-bottom: 0;
   object-fit: contain;
-  filter: brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-}
-
-/* Título (IntegrApp) */
-.HeaderLogo-titulo {
-  display: flex;
-  font-size: 1.8rem; 
-  font-weight: 700;
-  margin: 0;
-  line-height: 1;
-  font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif;
-  text-transform: uppercase; 
-}
-
-.HeaderLogo-titulo span:first-child { 
-  color: #ffffff; 
-}
-.HeaderLogo-titulo span:last-child { 
-  color: #98C74C;
 }
 
 .HeaderLogo-subtitulo {
   display: flex;
-  margin-left: -168px;
-  margin-top: 40px;
-  color: #ffffff;
+  margin-left: 14px;
+  color: #6b7280;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
-.HeaderLogo-subtitulo span:first-child { 
-  color: #ffffff; 
-  margin-top: 5px;
+.HeaderLogo-subtitulo span:first-child {
+  color: #6b7280;
+  margin-top: 0;
 }
-.HeaderLogo-subtitulo span:last-child { 
-  color: #98C74C;
-  margin: 5px;
+.HeaderLogo-subtitulo span:last-child {
+  color: #349F4A;
+  margin-left: 5px;
 }
 
 
@@ -69,24 +51,15 @@
 @media (max-width: 768px) {
   .HeaderLogo-contenedor {
     padding: 0 15px;
-    height: 60px; 
-    justify-content: center; 
+    height: 60px;
+    justify-content: center;
   }
-  
+
   .HeaderLogo-img {
-    height: 35px;
-    margin-right: 50px;
-    margin-top: -10px;
-  }
-  
-  .HeaderLogo-titulo {
-    font-size: 1.2rem;
-    margin-left: -40px;
-    margin-right: 60px;
+    height: 34px;
   }
 
   .HeaderLogo-subtitulo {
-    margin-right: -40px;
-    margin-left: -210px;
+    display: none;
   }
 }

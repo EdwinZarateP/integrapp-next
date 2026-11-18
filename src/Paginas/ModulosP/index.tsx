@@ -8,7 +8,7 @@ import {
   FaSignOutAlt,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import { construirMenu, type ItemModulo } from "@/Funciones/menuModulos";
 import "./estilos.css";
 
@@ -199,10 +199,7 @@ const Modulos: React.FC = () => {
   const sidebar = (
     <aside className="modx-sidebar">
       <div className="modx-sidebar-logo">
-        <img src={logo.src} alt="IntegrApp" className="modx-logo" />
-        <div className="modx-logo-texto">
-          <span>Integr<span>App</span></span>
-        </div>
+        <img src={LOGO_INTEGRA} alt="Integra Logística" className="modx-logo" />
       </div>
       <nav className="modx-sidebar-nav" aria-label="Módulos">
         {menu.directos.map((item) => itemNav(item, false))}
@@ -281,7 +278,7 @@ const Modulos: React.FC = () => {
 
       {/* Área central: logo corporativo centrado. */}
       <main className="modx-lienzo">
-        <img src={logo.src} alt="IntegrApp" className="modx-logo-central" />
+        <img src={LOGO_INTEGRA} alt="Integra Logística" className="modx-logo-central" />
       </main>
     </div>
   );

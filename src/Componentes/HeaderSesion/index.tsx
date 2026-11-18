@@ -3,14 +3,14 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaTruck, FaClipboardList } from "react-icons/fa";
 import "./estilos.css";
 
 type Modo = "conductor" | "personal";
 
 /**
- * Header de marca (degradado + "IntegrApp") con zona derecha de usuario en el
+ * Header de marca (logo Integra + fondo claro) con zona derecha de usuario en el
  * MISMO patrón del header de /PanelConductores: botón avatar+nombre+perfil+
  * chevron con dropdown blanco (click-fuera cierra, «Cerrar sesión» en rojo).
  *
@@ -71,10 +71,7 @@ const HeaderSesion: React.FC<{ modo: Modo }> = ({ modo }) => {
   return (
     <header className="HS-header">
       <button className="HS-brand" onClick={() => router.push("/")} title="Inicio">
-        <Image src={logo} alt="Integra" height={40} priority />
-        <span className="HS-brandName">
-          Integr<span className="HS-brandAccent">App</span>
-        </span>
+        <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
       </button>
 
       <div className="HS-derecha" ref={menuRef}>

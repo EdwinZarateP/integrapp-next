@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter, FaUsers,
+  FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter, FaUsers,
 } from 'react-icons/fa';
 import { obtenerUsuarios, crearUsuario, actualizarClientesSiscore, obtenerClientesSiscore, ClienteSiscore, actualizarClientesAprobacion, actualizarPerfilUsuario, actualizarPerfilesAdicionales, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
 import { getClientes, getClientesCompletos, crearClienteOc, cambiarEstadoClienteOc, ClienteOtroCosto } from '@/Funciones/ApiPedidos/otrosCostos';
@@ -784,8 +784,7 @@ const GestionUsuariosP: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="GU-footerLinks">
-            <a href="tel:+573125443396" className="GU-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="GU-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="GU-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="GU-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="GU-footerCopy">© {new Date().getFullYear()} Integra — Torre de Control</span>

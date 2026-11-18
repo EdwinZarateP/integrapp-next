@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaDownload, FaFilter } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 // Chrome compartido con Transporte + extras propios
 import '../../Componentes/IndicadoresChrome/estilos.css';
 import './estilos.css';
@@ -916,8 +916,7 @@ const IndicadoresCostoOperacion: React.FC = () => {
       <header className="IG-header">
         <div className="IG-headerInner">
           <button className="IG-brand" onClick={volverMenu} title="Volver al menú de indicadores">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="IG-brandName">Integr<span className="IG-brandAccent">App</span></span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
           <h1 className="IG-titulo">
             <span className="IG-tituloDesktop">Indicadores de Costo de Operación de Transporte</span>

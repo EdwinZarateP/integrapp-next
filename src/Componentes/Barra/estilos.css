@@ -5,20 +5,21 @@
    (1050) para que nunca compita con la UI de la bandeja.
    --------------------------------------------------------------- */
 .barra-superior {
-  background: #000;
-  color: #fff;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
+  color: #111827;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
   height: 64px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
   flex-shrink: 0;
   z-index: 900;
   position: relative;
 }
 
-/* Izquierda: logo + marca */
+/* Izquierda: logo + título */
 .barra-izquierda {
   display: flex;
   align-items: center;
@@ -31,7 +32,7 @@
 
 .barra-logo {
   width: auto;
-  height: 40px;
+  height: 38px;
   border-radius: 5px;
   object-fit: contain;
 }
@@ -43,23 +44,13 @@
   min-width: 0;
 }
 
-.barra-marca {
-  font-size: 1.3rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #fff;
-  letter-spacing: -0.3px;
-}
-
-.barra-marca-acento { color: #98C74C; }
-
 .barra-titulo {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
   margin: 0;
-  color: #c7d2dc;
+  color: #6b7280;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -76,22 +67,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 6px 12px 6px 8px;
   cursor: pointer;
-  color: #fff;
+  color: #111827;
   transition: background 0.2s, border-color 0.2s;
   font-family: inherit;
 }
 
 .barra-userBtn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: #e8eaed;
+  border-color: #d1d5db;
 }
 
-.barra-userIcon { font-size: 1.6rem; color: #c7d2dc; }
+.barra-userIcon { font-size: 1.6rem; color: #9ca3af; }
 
 .barra-userInfo {
   display: flex;
@@ -109,13 +100,13 @@
 
 .barra-userPerfil {
   font-size: 0.68rem;
-  color: #9fb2c4;
+  color: #6b7280;
 }
 
 .barra-chevron {
   font-size: 0.7rem;
   transition: transform 0.2s ease;
-  color: #c7d2dc;
+  color: #9ca3af;
 }
 
 .barra-chevronOpen { transform: rotate(180deg); }

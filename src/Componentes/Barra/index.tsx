@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import { FaUserCircle, FaChevronDown, FaSignOutAlt } from "react-icons/fa";
-import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import "./estilos.css";
 
 /**
@@ -51,9 +51,8 @@ const BarraSeguridad: React.FC = () => {
   return (
     <div className="barra-superior">
       <div className="barra-izquierda" onClick={irInicio} title="Volver al inicio">
-        <img src={logo.src} alt="Logo" className="barra-logo" />
+        <img src={LOGO_INTEGRA} alt="Integra Logística" className="barra-logo" />
         <div className="barra-titulos-agrupados">
-          <span className="barra-marca">Integr<span className="barra-marca-acento">App</span></span>
           <h2 className="barra-titulo">Hoja de Vida Vehículos</h2>
         </div>
       </div>

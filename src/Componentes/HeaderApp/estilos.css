@@ -1,10 +1,11 @@
 .HA-header {
-  background: #000;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
   height: 64px;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
 }
 
 .HA-headerInner {
@@ -22,16 +23,9 @@
   border: none;
   cursor: pointer;
   padding: 0;
+  border-radius: 8px;
 }
 
-.HA-brandName {
-  font-size: 1.3rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #fff;
-  letter-spacing: -0.3px;
-}
-
-.HA-brandAccent {
-  color: #98C74C;
+.HA-brand:hover {
+  background: #f3f4f6;
 }

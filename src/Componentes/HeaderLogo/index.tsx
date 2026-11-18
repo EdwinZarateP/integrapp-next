@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const HeaderLogo: React.FC = () => {
@@ -13,12 +13,7 @@ const HeaderLogo: React.FC = () => {
       onClick={() => router.push("/")}
       title="Volver al inicio"
     >
-      <img src={logo.src} alt="Logo Albatros" className="HeaderLogo-img" />
-
-      <div className="HeaderLogo-titulo">
-        <span>Integr</span>
-        <span>App</span>
-      </div>
+      <img src={LOGO_INTEGRA} alt="Integra Logística" className="HeaderLogo-img" />
 
       <div className="HeaderLogo-subtitulo">
         <span>Cadena De</span>

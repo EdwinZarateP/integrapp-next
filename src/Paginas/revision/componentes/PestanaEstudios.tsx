@@ -299,6 +299,39 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
     }
   };
 
+  /** (2026-11-18) REDISPARO INDIVIDUAL por actor: re-consulta SOLO a este
+   *  sujeto con force (re-consulta real) — misma semántica que «Volver a
+   *  consultar» pero sin pagar los demás estudios de la corrida. Fire-and-
+   *  forget: el avance se sigue con el polling de la pestaña. */
+  const redispararEstudio = async (e: EstudioAuto) => {
+    const ok = await Swal.fire({
+      title: `¿Redisparar el estudio de ${tituloEstudio(e)}?`,
+      html: `Se re-consulta <b>solo a este actor</b> con los datos actuales de la ficha
+             (re-consulta real: consume ~1 consulta del proveedor). Los demás
+             estudios de la corrida no se tocan.<br><br>
+             <small>Útil p. ej. cuando cambió el conductor y solo falta SU estudio, o para
+             refrescar a un solo actor sin volver a pagar todos.</small>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '🔁 Redisparar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#00a5b5',
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      const fd = new FormData();
+      fd.append('estudio_id', e.id);
+      const { data } = await axios.post(
+        `${API_BASE}/vehiculos/estudios-seguridad/${veh.placa}/redisparar`,
+        fd, { params: { usuario: Cookies.get('seguridadNombre') || undefined } });
+      await cargar();
+      iniciarSondeo();
+      Swal.fire({ title: 'Estudio redisparado', text: data?.message || 'El avance aparece en la tarjeta en unos minutos.', icon: 'success', timer: 2500, showConfirmButton: false });
+    } catch (err: any) {
+      Swal.fire('No se pudo redisparar', err?.response?.data?.detail || 'Error de conexión con el servidor.', 'error');
+    }
+  };
+
   /** Reintenta SOLO las fuentes que quedaron en Error de un estudio
    *  finalizado (el proveedor relanza esas fuentes sobre el mismo reporte). */
   const reintentarFallidas = async (e: EstudioAuto) => {
@@ -460,6 +493,13 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                         <FaRedo className={reintentandoEstudio === e.id ? 'rev-est-girando' : ''} />
                         {reintentandoEstudio === e.id ? 'Reintentando… puede tardar 1-3 min' : 'Reintentar esta consulta'}
                       </button>
+                      <button
+                        className="rev-est-btn-fuentes"
+                        onClick={() => redispararEstudio(e)}
+                        title="Re-consulta REAL (force) solo a este actor — consume ~1 consulta"
+                      >
+                        <FaRedo /> Redisparar
+                      </button>
                     </div>
                   </>
                 )}
@@ -481,6 +521,13 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
                       </span>
                     )}
                     <div className="rev-est-acciones">
+                      <button
+                        className="rev-est-btn-fuentes"
+                        onClick={() => redispararEstudio(e)}
+                        title="Re-consulta REAL (force) solo a este actor — consume ~1 consulta; los demás estudios no se tocan"
+                      >
+                        <FaRedo /> Redisparar
+                      </button>
                       {e.reporte_id && (
                         <button
                           className="rev-est-btn-pdf"

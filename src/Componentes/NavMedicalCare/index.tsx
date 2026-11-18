@@ -6,7 +6,7 @@ import {
   FaUserCircle, FaSignOutAlt, FaChevronDown, FaRoute, FaUsers, FaHome, FaBoxOpen, FaDollarSign, FaTruck, FaHistory,
   FaExchangeAlt, FaBan, FaWallet, FaIdCard, FaTruckMoving, FaClipboardCheck, FaRegCalendarCheck,
 } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 export type PaginaMC = 'medicalcare' | 'pacientes' | 'pedidosv3' | 'cruce' | 'solicitud' | 'usuarios' | 'tarifas' | 'divipolas' | 'historico' | 'pedidosanulados' | 'otroscostos' | 'historicooc' | 'cuentasplaca' | 'estadovehiculos' | 'novedadesot' | 'citasentrega';
@@ -94,8 +94,7 @@ const NavMedicalCare: React.FC<Props> = ({ paginaActual }) => {
       <div className="NMC-inner">
 
         <button className="NMC-brand" onClick={() => router.push('/')} title="Inicio">
-          <Image src={logo} alt="Integra" height={40} priority />
-          <span className="NMC-brandName">Integr<span className="NMC-brandAccent">App</span></span>
+          <Image src={LOGO_INTEGRA} alt="Integra Logística" width={191} height={38} priority />
         </button>
 
         <div className="NMC-badge">{seccionActual ? seccionActual.label : 'Integra'}</div>

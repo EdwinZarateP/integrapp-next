@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse, FaClipboardList, FaHistory, FaFileInvoiceDollar, FaBuilding } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const IndicadoresMenu: React.FC = () => {
@@ -132,10 +132,7 @@ const IndicadoresMenu: React.FC = () => {
       <header className="IM-header">
         <div className="IM-headerInner">
           <button className="IM-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="IM-brandName">
-              Integr<span className="IM-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
 
           {/* Usuario + menú */}

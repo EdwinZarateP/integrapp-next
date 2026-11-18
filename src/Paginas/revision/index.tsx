@@ -16,7 +16,7 @@ import VistaAlta from "./componentes/VistaAlta";
 import VistaEstudiosAntiguedad from "./componentes/VistaEstudiosAntiguedad";
 import VistaIndicadores from "./componentes/VistaIndicadores";
 import { Vehiculo, PestanaBandeja, PestanaDetalle } from "./tipos";
-import logoIntegrApp from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import "./estilos.css";
 
 const BANDEJAS_VALIDAS: PestanaBandeja[] = ["pendientes", "revision", "aprobados", "inactivos", "actualizacion", "rechazados"];
@@ -678,9 +678,8 @@ const RevisionVehiculos: React.FC<RevisionVehiculosProps> = ({ vistaInicial }) =
   const sidebar = (
     <aside className="revx-sidebar">
       <div className="revx-sidebar-logo" onClick={() => router.push("/")} title="Volver al inicio">
-        <img src={logoIntegrApp.src} alt="IntegrApp" className="revx-logo" />
+        <img src={LOGO_INTEGRA} alt="Integra Logística" className="revx-logo" />
         <div className="revx-logo-texto">
-          <span>Integr<span>App</span></span>
           <small>{esPadrino() ? "Padrino · Documentos" : "Seguridad · Revisión"}</small>
         </div>
       </div>

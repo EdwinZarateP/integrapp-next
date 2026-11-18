@@ -506,6 +506,16 @@
   word-break: break-word;
 }
 
+/* (2026-11-18) Celdas "Usuario" (columna 2) y "Acción" (columna 3): mismo
+   desbordamiento que tenía Detalle — con table-layout:fixed + nowrap un
+   usuario largo (correo o nombre sin espacios) se salía de su recuadro. */
+.HP-cambiosWrap .HP-subTable td:nth-child(2),
+.HP-cambiosWrap .HP-subTable td:nth-child(3) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Detalle legible: un cambio por línea (campo: anterior → nuevo). */
 .HP-cambioLineas {
   display: flex;

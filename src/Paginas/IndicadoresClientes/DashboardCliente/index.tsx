@@ -8,7 +8,7 @@ import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Respon
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaChartBar, FaUpload } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import { obtenerCliente } from '../clientes';
 import '@/Componentes/IndicadoresChrome/estilos.css';
 // (2026-11-10) Camión Lottie de marca para la espera de la consulta de guía.
@@ -2623,8 +2623,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       <header className="DC-header">
         <div className="DC-headerInner">
           <button className="DC-brand" onClick={() => router.push(rutaPanel)} title={modoExterno ? 'Mis indicadores' : 'Panel de clientes'}>
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="DC-brandName">Integr<span className="DC-brandAccent">App</span></span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
 
           <div className="DC-logoCliente">

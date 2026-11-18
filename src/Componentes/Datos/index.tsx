@@ -2545,7 +2545,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
   // (debounce) — solo si no hay conductor vinculado ni invitación pendiente
   // para ESE correo, y una única vez por correo digitado.
   useEffect(() => {
-    if (!esSesionTenedor || soloLectura || esPadrinoImp) return;
+    // (2026-11-18) PADRINO: también dispara el popup del conductor PRINCIPAL
+    // mientras el slot 1 no tenga nadie VINCULADO (vacío o invitación
+    // pendiente — fuerza mayor, p. ej. conductor fallecido que nunca aceptó).
+    if (!esSesionTenedor || soloLectura) return;
+    if (esPadrinoImp && vinculacionConductor?.idConductor) return;
     const correo = (formData['condCorreo'] || '').trim().toLowerCase();
     const correoValido = correo.includes('@') && correo.length >= 6;
     // Primer registro del ref (correo cargado del vehículo): no ofrecer.
@@ -2568,8 +2572,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
 
   // SEGUNDO CONDUCTOR (2026-10-14): mismo disparo automático del popup para
   // el correo del conductor 2 (solo tenedor, slot 1 ocupado, slot 2 libre).
+  // (2026-11-18) El PADRINO impersonando TAMBIÉN puede gestionar el slot 2
+  // (invitar/reenviar/quitar segundo conductor) — solo el slot 1 le sigue
+  // vetado; el backend espeja la regla en _rechazar_padrino.
   useEffect(() => {
-    if (!esSesionTenedor || soloLectura || esPadrinoImp || !cond2Visible) return;
+    if (!esSesionTenedor || soloLectura || !cond2Visible) return;
     if (!vinculacionConductor?.idConductor && !(vinculacionConductor?.invitacion?.correo || '').trim()) return;
     const correo = (formData['cond2Correo'] || '').trim().toLowerCase();
     const correoValido = correo.includes('@') && correo.length >= 6;
@@ -2777,8 +2784,11 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
       {/* ── Vinculación del conductor invitado (solo TENEDOR dueño de la ficha).
           La invitación se hace con LOS DATOS DE ESTE FORMULARIO (2026-10-01):
           correo y nombre de la sección Conductor — ya no hay un botón afuera
-          con un modal que pedía digitarlos de nuevo. PADRINO: fuera. ── */}
-      {esSesionTenedor && !esPadrinoImp && (
+          con un modal que pedía digitarlos de nuevo. PADRINO (2026-11-18): la
+          caja le aparece SOLO mientras el slot 1 no tenga conductor VINCULADO
+          (vacío o invitación pendiente — fuerza mayor, p. ej. conductor
+          fallecido); con conductor vinculado no puede gestionar el slot 1. ── */}
+      {esSesionTenedor && (!esPadrinoImp || !vinculacionConductor?.idConductor) && (
         <div className="Datos-vinculacion">
           {vinculacionConductor?.idConductor ? (
             <>
@@ -2837,8 +2847,9 @@ const Datos: React.FC<DatosProps> = ({ placa, idUsuario, editarAprobado, imperso
 
       {/* ── SEGUNDO CONDUCTOR (2026-10-14): caja de vinculación del slot 2 —
           opcional, solo tenedor y con el conductor principal ya resuelto.
-          PADRINO impersonando: fuera. ── */}
-      {esSesionTenedor && !soloLectura && !esPadrinoImp
+          PADRINO impersonando: PUEDE gestionar el slot 2 (2026-11-18); el
+          slot 1 (caja de arriba) sigue vetado para él. ── */}
+      {esSesionTenedor && !soloLectura
         && (vinculacionConductor?.idConductor || (vinculacionConductor?.invitacion?.correo || '').trim()) && (
         <div className="Datos-vinculacion">
           {vinculacionConductor2?.idConductor2 ? (

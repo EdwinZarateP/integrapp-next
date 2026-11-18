@@ -1434,23 +1434,15 @@ body {
   cursor: pointer;
 }
 
+/* (2026-11-18) Logo horizontal Integra ONE (ratio ~5:1) en el sidebar. */
 .revx-logo {
-  width: 40px;
-  height: 40px;
+  width: auto;
+  height: 34px;
   object-fit: contain;
   flex-shrink: 0;
 }
 
 .revx-logo-texto { display: flex; flex-direction: column; min-width: 0; }
-
-.revx-logo-texto span {
-  font-weight: 800;
-  font-size: 1.05rem;
-  color: var(--revx-texto);
-  letter-spacing: 0.02em;
-}
-
-.revx-logo-texto span span { color: var(--revx-acento); }
 
 .revx-logo-texto small {
   color: var(--revx-texto-suave);
@@ -1595,14 +1587,14 @@ body {
   min-width: 0;
 }
 
-/* (2026-10-31) Topbar negra con acento verde (branding general). */
+/* (2026-11-18) Topbar clara con filo lima (antes negra, 2026-10-31). */
 .revx-topbar {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #000;
-  color: #fff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #fff;
+  color: #111827;
+  border-bottom: 2px solid #8EC045;
   padding: 14px 26px;
   position: sticky;
   top: 0;
@@ -1614,7 +1606,7 @@ body {
   border: none;
   background: transparent;
   font-size: 1.25rem;
-  color: #fff;
+  color: #111827;
   cursor: pointer;
   padding: 6px;
 }
@@ -1628,7 +1620,7 @@ body {
 }
 
 .revx-miga-inicio,
-.revx-miga-sep { color: #b9c2d0; }
+.revx-miga-sep { color: #6b7280; }
 
 .revx-miga-actual {
   color: var(--revx-acento-oscuro);

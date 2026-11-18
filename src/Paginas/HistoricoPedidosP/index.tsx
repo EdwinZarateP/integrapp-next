@@ -3,7 +3,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo, FaTimes, FaBan,
+  FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo, FaTimes, FaBan,
   FaChevronRight, FaChevronDown,
 } from 'react-icons/fa';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
@@ -893,8 +893,7 @@ const HistoricoPedidosP: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="HP-footerLinks">
-            <a href="tel:+573125443396" className="HP-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="HP-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="HP-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="HP-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="HP-footerCopy">© {new Date().getFullYear()} Integra</span>

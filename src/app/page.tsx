@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { FaRoad } from "react-icons/fa";
 import { GiRadioTower } from "react-icons/gi";
 import { LiaPeopleCarrySolid } from "react-icons/lia";
-import { FaMapMarkerAlt, FaPhone, FaEnvelope } from "react-icons/fa";
+import { FaMapMarkerAlt } from "react-icons/fa";
 import Image from "next/image";
-import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import styles from "./page.module.css";
 
 /* (2026-10-06) Home minimalista, pedido del usuario: FUERA «Portal
@@ -29,10 +29,7 @@ export default function Home() {
       {/* ── HEADER ── */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <Image src={logo} alt="Integra Logística" height={40} priority />
-          <span className={styles.marca}>
-            Integr<span className={styles.marcaApp}>App</span>
-          </span>
+          <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
         </div>
       </header>
 
@@ -63,8 +60,7 @@ export default function Home() {
             © {new Date().getFullYear()} Integra Cadena de Servicios S.A.S.
           </a>
           <div className={styles.footerContacto}>
-            <a href="tel:+573125443396" className={styles.footerLink}><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className={styles.footerLink}><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className={styles.footerLink}>Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className={styles.footerLink}><FaMapMarkerAlt /> Colombia</span>
           </div>
         </div>

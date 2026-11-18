@@ -871,3 +871,66 @@ Autenticación, categoría que no admite enlaces con URL).
 
 ⚠️ **No confundir los enlaces**: `/VerificarCorreo` (48 h) = activar la CUENTA;
 `/AutorizacionDatos` (30 días) = habeas data. Dep **backend + frontend JUNTOS**.
+
+## Actualizaciones Recientes (2026-11-18)
+
+### Rebranding: logo «Integra ONE» + headers claros en toda la app
+
+El wordmark de texto `IntegrApp` (con el ícono albatros) que mostraban todos los
+headers fue reemplazado por el logo corporativo nuevo
+`https://storage.googleapis.com/integrapp/Imagenes/logo_integra_ONE.png`
+(horizontal 3622×721, ratio ~5:1, texto NEGRO + emblema verde, transparente).
+Como el texto del logo es negro, **todos los headers pasaron de negro `#000` a
+fondo claro** (revierte el branding negro del 2026-10-31), replicando el patrón
+que ya existía en `LoginUsuarios` (LU) y el `DC-portalClaro` del portal Kabi.
+
+- **Constante compartida** `src/Funciones/logoIntegra.ts` (`LOGO_INTEGRA`) — única
+  fuente de la URL. Uso: `<Image src={LOGO_INTEGRA} width={201} height={40} />`
+  (`remotePatterns` de `storage.googleapis.com` ya existía en `next.config.mjs`;
+  precedente de logos remotos GCS en `IndicadoresClientes/clientes.ts`).
+- **Patrón claro aplicado** (mapeo oscuro→claro): fondo `#fff` +
+  `border-bottom: 2px solid #8EC045` (filo lima), texto `#111827`, suaves
+  `#6b7280`, iconos/chevron `#9ca3af`, pill usuario `#f3f4f6` / borde `#e5e7eb` /
+  hover `#e8eaed`, acento `#349F4A`, tab activo `#E8F5E9`, sombra
+  `rgba(15,23,42,0.06)`. Los dropdowns ya eran blancos (no se tocaron).
+- **Alcance (~26 headers)**: componentes `HeaderApp`, `HeaderSesion`,
+  `HeaderLogo` (conserva subtítulo «Cadena De Servicios»), `NavMedicalCare`
+  (arrastra ~15 páginas), `Barra`, `IndicadoresChrome` (`.IG-header` única; el
+  contenido interno navy NO se tocó); páginas VC (`VerificarCorreo` +
+  `AutorizacionDatos` + `AceptarInvitacion`), `CertificadoLaboralP`,
+  `AdminSeguridadP`, `TarifasP`, `/indicadores` (IM), LC (`LoginConductores` +
+  `RegistroConductor` + `OlvidoClaveConductor`), `OlvidoClaveBaseUsuario`,
+  `PanelConductores`, `PanelClientes`, `PanelMisClientes`, `Pedidos` (con tabs),
+  `PedidosCompletados`, `IndicadoresCostoOperacion`, `DashboardCliente` (la base
+  oscura pasó a clara; el override `DC-portalClaro` queda redundante pero
+  inofensivo), landing `/`, `revision` (`revx-topbar` blanca + logo en sidebar),
+  `LoginUsuarios`, `VerificarEstudio`, `ModulosP` (sidebar + logo central).
+- **Sin cambio**: footers oscuros `#0f1928`, logos grandes de las tarjetas de
+  login (`LC-cardHeader`, `OCBU-cardHeader`, tarjeta LU), contenido interno navy
+  de Indicadores y `<h1>Integr</h1>` legados (`SeleccionEstados`, `Registro`,
+  `Olvidoclave`).
+
+### Footers: fuera teléfono y correo, dentro «Integra Technologies»
+
+En 17 páginas, las dos líneas de contacto del footer
+(`tel:+573125443396` + `mailto:edwin.zarate@integralogistica.com`) fueron
+reemplazadas por UN solo `<span>` (mismo estilo de los links del footer):
+
+```
+Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+
+```
+
+El año es dinámico (hoy «2026»). Se CONSERVAN la línea
+«© … Integra Cadena de Servicios S.A.S.» y «Colombia». Imports
+`FaPhone`/`FaEnvelope` limpiados en los archivos afectados (`TarjetaHabeasData`
+sigue usando `FaEnvelope` para el reenvío de habeas data). Archivos: `TarifasP`,
+`InicioPropietarios`, `SolicitudVehiculos`, `HistoricoPedidosP`,
+`RegistroConductor`, `GestionUsuariosP`, `OlvidoClaveConductor`,
+`GestionTarifasRutasP`, `CertificadoLaboralP`, `Pedidos`, `PedidosCompletados`,
+`GestionDivipolasP`, `GestionPacientes`, `MedicalCareP`, `app/page.tsx`,
+`LoginUsuarios`, `LoginConductores`.
+
+⚠️ Trampa de verificación: las páginas `ssr:false` (dynamic import) salen EN
+BLANCO en screenshot Edge headless sin más — usar `--virtual-time-budget=10000`;
+y para servir el export local (basePath `/integrapp`) hay que montarlo bajo un
+junction `_root/integrapp → out`. Dep **SOLO frontend**.

@@ -9,12 +9,13 @@
 
 /* â”€â”€ HEADER â”€â”€ */
 .VC-header {
-  background: #000;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
   height: 64px;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 16px rgba(0,0,0,.35);
+  box-shadow: 0 2px 16px rgba(15,23,42,.06);
 }
 
 .VC-headerInner {
@@ -31,19 +32,10 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
 }
-
-.VC-brandName {
-  font-size: 1.3rem;
-  font-weight: 800;
-  /* Sin uppercase: el wordmark se muestra tal cual Â«IntegrAppÂ», igual que
-     el home y los logines (pedido del usuario 2026-10-06). */
-  color: #fff;
-  letter-spacing: -0.3px;
-}
-
-.VC-brandAccent { color: #98C74C; }
+.VC-brand:hover { background: #f3f4f6; }
 
 /* â”€â”€ MAIN â”€â”€ */
 .VC-main {
@@ -189,6 +181,16 @@
   line-height: 1.55;
   padding-right: 8px;
 }
+
+/* (2026-11-18) Enlaces dentro de las declaraciones (p. ej. la Declaración 8
+   «Acuerdo de Nivel de Servicio» del conductor): link limpio y visible. */
+.VC-politicaTexto a {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+.VC-politicaTexto a:hover { color: #1e40af; }
 
 /* Scrollbar sutil dentro del texto de la polÃ­tica */
 .VC-politicaTexto::-webkit-scrollbar { width: 6px; }

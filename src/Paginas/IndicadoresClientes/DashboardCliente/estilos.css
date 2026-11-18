@@ -35,14 +35,15 @@
 
 /* ── Header ─────────────────────────────────────────────── */
 .DC-header {
-  /* (2026-10-30) Fondo negro + acento verde #98C74C (antes navy #0f1928 y
-     naranja #e8a000) — pedido de branding para el portal Mis Indicadores. */
-  background: #000;
-  color: #fff;
+  /* (2026-11-18) Header claro + logo Integra ONE (antes negro #98C74C,
+     2026-10-30; antes de eso navy #0f1928 + naranja #e8a000). */
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
+  color: #111827;
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: 0 2px 12px rgba(15, 25, 40, 0.35);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
 
 /* (2026-10-30) Header a TODO el ancho en pantallas grandes (antes centrado a
@@ -67,10 +68,7 @@
   border-radius: 8px;
   transition: background 0.15s;
 }
-.DC-brand:hover { background: rgba(255, 255, 255, 0.08); }
-
-.DC-brandName { font-size: 1.25rem; font-weight: 800; letter-spacing: 0.3px; color: #fff; }
-.DC-brandAccent { color: #98C74C; }
+.DC-brand:hover { background: #f3f4f6; }
 
 /* Nombre del cliente, centrado en el header (sin logo) */
 .DC-logoCliente {
@@ -86,7 +84,7 @@
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: 0.3px;
-  color: #fff;
+  color: #111827;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -99,22 +97,22 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
   cursor: pointer;
-  color: #fff;
+  color: #111827;
   transition: background 0.15s;
 }
-.DC-userBtn:hover { background: rgba(255, 255, 255, 0.12); }
+.DC-userBtn:hover { background: #e8eaed; }
 
-.DC-userIcon { font-size: 1.4rem; color: #98C74C; }
+.DC-userIcon { font-size: 1.4rem; color: #349F4A; }
 .DC-userInfo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .DC-userName { font-size: 0.82rem; font-weight: 700; }
-.DC-userPerfil { font-size: 0.68rem; color: #b9c2d0; }
+.DC-userPerfil { font-size: 0.68rem; color: #6b7280; }
 
-.DC-chevron { font-size: 0.7rem; color: #b9c2d0; transition: transform 0.2s; }
+.DC-chevron { font-size: 0.7rem; color: #9ca3af; transition: transform 0.2s; }
 .DC-chevronOpen { transform: rotate(180deg); }
 
 .DC-dropdown {

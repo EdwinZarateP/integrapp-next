@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle,
+  FaMapMarkerAlt, FaUserCircle,
   FaCheckCircle, FaCircle, FaFileExcel, FaFilter, FaRoute, FaCog, FaPlus, FaTrash, FaDollarSign,
   FaTimes, FaEye, FaEyeSlash, FaEdit,
 } from 'react-icons/fa';
@@ -936,8 +936,7 @@ const MedicalCareP: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="MC-footerLinks">
-            <a href="tel:+573125443396" className="MC-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="MC-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="MC-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="MC-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="MC-footerCopy">© {new Date().getFullYear()} Integra — Portal Medical Care</span>

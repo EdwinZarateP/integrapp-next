@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaUserCircle, FaChevronDown,
+  FaMapMarkerAlt, FaUserCircle, FaChevronDown,
   FaUsers, FaTable, FaBars, FaTimes, FaExchangeAlt,
 } from 'react-icons/fa';
 import TablaPedidosCompletados from '@/Componentes/PedidosComponentes/TablaPedidosCompletados';
 import Cookies from 'js-cookie';
 import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const PedidosCompletados: React.FC = () => {
@@ -57,10 +58,7 @@ const PedidosCompletados: React.FC = () => {
 
           {/* Logo */}
           <button className="PC-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="PC-brandName">
-              <span>Integr</span><span className="PC-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
 
 
@@ -129,8 +127,7 @@ const PedidosCompletados: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="PC-footerLinks">
-            <a href="tel:+573125443396" className="PC-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="PC-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="PC-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="PC-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="PC-footerCopy">

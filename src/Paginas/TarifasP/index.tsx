@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import * as XLSX from 'xlsx';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaArrowLeft,
+  FaMapMarkerAlt, FaArrowLeft,
   FaPlus, FaEdit, FaTrash, FaTimes, FaSave, FaSearch,
   FaFileExcel, FaUpload,
 } from 'react-icons/fa';
 import { obtenerFletes, crearFlete, actualizarFlete, eliminarFlete, cargarFletesMasivo, Flete } from '@/Funciones/ApiPedidos/fletes';
 import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const FLETE_VACIO: Flete = {
@@ -229,8 +230,7 @@ const TarifasP: React.FC = () => {
       <header className="TAR-header">
         <div className="TAR-headerInner">
           <button className="TAR-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="TAR-brandName">Integr<span className="TAR-brandAccent">App</span></span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
           <button className="TAR-backBtn" onClick={() => router.back()}>
             <FaArrowLeft /> Volver
@@ -376,8 +376,7 @@ const TarifasP: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="TAR-footerLinks">
-            <a href="tel:+573125443396" className="TAR-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="TAR-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="TAR-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="TAR-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="TAR-footerCopy">© {new Date().getFullYear()} Integra — Torre de Control</span>

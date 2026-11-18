@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaUpload, FaDownload,
+  FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaUpload, FaDownload,
   FaEdit, FaTrash, FaFileExcel, FaSearch,
 } from 'react-icons/fa';
 import {
@@ -354,8 +354,7 @@ const GestionDivipolasP: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="GTR-footerLinks">
-            <a href="tel:+573125443396" className="GTR-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="GTR-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="GTR-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="GTR-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="GTR-footerCopy">© {new Date().getFullYear()} Integra</span>

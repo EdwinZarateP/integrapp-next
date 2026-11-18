@@ -13,7 +13,7 @@ import {
   FaBuilding, FaLayerGroup, FaExchangeAlt, FaFileInvoiceDollar,
   FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaTimes, FaShieldAlt, FaKey,
 } from "react-icons/fa";
-import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import {
   ApiKeySeguridad,
   EmpresaCobro,
@@ -641,8 +641,7 @@ export default function AdminSeguridadP({ pestanaInicial = "empresas" }: { pesta
       <header className="AS-header-app">
         <div className="AS-header-inner">
           <button className="AS-brand" onClick={() => router.push("/")} title="Volver al inicio">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="AS-brandName">Integr<span className="AS-brandAccent">App</span></span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
 
           <span className="AS-headerTab"><FaShieldAlt /> Estudios de Seguridad</span>

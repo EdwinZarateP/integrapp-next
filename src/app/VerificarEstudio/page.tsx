@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle, FaFingerprint, FaShieldAlt, FaTimesCircle } from "react-icons/fa";
-import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import "./estilos.css";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -89,8 +89,7 @@ function ContenidoVerificacion() {
     <main className="VE-page">
       <header className="VE-header">
         <div className="VE-brand">
-          <Image src={logo} alt="Integra Logística" width={44} height={44} priority />
-          <div><strong>IntegrApp</strong><span>Integra Logística</span></div>
+          <Image src={LOGO_INTEGRA} alt="Integra Logística" width={196} height={39} priority />
         </div>
         <div className="VE-secure"><FaShieldAlt /> Verificación segura</div>
       </header>

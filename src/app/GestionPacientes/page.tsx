@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Lottie from 'lottie-react';
 import {
-  FaPhone, FaEnvelope, FaMapMarkerAlt,
+  FaMapMarkerAlt,
   FaPlus, FaEdit, FaTrash, FaFileExcel, FaSearch
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
@@ -845,8 +845,7 @@ const GestionPacientes: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="GP-footerLinks">
-            <a href="tel:+573125443396" className="GP-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="GP-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="GP-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="GP-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="GP-footerCopy">© {new Date().getFullYear()} Integra — Gestión de Pacientes</span>

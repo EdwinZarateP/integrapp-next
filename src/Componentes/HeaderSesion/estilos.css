@@ -1,17 +1,18 @@
 /* Header de marca + sesiÃ³n. BotÃ³n de usuario y dropdown con el MISMO patrÃ³n
    del header de /PanelConductores (barra-userBtn / menu-desplegable). */
 .HS-header {
-  background: #000;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
   flex-shrink: 0;
   z-index: 1000;
   position: relative;
-  color: #fff;
+  color: #111827;
 }
 
 .HS-brand {
@@ -21,17 +22,11 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: 8px;
 }
-.HS-brandName {
-  font-size: 1.3rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #fff;
-  letter-spacing: -0.3px;
-  white-space: nowrap;
-}
-.HS-brandAccent { color: #98C74C; }
+.HS-brand:hover { background: #f3f4f6; }
 
 .HS-derecha {
   position: relative;
@@ -44,23 +39,23 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 6px 12px 6px 8px;
   cursor: pointer;
-  color: #fff;
+  color: #111827;
   transition: background 0.2s, border-color 0.2s;
   font-family: inherit;
 }
 .HS-userBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: #e8eaed;
+  border-color: #d1d5db;
 }
 
 .HS-userIcon {
   font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: #9ca3af;
   flex-shrink: 0;
 }
 
@@ -73,7 +68,7 @@
 .HS-userName {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #fff;
+  color: #111827;
   max-width: 160px;
   white-space: nowrap;
   overflow: hidden;
@@ -81,14 +76,14 @@
 }
 .HS-userPerfil {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .HS-chevron {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: #9ca3af;
   transition: transform 0.2s;
   flex-shrink: 0;
 }
@@ -144,6 +139,5 @@
 /* Responsive */
 @media (max-width: 600px) {
   .HS-header { padding: 0 14px; height: 56px; }
-  .HS-brandName { font-size: 1.05rem; }
   .HS-userInfo { display: none; } /* Solo avatar + chevron en mÃ³vil */
 }

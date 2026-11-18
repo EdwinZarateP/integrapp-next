@@ -15,7 +15,8 @@
 
 /* â”€â”€ HEADER â”€â”€ */
 .PC-header {
-  background: #000;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
   height: 64px;
   display: flex;
   align-items: center;
@@ -23,7 +24,7 @@
   position: sticky;
   top: 0;
   z-index: 200;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
 }
 
 .PC-headerInner {
@@ -42,16 +43,18 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
+.PC-brand:hover { background: #f3f4f6; }
 
 /* BotÃ³n menÃº mÃ³vil */
 .PC-menuMobileBtn {
   display: none;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #111827;
   width: 44px;
   height: 44px;
   border-radius: 10px;
@@ -62,19 +65,8 @@
 }
 
 .PC-menuMobileBtn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #e8eaed;
 }
-
-.PC-brandName {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  text-transform: uppercase;
-  color: #fff;
-  line-height: 1;
-}
-
-.PC-brandAccent { color: #98C74C; }
 
 /* Nav tabs */
 .PC-nav {
@@ -91,7 +83,7 @@
   gap: 6px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.55);
+  color: #6b7280;
   font-size: 0.88rem;
   font-weight: 500;
   padding: 8px 16px;
@@ -103,13 +95,13 @@
 }
 
 .PC-navTab:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
+  color: #111827;
+  background: #f3f4f6;
 }
 
 .PC-navTabActive {
-  color: #98C74C !important;
-  background: rgba(152, 199, 76, 0.12) !important;
+  color: #349F4A !important;
+  background: #E8F5E9 !important;
   font-weight: 700;
 }
 
@@ -123,24 +115,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 6px 12px 6px 8px;
   cursor: pointer;
-  color: #fff;
+  color: #111827;
   transition: background 0.2s, border-color 0.2s;
   font-family: inherit;
 }
 
 .PC-userBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: #e8eaed;
+  border-color: #d1d5db;
 }
 
 .PC-userIcon {
   font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: #9ca3af;
   flex-shrink: 0;
 }
 
@@ -154,19 +146,19 @@
 .PC-userName {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #fff;
+  color: #111827;
 }
 
 .PC-userPerfil {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .PC-chevron {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: #9ca3af;
   transition: transform 0.2s;
   flex-shrink: 0;
 }

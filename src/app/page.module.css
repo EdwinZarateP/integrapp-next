@@ -7,16 +7,16 @@
   background: #fafbfc;
 }
 
-/* â”€â”€ HEADER â”€â”€ IdÃ©ntico al de LoginConductores/LoginUsuario (LC-/LU-):
-   mismo alto, sombra, espaciados y logo 40px (2026-10-06, pedido del
-   usuario: Â«que se vea como en LoginConductoresÂ»). */
+/* â”€â”€ HEADER â”€â”€ (2026-11-18) Header claro + logo Integra ONE (antes
+   negro con wordmark; original 2026-10-06 igual a LoginConductores). */
 .header {
-  background: #000;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
   height: 64px;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
 }
 
 .headerInner {
@@ -26,18 +26,6 @@
   width: 100%;
   padding: 0 28px;
 }
-
-/* Wordmark Â«IntegrAppÂ» junto al logo, a la IZQUIERDA â€” Â«AppÂ» en verde
-   (mismos valores de LC-brandName / LU-brandName). */
-.marca {
-  color: #fff;
-  font-size: 1.3rem;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  white-space: nowrap;
-}
-
-.marcaApp { color: #98C74C; }
 
 /* â”€â”€ MAIN / PORTALES â”€â”€ */
 .main {

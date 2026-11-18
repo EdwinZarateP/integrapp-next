@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaPhone, FaEnvelope, FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen, FaChevronDown, FaChevronRight, FaUndo } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen, FaChevronDown, FaChevronRight, FaUndo } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
 import { usoVehiculoSolicitado, badgeUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
@@ -4687,8 +4687,7 @@ const SolicitudVehiculos: React.FC = () => {
             <span>Integra Cadena de Servicios S.A.S.</span>
           </div>
           <div className="SV-footerLinks">
-            <a href="tel:+573125443396" className="SV-footerLink"><FaPhone /> +57 312 544 3396</a>
-            <a href="mailto:edwin.zarate@integralogistica.com" className="SV-footerLink"><FaEnvelope /> edwin.zarate@integralogistica.com</a>
+            <span className="SV-footerLink">Integra Technologies @ {new Date().getFullYear()} – GAMP 5 & ALCOA+</span>
             <span className="SV-footerLink"><FaMapMarkerAlt /> Colombia</span>
           </div>
           <span className="SV-footerCopy">© {new Date().getFullYear()} Integra — Solicitud de Vehículos</span>

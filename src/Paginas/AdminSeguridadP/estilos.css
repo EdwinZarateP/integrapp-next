@@ -11,14 +11,15 @@
 }
 
 .AS-header-app {
-  background: #000;
+  background: #fff;
+  border-bottom: 2px solid #8EC045;
   height: 64px;
   display: flex;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
 }
 
 /* PatrÃ³n /Pedidos: contenido a ANCHO COMPLETO (sin max-width que dejaba una
@@ -37,8 +38,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #98C74C;
-  background: rgba(152, 199, 76, 0.12);
+  color: #349F4A;
+  background: #E8F5E9;
   font-size: 0.88rem;
   font-weight: 700;
   padding: 8px 16px;
@@ -65,16 +66,6 @@
   opacity: 0.8;
 }
 
-.AS-brandName {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.AS-brandAccent {
-  color: #98C74C;
-}
-
 .AS-userZone {
   position: relative;
   flex-shrink: 0;
@@ -84,19 +75,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 6px 12px 6px 8px;
   cursor: pointer;
-  color: #fff;
+  color: #111827;
   transition: background 0.2s, border-color 0.2s;
   font-family: inherit;
 }
 
 .AS-userBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #e8eaed;
+  border-color: #d1d5db;
 }
 
 .AS-userIcon {
@@ -115,13 +106,13 @@
 .AS-userName {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #ffffff;
+  color: #111827;
   line-height: 1;
 }
 
 .AS-userPerfil {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: #6b7280;
   line-height: 1;
 }
 
@@ -192,9 +183,6 @@
 @media (max-width: 600px) {
   .AS-userInfo {
     display: none; /* mÃ³vil: solo avatar + chevron */
-  }
-  .AS-brandName {
-    font-size: 1.15rem;
   }
   /* Como el nav de Pedidos: sin tab central en pantallas angostas. */
   .AS-headerTab {

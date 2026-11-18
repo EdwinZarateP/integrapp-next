@@ -8,7 +8,7 @@ import {
   FaUserCircle, FaEdit, FaTrashAlt, FaEye, FaExclamationTriangle, FaClock, FaTimesCircle, FaTruck,
   FaChevronDown, FaSignOutAlt, FaBan, FaShieldAlt
 } from "react-icons/fa";
-import logo from "@/Imagenes/albatros.png";
+import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
 import Datos from '@/Componentes/Datos';
 import CargaDocumento from '@/Componentes/CargaDocumento';
 import EjemploFotoVehiculo, { esAnguloFoto, AnguloFotoVehiculo } from '@/Componentes/EjemploFotoVehiculo';
@@ -574,10 +574,7 @@ const BarraConductor: React.FC = () => {
   return (
     <div className="barra-superior">
       <div className="barra-izquierda" onClick={irInicio} title="Volver al inicio">
-        <img src={logo.src} alt="Logo" className="barra-logo" />
-        <span className="barra-marca">
-          Integr<span className="barra-marca-acento">App</span>
-        </span>
+        <img src={LOGO_INTEGRA} alt="Integra Logística" className="barra-logo" />
       </div>
       <div className="barra-derecha" ref={menuRef}>
         <button
@@ -975,7 +972,15 @@ const PanelConductoresVista: React.FC = () => {
           // cubre el botón «Ver» y también un refresh en ?paso=2&placa=… de un
           // vehículo en revisión (antes quedaba editable por URL). Los
           // RECHAZADOS también son de solo lectura (candado definitivo).
-          setModoLectura(['completado_revision', 'en_revision', 'rechazado'].includes(data.data.estadoIntegra));
+          // (2026-11-18) Excepción: SEGURIDAD/ADMIN impersonando (Modo Seguridad)
+          // SÍ puede editar un vehículo en revisión — cada mutación viaja con
+          // editado_por y queda en la bitácora auditoriaVehiculo (via=impersonacion).
+          // El PADRINO impersonando sigue en modo consulta (sin bypass).
+          const estadoConsulta = ['completado_revision', 'en_revision'].includes(data.data.estadoIntegra);
+          const impersonadoSeguridad =
+            Boolean((Cookies.get('conductorImpersonadoPor') || '').trim()) && !esImpersonacionPadrino();
+          setModoLectura(data.data.estadoIntegra === 'rechazado'
+            || (estadoConsulta && !impersonadoSeguridad));
         } else {
            setVehiculoActual(null);
            setSecciones(seccionesLimpias);

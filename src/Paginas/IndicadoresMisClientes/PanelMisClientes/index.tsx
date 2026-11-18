@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaUserCircle, FaChevronDown, FaSignOutAlt, FaBuilding, FaLock } from 'react-icons/fa';
-import logo from '@/Imagenes/albatros.png';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 // Mismo registro de logos del panel interno (/indicadores/clientes): si el
 // cliente tiene dashboard publicado, su tarjeta usa SU logo; si no, icono.
 import { obtenerCliente } from '@/Paginas/IndicadoresClientes/clientes';
@@ -101,10 +101,7 @@ const PanelMisClientes: React.FC = () => {
       <header className="MC-header">
         <div className="MC-headerInner">
           <button className="MC-brand" title="Mis indicadores">
-            <Image src={logo} alt="Integra" height={40} priority />
-            <span className="MC-brandName">
-              Integr<span className="MC-brandAccent">App</span>
-            </span>
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
           </button>
 
           <h1 className="MC-titulo">Mis indicadores</h1>
