@@ -951,3 +951,36 @@ sigue usando `FaEnvelope` para el reenvío de habeas data). Archivos: `TarifasP`
 BLANCO en screenshot Edge headless sin más — usar `--virtual-time-budget=10000`;
 y para servir el export local (basePath `/integrapp`) hay que montarlo bajo un
 junction `_root/integrapp → out`. Dep **SOLO frontend**.
+
+## Actualizaciones Recientes (2026-11-19)
+
+### Telemetría de uso del portal de clientes — beacons + página «Uso del Portal»
+
+Mide la adopción del portal de clientes (quién entra, con qué frecuencia, qué
+pestañas y acciones usa) para reportar números al cliente. Cambio de backend
+asociado en `integrappi/README.md` (2026-11-19).
+
+- **Beacons** (`Paginas/IndicadoresClientes/DashboardCliente/telemetria.ts`):
+  `registrarEvento()` hace POST `keepalive` fire-and-forget a
+  `/telemetria/evento` (`.catch(() => {})` — jamás toca la UI). Sesión =
+  `crypto.randomUUID()` en `sessionStorage` (una por pestaña del navegador);
+  usuario desde la cookie `usuarioPedidosCookie` (sin cookie → no manda nada).
+  Al instrumentar el componente compartido se cubren los 5 wrappers (Kabi y
+  Medical Care, externo e interno): `cliente_id` + `modo` distinguen. Eventos:
+  `pageview` (useEffect de cookies al montar, con ref `pageviewEnviado`
+  anti-StrictMode; incluye la pestaña inicial de `?pestana=`), `pestana`
+  (`cambiarPestana`), `consulta_guia` (`consultarGuiaSiscore`, cubre el
+  auto-arranque por `?guia=`), `pendientes` (`alternarTablaPend`, SOLO al
+  abrir y fuera del updater) y `export_excel` (los 4: pendientes, uso,
+  guías, OT).
+- **Página `/indicadores/uso-kabi`** (`Paginas/UsoPortalKP`, prefijo `UP-*`,
+  tema claro del sistema de diseño Integra): solo ADMIN (gate por cookie).
+  Filtros rango `desde/hasta` (default 30 días) + portal; 4 KPIs; barras CSS
+  por día (una serie, sin leyenda, tooltip por columna); tabla de usuarios
+  (perfil, días activos, última conexión, desglose por acción en chips);
+  mini tablas pestañas/acciones/portal; **Excel SheetJS dinámico de 3 hojas**
+  (Usuarios / Por día / Eventos). Tarjeta «Uso del Portal (telemetría)»
+  solo-ADMIN en `/indicadores` (`indicadoresTelemetria` en
+  `app/indicadores/page.tsx`).
+- Los eventos se empiezan a acumular SOLO tras el deploy. Dep **backend +
+  frontend JUNTOS** (los beacons necesitan el endpoint vivo).
