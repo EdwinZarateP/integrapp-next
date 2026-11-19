@@ -607,6 +607,20 @@ const SolicitudVehiculos: React.FC = () => {
     return municipios.some(m => norm(m) === norm(restringido));
   };
 
+  // Uso del vehículo < 50% (2026-11-19): aunque el flete cumpla (PREAPROBADO o
+  // solo COORDINADOR), requiere autorización de CONTROL obligatoria. Mismo
+  // cálculo que la columna «% Uso»; sin tipo evaluable (null) no aplica.
+  // Espejo de _aplicar_regla_uso_control del backend.
+  const UMBRAL_USO_CONTROL = 50;
+  const requiereAutorizacionControlUso = (r: any): boolean => {
+    const uso = usoVehiculoSolicitado(r?.peso_real, r?.tipo_veh_sicetac, r?.tipo_vehiculo);
+    return uso != null && uso < UMBRAL_USO_CONTROL;
+  };
+  const conControlPorUso = <T extends string>(estado: T, r: any): T | 'REQUIERE_APROBACION_CONTROL' =>
+    (estado === 'PREAPROBADO' || estado === 'REQUIERE_APROBACION_COORDINADOR') && requiereAutorizacionControlUso(r)
+      ? 'REQUIERE_APROBACION_CONTROL'
+      : estado;
+
   const determinarEstado = (resultado: PlanillaResultado): 'CREADO' | 'PREAPROBADO' | 'REQUIERE_APROBACION_COORDINADOR' | 'REQUIERE_APROBACION_CONTROL' | 'APROBADO' => {
     // Si está en CREADO (borrador del operativo), mantenerlo hasta paso explícito a PREAPROBADO
     if (resultado.estado === 'CREADO') {
@@ -631,14 +645,18 @@ const SolicitudVehiculos: React.FC = () => {
       // Si el porcentaje es ≤ 7%, requiere aprobación de coordinador
       // Si el porcentaje es > 7%, requiere aprobación de control
       if (porcentaje <= 7) {
-        return 'REQUIERE_APROBACION_COORDINADOR';
+        return conControlPorUso('REQUIERE_APROBACION_COORDINADOR', resultado);
       } else {
         return 'REQUIERE_APROBACION_CONTROL';
       }
     }
 
-    // Si no hay diferencia, preaprobado (salvo bloqueo por municipio restringido)
-    return requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
+    // Si no hay diferencia, preaprobado (salvo bloqueo por municipio restringido
+    // y regla de uso < 50% → CONTROL).
+    return conControlPorUso(
+      requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO',
+      resultado,
+    );
   };
 
   // Calcula el estado que corresponde a una planilla según sus valores actuales
@@ -654,10 +672,16 @@ const SolicitudVehiculos: React.FC = () => {
     }
     if (total <= teorico) {
       // Sin sobrecosto: preaprobado, salvo bloqueo por municipio restringido
-      return requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
+      // y regla de uso < 50% → CONTROL.
+      return conControlPorUso(
+        requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO',
+        resultado,
+      );
     }
     const { porcentaje } = calcularDiferenciaPorcentual(resultado);
-    return porcentaje <= 7 ? 'REQUIERE_APROBACION_COORDINADOR' : 'REQUIERE_APROBACION_CONTROL';
+    return porcentaje <= 7
+      ? conControlPorUso('REQUIERE_APROBACION_COORDINADOR', resultado)
+      : 'REQUIERE_APROBACION_CONTROL';
   };
 
   const calcularTotalTemporal = (): number => {
@@ -1431,14 +1455,18 @@ const SolicitudVehiculos: React.FC = () => {
         // Sin tarifa teórica no hay base para validar el sobrecosto → requiere CONTROL.
         nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
       } else if (total <= teorico) {
-        // Total menor o igual al teórico (salvo bloqueo por municipio restringido)
-        nuevoEstado = requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
+        // Total menor o igual al teórico (salvo bloqueo por municipio restringido
+        // y regla de uso < 50% → CONTROL)
+        nuevoEstado = conControlPorUso(
+          requiereAutorizacionMunicipio(resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO',
+          resultado,
+        );
       } else {
         // Total mayor al teórico - calcular diferencia
         const { porcentaje } = calcularDiferenciaPorcentual(resultado);
 
         if (porcentaje <= 7) {
-          nuevoEstado = 'REQUIERE_APROBACION_COORDINADOR';
+          nuevoEstado = conControlPorUso('REQUIERE_APROBACION_COORDINADOR', resultado);
         } else {
           nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
         }
@@ -4584,13 +4612,17 @@ const SolicitudVehiculos: React.FC = () => {
                     } else if (esMayor && porcentaje > 0) {
                       // Distinguir entre coordinador (≤ 7%) y control (> 7%)
                       if (porcentaje <= 7) {
-                        nuevoEstado = 'REQUIERE_APROBACION_COORDINADOR';
+                        nuevoEstado = conControlPorUso('REQUIERE_APROBACION_COORDINADOR', modalDetalle.resultado);
                       } else {
                         nuevoEstado = 'REQUIERE_APROBACION_CONTROL';
                       }
                     } else {
-                      // Sin sobrecosto: preaprobado, salvo bloqueo por municipio restringido
-                      nuevoEstado = requiereAutorizacionMunicipio(modalDetalle.resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO';
+                      // Sin sobrecosto: preaprobado, salvo bloqueo por municipio
+                      // restringido y regla de uso < 50% → CONTROL
+                      nuevoEstado = conControlPorUso(
+                        requiereAutorizacionMunicipio(modalDetalle.resultado) ? 'REQUIERE_APROBACION_COORDINADOR' : 'PREAPROBADO',
+                        modalDetalle.resultado,
+                      );
                     }
 
                     const resultadoActualizado = {

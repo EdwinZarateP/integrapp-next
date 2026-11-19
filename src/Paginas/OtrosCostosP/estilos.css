@@ -505,6 +505,27 @@ a.OC-adjLink:hover .OC-adjNombre { text-decoration: underline; }
 .OC-resultFound { color: #15803d; font-weight: 600; }
 .OC-resultNotFound { color: #b91c1c; font-weight: 600; }
 
+/* ── Devolución dirigida (indicador en la fila y aviso del detalle) ── */
+.OC-devolucionHint {
+  margin-top: 3px;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: #c2410c;
+  white-space: normal;
+  max-width: 150px;
+}
+
+.OC-avisoDevolucion {
+  background: #fff7ed;
+  border-left: 4px solid #ea580c;
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: #9a3412;
+  line-height: 1.45;
+}
+
 /* ── Timeline de movimientos ── */
 .OC-timeline { margin-top: 0.5rem; }
 

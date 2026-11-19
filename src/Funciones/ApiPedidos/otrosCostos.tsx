@@ -96,6 +96,16 @@ export interface OtroCosto {
   tramite_vulcano_info?: {
     usuario: string; nombre: string; rol: string; fecha: string; observacion: string;
   };
+  // Devolución dirigida: etapa a la que se devolvió + punto de retorno (para
+  // que quien corrige pueda volver directo a quien la devolvió).
+  devolucion_info?: {
+    etapa: 'operativo' | 'tramite';
+    estado_retorno?: string;
+    tramite_retorno?: 'ok' | 'pendiente' | null;
+    devuelto_por: { usuario: string; nombre: string; rol: string };
+    fecha: string;
+    motivo: string;
+  };
   Referencia_bancaria?: string;
   devuelta_del_historico?: {
     usuario: string; nombre: string; rol: string; fecha: string; motivo: string;
@@ -283,8 +293,12 @@ export const editarSolicitud = async (payload: any, archivos: File[] = []): Prom
 };
 
 // ── Flujo de aprobación ──────────────────────────────────────────────────────
-export const enviarAprobacion = async (consecutivo: string, usuario: string, observacion = '') => {
-  const res = await axios.post(`${BASE_URL}/enviar-aprobacion`, { consecutivo, usuario, observacion });
+// `retornoDirecto` = volver directo a la etapa donde estaba la solicitud cuando
+// se devolvió (devolucion_info), sin repetir las etapas ya validadas.
+export const enviarAprobacion = async (consecutivo: string, usuario: string, observacion = '', retornoDirecto = false) => {
+  const res = await axios.post(`${BASE_URL}/enviar-aprobacion`, {
+    consecutivo, usuario, observacion, retorno_directo: retornoDirecto,
+  });
   return res.data;
 };
 
@@ -293,8 +307,14 @@ export const aprobarSolicitud = async (consecutivo: string, usuario: string, obs
   return res.data;
 };
 
-export const devolverSolicitud = async (consecutivo: string, usuario: string, observacion = '') => {
-  const res = await axios.post(`${BASE_URL}/devolver`, { consecutivo, usuario, observacion });
+// `devolverA` = etapa destino de la devolución dirigida: 'operativo' (creador,
+// como siempre) o 'tramite' (bandeja del Analista para corregir su registro en
+// Vulcano; al marcar OK vuelve directo a Financiero).
+export const devolverSolicitud = async (
+  consecutivo: string, usuario: string, observacion = '',
+  devolverA: 'operativo' | 'tramite' = 'operativo',
+) => {
+  const res = await axios.post(`${BASE_URL}/devolver`, { consecutivo, usuario, observacion, devolver_a: devolverA });
   return res.data;
 };
 

@@ -836,6 +836,23 @@ Dep backend + frontend JUNTOS.
 
 Al consultar una guía, en vez del texto plano «Buscando la guía…» sale un **camión animado Lottie de marca** (caja verde #98C74C + cabina oscura + ruedas girando + pista pasando + rebote de suspensión, 2 s de loop perfecto). Componente **reutilizable**: `Componentes/CamionCargando` (`{texto, alto}`) — dependencia nueva **`lottie-react`**, con import DINÁMICO al montar (patrón XLSX/@react-pdf: ~250KB fuera del bundle inicial); la animación (`camion.json`) es un Lottie **escrito a mano con builder** (no hay asset externo con licencia). Respeta `prefers-reduced-motion` (emoji 🚛 + texto). ⚠️ **Trampa Lottie**: el `tr` (transform) de cada grupo debe ir como **ÚLTIMO item DENTRO de `it`** — como hermano de `it` lottie lo ignora silenciosamente y no renderiza NADA (0 `<path>`, sin error). Validado con Edge headless (`--dump-dom` + `--screenshot` + análisis de píxeles). Dep solo frontend.
 
+## Actualizaciones Recientes (2026-11-19)
+
+### Otros Costos — devolución dirigida y retorno directo en la UI
+
+Cambio de backend (ver `integrappi/README.md` 2026-11-19): la devolución de una solicitud ya avanzada puede ir a la etapa del responsable del error y volver directo a quien la devolvió, sin repetir toda la cadena.
+
+- **Modal «Devolver» con elección de etapa** (`OtrosCostosP`): cuando el usuario es FINANCIERO/ADMIN y la solicitud está aprobada con trámite OK (su bandeja), el Swal muestra radio **Analista (trámite Vulcano)** — el error fue del registro en Vulcano, corrige y vuelve directo a Financiero — vs **Operativo (creador)** — error de los datos de la solicitud — + textarea de motivo (obligatorio). En el resto de casos el modal es el de siempre (va al creador).
+- **Al reenviar una devuelta con punto de retorno**: si `devolucion_info.estado_retorno` existe (fue devuelta estando ya avanzada), «Enviar a aprobación» abre la elección **Retorno directo a {Financiero (lista para pagar) / Analista (trámite Vulcano)}** vs **Toda la cadena** (aprobación → trámite → pago). El plain `enviarAprobacion` de siempre cuando no hay punto de retorno.
+- **Indicadores**: bajo el badge de estado en la bandeja, línea ámbar `↩ a trámite Analista · tras corregir puede volver a Financiero (lista para pagar)` (`.OC-devolucionHint`, motivo en el tooltip); en el modal de detalle, aviso naranja (`.OC-avisoDevolucion`) con quién devolvió, motivo y las dos opciones al reenviar. La devolución también queda en la Trazabilidad (movimiento `devolucion` con `devuelto_a`).
+- `otrosCostos.tsx`: `devolverSolicitud` suma `devolverA` ('operativo'|'tramite'), `enviarAprobacion` suma `retornoDirecto`, y `OtroCosto` suma `devolucion_info`. Dep backend + frontend JUNTOS.
+
+## Actualizaciones Recientes (2026-11-19, 2.ª tanda)
+
+### SolicitudVehiculos — espejo de «uso < 50% → CONTROL»
+
+Cambio de backend (ver `integrappi/README.md` 2026-11-19 2.ª tanda): una planilla cuyo % de uso del vehículo sea **< 50%** pasa a `REQUIERE_APROBACION_CONTROL` aunque el flete cumpla. En `SolicitudVehiculos/page.tsx`, helpers `requiereAutorizacionControlUso` (usa el `usoVehiculoSolicitado` compartido; sin tipo evaluable no aplica) y `conControlPorUso` (wrapper que sube PREAPROBADO/COORDINADOR → CONTROL), aplicados en `determinarEstado`, `calcularEstadoPorValores` y los 2 cálculos de estado del modal de edición — mismo patrón que `requiereAutorizacionMunicipio`. La fila queda roja con badge CONTROL automáticamente y el botón Aprobar respeta las reglas de siempre (solo CONTROL/ADMIN aprueban ese tier). **Pedidos no cambió en el frontend** (el estado llega del backend). Dep backend + frontend JUNTOS.
+
 ## Actualizaciones Recientes (2026-11-17)
 
 ### WhatsApp como segundo canal: autorización de datos y verificación de cuenta

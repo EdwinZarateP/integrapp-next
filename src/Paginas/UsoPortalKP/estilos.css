@@ -1,0 +1,307 @@
+/* Uso del Portal (telemetría) — 2026-11-19. Tema claro del sistema de diseño
+   Integra (header blanco + filo lima, texto #111827, acento #349F4A — validado
+   contra superficie clara). Prefijo UP-. */
+
+.UP-container {
+  min-height: 100vh;
+  background: #f6f7f9;
+  color: #111827;
+  font-family: var(--fuente-integra, inherit), 'Nunito Sans', system-ui, sans-serif;
+}
+
+.UP-cargando {
+  padding: 48px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.UP-sinAcceso {
+  max-width: 420px;
+  margin: 96px auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: rgba(15, 23, 42, 0.06) 0 8px 24px;
+  padding: 40px 32px;
+  text-align: center;
+}
+.UP-sinAcceso h2 { font-size: 1.25rem; margin: 0 0 8px; }
+.UP-sinAcceso p { color: #6b7280; margin: 0 0 20px; }
+.UP-sinAcceso button {
+  background: #349f4a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Header claro con filo lima (patrón 2026-11-18) */
+.UP-header {
+  background: #fff;
+  border-bottom: 2px solid #8ec045;
+  box-shadow: rgba(15, 23, 42, 0.06) 0 1px 6px;
+}
+.UP-headerInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.UP-brand { display: flex; align-items: center; gap: 14px; }
+.UP-backBtn {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  color: #6b7280;
+  display: grid;
+  place-items: center;
+}
+.UP-backBtn:hover { background: #e8eaed; color: #111827; }
+.UP-brand h1 { font-size: 1.15rem; margin: 0; }
+.UP-subtitulo { margin: 2px 0 0; font-size: 0.82rem; color: #6b7280; }
+
+.UP-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 24px 64px;
+}
+
+/* Filtros en una fila */
+.UP-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: rgba(15, 23, 42, 0.05) 0 2px 10px;
+  margin-bottom: 20px;
+}
+.UP-filtros label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+.UP-filtros input,
+.UP-filtros select {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  color: #111827;
+  background: #fff;
+}
+.UP-filtros input:focus,
+.UP-filtros select:focus { outline: 2px solid #8ec045; outline-offset: 1px; border-color: #8ec045; }
+
+.UP-btnBuscar,
+.UP-btnExcel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.UP-btnBuscar { background: #349f4a; color: #fff; }
+.UP-btnBuscar:disabled { opacity: 0.6; cursor: default; }
+.UP-btnExcel { background: #e8f5e9; color: #1b7a3d; }
+.UP-btnExcel:disabled { opacity: 0.5; cursor: default; }
+
+.UP-error {
+  background: #fef2f2;
+  border-left: 4px solid #dc2626;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 0 0 16px;
+  font-size: 0.88rem;
+}
+
+/* KPIs */
+.UP-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.UP-kpi {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: rgba(15, 23, 42, 0.05) 0 2px 10px;
+}
+.UP-kpiIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #e8f5e9;
+  color: #349f4a;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+.UP-kpiValor {
+  display: block;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.UP-kpiLabel { font-size: 0.78rem; color: #6b7280; }
+
+/* Cards */
+.UP-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: rgba(15, 23, 42, 0.05) 0 2px 10px;
+  margin-bottom: 20px;
+}
+.UP-cardTitulo { font-size: 0.98rem; margin: 0 0 14px; }
+.UP-vacio { color: #6b7280; font-size: 0.88rem; margin: 8px 0; }
+
+/* Barras por día — una serie, hueco de 2px entre columnas (surface gap) */
+.UP-barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 170px;
+  padding: 4px 0 0;
+  overflow-x: auto;
+}
+.UP-barraCol {
+  position: relative;
+  flex: 1 0 22px;
+  max-width: 34px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.UP-barra {
+  width: 100%;
+  max-width: 20px;
+  background: #349f4a;
+  border-radius: 4px 4px 0 0; /* data-end redondeado, base cuadrada */
+  min-height: 3px;
+}
+.UP-barraCol:hover .UP-barra,
+.UP-barraCol:focus-visible .UP-barra { background: #1b7a3d; }
+.UP-barraFecha { font-size: 0.62rem; color: #6b7280; white-space: nowrap; }
+
+/* Tooltip por columna */
+.UP-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111827;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  display: none;
+  z-index: 5;
+  pointer-events: none;
+  text-align: left;
+}
+.UP-tooltip strong { display: block; margin-bottom: 2px; }
+.UP-barraCol:hover .UP-tooltip,
+.UP-barraCol:focus-visible .UP-tooltip { display: block; }
+
+/* Tabla usuarios */
+.UP-tablaWrap { overflow-x: auto; }
+.UP-tabla { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.UP-tabla th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  padding: 8px 10px;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+.UP-tabla td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #f0f1f3;
+  vertical-align: top;
+}
+.UP-tabla tbody tr:hover { background: #f9fafb; }
+.UP-num { text-align: right; font-variant-numeric: tabular-nums; }
+.UP-mono { font-family: ui-monospace, 'Cascadia Mono', monospace; font-size: 0.8rem; }
+
+.UP-badge {
+  display: inline-block;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+.UP-badge--cliente { background: #e8f5e9; border-color: #c5e6c9; color: #1b7a3d; }
+.UP-badge--admin { background: #eef2ff; border-color: #d5dcf8; color: #4338ca; }
+
+.UP-detalleEventos { max-width: 320px; }
+.UP-chip {
+  display: inline-block;
+  background: #f6f7f9;
+  border-radius: 6px;
+  padding: 1px 7px;
+  margin: 1px 3px 1px 0;
+  font-size: 0.7rem;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+/* Mini tablas */
+.UP-miniTablas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.UP-miniTablas .UP-card { margin-bottom: 0; }
+.UP-lista { list-style: none; margin: 0; padding: 0; }
+.UP-lista li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f1f3;
+  font-size: 0.86rem;
+}
+.UP-lista li:last-child { border-bottom: none; }
+.UP-lista strong { font-variant-numeric: tabular-nums; color: #111827; }
+
+.UP-nota { font-size: 0.76rem; color: #9ca3af; margin-top: 18px; }
+
+@media (max-width: 768px) {
+  .UP-main { padding: 16px 12px 48px; }
+  .UP-filtros { gap: 10px; }
+  .UP-filtros label { flex: 1 1 130px; }
+  .UP-detalleEventos { max-width: 200px; }
+}

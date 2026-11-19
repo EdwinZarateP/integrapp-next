@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse, FaClipboardList, FaHistory, FaFileInvoiceDollar, FaBuilding } from 'react-icons/fa';
+import { FaTruck, FaUserCircle, FaChevronDown, FaSignOutAlt, FaArrowLeft, FaWarehouse, FaClipboardList, FaHistory, FaFileInvoiceDollar, FaBuilding, FaChartLine } from 'react-icons/fa';
 import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
@@ -100,6 +100,20 @@ const IndicadoresMenu: React.FC = () => {
         ]
       : [];
 
+  // (2026-11-19) ADMIN: telemetría de uso del portal de clientes — quiénes
+  // usan los portales (Kabi, Medical Care) y con qué frecuencia.
+  const indicadoresTelemetria =
+    datosUsuario?.perfil === 'ADMIN'
+      ? [
+          {
+            id: 'uso-kabi',
+            titulo: 'Uso del Portal (telemetría)',
+            icono: <FaChartLine />,
+            ruta: '/indicadores/uso-kabi',
+          },
+        ]
+      : [];
+
   // VISUALIZADOR: atajos a los históricos de solo lectura desde este panel
   // (es su única puerta de entrada, ya que no pasa por el selector de portales).
   const indicadoresVisualizador =
@@ -166,7 +180,7 @@ const IndicadoresMenu: React.FC = () => {
       {/* Main */}
       <main className="IM-main">
         <div className="IM-indicadoresGrid">
-          {[...indicadores, ...indicadoresAdmin, ...indicadoresVisualizador].map((indicador) => (
+          {[...indicadores, ...indicadoresAdmin, ...indicadoresTelemetria, ...indicadoresVisualizador].map((indicador) => (
             <button
               key={indicador.id}
               className="IM-indicadorCard"

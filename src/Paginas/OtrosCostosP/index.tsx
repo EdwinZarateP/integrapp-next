@@ -664,9 +664,119 @@ const OtrosCostosP: React.FC = () => {
     }
   };
 
-  const onEnviar = (it: OtroCosto) => accion(() => enviarAprobacion(it.consecutivo!, usuario), it, '¿Enviar a aprobación?', `<b>${it.consecutivo}</b> quedará pendiente de aprobación.`);
+  // Etapa a la que volvería un retorno directo (según el punto que registró la
+  // devolución). null = no hay devolución con punto de retorno.
+  const describirRetorno = (it: OtroCosto): string | null => {
+    const d = it.devolucion_info;
+    if (!d?.estado_retorno) return null;
+    if (d.estado_retorno === 'aprobado' && d.tramite_retorno === 'ok') return 'Financiero (lista para pagar)';
+    if (d.estado_retorno === 'aprobado') return 'Analista (trámite Vulcano)';
+    return 'aprobación';
+  };
+
+  const onEnviar = (it: OtroCosto) => {
+    // Si la devolución registró un punto de retorno, el que corrige ELIGE:
+    // volver directo a quien la devolvió o recorrer toda la cadena de nuevo.
+    const destinoDirecto = it.estado === 'devuelto' ? describirRetorno(it) : null;
+    if (destinoDirecto) {
+      const d = it.devolucion_info!;
+      Swal.fire({
+        title: '¿Cómo enviar la solicitud?',
+        html: `
+          <div style="text-align:left;margin:0 0 .7rem">
+            <b>${it.consecutivo}</b> fue devuelta por <b>${d.devuelto_por?.nombre || d.devuelto_por?.usuario || ''}</b>
+            (${d.devuelto_por?.rol || ''}) cuando ya estaba en <b>${destinoDirecto}</b>.
+          </div>
+          <div style="text-align:left">
+            <label style="display:block;margin-bottom:.55rem;cursor:pointer">
+              <input type="radio" name="swal-env-modo" value="directo" checked>
+              <b>Retorno directo a ${destinoDirecto}</b> — salta las etapas ya validadas; la revisa quien la devolvió.
+            </label>
+            <label style="display:block;cursor:pointer">
+              <input type="radio" name="swal-env-modo" value="cadena">
+              <b>Toda la cadena</b> — pasa de nuevo por aprobación → trámite → pago (si la corrección cambia algo que debe revisarse).
+            </label>
+          </div>`,
+        icon: 'question', showCancelButton: true,
+        confirmButtonColor: '#005f56', cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Enviar', cancelButtonText: 'Cancelar',
+        focusConfirm: false,
+        preConfirm: () => {
+          const modo = (document.querySelector('input[name="swal-env-modo"]:checked') as HTMLInputElement | null)?.value;
+          if (!modo) return Swal.showValidationMessage('Elija cómo enviarla');
+          return modo;
+        },
+      }).then(async (r) => {
+        if (!r.isConfirmed) return;
+        Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        try {
+          await enviarAprobacion(it.consecutivo!, usuario, '', r.value === 'directo');
+          Swal.fire('✅ Listo', r.value === 'directo'
+            ? `Enviada de vuelta a ${destinoDirecto}`
+            : 'Enviada a aprobación (toda la cadena)', 'success');
+          cerrarModal();
+          cargarListado();
+        } catch (e: any) {
+          Swal.fire('Error', extraerErrorApi(e, 'No se pudo realizar la acción'), 'error');
+        }
+      });
+      return;
+    }
+    accion(() => enviarAprobacion(it.consecutivo!, usuario), it, '¿Enviar a aprobación?', `<b>${it.consecutivo}</b> quedará pendiente de aprobación.`);
+  };
   const onAprobar = (it: OtroCosto) => accion((obs) => aprobarSolicitud(it.consecutivo!, usuario, obs), it, '¿Aprobar solicitud?', `<b>${it.consecutivo}</b> por ${formatMoney(it.valor_total)}.`, 'text', 'Observación (opcional)');
-  const onDevolver = (it: OtroCosto) => accion((obs) => devolverSolicitud(it.consecutivo!, usuario, obs), it, '¿Devolver solicitud?', `<b>${it.consecutivo}</b> volverá al creador para corrección.`, 'textarea', 'Motivo de devolución', true);
+  // Devolución dirigida: desde la bandeja de Financiero (aprobada + trámite OK)
+  // se elige a qué etapa devolver — al Analista (su registro en Vulcano) o al
+  // creador (datos de la solicitud). En el resto de casos va al creador, como
+  // siempre.
+  const puedeDevolverATramite = (it: OtroCosto) =>
+    (perfil === 'FINANCIERO' || perfil === 'ADMIN') && it.estado === 'aprobado' && it.tramite_vulcano === 'ok';
+  const onDevolver = (it: OtroCosto) => {
+    if (puedeDevolverATramite(it)) {
+      Swal.fire({
+        title: '¿Devolver solicitud?',
+        html: `
+          <div style="text-align:left;margin:0 0 .7rem"><b>${it.consecutivo}</b> — ¿a qué etapa se devuelve?</div>
+          <div style="text-align:left">
+            <label style="display:block;margin-bottom:.55rem;cursor:pointer">
+              <input type="radio" name="swal-dev-destino" value="tramite" checked>
+              <b>Analista (trámite Vulcano)</b> — el error fue del registro en Vulcano; corrige y vuelve directo a Financiero.
+            </label>
+            <label style="display:block;margin-bottom:.7rem;cursor:pointer">
+              <input type="radio" name="swal-dev-destino" value="operativo">
+              <b>Operativo (creador)</b> — el error es de los datos de la solicitud; vuelve al creador para que los corrija.
+            </label>
+            <textarea id="swal-dev-motivo" class="swal2-textarea" rows="2" style="margin:0" placeholder="Motivo de devolución (obligatorio)"></textarea>
+          </div>`,
+        icon: 'warning', showCancelButton: true,
+        confirmButtonColor: '#005f56', cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, devolver', cancelButtonText: 'Cancelar',
+        focusConfirm: false,
+        preConfirm: () => {
+          const destino = (document.querySelector('input[name="swal-dev-destino"]:checked') as HTMLInputElement | null)?.value;
+          const motivo = ((document.getElementById('swal-dev-motivo') as HTMLTextAreaElement)?.value || '').trim();
+          if (!destino) return Swal.showValidationMessage('Elija a qué etapa se devuelve');
+          if (!motivo) return Swal.showValidationMessage('El motivo de devolución es obligatorio');
+          return { destino, motivo };
+        },
+      }).then(async (r) => {
+        if (!r.isConfirmed) return;
+        Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        try {
+          await devolverSolicitud(it.consecutivo!, usuario, r.value.motivo, r.value.destino as 'operativo' | 'tramite');
+          Swal.fire('✅ Listo', r.value.destino === 'tramite'
+            ? 'Devuelta al trámite del Analista; al marcar OK volverá a Financiero'
+            : 'Devuelta al creador para corrección', 'success');
+          cerrarModal();
+          cargarListado();
+        } catch (e: any) {
+          Swal.fire('Error', extraerErrorApi(e, 'No se pudo realizar la acción'), 'error');
+        }
+      });
+      return;
+    }
+    accion((obs) => devolverSolicitud(it.consecutivo!, usuario, obs), it, '¿Devolver solicitud?', `<b>${it.consecutivo}</b> volverá al creador para corrección.`, 'textarea', 'Motivo de devolución', true);
+  };
   const onRechazar = (it: OtroCosto) => accion((obs) => rechazarSolicitud(it.consecutivo!, usuario, obs), it, '¿Rechazar solicitud?', `<b>${it.consecutivo}</b> será rechazada.`, 'textarea', 'Motivo de rechazo', true);
   const onAnular = (it: OtroCosto) => accion((obs) => anularSolicitud(it.consecutivo!, usuario, obs), it, '¿Anular solicitud?', `<b>${it.consecutivo}</b> será anulada y movida a anulados.`, 'textarea', 'Motivo de anulación', true);
 
@@ -1015,7 +1125,18 @@ const OtrosCostosP: React.FC = () => {
                       {(it.costos || []).map((c) => c.tipo_costo).join(', ') || '-'}
                     </td>
                     <td style={{ fontWeight: 700, color: '#005f56' }}>{formatMoney(it.valor_total)}</td>
-                    <td>{estadoBadge(it.estado)}</td>
+                    <td>
+                      {estadoBadge(it.estado)}
+                      {it.devolucion_info && (
+                        <div
+                          className="OC-devolucionHint"
+                          title={`Motivo: ${it.devolucion_info.motivo || ''}`}
+                        >
+                          ↩ a {it.devolucion_info.etapa === 'tramite' ? 'trámite Analista' : 'creador'}
+                          {describirRetorno(it) ? ` · tras corregir puede volver a ${describirRetorno(it)}` : ''}
+                        </div>
+                      )}
+                    </td>
                     <td>{it.creado_por?.nombre || it.creado_por?.usuario || it.usuario_registro || '-'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="OC-btnAction" title="Detalle" style={{ background: '#334155' }} onClick={() => abrirDetalle(it)}><FaEye /></button>
@@ -1146,6 +1267,17 @@ const OtrosCostosP: React.FC = () => {
                   <Campo label="Tramitado por" v={detalle.tramite_vulcano_info?.nombre || detalle.tramite_vulcano_info?.usuario} />
                 </div>
               </>
+            )}
+
+            {detalle.devolucion_info && (
+              <div className="OC-avisoDevolucion">
+                ↩ Devuelta a <b>{detalle.devolucion_info.etapa === 'tramite' ? 'trámite del Analista' : 'creador'}</b> por{' '}
+                <b>{detalle.devolucion_info.devuelto_por?.nombre || detalle.devolucion_info.devuelto_por?.usuario}</b>
+                {' '}({detalle.devolucion_info.devuelto_por?.rol}) — “{detalle.devolucion_info.motivo}”
+                {describirRetorno(detalle) && (
+                  <> · al corregir y reenviar puede volver <b>directo a {describirRetorno(detalle)}</b> o por toda la cadena</>
+                )}
+              </div>
             )}
 
             <div className="OC-modalSection">Trazabilidad</div>

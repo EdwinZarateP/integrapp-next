@@ -13,6 +13,8 @@ import { obtenerCliente } from '../clientes';
 import '@/Componentes/IndicadoresChrome/estilos.css';
 // (2026-11-10) Camión Lottie de marca para la espera de la consulta de guía.
 import CamionCargando from '@/Componentes/CamionCargando';
+// (2026-11-19) Telemetría de uso del portal: beacons fire-and-forget.
+import { registrarEvento } from './telemetria';
 import './estilos.css';
 
 // Perfiles que pueden cargar el Excel de citas (plan B del OT). Espejo de
@@ -410,6 +412,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // (2026-11-19) Telemetría de uso: beacon al backend (nunca bloquea la UI).
+  // El ref evita el doble pageview de StrictMode en dev.
+  const pageviewEnviado = useRef(false);
+  const track = (evento: Parameters<typeof registrarEvento>[0], detalle: Parameters<typeof registrarEvento>[1] = {}) =>
+    registrarEvento(evento, detalle, { clienteId, modoExterno });
+
   const cliente = obtenerCliente(clienteId);
   // Portal de regreso: externos vuelven a «Mis Indicadores», internos al panel.
   const rutaPanel = modoExterno ? '/indicadores/mis-clientes' : '/indicadores/clientes';
@@ -456,6 +464,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // ensuciar el historial — atrás no cicla pestañas).
   const cambiarPestana = (p: 'gerenciales' | 'operacion' | 'trazabilidad') => {
     setPestanaPortal(p);
+    track('pestana', { pestana: p });
     const url = new URL(window.location.href);
     url.searchParams.set('pestana', p);
     window.history.replaceState(null, '', url);
@@ -481,6 +490,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const consultarGuiaSiscore = async (guiaDirecta?: string) => {
     const g = (guiaDirecta ?? inputGuiaOp).trim();
     if (!g || consultandoGuiaOp) return;
+    track('consulta_guia', { guia: g });
     setConsultandoGuiaOp(true);
     setErrorGuiaOp(null);
     setResultadoGuiaOp(null);
@@ -619,9 +629,12 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
 
   // Clic en una card de la pestaña Operación: abre/cierra SU tabla (una a la
   // vez). El fetch lo dispara el efecto de abajo si no hay datos (o quedaron
-  // viejos por cambio de filtros).
-  const alternarTablaPend = (seccion: SeccionPend) =>
+  // viejos por cambio de filtros). Telemetría: SOLO al abrir (fuera del
+  // updater — StrictMode doble-invoca los updaters en dev).
+  const alternarTablaPend = (seccion: SeccionPend) => {
+    if (tablaPendAbierta !== seccion) track('pendientes', { seccion });
     setTablaPendAbierta(prev => (prev === seccion ? null : seccion));
+  };
   // Celda de la fecha límite (la CITA usada si hay; si no, la promesa).
   const celdaLimite = (p: FilaPendiente) => {
     const limite = p.fecha_cita_usada || p.fecha_promesa;
@@ -783,6 +796,13 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     if (usuarioMatch) {
       setDatosUsuario({ usuario: usuarioMatch[2], perfil: perfilMatch?.[2], regional: regionalMatch?.[2] });
     }
+    // (2026-11-19) Telemetría: pageview al montar con la pestaña inicial
+    // (incluye la de ?pestana= en la URL). El ref neutraliza StrictMode dev.
+    if (!pageviewEnviado.current) {
+      pageviewEnviado.current = true;
+      track('pageview', { pestana: pestanaPortal });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cerrar menús al click fuera
@@ -846,6 +866,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const exportarPendientesExcel = async (seccion: SeccionPend) => {
     const filas = pendientesOp?.[seccion] ?? [];
     if (!filas.length) return;
+    track('export_excel', { origen: 'pendientes', seccion });
     const datos = filas.map(p => ({
       'Guía': p.guia,
       'Cliente': p.nombre_cliente || '',
@@ -1406,6 +1427,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
 
   // Export Excel del alcance visible del drill-down.
   const exportarUsoExcel = async () => {
+    track('export_excel', { origen: 'uso_vehiculos' });
     const XLSX = await import('xlsx');
     const datos = filasUsoAlcance.map(f => ({
       'Vehículo': f.consecutivo_vehiculo,
@@ -2127,6 +2149,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // fetch a /guias/filas con limite=30000 (un año Kabi ≈ 29k). Fechas ya en
   // DD-MM-AAAA (formatearFecha) para que Excel-ES las lea.
   const exportarGuiasExcel = async () => {
+    track('export_excel', { origen: 'guias' });
     setCargandoMasGuias(true);
     try {
       const extra = new URLSearchParams({ pagina: '1', limite: '30000' });
@@ -2286,6 +2309,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   // de la ②). Sin trazabilidad: el gráfico siempre es del período.
   const exportarOTExcel = async () => {
     if (exportandoOT) return;
+    track('export_excel', { origen: 'ot' });
     setExportandoOT(true);
     try {
       const diaZoom = diaOT && bucketDiaOT ? diaOT : null;
