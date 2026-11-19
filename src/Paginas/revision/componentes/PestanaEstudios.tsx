@@ -106,6 +106,8 @@ interface DocumentoEstudio {
   url: string;
   fecha?: string;
   nombre?: string;
+  /** Quién lo cargó (2026-11-19); adjuntos viejos no lo traen. */
+  cargado_por?: string | null;
 }
 
 /* Clasificación real de una fuente según lo que devuelve el proveedor
@@ -363,6 +365,9 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
         const fd = new FormData();
         fd.append('placa', veh.placa);
         fd.append('archivo', archivos[idx]);
+        // Quién carga el adjunto (2026-11-19): se sella en el documento para
+        // la columna «Disparado por» del Historial (mismo sello que los disparos).
+        fd.append('editado_por', Cookies.get('seguridadNombre') || '');
         await axios.put(`${API_BASE}/vehiculos/subir-estudio-seguridad`, fd);
       } catch (err: any) {
         fallidos.push({
@@ -612,6 +617,9 @@ const PestanaEstudios: React.FC<PestanaEstudiosProps> = ({ veh }) => {
             sub: d.nombre || 'PDF cargado manualmente',
             semClase: 'rev-est-sem--info', semTexto: 'Adjunto',
             url: d.url,
+            // Quién adjuntó el PDF (2026-11-19); los cargados antes no
+            // traen sello → '—'.
+            origen: d.cargado_por || '—',
           });
         });
         const vigentes = estudios.filter(e => e.estado === 'finalizado' && e.reporte_id);
