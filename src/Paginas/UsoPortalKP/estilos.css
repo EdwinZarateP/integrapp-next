@@ -464,6 +464,15 @@
 .UP-nota { font-size: 0.76rem; color: #9ca3af; margin-top: 18px; }
 
 @media (max-width: 768px) {
+  /* Header responsive (espejo del DC-header): el título salta a la PRIMERA
+     fila a ancho completo, logo y usuario quedan en la segunda, y el
+     nombre/perfil del usuario se ocultan (solo avatar + chevron). */
+  .UP-headerInner { flex-wrap: wrap; }
+  .UP-tituloZone { order: -1; width: 100%; min-height: auto; padding: 0.1rem 0.4rem; }
+  .UP-titulo { font-size: 1.1rem; }
+  .UP-subtitulo { font-size: 0.7rem; }
+  .UP-userInfo { display: none; }
+
   .UP-main { padding: 16px 12px 48px; }
   .UP-filtros { gap: 10px; }
   .UP-filtros label { flex: 1 1 130px; }
