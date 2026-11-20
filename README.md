@@ -836,6 +836,20 @@ Dep backend + frontend JUNTOS.
 
 Al consultar una guía, en vez del texto plano «Buscando la guía…» sale un **camión animado Lottie de marca** (caja verde #98C74C + cabina oscura + ruedas girando + pista pasando + rebote de suspensión, 2 s de loop perfecto). Componente **reutilizable**: `Componentes/CamionCargando` (`{texto, alto}`) — dependencia nueva **`lottie-react`**, con import DINÁMICO al montar (patrón XLSX/@react-pdf: ~250KB fuera del bundle inicial); la animación (`camion.json`) es un Lottie **escrito a mano con builder** (no hay asset externo con licencia). Respeta `prefers-reduced-motion` (emoji 🚛 + texto). ⚠️ **Trampa Lottie**: el `tr` (transform) de cada grupo debe ir como **ÚLTIMO item DENTRO de `it`** — como hermano de `it` lottie lo ignora silenciosamente y no renderiza NADA (0 `<path>`, sin error). Validado con Edge headless (`--dump-dom` + `--screenshot` + análisis de píxeles). Dep solo frontend.
 
+## Actualizaciones Recientes (2026-11-20)
+
+### UsoPortalKP (/indicadores/uso-kabi) — reunión-ready + header de la app
+
+Rework de la página de telemetría para presentársela al cliente (backend: `integrappi/README.md` 2026-11-20 — params `audiencia` y `usuario_filtro`).
+
+- **Filtro Audiencia** (Todos / Clientes (externos)=perfil CLIENTE / Usuarios internos): aplica AL INSTANTE al cambiar (no requiere «Consultar»).
+- **Foco en un usuario**: buscador por nombre (sugerencias con nombre+usuario+perfil, insensible a acentos, desde la 2ª letra; lista sale de `por_usuario` del rango) — clic → `usuario_filtro` acota TODO el resumen. También **clic en cualquier fila de la tabla** enfoca ese usuario. `consultar(overrides?)` acepta `{foco, audiencia, cliente}` para aplicar sin esperar re-render; ⚠️ el botón Consultar debe ser `onClick={() => consultar()}` (NO `onClick={consultar}` o el MouseEvent entra como override).
+- **Migas de filtros aplicados** (patrón DC-miga): 📅 rango (fijo) + 🏢 portal + 👥 audiencia + 👤 foco como chips removibles — clic = quita y re-consulta.
+- **Tabla de usuarios**: SIN columna Usuario (nombre basta) y ordenada por **última conexión DESC** (la más reciente arriba; orden solo front — backend sigue por eventos y el Excel usa ese orden).
+- **Barras de «Actividad por día»** con la cantidad ENCIMA de cada barra (`.UP-barraValor`).
+- **Header ESPEJO del DC-header** del portal: logo Integra ONE (clic→menú indicadores), título centrado, píldora de usuario con menú (Menú de indicadores / Cerrar sesión con limpieza de cookies), sticky, **ancho completo** (sin max-width 1200, `.UP-main` también) y las reglas de MÓVIL del DC-header (≤768px: título a la 1ª fila a ancho completo, logo+usuario en la 2ª, userInfo oculto).
+- Dep **backend + frontend JUNTOS** (backend antes si se separa: FastAPI ignora params desconocidos).
+
 ## Actualizaciones Recientes (2026-11-19)
 
 ### Otros Costos — devolución dirigida y retorno directo en la UI
