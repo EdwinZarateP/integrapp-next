@@ -12,8 +12,11 @@
  */
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { FaArrowLeft, FaFileExcel, FaSearch, FaUsers, FaCalendarDay, FaMousePointer, FaBolt } from 'react-icons/fa';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { FaFileExcel, FaSearch, FaUsers, FaCalendarDay, FaMousePointer, FaBolt, FaUserCircle, FaChevronDown, FaChartBar, FaSignOutAlt } from 'react-icons/fa';
+import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || '';
@@ -81,13 +84,30 @@ const fmtHora = (iso?: string | null) => {
   return d.toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
 };
 const num = (n: number) => n.toLocaleString('es-CO');
+const sinAcentos = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+const AUDIENCIAS = [
+  { id: 'todos', nombre: 'Todos' },
+  { id: 'clientes', nombre: 'Clientes (externos)' },
+  { id: 'internos', nombre: 'Usuarios internos' },
+] as const;
 
 export default function UsoPortalKP() {
+  const router = useRouter();
+  const menuRef = useRef<HTMLDivElement>(null);
   const [autorizado, setAutorizado] = useState<boolean | null>(null);
   const [usuario, setUsuario] = useState('');
+  const [perfil, setPerfil] = useState('');
+  const [menuAbierto, setMenuAbierto] = useState(false);
   const [desde, setDesde] = useState(menosDias(29));
   const [hasta, setHasta] = useState(hoyStr());
   const [cliente, setCliente] = useState('');
+  const [audiencia, setAudiencia] = useState<'todos' | 'clientes' | 'internos'>('todos');
+  // Foco en un usuario (2026-11-20): {usuario, nombre} del row elegido o null.
+  const [usuFoco, setUsuFoco] = useState<{ usuario: string; nombre: string } | null>(null);
+  const [buscaUsu, setBuscaUsu] = useState('');
+  const [sugerAbiertas, setSugerAbiertas] = useState(false);
   const [datos, setDatos] = useState<ResumenTlm | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
@@ -96,26 +116,78 @@ export default function UsoPortalKP() {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     const p = (document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '').toUpperCase();
     setUsuario(u);
+    setPerfil(p);
     setAutorizado(PERFILES_AUTORIZADOS.includes(p));
   }, []);
 
-  const consultar = useCallback(async () => {
-    if (!usuario) return;
-    setCargando(true);
-    setError('');
-    try {
-      const params = new URLSearchParams({ usuario, desde, hasta });
-      if (cliente) params.set('cliente_id', cliente);
-      const r = await fetch(`${API}/telemetria/resumen?${params.toString()}`);
-      const j = await r.json();
-      if (!r.ok || !j?.success) throw new Error(j?.detail || 'Error al consultar la telemetría');
-      setDatos(j.data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al consultar');
-    } finally {
-      setCargando(false);
-    }
-  }, [usuario, desde, hasta, cliente]);
+  // Cerrar menú de usuario al hacer clic fuera (patrón del portal)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAbierto(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const cerrarSesion = () => {
+    document.cookie.split(';').forEach(cookie => {
+      const cn = cookie.split('=')[0].trim();
+      if (cn.includes('usuario') || cn.includes('cliente') || cn.includes('perfil') || cn.includes('regional'))
+        document.cookie = `${cn}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    });
+    router.push('/LoginUsuario');
+  };
+
+  // `overrides` permite aplicar de inmediato un cambio de foco/audiencia/portal
+  // sin esperar el re-render del estado (patrón de los filtros que auto-aplican).
+  const consultar = useCallback(
+    async (overrides?: {
+      foco?: { usuario: string; nombre: string } | null;
+      audiencia?: typeof audiencia;
+      cliente?: string;
+    }) => {
+      if (!usuario) return;
+      setCargando(true);
+      setError('');
+      try {
+        const aud = overrides?.audiencia !== undefined ? overrides.audiencia : audiencia;
+        const cli = overrides?.cliente !== undefined ? overrides.cliente : cliente;
+        const foco = overrides && 'foco' in overrides ? overrides.foco ?? null : usuFoco;
+        const params = new URLSearchParams({ usuario, desde, hasta, audiencia: aud });
+        if (cli) params.set('cliente_id', cli);
+        if (foco) params.set('usuario_filtro', foco.usuario);
+        const r = await fetch(`${API}/telemetria/resumen?${params.toString()}`);
+        const j = await r.json();
+        if (!r.ok || !j?.success) throw new Error(j?.detail || 'Error al consultar la telemetría');
+        setDatos(j.data);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error al consultar');
+      } finally {
+        setCargando(false);
+      }
+    },
+    [usuario, desde, hasta, cliente, audiencia, usuFoco],
+  );
+
+  const enfocarUsuario = (u: { usuario: string; nombre?: string | null }) => {
+    const foco = { usuario: u.usuario, nombre: u.nombre || u.usuario };
+    setUsuFoco(foco);
+    setBuscaUsu('');
+    setSugerAbiertas(false);
+    consultar({ foco });
+  };
+  const quitarFoco = () => {
+    setUsuFoco(null);
+    consultar({ foco: null });
+  };
+  const quitarPortal = () => {
+    setCliente('');
+    consultar({ cliente: '' });
+  };
+  const quitarAudiencia = () => {
+    setAudiencia('todos');
+    consultar({ audiencia: 'todos' });
+  };
 
   useEffect(() => {
     if (autorizado && usuario) consultar();
@@ -166,18 +238,50 @@ export default function UsoPortalKP() {
 
   const maxDia = Math.max(1, ...(datos?.por_dia.map(d => d.eventos) ?? [1]));
 
+  // Tabla de usuarios: de la última conexión MÁS RECIENTE a la más antigua
+  // (el backend la trae por eventos; el orden de actividad es el que interesa
+  // para ver quién está entrando ahora).
+  const usuariosRecientes = [...(datos?.por_usuario ?? [])].sort(
+    (a, b) => (b.ultima_conexion ? new Date(b.ultima_conexion).getTime() : 0)
+            - (a.ultima_conexion ? new Date(a.ultima_conexion).getTime() : 0),
+  );
+
   return (
     <div className="UP-container">
+      {/* Header de la app (mismo que el portal Mis Indicadores): logo Integra
+          ONE a la izquierda, título centrado y usuario con menú a la derecha. */}
       <header className="UP-header">
         <div className="UP-headerInner">
-          <div className="UP-brand">
-            <button className="UP-backBtn" onClick={() => (window.location.href = '/integrapp/indicadores')} title="Volver a Indicadores">
-              <FaArrowLeft />
+          <button className="UP-brand" onClick={() => router.push('/indicadores')} title="Menú de indicadores">
+            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
+          </button>
+
+          <div className="UP-tituloZone">
+            <span className="UP-titulo">Uso del Portal</span>
+            <span className="UP-subtitulo">Telemetría de adopción — portales de clientes</span>
+          </div>
+
+          <div className="UP-userZone" ref={menuRef}>
+            <button className="UP-userBtn" onClick={() => setMenuAbierto(o => !o)}>
+              <FaUserCircle className="UP-userIcon" />
+              <div className="UP-userInfo">
+                <span className="UP-userName">{usuario || 'Usuario'}</span>
+                <span className="UP-userPerfil">{perfil || '—'}</span>
+              </div>
+              <FaChevronDown className={`UP-chevron ${menuAbierto ? 'UP-chevronOpen' : ''}`} />
             </button>
-            <div>
-              <h1>Uso del Portal</h1>
-              <p className="UP-subtitulo">Telemetría de adopción — portales de clientes</p>
-            </div>
+
+            {menuAbierto && (
+              <div className="UP-dropdown">
+                <button className="UP-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
+                  <FaChartBar /> Menú de indicadores
+                </button>
+                <div className="UP-dropDivider" />
+                <button className="UP-dropItem UP-dropItemDanger" onClick={cerrarSesion}>
+                  <FaSignOutAlt /> Cerrar sesión
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -199,12 +303,80 @@ export default function UsoPortalKP() {
               {CLIENTES.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </label>
-          <button className="UP-btnBuscar" onClick={consultar} disabled={cargando}>
+          <label>
+            Audiencia
+            <select
+              value={audiencia}
+              onChange={e => {
+                const v = e.target.value as typeof audiencia;
+                setAudiencia(v);
+                consultar({ audiencia: v });
+              }}
+            >
+              {AUDIENCIAS.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+            </select>
+          </label>
+          <label className="UP-buscadorUsu">
+            Usuario
+            <div className="UP-buscadorWrap">
+              <input
+                type="text"
+                placeholder="Buscar por nombre…"
+                value={buscaUsu}
+                disabled={!!usuFoco}
+                onChange={e => { setBuscaUsu(e.target.value); setSugerAbiertas(true); }}
+                onFocus={() => setSugerAbiertas(true)}
+                onBlur={() => setTimeout(() => setSugerAbiertas(false), 150)}
+              />
+              {sugerAbiertas && buscaUsu.trim().length >= 2 && (
+                <ul className="UP-sugerencias">
+                  {(() => {
+                    const q = sinAcentos(buscaUsu.trim());
+                    const matches = (datos?.por_usuario ?? []).filter(u =>
+                      sinAcentos(`${u.nombre || ''} ${u.usuario}`).includes(q));
+                    if (matches.length === 0)
+                      return <li className="UP-sugerVacia">Sin coincidencias en el rango consultado.</li>;
+                    return matches.slice(0, 8).map(u => (
+                      <li key={u.usuario}>
+                        <button type="button" onMouseDown={e => { e.preventDefault(); enfocarUsuario(u); }}>
+                          <strong>{u.nombre || u.usuario}</strong>
+                          <span className="UP-sugerMeta">{u.nombre ? `${u.usuario} · ` : ''}{u.perfil || '—'}</span>
+                        </button>
+                      </li>
+                    ));
+                  })()}
+                </ul>
+              )}
+            </div>
+          </label>
+          <button className="UP-btnBuscar" onClick={() => consultar()} disabled={cargando}>
             <FaSearch /> {cargando ? 'Consultando…' : 'Consultar'}
           </button>
           <button className="UP-btnExcel" onClick={exportarExcel} disabled={!datos || !datos.por_usuario.length}>
             <FaFileExcel /> Excel
           </button>
+        </div>
+
+        {/* Migas de filtros aplicados — removibles al clic (patrón DC-miga) */}
+        <div className="UP-migas" aria-label="Filtros aplicados">
+          <span className="UP-migaFija" title="Rango de fechas consultado">
+            📅 {fmtFechaLarga(desde)} → {fmtFechaLarga(hasta)}
+          </span>
+          {cliente && (
+            <button type="button" className="UP-miga" onClick={quitarPortal} title="Quitar filtro de portal">
+              🏢 {CLIENTES.find(c => c.id === cliente)?.nombre || cliente} ✕
+            </button>
+          )}
+          {audiencia !== 'todos' && (
+            <button type="button" className="UP-miga" onClick={quitarAudiencia} title="Quitar filtro de audiencia">
+              👥 {AUDIENCIAS.find(a => a.id === audiencia)?.nombre || audiencia} ✕
+            </button>
+          )}
+          {usuFoco && (
+            <button type="button" className="UP-miga UP-migaFoco" onClick={quitarFoco} title="Volver a todos los usuarios">
+              👤 {usuFoco.nombre} ✕
+            </button>
+          )}
         </div>
 
         {error && <p className="UP-error">{error}</p>}
@@ -252,6 +424,7 @@ export default function UsoPortalKP() {
                 <div className="UP-barras" role="img" aria-label={`Eventos por día entre ${fmtFechaLarga(desde)} y ${fmtFechaLarga(hasta)}`}>
                   {datos.por_dia.map(d => (
                     <div key={d.fecha} className="UP-barraCol" tabIndex={0}>
+                      <span className="UP-barraValor">{num(d.eventos)}</span>
                       <div
                         className="UP-barra"
                         style={{ height: `${Math.max(3, (d.eventos / maxDia) * 100)}%` }}
@@ -278,7 +451,6 @@ export default function UsoPortalKP() {
                   <table className="UP-tabla">
                     <thead>
                       <tr>
-                        <th>Usuario</th>
                         <th>Nombre</th>
                         <th>Perfil</th>
                         <th className="UP-num">Días activos</th>
@@ -288,9 +460,8 @@ export default function UsoPortalKP() {
                       </tr>
                     </thead>
                     <tbody>
-                      {datos.por_usuario.map(u => (
-                        <tr key={u.usuario}>
-                          <td className="UP-mono">{u.usuario}</td>
+                      {usuariosRecientes.map(u => (
+                        <tr key={u.usuario} className="UP-filaUsu" onClick={() => enfocarUsuario(u)} title="Clic: ver solo este usuario">
                           <td>{u.nombre || '—'}</td>
                           <td><span className={`UP-badge UP-badge--${(u.perfil || 'desconocido').toLowerCase()}`}>{u.perfil || '—'}</span></td>
                           <td className="UP-num">{num(u.dias_activos)}</td>

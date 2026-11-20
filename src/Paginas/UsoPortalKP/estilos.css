@@ -36,40 +36,114 @@
   cursor: pointer;
 }
 
-/* Header claro con filo lima (patrón 2026-11-18) */
+/* Header de la app (espejo del DC-header del portal Mis Indicadores):
+   claro + logo Integra ONE + filo lima, sticky, ancho completo. */
 .UP-header {
   background: #fff;
   border-bottom: 2px solid #8ec045;
-  box-shadow: rgba(15, 23, 42, 0.06) 0 1px 6px;
+  color: #111827;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
 }
 .UP-headerInner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 14px 24px;
+  width: 100%;
+  padding: 0.6rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
 }
-.UP-brand { display: flex; align-items: center; gap: 14px; }
-.UP-backBtn {
+.UP-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.UP-brand:hover { background: #f3f4f6; }
+
+/* Título centrado (patrón DC-logoCliente) */
+.UP-tituloZone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0.25rem 1.1rem;
+}
+.UP-titulo {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.UP-subtitulo { font-size: 0.78rem; color: #6b7280; }
+
+/* Usuario (patrón DC-userZone) */
+.UP-userZone { position: relative; }
+.UP-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  width: 38px;
-  height: 38px;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
   cursor: pointer;
-  color: #6b7280;
-  display: grid;
-  place-items: center;
+  color: #111827;
+  transition: background 0.15s;
 }
-.UP-backBtn:hover { background: #e8eaed; color: #111827; }
-.UP-brand h1 { font-size: 1.15rem; margin: 0; }
-.UP-subtitulo { margin: 2px 0 0; font-size: 0.82rem; color: #6b7280; }
+.UP-userBtn:hover { background: #e8eaed; }
+.UP-userIcon { font-size: 1.4rem; color: #349f4a; }
+.UP-userInfo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.UP-userName { font-size: 0.82rem; font-weight: 700; }
+.UP-userPerfil { font-size: 0.68rem; color: #6b7280; }
+.UP-chevron { font-size: 0.7rem; color: #9ca3af; transition: transform 0.2s; }
+.UP-chevronOpen { transform: rotate(180deg); }
+.UP-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 25, 40, 0.25);
+  min-width: 210px;
+  overflow: hidden;
+  z-index: 60;
+}
+.UP-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f1928;
+  text-align: left;
+}
+.UP-dropItem:hover { background: #f1f4f8; }
+.UP-dropItem svg { color: #64748b; }
+.UP-dropDivider { height: 1px; background: #e5e9f0; }
+.UP-dropItemDanger { color: #dc2626; }
+.UP-dropItemDanger svg { color: #dc2626; }
+.UP-dropItemDanger:hover { background: #fef2f2; }
 
 .UP-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 24px 64px;
+  padding: 24px 28px 64px;
 }
 
 /* Filtros en una fila */
@@ -120,6 +194,84 @@
 .UP-btnBuscar:disabled { opacity: 0.6; cursor: default; }
 .UP-btnExcel { background: #e8f5e9; color: #1b7a3d; }
 .UP-btnExcel:disabled { opacity: 0.5; cursor: default; }
+
+/* Buscador de usuario con sugerencias (2026-11-20) */
+.UP-buscadorUsu { position: relative; }
+.UP-buscadorWrap { position: relative; }
+.UP-buscadorWrap input { width: 200px; }
+.UP-buscadorWrap input:disabled { background: #f3f4f6; color: #9ca3af; }
+.UP-sugerencias {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: rgba(15, 23, 42, 0.12) 0 8px 24px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.UP-sugerencias button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 9px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.84rem;
+  color: #111827;
+}
+.UP-sugerencias button:hover { background: #f0fdf2; }
+.UP-sugerencias strong { font-weight: 600; }
+.UP-sugerMeta { font-size: 0.7rem; color: #6b7280; }
+.UP-sugerVacia { padding: 8px 10px; font-size: 0.8rem; color: #6b7280; }
+
+/* Migas de filtros aplicados (patrón DC-miga del portal) */
+.UP-migas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 0.8rem;
+}
+.UP-migaFija {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+.UP-miga {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+.UP-miga:hover { border-color: #dc2626; color: #b91c1c; background: #fef2f2; }
+.UP-migaFoco {
+  background: #f0fdf2;
+  border-color: #c5e6c9;
+  color: #14532d;
+}
+.UP-migaFoco:hover { border-color: #dc2626; color: #b91c1c; background: #fef2f2; }
 
 .UP-error {
   background: #fef2f2;
@@ -188,8 +340,8 @@
 }
 .UP-barraCol {
   position: relative;
-  flex: 1 0 22px;
-  max-width: 34px;
+  flex: 1 0 26px;
+  max-width: 40px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -206,6 +358,14 @@
 }
 .UP-barraCol:hover .UP-barra,
 .UP-barraCol:focus-visible .UP-barra { background: #1b7a3d; }
+.UP-barraValor {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #374151;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1;
+}
 .UP-barraFecha { font-size: 0.62rem; color: #6b7280; white-space: nowrap; }
 
 /* Tooltip por columna */
@@ -250,6 +410,10 @@
 .UP-tabla tbody tr:hover { background: #f9fafb; }
 .UP-num { text-align: right; font-variant-numeric: tabular-nums; }
 .UP-mono { font-family: ui-monospace, 'Cascadia Mono', monospace; font-size: 0.8rem; }
+
+/* Fila de usuario clicable → foco en ese usuario (2026-11-20) */
+.UP-filaUsu { cursor: pointer; }
+.UP-filaUsu:hover td:first-child { text-decoration: underline; text-decoration-color: #c5e6c9; }
 
 .UP-badge {
   display: inline-block;
