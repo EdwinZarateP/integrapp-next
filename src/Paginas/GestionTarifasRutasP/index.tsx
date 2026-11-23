@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaUpload, FaDownload, FaEdit, FaTrash,
-  FaFileExcel, FaCheckCircle, FaExclamationTriangle,
+  FaFileExcel, FaCheckCircle, FaExclamationTriangle, FaHistory,
 } from 'react-icons/fa';
 import {
   obtenerTarifasRutas,
@@ -17,6 +17,7 @@ import {
 } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import type { TarifaRutaFmc } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import ModalHistorialTarifas from '@/Componentes/ModalHistorialTarifas';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -52,10 +53,16 @@ const GestionTarifasRutasP: React.FC = () => {
   const [filtroRuta, setFiltroRuta] = useState('');
   const [filtroCentroCosto, setFiltroCentroCosto] = useState('');
   const [mostrarSpinnerCarga, setMostrarSpinnerCarga] = useState(false);
+  const [modalHistorial, setModalHistorial] = useState(false);
+  const usuario = typeof document !== 'undefined'
+    ? decodeURIComponent(document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '')
+    : '';
 
+  // Guard: ADMIN y CONTROL gestionan el tarifario FMC (el backend valida
+  // lo mismo con el perfil real de baseusuarios en cada escritura).
   useEffect(() => {
     const perfil = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
-    if (perfil !== 'ADMIN') {
+    if (perfil !== 'ADMIN' && perfil !== 'CONTROL') {
       router.replace('/LoginUsuario');
       return;
     }
@@ -85,7 +92,7 @@ const GestionTarifasRutasP: React.FC = () => {
     setError('');
     setGuardando(true);
     try {
-      await crearTarifaRuta(form);
+      await crearTarifaRuta(form, usuario);
       setModal(false);
       cargarTarifas();
     } catch (err: unknown) {
@@ -114,7 +121,7 @@ const GestionTarifasRutasP: React.FC = () => {
     setErrorEditar('');
     setGuardando(true);
     try {
-      await actualizarTarifaRuta(modalEditar.id, formEditar);
+      await actualizarTarifaRuta(modalEditar.id, formEditar, usuario);
       setModalEditar(null);
       cargarTarifas();
     } catch (err: unknown) {
@@ -130,10 +137,10 @@ const GestionTarifasRutasP: React.FC = () => {
     const ok = window.confirm(`¿Eliminar la tarifa de la ruta "${tarifa.ruta}"?`);
     if (!ok) return;
     try {
-      await eliminarTarifaRuta(tarifa.id);
+      await eliminarTarifaRuta(tarifa.id, usuario);
       cargarTarifas();
     } catch (error: any) {
-      alert('Error al eliminar la tarifa.');
+      alert(error?.detail || 'Error al eliminar la tarifa.');
     }
   };
 
@@ -145,7 +152,7 @@ const GestionTarifasRutasP: React.FC = () => {
     setMostrarSpinnerCarga(true);
     setResultadoCarga(null);
     try {
-      const resultado = await cargarTarifasMasivo(archivo);
+      const resultado = await cargarTarifasMasivo(archivo, usuario);
       setResultadoCarga(resultado);
       await cargarTarifas();
     } catch (error: any) {
@@ -219,6 +226,13 @@ const GestionTarifasRutasP: React.FC = () => {
           {/* Acciones */}
           <div className="GTR-acciones">
             <div className="GTR-accionesGrupo">
+              <button
+                className="GTR-btnDescargar"
+                onClick={() => setModalHistorial(true)}
+                title="Quién ha creado, modificado o eliminado tarifas"
+              >
+                <FaHistory /> Historial
+              </button>
               <button className="GTR-btnNuevo" onClick={abrirModal}>
                 <FaPlus /> Nueva Tarifa
               </button>
@@ -733,6 +747,13 @@ const GestionTarifasRutasP: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MODAL HISTORIAL DE CAMBIOS */}
+      <ModalHistorialTarifas
+        abierto={modalHistorial}
+        onCerrar={() => setModalHistorial(false)}
+        tarifarioInicial="fletes_rutas_fmc"
+      />
     </div>
   );
 };

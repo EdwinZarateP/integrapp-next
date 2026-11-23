@@ -6,9 +6,10 @@ import * as XLSX from 'xlsx';
 import {
   FaMapMarkerAlt, FaArrowLeft,
   FaPlus, FaEdit, FaTrash, FaTimes, FaSave, FaSearch,
-  FaFileExcel, FaUpload,
+  FaFileExcel, FaUpload, FaHistory,
 } from 'react-icons/fa';
 import { obtenerFletes, crearFlete, actualizarFlete, eliminarFlete, cargarFletesMasivo, Flete } from '@/Funciones/ApiPedidos/fletes';
+import ModalHistorialTarifas from '@/Componentes/ModalHistorialTarifas';
 import logo from '@/Imagenes/albatros.png';
 import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
@@ -32,11 +33,20 @@ const TarifasP: React.FC = () => {
   const [inputBusqueda, setInputBusqueda] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [cargandoArchivo, setCargandoArchivo] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
+  const [modalHistorial, setModalHistorial] = useState(false);
+  const usuario = typeof document !== 'undefined'
+    ? decodeURIComponent(document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '')
+    : '';
 
-  // Auth guard
+  // Auth guard. Solo ADMIN y CONTROL pueden editar tarifas (el backend
+  // valida lo mismo con el perfil real de baseusuarios); el resto entra
+  // en modo solo consulta.
   useEffect(() => {
-    const usuario = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
-    if (!usuario) { router.replace('/LoginUsuario'); return; }
+    const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
+    const perfil = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
+    if (!u) { router.replace('/LoginUsuario'); return; }
+    setPuedeEditar(perfil === 'ADMIN' || perfil === 'CONTROL');
     cargar();
   }, [router]);
 
@@ -97,17 +107,18 @@ const TarifasP: React.FC = () => {
     setGuardando(true);
     try {
       if (tarifaOrigen) {
-        await actualizarFlete(tarifaOrigen.origen, tarifaOrigen.destino, payload);
+        await actualizarFlete(tarifaOrigen.origen, tarifaOrigen.destino, payload, usuario);
         setTarifas(prev => prev.map(t =>
           t.origen === tarifaOrigen.origen && t.destino === tarifaOrigen.destino ? payload : t
         ));
       } else {
-        await crearFlete(payload);
+        await crearFlete(payload, usuario);
         setTarifas(prev => [...prev, payload]);
       }
       setModal(false);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      const msg = (err as { detail?: string })?.detail
+        || (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(msg || 'Error al guardar la tarifa.');
     } finally {
       setGuardando(false);
@@ -119,10 +130,10 @@ const TarifasP: React.FC = () => {
     if (!window.confirm(`¿Eliminar la tarifa ${flete.origen} → ${flete.destino}?`)) return;
     setEliminando(key);
     try {
-      await eliminarFlete(flete.origen, flete.destino);
+      await eliminarFlete(flete.origen, flete.destino, usuario);
       setTarifas(prev => prev.filter(t => !(t.origen === flete.origen && t.destino === flete.destino)));
-    } catch {
-      alert('Error al eliminar la tarifa.');
+    } catch (err: unknown) {
+      alert((err as { detail?: string })?.detail || 'Error al eliminar la tarifa.');
     } finally {
       setEliminando(null);
     }
@@ -154,7 +165,7 @@ const TarifasP: React.FC = () => {
     }
     setCargandoArchivo(true);
     try {
-      const res = await cargarFletesMasivo(archivo);
+      const res = await cargarFletesMasivo(archivo, usuario);
       alert(`✅ ${res?.mensaje || 'Carga completada'}`);
       cargar();
     } catch (err: any) {
@@ -245,25 +256,36 @@ const TarifasP: React.FC = () => {
           <div className="TAR-topBar">
             <div>
               <h1 className="TAR-titulo">Tarifas de fletes</h1>
-              <p className="TAR-subtitulo">Consulta, crea y modifica las tarifas por ruta y tipo de vehículo.</p>
+              <p className="TAR-subtitulo">
+                {puedeEditar
+                  ? 'Consulta, crea y modifica las tarifas por ruta y tipo de vehículo.'
+                  : 'Consulta de tarifas por ruta y tipo de vehículo (modo solo lectura).'}
+              </p>
             </div>
             <div className="TAR-topBarActions">
               <button className="TAR-btnExportar" onClick={exportarExcel} disabled={cargando || tarifasFiltradas.length === 0}>
                 <FaFileExcel /> Exportar
               </button>
-              <label className={`TAR-btnCargar ${cargandoArchivo ? 'cargando' : ''}`} title="Reemplaza TODAS las tarifas por el contenido del Excel">
-                <FaUpload /> {cargandoArchivo ? 'Cargando…' : 'Cargar Archivo'}
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleCargarArchivo}
-                  disabled={cargandoArchivo}
-                  style={{ display: 'none' }}
-                />
-              </label>
-              <button className="TAR-btnNuevo" onClick={abrirNueva}>
-                <FaPlus /> Nueva tarifa
-              </button>
+              {puedeEditar && (
+                <>
+                  <button className="TAR-btnExportar" onClick={() => setModalHistorial(true)} title="Quién ha creado, modificado o eliminado tarifas">
+                    <FaHistory /> Historial
+                  </button>
+                  <label className={`TAR-btnCargar ${cargandoArchivo ? 'cargando' : ''}`} title="Reemplaza TODAS las tarifas por el contenido del Excel">
+                    <FaUpload /> {cargandoArchivo ? 'Cargando…' : 'Cargar Archivo'}
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleCargarArchivo}
+                      disabled={cargandoArchivo}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  <button className="TAR-btnNuevo" onClick={abrirNueva}>
+                    <FaPlus /> Nueva tarifa
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -315,7 +337,7 @@ const TarifasP: React.FC = () => {
                     {colsVehiculo.map(col => (
                       <th key={col} className="TAR-th-tarifa">{col}</th>
                     ))}
-                    <th>Acciones</th>
+                    {puedeEditar && <th>Acciones</th>}
                   </tr>
                 </thead>
                 <tbody key={busqueda}>
@@ -338,25 +360,27 @@ const TarifasP: React.FC = () => {
                             }
                           </td>
                         ))}
-                        <td className="TAR-td-acciones">
-                          <button className="TAR-btnAccion TAR-btnAccion--editar" onClick={() => abrirEditar(t)} title="Editar">
-                            <FaEdit />
-                          </button>
-                          <button
-                            className="TAR-btnAccion TAR-btnAccion--eliminar"
-                            onClick={() => confirmarEliminar(t)}
-                            disabled={eliminando === key}
-                            title="Eliminar"
-                          >
-                            <FaTrash />
-                          </button>
-                        </td>
+                        {puedeEditar && (
+                          <td className="TAR-td-acciones">
+                            <button className="TAR-btnAccion TAR-btnAccion--editar" onClick={() => abrirEditar(t)} title="Editar">
+                              <FaEdit />
+                            </button>
+                            <button
+                              className="TAR-btnAccion TAR-btnAccion--eliminar"
+                              onClick={() => confirmarEliminar(t)}
+                              disabled={eliminando === key}
+                              title="Eliminar"
+                            >
+                              <FaTrash />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
                   {tarifasFiltradas.length === 0 && (
                     <tr>
-                      <td colSpan={8 + colsVehiculo.length} className="TAR-td-vacio">
+                      <td colSpan={7 + colsVehiculo.length + (puedeEditar ? 1 : 0)} className="TAR-td-vacio">
                         {busqueda ? 'Sin resultados para la búsqueda.' : 'No hay tarifas registradas.'}
                       </td>
                     </tr>
@@ -479,6 +503,13 @@ const TarifasP: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ══ MODAL HISTORIAL DE CAMBIOS ══ */}
+      <ModalHistorialTarifas
+        abierto={modalHistorial}
+        onCerrar={() => setModalHistorial(false)}
+        tarifarioInicial="fletes"
+      />
     </div>
   );
 };

@@ -23,9 +23,12 @@ export const obtenerFletes = async (): Promise<Flete[]> => {
 };
 
 // Cargar fletes masivamente desde Excel
-export const cargarFletesMasivo = async (archivo: File) => {
+// `usuario` viaja en el FormData: el backend lo resuelve en baseusuarios y
+// audita el reemplazo total en historial_tarifas.
+export const cargarFletesMasivo = async (archivo: File, usuario: string) => {
   const formData = new FormData();
   formData.append("archivo", archivo);
+  formData.append("usuario", usuario);
 
   try {
     const res = await axios.post(`${BASE_URL}/cargar-masivo`, formData, {
@@ -37,10 +40,10 @@ export const cargarFletesMasivo = async (archivo: File) => {
   }
 };
 
-// Crear flete individual
-export const crearFlete = async (flete: any) => {
+// Crear flete individual (usuario obligatorio: auditoría + permiso ADMIN/CONTROL)
+export const crearFlete = async (flete: any, usuario: string) => {
   try {
-    const res = await axios.post(`${BASE_URL}/`, flete);
+    const res = await axios.post(`${BASE_URL}/`, flete, { params: { usuario } });
     return res.data;
   } catch (error: any) {
     throw error.response?.data || error.message;
@@ -79,20 +82,20 @@ export const obtenerFlete = async (origen: string, destino: string) => {
   }
 };
 
-// Actualizar flete
-export const actualizarFlete = async (origen: string, destino: string, flete: any) => {
+// Actualizar flete (usuario obligatorio: auditoría + permiso ADMIN/CONTROL)
+export const actualizarFlete = async (origen: string, destino: string, flete: any, usuario: string) => {
   try {
-    const res = await axios.put(`${BASE_URL}/${origen}/${destino}`, flete);
+    const res = await axios.put(`${BASE_URL}/${origen}/${destino}`, flete, { params: { usuario } });
     return res.data;
   } catch (error: any) {
     throw error.response?.data || error.message;
   }
 };
 
-// Eliminar flete
-export const eliminarFlete = async (origen: string, destino: string) => {
+// Eliminar flete (usuario obligatorio: auditoría + permiso ADMIN/CONTROL)
+export const eliminarFlete = async (origen: string, destino: string, usuario: string) => {
   try {
-    const res = await axios.delete(`${BASE_URL}/${origen}/${destino}`);
+    const res = await axios.delete(`${BASE_URL}/${origen}/${destino}`, { params: { usuario } });
     return res.data;
   } catch (error: any) {
     throw error.response?.data || error.message;

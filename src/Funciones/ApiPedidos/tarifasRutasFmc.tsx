@@ -30,37 +30,39 @@ export const obtenerTarifasRutas = async (): Promise<TarifaRutaFmc[]> => {
   }
 };
 
-// Crear tarifa individual
-export const crearTarifaRuta = async (tarifa: TarifaRutaFmc): Promise<TarifaRutaFmc> => {
+// Crear tarifa individual (usuario obligatorio: auditoría + permiso ADMIN/CONTROL)
+export const crearTarifaRuta = async (tarifa: TarifaRutaFmc, usuario: string): Promise<TarifaRutaFmc> => {
   try {
-    const res = await axios.post<TarifaRutaFmc>(`${BASE_URL}/`, tarifa);
+    const res = await axios.post<TarifaRutaFmc>(`${BASE_URL}/`, tarifa, { params: { usuario } });
     return res.data;
   } catch (error: any) {
     throw error.response?.data || error.message;
   }
 };
 
-// Actualizar tarifa
-export const actualizarTarifaRuta = async (id: string, tarifa: TarifaRutaFmc): Promise<TarifaRutaFmc> => {
+// Actualizar tarifa (usuario obligatorio: auditoría + permiso ADMIN/CONTROL)
+export const actualizarTarifaRuta = async (id: string, tarifa: TarifaRutaFmc, usuario: string): Promise<TarifaRutaFmc> => {
   try {
-    const res = await axios.put<TarifaRutaFmc>(`${BASE_URL}/${id}`, tarifa);
+    const res = await axios.put<TarifaRutaFmc>(`${BASE_URL}/${id}`, tarifa, { params: { usuario } });
     return res.data;
   } catch (error: any) {
     throw error.response?.data || error.message;
   }
 };
 
-// Eliminar tarifa
-export const eliminarTarifaRuta = async (id: string): Promise<void> => {
+// Eliminar tarifa (usuario obligatorio: auditoría + permiso ADMIN/CONTROL)
+export const eliminarTarifaRuta = async (id: string, usuario: string): Promise<void> => {
   try {
-    await axios.delete(`${BASE_URL}/${id}`);
+    await axios.delete(`${BASE_URL}/${id}`, { params: { usuario } });
   } catch (error: any) {
     throw error.response?.data || error.message;
   }
 };
 
 // Cargar tarifas masivamente desde archivo plano
-export const cargarTarifasMasivo = async (archivo: File): Promise<{
+// `usuario` viaja en el FormData: el backend lo resuelve en baseusuarios y
+// audita la carga en historial_tarifas.
+export const cargarTarifasMasivo = async (archivo: File, usuario: string): Promise<{
   exitosos: number;
   errores: number;
   mensaje: string;
@@ -68,6 +70,7 @@ export const cargarTarifasMasivo = async (archivo: File): Promise<{
 }> => {
   const formData = new FormData();
   formData.append('archivo', archivo);
+  formData.append('usuario', usuario);
 
   try {
     const res = await axios.post(`${BASE_URL}/cargar-masivo`, formData, {
