@@ -36,11 +36,26 @@ export const usuarioDeCookie = (): string =>
 
 // Obtener el historial de cambios de tarifas (más reciente primero).
 // Solo ADMIN/CONTROL: el backend resuelve el perfil real del usuario.
-export const obtenerHistorialTarifas = async (tarifario?: string): Promise<EventoHistorial[]> => {
+// - `registro` filtra por una tarifa específica ("ORIGEN → DESTINO" /
+//   "CENTRO_COSTO → RUTA") — historial dentro del modal de edición.
+// - `incluirMasivas` (con tarifario) suma las cargas masivas: en `fletes`
+//   el masivo reemplaza TODO el tarifario, así que esa tarifa las vivió.
+export const obtenerHistorialTarifas = async (
+  tarifario?: string,
+  registro?: string,
+  opciones?: { accion?: string; incluirMasivas?: boolean; limite?: number },
+): Promise<EventoHistorial[]> => {
   const usuario = usuarioDeCookie();
   try {
     const res = await axios.get<EventoHistorial[]>(`${BASE_URL}/`, {
-      params: { usuario, ...(tarifario ? { tarifario } : {}) },
+      params: {
+        usuario,
+        ...(tarifario ? { tarifario } : {}),
+        ...(registro ? { registro } : {}),
+        ...(opciones?.accion ? { accion: opciones.accion } : {}),
+        ...(opciones?.incluirMasivas ? { incluir_masivas: true } : {}),
+        ...(opciones?.limite ? { limite: opciones.limite } : {}),
+      },
     });
     return res.data;
   } catch (error: any) {

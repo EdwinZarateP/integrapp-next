@@ -17,7 +17,7 @@ import {
 } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import type { TarifaRutaFmc } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import NavMedicalCare from '@/Componentes/NavMedicalCare';
-import ModalHistorialTarifas from '@/Componentes/ModalHistorialTarifas';
+import ModalHistorialTarifas, { HistorialPorRegistro } from '@/Componentes/ModalHistorialTarifas';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -723,6 +723,15 @@ const GestionTarifasRutasP: React.FC = () => {
               </div>
 
               {errorEditar && <p className="GTR-formError">{errorEditar}</p>}
+
+              {/* Historial de cambios que ha sufrido ESTA tarifa */}
+              <div className="GTR-formInfo" style={{ marginTop: 12 }}>
+                <strong>🕐 Historial de esta tarifa</strong>
+                <HistorialPorRegistro
+                  tarifario="fletes_rutas_fmc"
+                  registro={`${modalEditar.centro_costo} → ${modalEditar.ruta}`}
+                />
+              </div>
 
               <div className="GTR-modalFooter">
                 <button type="button" className="GTR-btnCancelar" onClick={() => setModalEditar(null)}>Cancelar</button>

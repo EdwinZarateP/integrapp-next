@@ -203,3 +203,54 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* ── Historial de UNA tarifa (sección dentro del modal de edición) ── */
+
+.MHT-regEstado {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.MHT-regLista {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.MHT-regItem {
+  padding: 8px 10px;
+  border: 1px solid #eef0ef;
+  border-left: 3px solid #d1d5db;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.MHT-regItem--creacion { border-left-color: #16a34a; }
+.MHT-regItem--edicion { border-left-color: #eab308; }
+.MHT-regItem--eliminacion { border-left-color: #dc2626; }
+.MHT-regItem--carga_masiva { border-left-color: #3b82f6; }
+
+.MHT-regLinea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.MHT-regFecha { font-size: 0.75rem; color: #4b5563; white-space: nowrap; }
+.MHT-regQuien { font-size: 0.78rem; font-weight: 600; color: #111827; }
+
+.MHT-regDetalle {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #4b5563;
+}
+
+.MHT-regItem .MHT-campos { margin-top: 4px; }
+.MHT-regItem .MHT-campos li { font-size: 0.78rem; }

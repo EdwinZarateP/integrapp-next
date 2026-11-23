@@ -186,3 +186,74 @@ const ModalHistorialTarifas: React.FC<Props> = ({ abierto, onCerrar, tarifarioIn
 };
 
 export default ModalHistorialTarifas;
+
+/* ── Historial de UNA tarifa (dentro del modal de edición) ─────────────
+   Muestra los cambios que ha sufrido la tarifa específica: quién la
+   creó/editó/eliminó, cuándo y qué ajustó. En `fletes` suma también las
+   cargas masivas (reemplazan TODO el tarifario, así que esta tarifa las
+   vivió); en fmc el masivo es insert-only y no la afecta. */
+export const HistorialPorRegistro: React.FC<{
+  tarifario: 'fletes' | 'fletes_rutas_fmc';
+  registro: string;
+}> = ({ tarifario, registro }) => {
+  const [eventos, setEventos] = useState<EventoHistorial[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let vivo = true;
+    setCargando(true);
+    setError('');
+    obtenerHistorialTarifas(tarifario, registro, {
+      incluirMasivas: tarifario === 'fletes',
+      limite: 50,
+    })
+      .then(ev => { if (vivo) setEventos(ev); })
+      .catch((err: any) => {
+        const msg = typeof err === 'string' ? err : err?.detail;
+        if (vivo) setError(msg || 'Error al cargar el historial de esta tarifa.');
+      })
+      .finally(() => { if (vivo) setCargando(false); });
+    return () => { vivo = false; };
+  }, [tarifario, registro]);
+
+  if (cargando) return <p className="MHT-regEstado">Cargando historial de esta tarifa…</p>;
+  if (error) return <p className="MHT-regEstado MHT-error">{error}</p>;
+  if (eventos.length === 0) {
+    return <p className="MHT-regEstado">Esta tarifa no tiene cambios registrados (los hechos antes de la auditoría no quedaron grabados).</p>;
+  }
+
+  return (
+    <ul className="MHT-regLista">
+      {eventos.map(e => {
+        const clave = e.id || `${e.fecha}_${e.usuario}`;
+        return (
+          <li key={clave} className={`MHT-regItem MHT-regItem--${e.accion}`}>
+            <div className="MHT-regLinea">
+              <span className={`MHT-badge MHT-badge--${e.accion}`}>{ETIQUETAS_ACCION[e.accion] || e.accion}</span>
+              <span className="MHT-regFecha">{fechaLegible(e.fecha)}</span>
+              <span className="MHT-regQuien">{e.nombre_usuario || e.usuario} · {e.rol}</span>
+            </div>
+            {e.accion === 'carga_masiva' ? (
+              <div className="MHT-regDetalle">
+                Carga masiva del tarifario — insertados: <strong>{e.resumen?.insertados ?? '—'}</strong>
+                {e.resumen?.borrados !== undefined && <> · tarifas anteriores reemplazadas: <strong>{e.resumen.borrados}</strong></>}
+              </div>
+            ) : (e.campos_modificados || []).length > 0 && (
+              <ul className="MHT-campos">
+                {e.campos_modificados.map((c, i) => (
+                  <li key={i}>
+                    <span className="MHT-campoNombre">{c.campo}:</span>{' '}
+                    <span className="MHT-campoAntes">{valorLegible(c.valor_anterior)}</span>
+                    <span className="MHT-campoFlecha"> → </span>
+                    <span className="MHT-campoNuevo">{valorLegible(c.valor_nuevo)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+};

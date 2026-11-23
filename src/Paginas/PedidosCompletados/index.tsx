@@ -94,11 +94,13 @@ const PedidosCompletados: React.FC = () => {
                 <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
                   <FaChartBar /> Indicadores
                 </button>
-                {perfil === 'ADMIN' && (
+                {(perfil === 'ADMIN' || perfil === 'CONTROL') && (
                   <>
-                    <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/GestionUsuarios'); }}>
-                      <FaUsers /> Gestión de usuarios
-                    </button>
+                    {perfil === 'ADMIN' && (
+                      <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/GestionUsuarios'); }}>
+                        <FaUsers /> Gestión de usuarios
+                      </button>
+                    )}
                     <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/Tarifas'); }}>
                       <FaTable /> Tarifas
                     </button>

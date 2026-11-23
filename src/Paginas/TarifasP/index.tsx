@@ -9,7 +9,7 @@ import {
   FaFileExcel, FaUpload, FaHistory,
 } from 'react-icons/fa';
 import { obtenerFletes, crearFlete, actualizarFlete, eliminarFlete, cargarFletesMasivo, Flete } from '@/Funciones/ApiPedidos/fletes';
-import ModalHistorialTarifas from '@/Componentes/ModalHistorialTarifas';
+import ModalHistorialTarifas, { HistorialPorRegistro } from '@/Componentes/ModalHistorialTarifas';
 import logo from '@/Imagenes/albatros.png';
 import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
@@ -492,6 +492,16 @@ const TarifasP: React.FC = () => {
               </div>
 
               {error && <p className="TAR-formError">{error}</p>}
+
+              {/* Historial de cambios que ha sufrido ESTA tarifa */}
+              {tarifaOrigen && (
+                <div className="TAR-tarifasSeccion">
+                  <div className="TAR-tarifasHeader">
+                    <span className="TAR-formLabel">Historial de esta tarifa</span>
+                  </div>
+                  <HistorialPorRegistro tarifario="fletes" registro={`${form.origen} → ${form.destino}`} />
+                </div>
+              )}
 
               <div className="TAR-modalFooter">
                 <button type="button" className="TAR-btnCancelar" onClick={() => setModal(false)}>Cancelar</button>
