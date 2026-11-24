@@ -29,6 +29,15 @@ import {
   FaBullseye,
   FaHeadset,
   FaDatabase,
+  FaFileInvoiceDollar,
+  FaExchangeAlt,
+  FaPlaneDeparture,
+  FaShoppingCart,
+  FaFileInvoice,
+  FaMoneyBillWave,
+  FaBolt,
+  FaCashRegister,
+  FaSlidersH,
 } from "react-icons/fa";
 
 // ── Perfiles con acceso a cada portal (mismos sets que usaba el login) ──
@@ -261,6 +270,80 @@ const GRUPOS: GrupoModulos[] = [
       },
     ],
   },
+  {
+    // (2026-11-24) Módulo Financiero interno (schema `fin` de Postgres).
+    // La tarjeta la ve cualquier perfil multi-módulo; el ACCESO REAL lo
+    // controla el módulo por correo (fin.usuarios): entrar sin estar dado
+    // de alta muestra «No tienes acceso al Módulo Financiero».
+    id: "financiero",
+    etiqueta: "FINANZAS",
+    icono: FaFileInvoiceDollar,
+    items: [
+      {
+        id: "fin_inicio",
+        etiqueta: "Inicio",
+        desc: "Resumen del módulo según tu rol",
+        icono: FaFileInvoiceDollar,
+        destino: "/Financiero",
+      },
+      {
+        id: "fin_traslados",
+        etiqueta: "Traslados",
+        desc: "Traslados de presupuesto — aprobación de Presidencia",
+        icono: FaExchangeAlt,
+        destino: "/Financiero/Traslados",
+      },
+      {
+        id: "fin_viajes",
+        etiqueta: "Viajes",
+        desc: "Solicitudes de viaje, anticipos y legalización",
+        icono: FaPlaneDeparture,
+        destino: "/Financiero/Viajes",
+      },
+      {
+        id: "fin_requisiciones",
+        etiqueta: "Requisiciones",
+        desc: "Requisiciones de compra y órdenes de compra",
+        icono: FaShoppingCart,
+        destino: "/Financiero/Requisiciones",
+      },
+      {
+        id: "fin_contabilidad",
+        etiqueta: "Facturas DIAN",
+        desc: "Recepción, radicación y causación de facturas",
+        icono: FaFileInvoice,
+        destino: "/Financiero/Contabilidad",
+      },
+      {
+        id: "fin_pagos",
+        etiqueta: "Pagos urgentes",
+        desc: "Bandeja de pagos urgentes de Tesorería",
+        icono: FaMoneyBillWave,
+        destino: "/Financiero/Pagos",
+      },
+      {
+        id: "fin_servicios",
+        etiqueta: "Servicios públicos",
+        desc: "Matriz de servicios por inmueble y periodo",
+        icono: FaBolt,
+        destino: "/Financiero/Servicios",
+      },
+      {
+        id: "fin_cajas",
+        etiqueta: "Cajas menores",
+        desc: "Legalización y contabilización por sede",
+        icono: FaCashRegister,
+        destino: "/Financiero/Cajas",
+      },
+      {
+        id: "fin_config",
+        etiqueta: "Administración",
+        desc: "Usuarios, bitácora y respaldo del módulo (admin)",
+        icono: FaSlidersH,
+        destino: "/Financiero/Config",
+      },
+    ],
+  },
 ];
 
 /**
@@ -286,6 +369,13 @@ export const construirMenu = (ctx: ContextoAcceso): { directos: ItemModulo[]; gr
           return PERFILES_SEGURIDAD.includes(perfil) || esPadrinoAdicional;
         case "flota":
           return PERFILES_FLOTA.includes(perfil);
+        case "planeacion":
+          // Ítem PERSONAL: abre el Access local del PC de Edwin — solo ADMIN.
+          return perfil === "ADMIN";
+        case "fin_traslados":
+          // Visible para todos los perfiles multi-módulo (el gate real es el
+          // propio módulo, por correo). FINANCIERO no pasa por /Modulos.
+          return true;
         default:
           return true;
       }

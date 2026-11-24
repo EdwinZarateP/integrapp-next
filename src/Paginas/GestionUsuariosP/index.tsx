@@ -84,7 +84,7 @@ const GestionUsuariosP: React.FC = () => {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [modalEditar, setModalEditar] = useState<BaseUsuario | null>(null);
-  const [formEditar, setFormEditar] = useState({ nombre: '', correo: '', regional: '', celular: '', clave: '', usuario: '' });
+  const [formEditar, setFormEditar] = useState({ nombre: '', correo: '', regional: '', celular: '', clave: '', usuario: '', notificar_otros_costos: true });
   const [guardandoEditar, setGuardandoEditar] = useState(false);
   const [errorEditar, setErrorEditar] = useState('');
   const [modalReset, setModalReset] = useState<BaseUsuario | null>(null);
@@ -410,6 +410,7 @@ const GestionUsuariosP: React.FC = () => {
       celular:  u.celular || '',
       clave:    '',
       usuario:  u.usuario || '',
+      notificar_otros_costos: u.notificar_otros_costos !== false,
     });
     setErrorEditar('');
     setModalEditar(u);
@@ -428,6 +429,7 @@ const GestionUsuariosP: React.FC = () => {
         celular:  formEditar.celular || undefined,
         clave:    formEditar.clave || undefined,
         usuario:  formEditar.usuario || undefined,
+        notificar_otros_costos: formEditar.notificar_otros_costos,
       });
       setUsuarios(prev => prev.map(u => u.id === modalEditar.id ? { ...u, ...res.usuario } : u));
       setModalEditar(null);
@@ -1015,6 +1017,18 @@ const GestionUsuariosP: React.FC = () => {
                   <input className="GU-formInput" type="text" placeholder="Nueva contraseña"
                     value={formEditar.clave}
                     onChange={e => setFormEditar(f => ({ ...f, clave: e.target.value }))} />
+                </div>
+                <div className="GU-formGrupo GU-formGrupo--full">
+                  <label className="GU-formLabel" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" style={{ width: 16, height: 16 }}
+                      checked={formEditar.notificar_otros_costos}
+                      onChange={e => setFormEditar(f => ({ ...f, notificar_otros_costos: e.target.checked }))} />
+                    Recibir WhatsApp de Otros Costos
+                  </label>
+                  <span className="GU-formLabel--opcional">
+                    Apagado = esta persona NO recibe las notificaciones del módulo de
+                    Otros Costos (solicitudes para aprobar/pagar) aunque tenga el perfil.
+                  </span>
                 </div>
               </div>
               {errorEditar && <p className="GU-formError">{errorEditar}</p>}

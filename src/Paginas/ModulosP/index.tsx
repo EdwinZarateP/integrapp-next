@@ -47,6 +47,24 @@ const Modulos: React.FC = () => {
       router.replace("/LoginUsuario");
       return;
     }
+    // (2026-11-24) Guardia: los perfiles micro-portal no ven la Torre de
+    // Control aunque escriban la URL — cada uno vuelve a SU hogar (mismo
+    // mapa que el login). Así /Modulos queda para los perfiles multi-módulo.
+    const perfilActual = (Cookies.get("perfilPedidosCookie") || "").toUpperCase();
+    const cliente = Cookies.get("clientePedidosCookie") || "";
+    const hogarPorPerfil: Record<string, string> = {
+      FINANCIERO: "/EleccionFinanciero",
+      VISUALIZADOR: "/indicadores",
+      CLIENTE_ESTUDIOS: "/PortalSeguridad",
+      CLIENTE: "/indicadores/mis-clientes",
+      PADRINO: "/revision",
+    };
+    if (hogarPorPerfil[perfilActual]) {
+      router.replace(hogarPorPerfil[perfilActual]);
+      return;
+    }
+    if (cliente === "SEGURIDAD") { router.replace("/revision"); return; }
+    if (cliente === "ADMIN_SEGURIDAD") { router.replace("/AdminSeguridad"); return; }
     setInfo(leerUsuarioInfo());
     setListo(true);
   }, [router]);

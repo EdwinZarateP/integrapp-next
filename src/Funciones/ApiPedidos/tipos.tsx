@@ -16,6 +16,9 @@ export interface BaseUsuario {
   // Alcance de aprobación por cliente en Otros Costos (COORDINADOR/CONTROL; [] = TODOS)
   clientes_aprobacion?: string[];
   activo?: boolean;
+  // (2026-11-24) False = NO recibe los WhatsApp de Otros Costos aunque tenga
+  // el perfil (FINANCIERO, COORDINADOR, CONTROL, ANALISTA).
+  notificar_otros_costos?: boolean;
   notificaciones_mc?: string[];
   // Módulo Estudios de Seguridad (solo perfil SEGURIDAD)
   empresa_id_seguridad?: string;

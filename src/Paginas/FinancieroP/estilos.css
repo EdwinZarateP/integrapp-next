@@ -1,0 +1,281 @@
+/* Módulo Financiero — sistema de diseño Integra: header claro con filo lima
+   (#8EC045), texto #111827, suaves #6b7280, acento #349F4A (patrón del
+   rebranding 2026-11-18). Prefijo fin-. */
+
+.fin-app { min-height: 100vh; display: flex; flex-direction: column; background: #f6f7f9; color: #111827; }
+
+/* Header claro + filo lima */
+.fin-header {
+  display: flex; align-items: center; gap: 20px;
+  padding: 12px 24px; background: #fff;
+  border-bottom: 2px solid #8EC045; box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06);
+  position: sticky; top: 0; z-index: 20; flex-wrap: wrap;
+}
+.fin-headerTitulo h1 { font-size: 18px; margin: 0; font-weight: 700; }
+.fin-headerSub { font-size: 12px; color: #6b7280; }
+.fin-usuario { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.fin-usuarioNombre { font-weight: 600; font-size: 14px; }
+.fin-usuarioRol { font-size: 12px; color: #6b7280; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 3px 10px; }
+.fin-btnSalir { padding: 6px 12px; font-size: 12px; }
+
+.fin-main { flex: 1; width: 100%; max-width: 1240px; margin: 0 auto; padding: 24px 20px; }
+
+/* Barra de título + filtros */
+.fin-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.fin-titulo { font-size: 20px; margin: 0; }
+.fin-filtros { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Inputs y botones */
+.fin-input {
+  padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
+  background: #fff; color: #111827; min-width: 120px;
+}
+.fin-input:focus { outline: 2px solid #8EC04555; border-color: #8EC045; }
+
+/* Formularios dentro de modales: inputs a ancho completo y más aire */
+.fin-modal .fin-input,
+.fin-modal select.fin-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.fin-modal .fin-input:hover { border-color: #94a3b8; }
+.fin-modal .fin-input:focus {
+  outline: none;
+  border-color: #8EC045;
+  box-shadow: 0 0 0 3px rgba(142, 192, 69, 0.25);
+}
+.fin-modal .fin-grid { gap: 14px 18px; }
+.fin-modal .fin-campo label {
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.4px;
+  color: #374151; margin-bottom: 2px;
+}
+.fin-btn {
+  display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer;
+  padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  transition: filter 0.15s;
+}
+.fin-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.fin-btn:hover:not(:disabled) { filter: brightness(1.05); }
+.fin-btnPrimario { background: #349F4A; color: #fff; }
+.fin-btnSecundario { background: #f3f4f6; color: #111827; border: 1px solid #e5e7eb; }
+.fin-btnMal { background: #dc2626; color: #fff; }
+
+.fin-btnIcono {
+  border: none; cursor: pointer; border-radius: 8px; padding: 6px 8px;
+  display: inline-flex; align-items: center; color: #fff;
+}
+.fin-icoOk { background: #16a34a; } .fin-icoMal { background: #dc2626; }
+.fin-icoGris { background: #6b7280; } .fin-icoAzul { background: #2563eb; }
+
+/* Tabla */
+.fin-tablaWrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: auto; }
+.fin-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.fin-tabla th {
+  text-align: left; padding: 10px 12px; background: #f9fafb; color: #6b7280;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
+  border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+}
+.fin-tabla td { padding: 10px 12px; border-bottom: 1px solid #f1f2f4; vertical-align: middle; }
+.fin-tabla tbody tr:hover { background: #f9fafb; }
+.fin-tablaCompacta th, .fin-tablaCompacta td { padding: 6px 8px; }
+.fin-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-acciones { white-space: nowrap; display: flex; gap: 4px; }
+.fin-suave { color: #6b7280; font-size: 12.5px; }
+.fin-link { background: none; border: none; color: #349F4A; cursor: pointer; font-weight: 600; padding: 0; font-size: inherit; }
+.fin-link:hover { text-decoration: underline; }
+
+.fin-fila-PENDIENTE_PRESIDENCIA td:first-child { box-shadow: inset 3px 0 0 #f2d200; }
+.fin-fila-APROBADO td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
+.fin-fila-RECHAZADO td:first-child, .fin-fila-ANULADO td:first-child { box-shadow: inset 3px 0 0 #dc2626; opacity: 0.75; }
+
+/* Badges */
+.fin-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.fin-badgeAmb { background: #fef9c3; color: #a16207; }
+.fin-badgeOk { background: #dcfce7; color: #15803d; }
+.fin-badgeMal { background: #fee2e2; color: #b91c1c; }
+.fin-badgeGris { background: #f3f4f6; color: #6b7280; }
+.fin-badgeInfo { background: #dbeafe; color: #1d4ed8; }
+
+/* Filas de viajes por estado (borde izquierdo) */
+.fin-filaV-RECHAZADO td:first-child, .fin-filaV-ANULADO td:first-child { box-shadow: inset 3px 0 0 #dc2626; opacity: 0.75; }
+.fin-filaV-SOLICITADO td:first-child, .fin-filaV-TIQUETES_GESTIONADOS td:first-child { box-shadow: inset 3px 0 0 #f2d200; }
+.fin-filaV-AUTORIZADO td:first-child, .fin-filaV-PRESUPUESTO_ASIGNADO td:first-child { box-shadow: inset 3px 0 0 #2563eb; }
+.fin-filaV-ANTICIPO_PAGADO td:first-child, .fin-filaV-LEGALIZADO td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
+
+/* Tarjeta de paso dentro del modal */
+.fin-pasoCard { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+.fin-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+
+/* Matriz de permisos por usuario: lista en filas con switch */
+.fin-listaPermisos { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.fin-permisoFila {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  padding: 10px 14px;
+}
+.fin-permisoNombre { font-weight: 600; font-size: 13.5px; text-transform: capitalize; }
+.fin-permisoEstado { font-size: 11.5px; color: #6b7280; margin-left: auto; white-space: nowrap; }
+.fin-permisoEstado.fin-permAjustado { color: #b45309; font-weight: 700; }
+
+/* Switch (interruptor) */
+.fin-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex: none; }
+.fin-switch input { opacity: 0; width: 0; height: 0; }
+.fin-switch .fin-switchTrack {
+  position: absolute; inset: 0; background: #d1d5db; border-radius: 999px;
+  transition: background 0.18s; cursor: pointer;
+}
+.fin-switch .fin-switchTrack::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+  background: #fff; border-radius: 50%; transition: transform 0.18s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.fin-switch input:checked + .fin-switchTrack { background: #349F4A; }
+.fin-switch input:checked + .fin-switchTrack::after { transform: translateX(18px); }
+.fin-switch input:disabled + .fin-switchTrack { opacity: 0.55; cursor: not-allowed; }
+
+/* Tarjetas de indicadores del inicio */
+.fin-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.fin-cardInd {
+  display: flex; gap: 14px; align-items: center; text-align: left;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px;
+  cursor: pointer; transition: box-shadow 0.15s, transform 0.15s;
+}
+.fin-cardInd:hover { box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1); transform: translateY(-1px); }
+.fin-cardIcono { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex: none; }
+.fin-cardInfo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fin-cardValor { font-size: 24px; font-weight: 800; line-height: 1; }
+.fin-cardTitulo { font-weight: 700; font-size: 13.5px; }
+.fin-cardDetalle { color: #6b7280; font-size: 11.5px; }
+
+/* Tabs internas (Administración) */
+.fin-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.fin-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; padding: 8px 14px;
+  border-radius: 8px 8px 0 0; font-size: 13.5px; color: #6b7280; font-weight: 600;
+}
+.fin-tab:hover { background: #f3f4f6; }
+.fin-tabActivo { color: #111827; background: #fff; box-shadow: inset 0 -2px 0 #8EC045; }
+
+/* Autocomplete de centro de costo */
+.fin-ccWrap { position: relative; }
+.fin-ccLista {
+  position: absolute; z-index: 60; top: 100%; left: 0; right: 0;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 8px;
+  max-height: 220px; overflow-y: auto; margin: 2px 0 0; padding: 0; list-style: none;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); font-size: 12.5px;
+}
+.fin-ccLista li { padding: 7px 10px; cursor: pointer; }
+.fin-ccLista li:hover { background: #f0fdf4; }
+
+/* Modal: scroll INTERNO (cabecera fija, cuerpo que scrollea, pie siempre visible)
+   y ancho que aprovecha las pantallas grandes (crece hasta 1200px). */
+.fin-modalFondo {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 1000;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 4vh 16px; overflow-y: auto;
+}
+.fin-modal {
+  background: #fff; border-radius: 14px;
+  width: min(calc(var(--fin-ancho, 860px) + 10vw), 94vw, 1200px);
+  max-height: 88vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.fin-modalHead {
+  flex: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 22px; border-bottom: 1px solid #e5e7eb;
+}
+.fin-modalHead h3 { margin: 0; font-size: 16px; }
+.fin-modalX { background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 16px; }
+.fin-modalX:hover { color: #111827; }
+.fin-modalCuerpo {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 18px 22px; display: flex; flex-direction: column; gap: 14px;
+}
+.fin-modalCuerpo::-webkit-scrollbar { width: 10px; }
+.fin-modalCuerpo::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; border: 2px solid #fff; }
+.fin-modalCuerpo::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+/* Pie de botones: pegado al final del cuerpo, siempre visible */
+.fin-modalPie {
+  position: sticky; bottom: 0;
+  display: flex; justify-content: flex-end; gap: 8px;
+  background: #fff; border-top: 1px solid #e5e7eb;
+  margin: 4px -22px -18px; padding: 12px 22px;
+  border-radius: 0 0 14px 14px;
+}
+
+.fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px; }
+.fin-campo { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.fin-campo label { color: #6b7280; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+
+.fin-filaAcciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fin-total { margin-left: auto; font-size: 14px; }
+.fin-subtitulo { font-size: 13px; margin: 8px 0 4px; color: #374151; display: flex; align-items: center; gap: 6px; }
+
+.fin-error {
+  background: #fef2f2; border-left: 4px solid #dc2626; color: #b91c1c;
+  padding: 10px 12px; border-radius: 8px; font-size: 13px;
+}
+.fin-textoMal { color: #b91c1c; font-weight: 600; }
+.fin-vacio {
+  background: #fff; border: 1px dashed #d1d5db; border-radius: 12px;
+  padding: 40px; text-align: center; color: #6b7280;
+}
+
+/* Historial */
+.fin-historial { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.fin-evento { display: flex; gap: 10px; align-items: baseline; font-size: 13px; }
+.fin-eventoFecha { color: #9ca3af; font-size: 12px; white-space: nowrap; }
+.fin-eventoAccion { font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #374151; }
+.fin-acc-APROBAR, .fin-acc-REENVIAR { background: #dcfce7; color: #15803d; }
+.fin-acc-RECHAZAR, .fin-acc-ANULAR { background: #fee2e2; color: #b91c1c; }
+.fin-acc-RADICACION { background: #dbeafe; color: #1d4ed8; }
+
+/* Adjuntos */
+.fin-adjuntos { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; }
+.fin-listaAdjuntos { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fin-listaAdjuntos li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.fin-subirBtn { align-self: flex-start; }
+
+/* Sesión / avisos centrales */
+.fin-cargando, .fin-avisoCentral {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 60px 20px; text-align: center;
+}
+.fin-avisoCentral h2 { margin: 0; }
+.fin-avisoCentral p { color: #6b7280; max-width: 420px; }
+.fin-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid #e5e7eb; border-top-color: #8EC045; animation: fin-giro 0.9s linear infinite;
+}
+@keyframes fin-giro { to { transform: rotate(360deg); } }
+
+/* Toast */
+.fin-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  padding: 11px 18px; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 600;
+  z-index: 2000; box-shadow: 0 8px 24px rgba(0,0,0,0.2); transition: opacity 0.4s;
+}
+.fin-toastOk { background: #16a34a; }
+.fin-toastMal { background: #dc2626; }
+.fin-toastOut { opacity: 0; }
+
+/* Footer oscuro de la casa */
+.fin-footer {
+  background: #0f1928; color: #cbd5e1; font-size: 12px;
+  display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 14px 24px;
+}
+
+@media (max-width: 768px) {
+  .fin-header { gap: 10px; }
+  .fin-headerTitulo { order: 3; width: 100%; }
+  .fin-usuario { margin-left: auto; }
+  .fin-main { padding: 14px 10px; }
+}

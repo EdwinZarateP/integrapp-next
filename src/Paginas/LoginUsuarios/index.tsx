@@ -24,8 +24,9 @@ const LoginUsuario: React.FC = () => {
     const token = window.localStorage.getItem('baseUsuarioAccessToken');
     if (match && clienteCookie && token) {
       const perfilCookie = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
-      // FINANCIERO es un micro-portal aislado: aterriza directo en Otros Costos.
-      if (perfilCookie === 'FINANCIERO') { router.replace('/OtrosCostos'); return; }
+      // FINANCIERO (2026-11-24): elige a dónde entrar — Otros Costos o el
+      // Módulo Financiero (antes caía directo en Otros Costos).
+      if (perfilCookie === 'FINANCIERO') { router.replace('/EleccionFinanciero'); return; }
       // VISUALIZADOR es solo lectura: aterriza directo en el panel de indicadores.
       if (perfilCookie === 'VISUALIZADOR') { router.replace('/indicadores'); return; }
       // CLIENTE_ESTUDIOS es cliente externo del portal de Estudios de
@@ -80,10 +81,11 @@ const LoginUsuario: React.FC = () => {
 
       const perfilUpper = (res.usuario.perfil || "").toUpperCase();
 
-      // FINANCIERO: acceso únicamente al módulo de Otros Costos.
+      // FINANCIERO (2026-11-24): pantalla de elección — Otros Costos o Módulo
+      // Financiero (antes aterrizaba directo en Otros Costos).
       if (perfilUpper === 'FINANCIERO') {
         document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; ${expires}`;
-        setTimeout(() => router.replace('/OtrosCostos'), 200);
+        setTimeout(() => router.replace('/EleccionFinanciero'), 200);
         return;
       }
 

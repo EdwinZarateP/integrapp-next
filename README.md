@@ -998,3 +998,45 @@ asociado en `integrappi/README.md` (2026-11-19).
   `app/indicadores/page.tsx`).
 - Los eventos se empiezan a acumular SOLO tras el deploy. Dep **backend +
   frontend JUNTOS** (los beacons necesitan el endpoint vivo).
+
+## Actualizaciones Recientes (2026-11-23)
+
+### Auditoría de tarifarios: CONTROL edita + historial de cambios
+
+Cambio de backend asociado en `integrappi/README.md` (2026-11-23). Colección
+nueva `historial_tarifas` audita quién/cuándo/qué en TODA escritura de los dos
+tarifarios (creación/edición/eliminación/carga masiva, con diffs antes→después
+y snapshots de lo borrado).
+
+- **Permisos**: `/GestionTarifasRutas` pasa de solo ADMIN a **ADMIN + CONTROL**
+  (guard de `GestionTarifasRutasP`); `/Tarifas` queda **solo lectura** para
+  perfiles ≠ ADMIN/CONTROL (sin botones de edición, Exportar sigue para todos).
+  Ítem «Tarifas» del menú de usuario de Pedidos y PedidosCompletados ahora
+  ADMIN+CONTROL (antes solo ADMIN — CONTROL no tenía camino a la página).
+- **`Componentes/ModalHistorialTarifas`** (nuevo, `MHT-*`): botón «Historial»
+  en ambas páginas (ADMIN/CONTROL) con tabla de eventos (hora Colombia,
+  usuario+rol, acción con color, diffs, snapshot expandible, filtro tarifario,
+  export xlsx). Es el único lugar donde se ven eliminaciones y cargas masivas.
+- **`HistorialPorRegistro`** (exportado del mismo archivo): sección
+  «Historial de esta tarifa» dentro del modal de EDICIÓN de ambos tarifarios —
+  línea de tiempo de lo que ha sufrido esa tarifa. En `/Tarifas` incluye las
+  cargas masivas (reemplazan TODO el tarifario); en GTR se ancla a los valores
+  originales (`modalEditar`), no al form en edición.
+- **API clients**: `fletes.tsx`/`tarifasRutasFmc.tsx` exigen `usuario`
+  (cookie `usuarioPedidosCookie`) en toda escritura — el backend resuelve el
+  perfil REAL en baseusuarios y rechaza con 403 si no es ADMIN/CONTROL. Nuevo
+  `historialTarifas.tsx` (`obtenerHistorialTarifas` con filtros
+  tarifario/registro/acción/incluirMasivas).
+- Dep **backend PRIMERO**, luego frontend (frontend nuevo sin backend nuevo →
+  escrituras fallan con 422 por falta de `usuario`).
+
+## Actualizaciones Recientes (2026-11-24)
+
+### Nuevo módulo: Módulo Financiero (`/Financiero/*`)
+
+Réplica interna del módulo financiero externo, con el sistema de diseño Integra (header claro + filo lima, clases `fin-*`). 9 rutas estáticas: **Inicio** (tarjetas de indicadores según el rol del módulo), Traslados, Viajes, Requisiciones (+OC), Facturas DIAN, Pagos urgentes, Servicios públicos, Cajas menores y Administración (usuarios/bitácora/respaldo/parámetros — solo admin del módulo).
+
+- **Entrada**: grupo **FINANZAS** en `/Modulos` (`menuModulos.ts`). El acceso real lo controla el módulo por **correo** (`fin.usuarios`): ver la tarjeta sin estar dado de alta muestra «No tienes acceso». El perfil FINANCIERO de IntegrApp **no se tocó** (sigue aterrizando en Otros Costos).
+- **Sesión**: `Paginas/FinancieroP/nucleo/` canjea el token de IntegrApp (`baseUsuarioAccessToken`, 20 min) por una sesión de módulo de 12 h (`finAccessToken`) vía `POST /fin/auth/sesion`; 401 → login de IntegrApp. Polling 25 s (sin WS).
+- **Capa API**: `src/Funciones/ApiPedidos/financiero.ts` (Bearer; descargas por fetch+blob). Diálogos Swal compartidos en `nucleo/dialogos.ts`.
+- Backend asociado: `integrappi` (schema `fin` de Postgres — ver `docs/financiero.md` allí). Deploy backend PRIMERO.

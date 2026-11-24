@@ -79,7 +79,7 @@ export const actualizarPerfilesAdicionales = async (
 // Actualizar datos básicos (nombre, correo, regional, celular, clave opcional, usuario opcional)
 export const actualizarDatosUsuario = async (
   id: string,
-  datos: { nombre: string; correo?: string; regional: string; celular?: string; clave?: string; usuario?: string }
+  datos: { nombre: string; correo?: string; regional: string; celular?: string; clave?: string; usuario?: string; notificar_otros_costos?: boolean }
 ): Promise<{ mensaje: string; usuario: BaseUsuario }> => {
   const res = await axios.patch<{ mensaje: string; usuario: BaseUsuario }>(
     `${BASE_URL}/${id}/datos`,
