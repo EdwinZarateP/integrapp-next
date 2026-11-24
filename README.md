@@ -1040,3 +1040,10 @@ Réplica interna del módulo financiero externo, con el sistema de diseño Integ
 - **Sesión**: `Paginas/FinancieroP/nucleo/` canjea el token de IntegrApp (`baseUsuarioAccessToken`, 20 min) por una sesión de módulo de 12 h (`finAccessToken`) vía `POST /fin/auth/sesion`; 401 → login de IntegrApp. Polling 25 s (sin WS).
 - **Capa API**: `src/Funciones/ApiPedidos/financiero.ts` (Bearer; descargas por fetch+blob). Diálogos Swal compartidos en `nucleo/dialogos.ts`.
 - Backend asociado: `integrappi` (schema `fin` de Postgres — ver `docs/financiero.md` allí). Deploy backend PRIMERO.
+
+### Módulo Financiero — 2.ª tanda (2026-11-24, post-F6)
+
+- **Perfil FINANCIERO elige destino**: `/EleccionFinanciero` (tarjetas Otros Costos ⬅➡ Módulo Financiero); `LoginUsuarios` redirige ahí en ambos puntos.
+- **`/Modulos` blindado**: los perfiles micro-portal (FINANCIERO, VISUALIZADOR, CLIENTE, CLIENTE_ESTUDIOS, PADRINO, Seguridad) que entren por URL se redirigen a su hogar; ítem «Planeación» ahora solo ADMIN.
+- **UX del módulo**: modales con scroll interno y pie fijo que crecen con la pantalla (`--fin-ancho`); permisos por sección como lista de switches con estado (igual que el rol / ajustado); alta de usuarios con autocompletado de FINANCIEROS reales (correo/nombre/username derivados, sin texto libre).
+- **GestionUsuarios**: checkbox «Recibir WhatsApp de Otros Costos» por usuario (`notificar_otros_costos`).
