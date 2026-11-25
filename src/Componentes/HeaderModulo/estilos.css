@@ -1,0 +1,151 @@
+/* HeaderModulo (2026-11-25) — header de módulos independientes del portal
+   Medical Care. Espejo del UP-header de UsoPortalKP (tema claro del sistema
+   de diseño Integra: blanco + filo lima #8EC045). Prefijo HM-. */
+
+.HM-header {
+  background: #fff;
+  border-bottom: 2px solid #8ec045;
+  color: #111827;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+.HM-headerInner {
+  width: 100%;
+  padding: 0.6rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Izquierda: logo + enlaces contextuales en píldoras */
+.HM-izquierda {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.HM-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.HM-brand:hover { background: #f3f4f6; }
+.HM-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111827;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.HM-enlace:hover { background: #e8f5e9; border-color: #8ec045; }
+
+/* Título centrado (patrón DC-logoCliente / UP-tituloZone) */
+.HM-tituloZone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0.25rem 1.1rem;
+}
+.HM-titulo {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.HM-subtitulo { font-size: 0.78rem; color: #6b7280; }
+
+/* Usuario (patrón DC-userZone / UP-userZone) */
+.HM-userZone { position: relative; }
+.HM-userBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  color: #111827;
+  transition: background 0.15s;
+}
+.HM-userBtn:hover { background: #e8eaed; }
+.HM-userIcon { font-size: 1.4rem; color: #349f4a; }
+.HM-userInfo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.HM-userName { font-size: 0.82rem; font-weight: 700; }
+.HM-userPerfil { font-size: 0.68rem; color: #6b7280; }
+.HM-chevron { font-size: 0.7rem; color: #9ca3af; transition: transform 0.2s; }
+.HM-chevronOpen { transform: rotate(180deg); }
+.HM-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 25, 40, 0.25);
+  min-width: 210px;
+  overflow: hidden;
+  z-index: 60;
+}
+.HM-dropItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f1928;
+  text-align: left;
+}
+.HM-dropItem:hover { background: #f1f4f8; }
+.HM-dropItem svg { color: #64748b; }
+.HM-dropDivider { height: 1px; background: #e5e9f0; }
+.HM-dropItemDanger { color: #dc2626; }
+.HM-dropItemDanger svg { color: #dc2626; }
+.HM-dropItemDanger:hover { background: #fef2f2; }
+
+/* Móvil (reglas del DC-header): título a la 1.ª fila a ancho completo,
+   logo+enlaces y usuario en la 2.ª; userInfo oculto para ahorrar espacio. */
+@media (max-width: 768px) {
+  .HM-headerInner {
+    flex-wrap: wrap;
+    padding: 0.5rem 1rem;
+    row-gap: 0.35rem;
+  }
+  .HM-tituloZone {
+    order: -1;
+    width: 100%;
+    flex: none;
+    min-height: 0;
+    padding: 0;
+  }
+  .HM-titulo { font-size: 1.1rem; }
+  .HM-izquierda { flex: 1; }
+  .HM-userInfo { display: none; }
+}

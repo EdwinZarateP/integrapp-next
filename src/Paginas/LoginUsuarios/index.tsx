@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { loginUsuario } from "@/Funciones/ApiPedidos/usuarios";
+import { trackLogin } from '@/Funciones/telemetriaApp';
 import confetti from "canvas-confetti";
 import { FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 import Link from "next/link";
@@ -55,6 +56,7 @@ const LoginUsuario: React.FC = () => {
     setCargando(true);
     try {
       const res = await loginUsuario(usuario, clave);
+      trackLogin('app', res.usuario.usuario); // telemetría general (2026-11-25)
       window.localStorage.setItem('baseUsuarioAccessToken', res.access_token);
       const expiracion = new Date();
       expiracion.setDate(expiracion.getDate() + 14);

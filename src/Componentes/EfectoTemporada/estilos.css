@@ -1,0 +1,78 @@
+/* EfectoTemporada (2026-11-25, 10.ª tanda) — partículas de temporada.
+   ⚠️ (ajuste a pedido del usuario) SOLO dentro de la FRANJA DEL HEADER
+   (64px superiores): nada de efectos sobre el área de trabajo. Overlay
+   pointer-events:none, z-930 (sobre el header z-50, bajo el overlay del
+   lanzador 940; SweetAlert 9999 sigue encima). Prefijo ET-. */
+
+.ET-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;          /* la altura del header unificado */
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 930;
+}
+
+/* Partícula emoji (navidad, halloween, patrias, san valentín, semana santa).
+   El drop-shadow da contraste: ❄ blanco sobre fondo blanco no se ve. */
+.ET-particula {
+  position: absolute;
+  top: -12px;
+  animation-name: ET-caer;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  opacity: 0.9;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(71, 85, 105, 0.65));
+}
+
+/* Confeti: rectángulos de colores girando */
+.ET-confeti {
+  position: absolute;
+  top: -12px;
+  width: 6px;
+  height: 10px;
+  border-radius: 2px;
+  animation-name: ET-caer-girar;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  opacity: 0.9;
+}
+
+/* Caída dentro de la franja del header (−12px → 76px). */
+@keyframes ET-caer {
+  0%   { transform: translateY(0) translateX(0); }
+  50%  { transform: translateY(44px) translateX(6px); }   /* vaivén suave */
+  100% { transform: translateY(88px) translateX(-4px); }
+}
+
+@keyframes ET-caer-girar {
+  0%   { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(88px) rotate(540deg); }
+}
+
+/* ── Acento de temporada: filo del header unificado y del lanzador ──
+   La clase la pone EfectoTemporada en el <body>. */
+.efecto-navidad .HM-header { border-bottom-color: #dc2626; }
+.efecto-halloween .HM-header { border-bottom-color: #f97316; }
+.efecto-patrias .HM-header { border-bottom-color: #F2D200; }
+.efecto-celebracion .HM-header { border-bottom-color: #9333ea; }
+.efecto-san_valentin .HM-header { border-bottom-color: #ec4899; }
+.efecto-semana_santa .HM-header { border-bottom-color: #7c3aed; }
+
+.efecto-navidad .lmz-pestania,
+.efecto-halloween .lmz-pestania,
+.efecto-patrias .lmz-pestania,
+.efecto-celebracion .lmz-pestania,
+.efecto-san_valentin .lmz-pestania,
+.efecto-semana_santa .lmz-pestania {
+  filter: hue-rotate(0deg) saturate(1.25);
+}
+
+/* Movimiento reducido: SIN partículas (el acento de color queda — no es
+   movimiento). Patrón CamionCargando. */
+@media (prefers-reduced-motion: reduce) {
+  .ET-overlay { display: none; }
+}

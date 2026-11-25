@@ -1,32 +1,19 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import {
-  FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
-  FaMapMarkerAlt, FaUserCircle, FaChevronDown,
-  FaPlus, FaTimes, FaFileUpload, FaFileDownload, FaCloudUploadAlt, FaUsers, FaTable,
-  FaBars, FaExchangeAlt,
+  FaPlus, FaTimes, FaFileUpload, FaFileDownload, FaCloudUploadAlt, FaMapMarkerAlt,
 } from 'react-icons/fa';
 import CargarPedidos from '@/Componentes/PedidosComponentes/CargarPedidos';
 import TablaPedidos from '@/Componentes/PedidosComponentes/TablaPedidos';
 import ExportarAutorizados from '@/Componentes/PedidosComponentes/ExportarAutorizados';
 import ImportarPedidosVulcano from '@/Componentes/PedidosComponentes/importarPedidosVulcano';
-import Cookies from 'js-cookie';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import logo from '@/Imagenes/albatros.png';
-import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const Pedidos: React.FC = () => {
-  const perfil = Cookies.get('perfilPedidosCookie') || '';
-  const usuario = Cookies.get('usuarioPedidosCookie') || '';
-  const regional = Cookies.get('regionalPedidosCookie') || '';
-  const clientes = (Cookies.get('clientesPedidosCookie') || '').split(',').filter(Boolean);
-  const router = useRouter();
-  const [menuAbierto, setMenuAbierto] = useState(false);
-  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const [fabAbierto, setFabAbierto] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const cargarRef = useRef<HTMLDivElement>(null);
   const exportarRef = useRef<HTMLDivElement>(null);
   const importarRef = useRef<HTMLDivElement>(null);
@@ -37,99 +24,17 @@ const Pedidos: React.FC = () => {
     setFabAbierto(false);
   };
 
-  const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie', 'clientesPedidosCookie'].forEach(name => {
-      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
-    });
-    router.push('/LoginUsuario');
-  };
-
-  // Cambiar al portal Fresenius Medical Care (solo si el usuario tiene el cliente MEDICAL_CARE)
-  const irAMedical = () => {
-    setMenuAbierto(false);
-    const expiracion = new Date();
-    expiracion.setDate(expiracion.getDate() + 14);
-    document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; expires=${expiracion.toUTCString()}`;
-    router.push('/MedicalCare');
-  };
-
-  // Cerrar menú al click fuera
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuAbierto(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
   return (
     <div className="Ped-layout">
 
-      {/* ── HEADER ── */}
-      <header className="Ped-header">
-        <div className="Ped-headerInner">
-
-          {/* Logo */}
-          <button className="Ped-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
-          </button>
-
-
-          {/* Nav tabs */}
-          <nav className="Ped-nav">
-            <button className="Ped-navTab Ped-navTabActive" onClick={() => router.push('/Pedidos')}>
-              <FaBoxOpen /> Gestión de Pedidos
-            </button>
-          </nav>
-
-          {/* Usuario + menú */}
-          <div className="Ped-userZone" ref={menuRef}>
-            <button className="Ped-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="Ped-userIcon" />
-              <div className="Ped-userInfo">
-                <span className="Ped-userName">{usuario || 'Usuario'}</span>
-                <span className="Ped-userPerfil">{perfil}{regional ? ` · ${regional}` : ''}</span>
-              </div>
-              <FaChevronDown className={`Ped-chevron ${menuAbierto ? 'Ped-chevronOpen' : ''}`} />
-            </button>
-
-            {menuAbierto && (
-              <div className="Ped-dropdown">
-                {clientes.includes('MEDICAL_CARE') && (
-                  <button className="Ped-dropItem Ped-dropItemSwitch" onClick={irAMedical}>
-                    <FaExchangeAlt /> Ir a Medical
-                  </button>
-                )}
-                {clientes.includes('MEDICAL_CARE') && <div className="Ped-dropDivider" />}
-                <button className="Ped-dropItem" onClick={() => { setMenuAbierto(false); router.push('/PedidosCompletados'); }}>
-                  <FaCheckCircle /> Pedidos Completados
-                </button>
-                <button className="Ped-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
-                  <FaChartBar /> Indicadores
-                </button>
-                {(perfil === 'ADMIN' || perfil === 'CONTROL') && (
-                  <>
-                    {perfil === 'ADMIN' && (
-                      <button className="Ped-dropItem" onClick={() => { setMenuAbierto(false); router.push('/GestionUsuarios'); }}>
-                        <FaUsers /> Gestión de usuarios
-                      </button>
-                    )}
-                    <button className="Ped-dropItem" onClick={() => { setMenuAbierto(false); router.push('/Tarifas'); }}>
-                      <FaTable /> Tarifas
-                    </button>
-                  </>
-                )}
-                <div className="Ped-dropDivider" />
-                <button className="Ped-dropItem Ped-dropItemDanger" onClick={cerrarSesion}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* (2026-11-25, 10.ª tanda) Header UNIFICADO de la app (HeaderModulo):
+          el header propio Ped-* fue eliminado — un cambio de marca/UX toca un
+          solo componente. El FAB y los componentes fuera de pantalla (acciones
+          de pedidos) viven fuera del header y no cambian. */}
+      <HeaderModulo
+        titulo="Pedidos Kabi"
+        subtitulo="Gestión de pedidos Fresenius Kabi"
+      />
 
       {/* ── TABLA PRINCIPAL ── */}
       <main className="Ped-main">

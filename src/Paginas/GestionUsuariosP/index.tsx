@@ -5,11 +5,13 @@ import Image from 'next/image';
 import {
   FaMapMarkerAlt, FaPlus, FaTimes, FaSave, FaToggleOn, FaToggleOff, FaBell, FaPencilAlt, FaKey, FaFilter, FaUsers,
 } from 'react-icons/fa';
-import { obtenerUsuarios, crearUsuario, actualizarClientesSiscore, obtenerClientesSiscore, ClienteSiscore, actualizarClientesAprobacion, actualizarPerfilUsuario, actualizarPerfilesAdicionales, obtenerPerfilesDisponibles, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { obtenerUsuarios, crearUsuario, actualizarClientesSiscore, obtenerClientesSiscore, ClienteSiscore, actualizarClientesAprobacion, actualizarPerfilUsuario, actualizarPerfilesAdicionales, obtenerPerfilesDisponibles, obtenerPerfilesMeta, toggleActivoUsuario, actualizarNotificacionesMcUsuario, actualizarDatosUsuario } from '@/Funciones/ApiPedidos/usuarios';
+import { PERFIL_META, metaDe, agruparPerfiles, type PerfilMeta } from '@/Funciones/perfilMeta';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import { getClientes, getClientesCompletos, crearClienteOc, cambiarEstadoClienteOc, ClienteOtroCosto } from '@/Funciones/ApiPedidos/otrosCostos';
 import { listarEmpresasCobro } from '@/Funciones/ApiPedidos/seguridadCobro';
 import { BaseUsuario } from '@/Funciones/ApiPedidos/tipos';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -36,7 +38,11 @@ const NOTIFICACIONES_MC = [
   },
 ];
 
-const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CLIENTE_ESTUDIOS', 'CONDUCTOR', 'CONTROL', 'COORDINADOR', 'DESPACHADOR', 'FINANCIERO', 'OPERADOR', 'OPERATIVO', 'SEGURIDAD', 'VISUALIZADOR'];
+// (2026-11-25) Alineado con PERFILES_VALIDOS del backend (faltaban CLIENTE,
+// CLIENTE_FMC y PADRINO; CONDUCTOR salió de la matriz el mismo día — F8). Las
+// cuentas legado CONDUCTOR se muestran en la tabla vía la salvaguarda del
+// select (si el perfil del usuario no está en la lista, se agrega).
+const PERFILES_FALLBACK = ['ADMIN', 'ANALISTA', 'CLIENTE', 'CLIENTE_ESTUDIOS', 'CLIENTE_FMC', 'CONTROL', 'COORDINADOR', 'DESPACHADOR', 'FINANCIERO', 'OPERADOR', 'OPERATIVO', 'PADRINO', 'SEGURIDAD', 'VISUALIZADOR'];
 
 // (2026-11-04) Portales clásicos: los 2 NITs que el backend mapea a portal
 // (PORTALES_POR_NIT en baseusuarios.py). Se muestran como checks grandes
@@ -56,6 +62,9 @@ const GestionUsuariosP: React.FC = () => {
   const router = useRouter();
   const [usuarios, setUsuarios] = useState<BaseUsuario[]>([]);
   const [perfiles, setPerfiles] = useState<string[]>(PERFILES_FALLBACK);
+  // (2026-11-25) Metadatos de la matriz de perfiles (grupo/etiqueta/descripción)
+  // para el select agrupado y el panel explicativo. Best-effort: fallback local.
+  const [perfilesMeta, setPerfilesMeta] = useState<PerfilMeta[]>(PERFIL_META);
   const [cargando, setCargando] = useState(true);
   const [guardandoCliente, setGuardandoCliente] = useState<string | null>(null);
   const [msgsCliente, setMsgsCliente] = useState<Record<string, string>>({});
@@ -76,15 +85,17 @@ const GestionUsuariosP: React.FC = () => {
   const [errorClientes, setErrorClientes] = useState('');
   const [guardandoPerfil, setGuardandoPerfil] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
-  const [guardandoNotifMc, setGuardandoNotifMc] = useState<string | null>(null);
-  const [msgsNotifMc, setMsgsNotifMc] = useState<Record<string, string>>({});
-  const [modalNotifMc, setModalNotifMc] = useState<BaseUsuario | null>(null);
+  // (2026-11-25) Modal «Notificaciones» UNIFICADO (antes solo MC): muestra
+  // TODAS las suscripciones de correos/WhatsApp del usuario en un solo lugar.
+  const [guardandoNotif, setGuardandoNotif] = useState<string | null>(null);
+  const [msgsNotif, setMsgsNotif] = useState<Record<string, string>>({});
+  const [modalNotif, setModalNotif] = useState<BaseUsuario | null>(null);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<BaseUsuario>(USUARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [modalEditar, setModalEditar] = useState<BaseUsuario | null>(null);
-  const [formEditar, setFormEditar] = useState({ nombre: '', correo: '', regional: '', celular: '', clave: '', usuario: '', notificar_otros_costos: true });
+  const [formEditar, setFormEditar] = useState({ nombre: '', correo: '', regional: '', celular: '', clave: '', usuario: '' });
   const [guardandoEditar, setGuardandoEditar] = useState(false);
   const [errorEditar, setErrorEditar] = useState('');
   const [modalReset, setModalReset] = useState<BaseUsuario | null>(null);
@@ -121,6 +132,9 @@ const GestionUsuariosP: React.FC = () => {
         if (prfs.length > 0) setPerfiles(prfs);
       })
       .finally(() => setCargando(false));
+    // (2026-11-25) Matriz de perfiles con descripciones (best-effort: si el
+    // endpoint aún no existe en el backend desplegado, se queda con el local).
+    obtenerPerfilesMeta().then(setPerfilesMeta).catch(() => {});
     // Empresas de Seguridad para el selector (best-effort: si falla, el
     // selector quedará vacío y el backend rechazará con 422 explicativo).
     listarEmpresasCobro()
@@ -305,6 +319,7 @@ const GestionUsuariosP: React.FC = () => {
     }
 
     setGuardandoPerfil(usuario.id);
+    trackAccion('cambiar_perfil', { perfil: nuevoPerfil });
     try {
       await actualizarPerfilUsuario(usuario.id, nuevoPerfil);
       setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, perfil: nuevoPerfil } : u));
@@ -387,18 +402,48 @@ const GestionUsuariosP: React.FC = () => {
     const nuevas = actuales.includes(notifKey)
       ? actuales.filter(n => n !== notifKey)
       : [...actuales, notifKey];
-    setGuardandoNotifMc(usuario.id);
-    setMsgsNotifMc(m => ({ ...m, [usuario.id!]: '' }));
+    setGuardandoNotif(usuario.id);
+    setMsgsNotif(m => ({ ...m, [usuario.id!]: '' }));
     try {
       await actualizarNotificacionesMcUsuario(usuario.id, nuevas);
       setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, notificaciones_mc: nuevas } : u));
-      setModalNotifMc(prev => prev?.id === usuario.id ? { ...prev, notificaciones_mc: nuevas } as BaseUsuario : prev);
-      setMsgsNotifMc(m => ({ ...m, [usuario.id!]: '✓ Guardado' }));
-      setTimeout(() => setMsgsNotifMc(m => ({ ...m, [usuario.id!]: '' })), 2000);
+      setModalNotif(prev => prev?.id === usuario.id ? { ...prev, notificaciones_mc: nuevas } as BaseUsuario : prev);
+      setMsgsNotif(m => ({ ...m, [usuario.id!]: '✓ Guardado' }));
+      setTimeout(() => setMsgsNotif(m => ({ ...m, [usuario.id!]: '' })), 2000);
     } catch {
-      setMsgsNotifMc(m => ({ ...m, [usuario.id!]: 'Error al guardar' }));
+      setMsgsNotif(m => ({ ...m, [usuario.id!]: 'Error al guardar' }));
     } finally {
-      setGuardandoNotifMc(null);
+      setGuardandoNotif(null);
+    }
+  };
+
+  // (2026-11-25) Toggle de un flag BOOLEANO de notificación (notificar_placas /
+  // notificar_revisiones / notificar_otros_costos): PATCH /{id}/datos con solo
+  // el campo (el backend exige nombre/regional — se reenvían sin cambios).
+  const toggleFlagNotif = async (
+    usuario: BaseUsuario,
+    campo: 'notificar_placas' | 'notificar_revisiones' | 'notificar_otros_costos',
+  ) => {
+    if (!usuario.id) return;
+    const nuevo = usuario[campo] === false; // default true → primer clic apaga
+    setGuardandoNotif(usuario.id);
+    setMsgsNotif(m => ({ ...m, [usuario.id!]: '' }));
+    try {
+      const res = await actualizarDatosUsuario(usuario.id, {
+        nombre: usuario.nombre,
+        correo: usuario.correo || undefined,
+        regional: usuario.regional,
+        celular: usuario.celular || undefined,
+        [campo]: nuevo,
+      });
+      setUsuarios(prev => prev.map(u => u.id === usuario.id ? { ...u, ...res.usuario } : u));
+      setModalNotif(prev => prev?.id === usuario.id ? { ...prev, ...res.usuario } : prev);
+      setMsgsNotif(m => ({ ...m, [usuario.id!]: '✓ Guardado' }));
+      setTimeout(() => setMsgsNotif(m => ({ ...m, [usuario.id!]: '' })), 2000);
+    } catch {
+      setMsgsNotif(m => ({ ...m, [usuario.id!]: 'Error al guardar' }));
+    } finally {
+      setGuardandoNotif(null);
     }
   };
 
@@ -410,7 +455,6 @@ const GestionUsuariosP: React.FC = () => {
       celular:  u.celular || '',
       clave:    '',
       usuario:  u.usuario || '',
-      notificar_otros_costos: u.notificar_otros_costos !== false,
     });
     setErrorEditar('');
     setModalEditar(u);
@@ -428,8 +472,9 @@ const GestionUsuariosP: React.FC = () => {
         regional: formEditar.regional,
         celular:  formEditar.celular || undefined,
         clave:    formEditar.clave || undefined,
-        usuario:  formEditar.usuario || undefined,
-        notificar_otros_costos: formEditar.notificar_otros_costos,
+        // El usuario interno sigue al correo (si hay correo; si el histórico
+        // no lo tiene, se conserva el usuario actual sin tocarlo).
+        usuario:  (formEditar.correo || '').trim().toUpperCase() || formEditar.usuario || undefined,
       });
       setUsuarios(prev => prev.map(u => u.id === modalEditar.id ? { ...u, ...res.usuario } : u));
       setModalEditar(null);
@@ -456,6 +501,7 @@ const GestionUsuariosP: React.FC = () => {
     }
 
     setGuardandoReset(true);
+    trackAccion('reset_clave');
     try {
       await actualizarDatosUsuario(modalReset.id, {
         nombre: modalReset.nombre,
@@ -497,11 +543,20 @@ const GestionUsuariosP: React.FC = () => {
       setError('Selecciona la empresa de Estudios de Seguridad a la que pertenece el usuario.');
       return;
     }
+    // (2026-11-25, 7.ª tanda) El login es por CORREO (exige «@»): el campo
+    // interno `usuario` se DERIVA del correo — ya no se pregunta en el form.
+    const correoLimpio = (form.correo || '').trim();
+    if (!correoLimpio || !correoLimpio.includes('@')) {
+      setError('El correo es obligatorio: es el identificador con el que el usuario entra a la aplicación.');
+      return;
+    }
     setGuardando(true);
+    trackAccion('crear_usuario', { perfil: form.perfil });
     try {
       const res = await crearUsuario({
         ...form,
-        usuario: form.usuario.toUpperCase().trim(),
+        usuario: correoLimpio.toUpperCase(),
+        correo: correoLimpio.toUpperCase(),
         nombre: form.nombre.toUpperCase().trim(),
         clave: form.perfil === 'CLIENTE_FMC' ? 'SIN_ACCESO' : form.clave,
         // CLIENTE_FMC/CLIENTE_ESTUDIOS no usan portales ni asignación.
@@ -520,7 +575,12 @@ const GestionUsuariosP: React.FC = () => {
 
   return (
     <div className="GU-layout">
-      <NavMedicalCare paginaActual="usuarios" />
+      {/* (2026-11-25) Chrome propio: módulo de administración del hub /Modulos
+          (antes vivía en el menú de Medical Care y dropdowns de Pedidos). */}
+      <HeaderModulo
+        titulo="Gestión de Usuarios"
+        subtitulo="Usuarios, perfiles y accesos de la aplicación"
+      />
 
       <main className="GU-main">
         <div className="GU-contenedor">
@@ -568,9 +628,21 @@ const GestionUsuariosP: React.FC = () => {
                             className={`GU-select-perfil${esSoloNotif ? ' GU-select-perfil--notif' : ''}`}
                             value={u.perfil}
                             disabled={guardandoPerfil === u.id || !activo}
+                            title={metaDe(u.perfil, perfilesMeta)?.descripcion || u.perfil}
                             onChange={e => cambiarPerfil(u, e.target.value, esSoloNotif)}
                           >
-                            {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
+                            {/* (2026-11-25) Agrupado como el formulario. Salvaguarda:
+                                si el perfil del usuario ya no está en la matriz
+                                (p. ej. CONDUCTOR legado), se agrega para no
+                                desconfigurar el select. */}
+                            {agruparPerfiles(
+                              perfiles.includes(u.perfil) ? perfiles : [...perfiles, u.perfil],
+                              perfilesMeta,
+                            ).map(g => (
+                              <optgroup key={g.grupo} label={g.grupo}>
+                                {g.perfiles.map(p => <option key={p.perfil} value={p.perfil}>{p.etiqueta}</option>)}
+                              </optgroup>
+                            ))}
                           </select>
                           {/* (2026-10-15) Perfil ADICIONAL: operativo/analista/…
                               que TAMBIÉN es Padrino (portal Seguridad simplificado). */}
@@ -623,19 +695,27 @@ const GestionUsuariosP: React.FC = () => {
                           ) : '—'}
                         </td>
                         <td className="GU-td-notif-mc">
-                          {clientesUsuario.includes('MEDICAL_CARE') || esSoloNotif ? (
-                            <button
-                              className={`GU-btn-notif-mc${(u.notificaciones_mc || []).length > 0 ? ' GU-btn-notif-mc--activa' : ''}`}
-                              title="Editar notificaciones Medical Care"
-                              disabled={!activo}
-                              onClick={() => setModalNotifMc(u)}
-                            >
-                              <FaBell />
-                              {(u.notificaciones_mc || []).length > 0 && (
-                                <span className="GU-notif-mc-badge">{(u.notificaciones_mc || []).length}</span>
-                              )}
-                            </button>
-                          ) : null}
+                          {/* (2026-11-25) Campana para TODOS: modal Notificaciones
+                              unificado (placas, OC, Medical Care). El badge cuenta
+                              las suscripciones ACTIVAS que aplican a su perfil. */}
+                          {(() => {
+                            const subs =
+                              ((u.notificaciones_mc || []).length > 0 ? 1 : 0) +
+                              (['ANALISTA', 'COORDINADOR', 'CONTROL', 'FINANCIERO'].includes(u.perfil) && u.notificar_otros_costos !== false ? 1 : 0) +
+                              (u.perfil === 'FINANCIERO' && u.notificar_placas !== false ? 1 : 0) +
+                              (u.perfil === 'SEGURIDAD' && u.notificar_revisiones !== false ? 1 : 0);
+                            return (
+                              <button
+                                className={`GU-btn-notif-mc${subs > 0 ? ' GU-btn-notif-mc--activa' : ''}`}
+                                title="Editar notificaciones (correos y WhatsApp que recibe)"
+                                disabled={!activo}
+                                onClick={() => setModalNotif(u)}
+                              >
+                                <FaBell />
+                                {subs > 0 && <span className="GU-notif-mc-badge">{subs}</span>}
+                              </button>
+                            );
+                          })()}
                         </td>
                         <td className={`GU-td-msg ${msgsCliente[u.id || '']?.startsWith('✓') ? 'GU-td-msg--ok' : msgsCliente[u.id || ''] ? 'GU-td-msg--err' : ''}`}>
                           {guardandoCliente === u.id ? 'Guardando…' : msgsCliente[u.id || ''] || ''}
@@ -809,17 +889,39 @@ const GestionUsuariosP: React.FC = () => {
                   <input className="GU-formInput" type="text" placeholder="JUAN PÉREZ" required
                     value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
                 </div>
-                <div className="GU-formGrupo">
-                  <label className="GU-formLabel">Usuario *</label>
-                  <input className="GU-formInput GU-formInput--upper" type="text" placeholder="JPEREZ" required
-                    value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))} />
-                </div>
-                <div className="GU-formGrupo">
+                <div className="GU-formGrupo GU-formGrupo--full">
                   <label className="GU-formLabel">Perfil *</label>
+                  {/* (2026-11-25) Select AGRUPADO por tipo de acceso (antes: lista
+                      plana de 15 siglas) + panel explicativo del perfil elegido. */}
                   <select className="GU-formInput" required
                     value={form.perfil} onChange={e => setForm(f => ({ ...f, perfil: e.target.value }))}>
-                    {perfiles.map(p => <option key={p} value={p}>{p}</option>)}
+                    {agruparPerfiles(perfiles, perfilesMeta, { excluirLegado: true }).map(g => (
+                      <optgroup key={g.grupo} label={g.grupo}>
+                        {g.perfiles.map(p => <option key={p.perfil} value={p.perfil}>{p.etiqueta}</option>)}
+                      </optgroup>
+                    ))}
                   </select>
+                  {(() => {
+                    const m = metaDe(form.perfil, perfilesMeta);
+                    if (!m) return null;
+                    return (
+                      <div className={`GU-perfilInfo${m.sin_acceso ? ' GU-perfilInfo--sinAcceso' : ''}`}>
+                        <div className="GU-perfilInfo-titulo">
+                          <span className={`GU-perfilBadge GU-perfilBadge--${m.grupo.replace(/\s+/g, '')}`}>{m.grupo}</span>
+                          <strong>{m.etiqueta}</strong>
+                        </div>
+                        <p className="GU-perfilInfo-desc">{m.descripcion}</p>
+                        {m.puede && m.puede.length > 0 && (
+                          <div className="GU-perfilInfo-chips">
+                            {m.puede.map(p => <span key={p} className="GU-perfilChip">{p}</span>)}
+                          </div>
+                        )}
+                        {m.sin_acceso && (
+                          <p className="GU-perfilInfo-aviso">⚠️ Este perfil NO ingresa a la aplicación.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* (2026-10-15) Perfil adicional: crear ya con acceso Padrino. */}
                   {!['SEGURIDAD', 'ADMIN', 'PADRINO', 'CLIENTE_FMC', 'CLIENTE_ESTUDIOS'].includes(form.perfil) && (
                     <label className="GU-padrino-adicional" title="Podrá entrar además al portal de Seguridad en modo Padrino (cargar documentos y datos, sin autorizar nada).">
@@ -851,10 +953,13 @@ const GestionUsuariosP: React.FC = () => {
                   </select>
                 </div>
                 <div className="GU-formGrupo">
-                  <label className="GU-formLabel">Correo {form.perfil === 'CLIENTE_FMC' && '*'}</label>
-                  <input className="GU-formInput" type="email" placeholder="correo@ejemplo.com"
-                    required={form.perfil === 'CLIENTE_FMC'}
+                  {/* (2026-11-25, 7.ª tanda) El CORREO es el identificador de
+                      ingreso (el login lo exige) — obligatorio para todos. El
+                      campo «usuario» ya no se pregunta: se deriva del correo. */}
+                  <label className="GU-formLabel">Correo *</label>
+                  <input className="GU-formInput" type="email" placeholder="correo@ejemplo.com" required
                     value={form.correo || ''} onChange={e => setForm(f => ({ ...f, correo: e.target.value }))} />
+                  <span className="GU-formLabel--opcional">Con este correo entra a la aplicación.</span>
                 </div>
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Celular</label>
@@ -985,12 +1090,9 @@ const GestionUsuariosP: React.FC = () => {
                     value={formEditar.nombre}
                     onChange={e => setFormEditar(f => ({ ...f, nombre: e.target.value }))} />
                 </div>
-                <div className="GU-formGrupo">
-                  <label className="GU-formLabel">Usuario *</label>
-                  <input className="GU-formInput GU-formInput--upper" type="text" required
-                    value={formEditar.usuario}
-                    onChange={e => setFormEditar(f => ({ ...f, usuario: e.target.value }))} />
-                </div>
+                {/* (2026-11-25, 7.ª tanda) El campo «Usuario» ya no se edita:
+                    el login es por CORREO y el usuario interno se deriva de
+                    él al guardar (si cambia el correo, cambia el usuario). */}
                 <div className="GU-formGrupo">
                   <label className="GU-formLabel">Regional *</label>
                   <select className="GU-formInput" required
@@ -1001,7 +1103,7 @@ const GestionUsuariosP: React.FC = () => {
                   </select>
                 </div>
                 <div className="GU-formGrupo">
-                  <label className="GU-formLabel">Correo</label>
+                  <label className="GU-formLabel">Correo <span className="GU-formLabel--opcional">(identificador de ingreso)</span></label>
                   <input className="GU-formInput" type="email" placeholder="correo@ejemplo.com"
                     value={formEditar.correo}
                     onChange={e => setFormEditar(f => ({ ...f, correo: e.target.value }))} />
@@ -1018,18 +1120,9 @@ const GestionUsuariosP: React.FC = () => {
                     value={formEditar.clave}
                     onChange={e => setFormEditar(f => ({ ...f, clave: e.target.value }))} />
                 </div>
-                <div className="GU-formGrupo GU-formGrupo--full">
-                  <label className="GU-formLabel" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input type="checkbox" style={{ width: 16, height: 16 }}
-                      checked={formEditar.notificar_otros_costos}
-                      onChange={e => setFormEditar(f => ({ ...f, notificar_otros_costos: e.target.checked }))} />
-                    Recibir WhatsApp de Otros Costos
-                  </label>
-                  <span className="GU-formLabel--opcional">
-                    Apagado = esta persona NO recibe las notificaciones del módulo de
-                    Otros Costos (solicitudes para aprobar/pagar) aunque tenga el perfil.
-                  </span>
-                </div>
+                {/* (2026-11-25) El checkbox de WhatsApp de Otros Costos se mudó
+                    al modal «Notificaciones» (campana de la fila): TODAS las
+                    suscripciones de correos/WhatsApp viven en un solo lugar. */}
               </div>
               {errorEditar && <p className="GU-formError">{errorEditar}</p>}
               <div className="GU-modalFooter">
@@ -1116,21 +1209,66 @@ const GestionUsuariosP: React.FC = () => {
         </div>
       )}
 
-      {/* ══ MODAL: NOTIFICACIONES MC ══ */}
-      {modalNotifMc && (
-        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalNotifMc(null))}>
+      {/* ══ MODAL: NOTIFICACIONES (unificado, 2026-11-25) ══ */}
+      {modalNotif && (
+        <div className="GU-modalOverlay" onMouseDown={(e) => cerrarAlClickFondo(e, () => setModalNotif(null))}>
           <div className="GU-modalCard GU-modalCard--sm" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <div className="GU-modalHeader">
               <div>
-                <h3 className="GU-modalTitulo"><FaBell style={{ marginRight: 8, color: '#004d40' }} />Notificaciones MC</h3>
-                <p className="GU-modal-sub">{modalNotifMc.nombre}</p>
+                <h3 className="GU-modalTitulo"><FaBell style={{ marginRight: 8, color: '#004d40' }} />Notificaciones</h3>
+                <p className="GU-modal-sub">{modalNotif.nombre} — qué correos y WhatsApp recibe</p>
               </div>
-              <button className="GU-modalCerrar" onClick={() => setModalNotifMc(null)}><FaTimes /></button>
+              <button className="GU-modalCerrar" onClick={() => setModalNotif(null)}><FaTimes /></button>
             </div>
             <div className="GU-notif-mc-body">
-              {NOTIFICACIONES_MC.map(n => {
-                const checked = (modalNotifMc.notificaciones_mc || []).includes(n.key);
-                const saving = guardandoNotifMc === modalNotifMc.id;
+              {/* Cada toggle se guarda al instante (patrón del viejo modal MC).
+                  Solo se muestran las suscripciones que APLICAN al perfil. */}
+              {modalNotif.perfil === 'FINANCIERO' && (
+                <label className={`GU-notif-mc-opcion${modalNotif.notificar_placas !== false ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                  <input type="checkbox"
+                    checked={modalNotif.notificar_placas !== false}
+                    disabled={guardandoNotif === modalNotif.id}
+                    onChange={() => toggleFlagNotif(modalNotif, 'notificar_placas')} />
+                  <div className="GU-notif-mc-opcion-info">
+                    <span className="GU-notif-mc-opcion-label">📧 Placas aprobadas</span>
+                    <span className="GU-notif-mc-opcion-desc">
+                      Correo con el informe financiero + certificaciones bancarias cada vez que Seguridad aprueba una placa.
+                      {!modalNotif.correo && ' ⚠️ Sin correo configurado.'}
+                    </span>
+                  </div>
+                </label>
+              )}
+              {modalNotif.perfil === 'SEGURIDAD' && (
+                <label className={`GU-notif-mc-opcion${modalNotif.notificar_revisiones !== false ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                  <input type="checkbox"
+                    checked={modalNotif.notificar_revisiones !== false}
+                    disabled={guardandoNotif === modalNotif.id}
+                    onChange={() => toggleFlagNotif(modalNotif, 'notificar_revisiones')} />
+                  <div className="GU-notif-mc-opcion-info">
+                    <span className="GU-notif-mc-opcion-label">📧📱 Placas pendientes de revisión</span>
+                    <span className="GU-notif-mc-opcion-desc">
+                      Correo y WhatsApp cuando un conductor termina de cargar documentos y la placa queda lista para revisar.
+                      {!modalNotif.correo && !modalNotif.celular && ' ⚠️ Sin correo ni celular configurados.'}
+                    </span>
+                  </div>
+                </label>
+              )}
+              <label className={`GU-notif-mc-opcion${modalNotif.notificar_otros_costos !== false ? ' GU-notif-mc-opcion--activa' : ''}`}>
+                <input type="checkbox"
+                  checked={modalNotif.notificar_otros_costos !== false}
+                  disabled={guardandoNotif === modalNotif.id}
+                  onChange={() => toggleFlagNotif(modalNotif, 'notificar_otros_costos')} />
+                <div className="GU-notif-mc-opcion-info">
+                  <span className="GU-notif-mc-opcion-label">📱 WhatsApp de Otros Costos</span>
+                  <span className="GU-notif-mc-opcion-desc">
+                    Avisos del flujo de Otros Costos (aprobar, pagar, devolver). Aplica a ANALISTA, COORDINADOR, CONTROL y FINANCIERO.
+                    {!['ANALISTA', 'COORDINADOR', 'CONTROL', 'FINANCIERO'].includes(modalNotif.perfil) && ' (Su perfil no recibe estos avisos.)'}
+                  </span>
+                </div>
+              </label>
+              {((modalNotif.clientes || []).includes('MEDICAL_CARE') || modalNotif.perfil === 'CLIENTE_FMC') && NOTIFICACIONES_MC.map(n => {
+                const checked = (modalNotif.notificaciones_mc || []).includes(n.key);
+                const saving = guardandoNotif === modalNotif.id;
                 return (
                   <label
                     key={n.key}
@@ -1140,18 +1278,18 @@ const GestionUsuariosP: React.FC = () => {
                       type="checkbox"
                       checked={checked}
                       disabled={saving}
-                      onChange={() => toggleNotifMc(modalNotifMc, n.key)}
+                      onChange={() => toggleNotifMc(modalNotif, n.key)}
                     />
                     <div className="GU-notif-mc-opcion-info">
-                      <span className="GU-notif-mc-opcion-label">{n.label}</span>
+                      <span className="GU-notif-mc-opcion-label">📧 {n.label}</span>
                       <span className="GU-notif-mc-opcion-desc">{n.desc}</span>
                     </div>
                   </label>
                 );
               })}
-              {msgsNotifMc[modalNotifMc.id || ''] && (
-                <p className={`GU-notif-mc-feedback${msgsNotifMc[modalNotifMc.id || ''].startsWith('✓') ? '--ok' : '--err'}`}>
-                  {msgsNotifMc[modalNotifMc.id || '']}
+              {msgsNotif[modalNotif.id || ''] && (
+                <p className={`GU-notif-mc-feedback${msgsNotif[modalNotif.id || ''].startsWith('✓') ? '--ok' : '--err'}`}>
+                  {msgsNotif[modalNotif.id || '']}
                 </p>
               )}
             </div>

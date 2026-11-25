@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaSync, FaEdit, FaTrash, FaArrowLeft, FaSearch, FaFileExcel } from 'react-icons/fa';
 import Swal from 'sweetalert2';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import {
   cargarPedidosV3DesdeApiStream,
   obtenerPedidosV3,
@@ -15,6 +15,7 @@ import {
 } from '@/Funciones/ApiPedidos/apiPedidosV3';
 import type { ProgressEvent, CargarPedidosV3Response, EstadoV3 } from '@/Funciones/ApiPedidos/apiPedidosV3';
 import './estilos.css';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
 
 const GestionPedidosV3P: React.FC = () => {
   const router = useRouter();
@@ -70,7 +71,7 @@ const GestionPedidosV3P: React.FC = () => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     if (!match) { router.replace('/LoginUsuario'); return; }
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
-    if (cliente && cliente !== 'MEDICAL_CARE') { router.replace('/MedicalCare'); return; }
+    if (cliente && cliente !== 'MEDICAL_CARE') { router.replace(hogarPorPerfil()); return; }
     setUsuario(match[2] || '');
     const perfilUsuario = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
     setPerfil(perfilUsuario);
@@ -405,7 +406,7 @@ const GestionPedidosV3P: React.FC = () => {
 
   return (
     <div className="GPV3-layout">
-      <NavMedicalCare paginaActual="pedidosv3" />
+      <HeaderModulo titulo="Pedidos V3" subtitulo="Gestión de pedidos V3 — Siscore" />
 
       {/* MAIN */}
       <main className="GPV3-main">

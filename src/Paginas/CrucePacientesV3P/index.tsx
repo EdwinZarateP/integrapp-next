@@ -6,7 +6,8 @@ import {
   FaArrowLeft, FaRoute, FaFileExcel, FaFilter, FaCheckCircle, FaCircle, FaSync, FaSearch,
 } from 'react-icons/fa';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import {
   obtenerOcupacionRutas,
   obtenerV3SinPaciente,
@@ -24,6 +25,7 @@ import type {
   HistoricoMesDetalle,
 } from '@/Funciones/ApiPedidos/tiposMedicalCare';
 import './estilos.css';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
 
 const REGIONALES = ['TODAS', 'BARRANQUILLA', 'CALI', 'BUCARAMANGA', 'FUNZA', 'MEDELLIN'];
 
@@ -321,7 +323,7 @@ const CrucePacientesV3P: React.FC = () => {
     const match = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/);
     if (!match) { router.replace('/LoginUsuario'); return; }
     const cliente = document.cookie.match(/(^| )clientePedidosCookie=([^;]+)/)?.[2];
-    if (cliente && cliente !== 'MEDICAL_CARE') { router.replace('/MedicalCare'); return; }
+    if (cliente && cliente !== 'MEDICAL_CARE') { router.replace(hogarPorPerfil()); return; }
     setUsuario(match[2] || '');
     const perfilUsuario = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
     setPerfil(perfilUsuario);
@@ -418,6 +420,7 @@ const CrucePacientesV3P: React.FC = () => {
   };
 
   const ejecutarRecalculo = async (enviarCorreo: boolean) => {
+    trackAccion('recalcular_cruce', { enviar_correo: enviarCorreo ? 1 : 0 });
     setMostrarConfirmCorreo(false);
     setLoadingRecalculo(true);
     setProgresoRecalculo({ stage: 'loading', progress: 0, message: 'Iniciando...' });
@@ -443,6 +446,7 @@ const CrucePacientesV3P: React.FC = () => {
 
   // ── Exportar ─────────────────────────────────────────────────────────────────
   const handleExportar = async () => {
+    trackAccion('export_excel', { origen: 'cruce_pacientes' });
     setLoadingExport(true);
     try {
       await exportarCruceExcel(filtroRegional !== 'TODAS' ? filtroRegional : undefined);
@@ -597,7 +601,7 @@ const CrucePacientesV3P: React.FC = () => {
   return (
     <div className="CRV3-layout">
 
-      <NavMedicalCare paginaActual="cruce" />
+      <HeaderModulo titulo="Cruce Pacientes ↔ V3" />
 
       {/* MAIN */}
       <main className="CRV3-main">

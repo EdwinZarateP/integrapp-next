@@ -1,0 +1,183 @@
+/* Configuración Medical Care (/ConfigMC) — 2026-11-25, 5.ª tanda. Tema claro
+   del sistema de diseño Integra. Prefijo CM-. */
+
+.CM-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #f0f2f5;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  color: #1f2b38;
+}
+
+.CM-main {
+  flex: 1;
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.CM-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+  padding: 22px 26px;
+}
+
+.CM-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.15rem;
+  margin: 0 0 6px;
+  color: #0e6b5c;
+}
+
+.CM-subtitulo { font-size: 0.95rem; margin: 18px 0 4px; color: #1f2b38; }
+
+.CM-hint { font-size: 0.82rem; color: #67737f; margin: 4px 0 14px; }
+.CM-aviso { font-size: 0.86rem; color: #67737f; padding: 12px 0; }
+
+/* Fila crear (causal / horario) */
+.CM-crearFila { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.CM-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 14px;
+  border: 1px solid #d7dee8;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.CM-input--hora { flex: none; width: 140px; min-width: 140px; }
+.CM-input--edicion { padding: 6px 10px; min-width: 0; }
+.CM-input:focus-visible { outline: 2px solid #8ec045; }
+
+.CM-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 9px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.CM-btn--primario { background: #0e6b5c; color: #fff; }
+.CM-btn--primario:disabled { opacity: 0.45; cursor: not-allowed; }
+.CM-btn--primario:not(:disabled):hover { background: #0a584b; }
+
+/* Grid de causales */
+.CM-causalesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.CM-causalCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d7dee8;
+  border-radius: 11px;
+  padding: 12px 14px;
+}
+.CM-causal--activa { background: #f4fbf6; border-color: #bfe3c9; }
+.CM-causal--inactiva { background: #f7f8fa; opacity: 0.75; }
+.CM-causalMain { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.CM-causalNombre {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.CM-badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 10px;
+  text-transform: uppercase;
+}
+.CM-badge--activa { background: #e5f5ec; color: #1e8e5a; }
+.CM-badge--inactiva { background: #eceff3; color: #64748b; }
+.CM-causalAcciones { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* Iconos-acción */
+.CM-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #fff;
+  color: #4a5a6a;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.CM-ico:hover { background: #f2f5f7; }
+.CM-ico--guardar { color: #1e8e5a; border-color: #bfe3c9; }
+.CM-ico--cancelar { color: #64748b; }
+.CM-ico--prender { color: #1e8e5a; border-color: #bfe3c9; }
+.CM-ico--apagar { color: #b45309; border-color: #f3d9a4; }
+.CM-ico--eliminar { color: #c0392b; border-color: #f0c8c4; }
+.CM-ico--eliminar:hover { background: #fdeeee; }
+
+/* Sync */
+.CM-syncEstado { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.CM-syncEstado h3 { margin: 0; font-size: 0.95rem; }
+.CM-toggle {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+}
+.CM-toggle--activo { background: #e5f5ec; color: #1e8e5a; }
+.CM-toggle--inactivo { background: #eceff3; color: #64748b; }
+.CM-toggle--activo:hover { background: #d5f0e1; }
+.CM-toggle--inactivo:hover { background: #e2e7ee; }
+
+.CM-horariosList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+.CM-horarioItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #f4f7fa;
+  border: 1px solid #d7dee8;
+  border-radius: 999px;
+  padding: 6px 8px 6px 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.CM-horarioItem .CM-ico { width: 26px; height: 26px; border: none; }
+
+.CM-info {
+  background: #f4f7fa;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 0.82rem;
+  color: #4a5a6a;
+}
+.CM-info ul { margin: 6px 0 0; padding-left: 18px; }
+
+@media (max-width: 768px) {
+  .CM-main { padding: 14px; }
+  .CM-card { padding: 16px; }
+}

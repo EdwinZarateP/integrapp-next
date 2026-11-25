@@ -12,11 +12,9 @@
  */
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { FaFileExcel, FaSearch, FaUsers, FaCalendarDay, FaMousePointer, FaBolt, FaUserCircle, FaChevronDown, FaChartBar, FaSignOutAlt } from 'react-icons/fa';
-import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
+import { useCallback, useEffect, useState } from 'react';
+import { FaFileExcel, FaSearch, FaUsers, FaCalendarDay, FaMousePointer, FaBolt } from 'react-icons/fa';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import './estilos.css';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || '';
@@ -94,12 +92,9 @@ const AUDIENCIAS = [
 ] as const;
 
 export default function UsoPortalKP() {
-  const router = useRouter();
-  const menuRef = useRef<HTMLDivElement>(null);
   const [autorizado, setAutorizado] = useState<boolean | null>(null);
   const [usuario, setUsuario] = useState('');
   const [perfil, setPerfil] = useState('');
-  const [menuAbierto, setMenuAbierto] = useState(false);
   const [desde, setDesde] = useState(menosDias(29));
   const [hasta, setHasta] = useState(hoyStr());
   const [cliente, setCliente] = useState('');
@@ -119,24 +114,6 @@ export default function UsoPortalKP() {
     setPerfil(p);
     setAutorizado(PERFILES_AUTORIZADOS.includes(p));
   }, []);
-
-  // Cerrar menú de usuario al hacer clic fuera (patrón del portal)
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAbierto(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const cerrarSesion = () => {
-    document.cookie.split(';').forEach(cookie => {
-      const cn = cookie.split('=')[0].trim();
-      if (cn.includes('usuario') || cn.includes('cliente') || cn.includes('perfil') || cn.includes('regional'))
-        document.cookie = `${cn}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-    });
-    router.push('/LoginUsuario');
-  };
 
   // `overrides` permite aplicar de inmediato un cambio de foco/audiencia/portal
   // sin esperar el re-render del estado (patrón de los filtros que auto-aplican).
@@ -248,43 +225,12 @@ export default function UsoPortalKP() {
 
   return (
     <div className="UP-container">
-      {/* Header de la app (mismo que el portal Mis Indicadores): logo Integra
-          ONE a la izquierda, título centrado y usuario con menú a la derecha. */}
-      <header className="UP-header">
-        <div className="UP-headerInner">
-          <button className="UP-brand" onClick={() => router.push('/indicadores')} title="Menú de indicadores">
-            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
-          </button>
-
-          <div className="UP-tituloZone">
-            <span className="UP-titulo">Uso del Portal</span>
-            <span className="UP-subtitulo">Telemetría de adopción — portales de clientes</span>
-          </div>
-
-          <div className="UP-userZone" ref={menuRef}>
-            <button className="UP-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="UP-userIcon" />
-              <div className="UP-userInfo">
-                <span className="UP-userName">{usuario || 'Usuario'}</span>
-                <span className="UP-userPerfil">{perfil || '—'}</span>
-              </div>
-              <FaChevronDown className={`UP-chevron ${menuAbierto ? 'UP-chevronOpen' : ''}`} />
-            </button>
-
-            {menuAbierto && (
-              <div className="UP-dropdown">
-                <button className="UP-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
-                  <FaChartBar /> Menú de indicadores
-                </button>
-                <div className="UP-dropDivider" />
-                <button className="UP-dropItem UP-dropItemDanger" onClick={cerrarSesion}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* (2026-11-25, 10.ª tanda) Header UNIFICADO de la app (HeaderModulo):
+          el header propio UP-* fue eliminado. */}
+      <HeaderModulo
+        titulo="Uso del Portal"
+        subtitulo="Telemetría de adopción — portales de clientes"
+      />
 
       <main className="UP-main">
         {/* Filtros */}

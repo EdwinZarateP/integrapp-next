@@ -1,0 +1,78 @@
+/* LanzadorModulos (2026-11-25, 4.ª tanda) — pestaña del borde izquierdo +
+   overlay con la barra de módulos. Prefijo LMZ-. */
+
+/* Pestaña vertical fija a la izquierda, centrada verticalmente. Sobre un
+   clic se despliega ligeramente; verde marca con texto rotado. */
+.lmz-pestania {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 900; /* por debajo de modals/Swal (9999+) y del overlay (950) */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 6px;
+  border: none;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(180deg, #98c74c, #7dab35);
+  color: #0b1526;
+  cursor: pointer;
+  box-shadow: 2px 2px 10px rgba(16, 42, 67, 0.22);
+  transition: padding 0.15s ease, box-shadow 0.15s ease;
+}
+.lmz-pestania:hover {
+  padding-left: 10px;
+  box-shadow: 3px 2px 14px rgba(16, 42, 67, 0.3);
+}
+.lmz-pestania:focus-visible {
+  outline: 2px solid #0b1526;
+  outline-offset: -2px;
+}
+.lmz-pestania-icono { font-size: 0.95rem; }
+.lmz-pestania-texto {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
+
+/* Overlay: fondo semitransparente clicable para cerrar. */
+.lmz-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 940; /* por debajo del sidebar overlay (950) */
+  background: rgba(16, 42, 67, 0.32);
+  animation: lmz-fade 0.15s ease-out;
+}
+@keyframes lmz-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* El sidebar (position fixed del modo overlay) vive dentro de este wrapper
+   solo por estructura; los estilos de la barra son los modx- de
+   SidebarModulos/estilos.css. */
+.lmz-sidebarWrap { display: contents; }
+
+/* /revision: su propio sidebar (262px) ocupa el borde — la pestaña se corre
+   a la derecha de él. Debajo de 900px ese sidebar pasa a drawer (oculto),
+   así que la pestaña vuelve al borde. */
+.lmz-pestania--juntoSidebar { left: 262px; }
+@media (max-width: 900px) {
+  .lmz-pestania--juntoSidebar { left: 0; }
+}
+
+/* Móvil: sin pestaña (cada portal móvil tiene su propia navegación y el
+   espacio es escaso). */
+@media (max-width: 768px) {
+  .lmz-pestania { display: none; }
+}
+
+/* Movimiento reducido. */
+@media (prefers-reduced-motion: reduce) {
+  .lmz-pestania, .lmz-overlay { transition: none; animation: none; }
+}

@@ -16,7 +16,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import './estilos.css';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || '';
@@ -113,6 +114,7 @@ export default function NovedadesOTP() {
   const subirExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0];
     if (!archivo) return;
+    trackAccion('cargar_excel_novedades');
     setSubiendo(true);
     setError('');
     setResultado(null);
@@ -203,7 +205,7 @@ export default function NovedadesOTP() {
   if (!autorizado) {
     return (
       <div className="NV-pagina">
-        <NavMedicalCare paginaActual="novedadesot" />
+        <HeaderModulo titulo="Novedades OT Justificadas" />
         <div className="NV-container">
           <div className="NV-sinAcceso">
             <h1>Novedades Justificadas OT</h1>
@@ -219,7 +221,7 @@ export default function NovedadesOTP() {
 
   return (
     <div className="NV-pagina">
-      <NavMedicalCare paginaActual="novedadesot" />
+      <HeaderModulo titulo="Novedades OT Justificadas" />
       <div className="NV-container">
       <header className="NV-header">
         <div>

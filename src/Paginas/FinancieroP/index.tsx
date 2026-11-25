@@ -6,9 +6,8 @@
  * Las pestañas nuevas de las siguientes fases (Viajes, Requisiciones,
  * Contabilidad…) se registran aquí y en menuModulos.ts.
  */
-import Image from 'next/image';
-import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import { AvisoSesion, useSesionFin } from './nucleo/SesionFinanciero';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import TrasladosP from './pestanas/TrasladosP';
 import ViajesP from './pestanas/ViajesP';
 import RequisicionesP from './pestanas/RequisicionesP';
@@ -20,6 +19,20 @@ import ConfigP from './pestanas/ConfigP';
 import OverviewP from './pestanas/OverviewP';
 import './estilos.css';
 
+// (2026-11-25, 10.ª tanda) Header UNIFICADO: el fin-header propio fue
+// eliminado. El subtítulo indica la sección activa.
+const SUBTITULOS: Record<string, string> = {
+  inicio: 'Inicio · resumen según tu rol',
+  traslados: 'Traslados de presupuesto — aprobación de Presidencia',
+  viajes: 'Solicitudes de viaje, anticipos y legalización',
+  requisiciones: 'Requisiciones de compra y órdenes de compra',
+  contabilidad: 'Facturas DIAN — recepción, radicación y causación',
+  pagos: 'Pagos urgentes de Tesorería',
+  servicios: 'Servicios públicos por inmueble y periodo',
+  cajas: 'Cajas menores — legalización y contabilización',
+  config: 'Administración del módulo',
+};
+
 export default function FinancieroP({ pestana = 'inicio' }: {
   pestana?: 'inicio' | 'traslados' | 'viajes' | 'requisiciones' | 'contabilidad' | 'pagos' | 'servicios' | 'cajas' | 'config';
 }) {
@@ -27,25 +40,10 @@ export default function FinancieroP({ pestana = 'inicio' }: {
 
   return (
     <div className="fin-app">
-      <header className="fin-header">
-        <Image src={LOGO_INTEGRA} width={201} height={40} alt="Integra ONE" priority />
-        <div className="fin-headerTitulo">
-          <h1>Módulo Financiero</h1>
-          <span className="fin-headerSub">Requisiciones · Traslados · Viajes · Contabilidad</span>
-        </div>
-        {sesion.fase === 'ok' && (
-          <div className="fin-usuario">
-            <span className="fin-usuarioNombre">{sesion.usuario.nombre}</span>
-            <span className="fin-usuarioRol">{sesion.usuario.rol}{sesion.usuario.area ? ` · ${sesion.usuario.area}` : ''}</span>
-            <button
-              className="fin-btn fin-btnSecundario fin-btnSalir"
-              onClick={() => { window.localStorage.removeItem('finAccessToken'); window.location.href = '/integrapp/Modulos/'; }}
-            >
-              Volver a módulos
-            </button>
-          </div>
-        )}
-      </header>
+      <HeaderModulo
+        titulo="Módulo Financiero"
+        subtitulo={SUBTITULOS[pestana] || SUBTITULOS.inicio}
+      />
 
       <main className="fin-main">
         {sesion.fase !== 'ok' ? (

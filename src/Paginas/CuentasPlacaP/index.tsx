@@ -6,7 +6,7 @@ import {
   FaSearch, FaTimes, FaPlus, FaTrash, FaSave, FaEdit, FaFileExcel,
   FaFileUpload, FaIdCard,
 } from 'react-icons/fa';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
 import {
@@ -16,6 +16,7 @@ import {
   type CuentaPlaca, type CatalogosCuentasPlaca,
 } from '@/Funciones/ApiPedidos/cuentasPlaca';
 import '../OtrosCostosP/estilos.css';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
 
 const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'DESPACHADOR'];
 
@@ -89,7 +90,7 @@ const CuentasPlacaP: React.FC = () => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     const p = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
     if (!u) { router.replace('/LoginUsuario'); return; }
-    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace('/MedicalCare'); return; }
+    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace(hogarPorPerfil()); return; }
     setUsuario(u);
     setPerfil(p);
     getCatalogosCuentasPlaca(u).then(setCatalogos).catch(() => {});
@@ -261,7 +262,7 @@ const CuentasPlacaP: React.FC = () => {
 
   return (
     <div className="OC-layout">
-      <NavMedicalCare paginaActual={'cuentasplaca' as any} />
+      <HeaderModulo titulo="Cuentas por Placa" />
 
       <main className="OC-main">
         <div className="OC-header">

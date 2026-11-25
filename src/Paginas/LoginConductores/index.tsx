@@ -7,6 +7,7 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { trackLogin } from "@/Funciones/telemetriaApp";
 import { FaMapMarkerAlt, FaEye, FaEyeSlash } from "react-icons/fa";
 import logo from "@/Imagenes/albatros.png";
 import { LOGO_INTEGRA } from "@/Funciones/logoIntegra";
@@ -85,6 +86,7 @@ const LoginConductores = () => {
       }
 
       // 3. Guardar cookies (sin la clave)
+      trackLogin('conductor', correoNormalizado); // telemetría general (2026-11-25)
       Cookies.set("conductorCorreo", correoNormalizado, { expires: 30 });
       Cookies.set("conductorId", data.id.toString(), { expires: 30 });
       Cookies.set("conductorPerfil", perfilUsuario, { expires: 30 });

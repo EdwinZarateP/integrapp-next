@@ -2,6 +2,18 @@
 
 Sistema de gestión de pedidos y pacientes Medical Care.
 
+## ⭐ Modelo de navegación (vigente desde 2026-11-25)
+
+Tras el login, los perfiles multi-módulo aterrizan en el **hub `/Modulos`** (Torre de Control), que concentra TODA la navegación:
+
+- **Sidebar con grupos e ítems directos** (RNDC, Vulcano, Mayasoft, Siscore…), **submenús de portal** (PROGRAMACIÓN → Kabi y «Otros Clientes» con todas sus páginas, filtradas por perfil vía `PERFILES_POR_ITEM_MC/KB` en `src/Funciones/menuModulos.ts`) y grupos OTROS COSTOS / FINANZAS / EN RUTA / ADMINISTRACIÓN. Colapsable a riel de iconos (64px, persistido).
+- **Lanzador global** (`Componentes/LanzadorModulos`, en `ClientProviders`): pestaña «MÓDULOS» en el borde izquierdo de TODAS las páginas autenticadas — despliega la misma barra como overlay. No lo ven los micro-portales.
+- **Las páginas ya no tienen menú propio**: usan `Componentes/HeaderModulo` (logo + título + usuario + «atrás» al hogar del perfil vía `src/Funciones/hogarPorPerfil.ts`). `NavMedicalCare` fue eliminado; `/MedicalCare` redirige a Solicitud de Vehículos (el portal se llama «Otros Clientes» en el menú).
+- **GestionUsuarios** (solo ADMIN): perfiles agrupados con descripciones (`/perfiles-meta`), login por CORREO (campo «usuario» derivado), modal «Notificaciones» unificado.
+- **Telemetría general**: pageviews por ruta + acciones clave → `/indicadores/uso-app` (ADMIN).
+
+Detalle por fecha en las secciones «Actualizaciones Recientes» al final del archivo.
+
 ## Características Principales
 
 ### % Uso del vehículo solicitado (Pedidos, PedidosCompletados, SolicitudVehiculos, HistoricoPedidos)
@@ -119,14 +131,10 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 - Exportación a Excel con filtros (incluye «% Uso» decimal con formato porcentaje)
 - **Perfiles con acceso**: ADMIN, ANALISTA, CONTROL, COORDINADOR, OPERATIVO
 
-### Medical Care Dashboard (`/integrapp/MedicalCare`)
-- Panel principal con acceso a todos los módulos
-- **Gestión de Causales** (solo ADMIN):
-  - Lista de todas las causales (activas e inactivas)
-  - Crear nueva causal con input
-  - Editar causal (botón lápiz)
-  - Activar/Desactivar causales
-  - Inicialización automática de causales por defecto
+### Configuración Medical Care (`/ConfigMC`)
+> (2026-11-25) La pantalla de botones de `/MedicalCare` fue ELIMINADA (redundante con los submenús del hub); la ruta redirige a Solicitud de Vehículos. Sus funciones admin viven acá:
+- **Causales de Fusión** (ADMIN/CONTROL): lista de todas las causales (activas e inactivas), crear, editar, activar/desactivar, eliminar — alimenta el dropdown de fusión de Solicitud de Vehículos.
+- **Sincronización V3** (ADMIN/CONTROL): estado del sync (activo/pausado) y horarios programados.
 
 ## Permisos por Perfil
 
@@ -153,8 +161,8 @@ Sistema de gestión de pedidos y pacientes Medical Care.
 - Exportación de Excel limitada a su regional
 
 ### FINANCIERO
-- **Micro-portal aislado**: aterriza directo en `/OtrosCostos` tras el login
-- En el menú `NavMedicalCare` solo ve **Otros Costos** e **Histórico Otros Costos**
+- **Micro-portal aislado**: aterriza en `/EleccionFinanciero` (elige Otros Costos ⬄ Módulo Financiero)
+- En Otros Costos ve las solicitudes con header propio (`HeaderModulo`, con enlace a Estado de Vehículos para el informe bancario)
 - Ve únicamente las solicitudes **aprobadas con `tramite_vulcano == "ok"`** y puede **registrar el pago** (y anular si también es ADMIN)
 - No tiene acceso a los demás módulos (Solicitud de Vehículos, Histórico de Pedidos, etc.), salvo que tenga además otro rol autorizado
 - Puede consultar el **histórico de otros costos** y exportarlo a Excel
@@ -1057,3 +1065,123 @@ Réplica interna del módulo financiero externo, con el sistema de diseño Integ
 - **Paso 2 del alta**: los resultados de búsqueda ganan el botón «Corregir perfil» — la advertencia «Para varias placas la cuenta debe ser TENEDOR» quedó accionable.
 - **`PanelConductores`**: `esTenedor` pasó de leerse de la cookie en cada render a **estado** (`perfilCuenta`); la carga de vehículos refresca cookie + estado con el `perfil` que ahora devuelve `obtener-vehiculos` → el conductor desbloquea «Registrar vehículo» e invitaciones SIN re-loguearse tras la corrección de Seguridad.
 - Dep backend + frontend JUNTOS (si se separan, frontend primero: el backend viejo ignora `solicitante`).
+
+## Actualizaciones Recientes (2026-11-25, «poner en orden la casa»)
+
+### Otros Costos y Gestión de Usuarios salen del portal Medical Care → módulos del hub /Modulos
+
+Cambio backend asociado en `integrappi/README.md` (2026-11-25). El menú de Medical Care dejaba de reflejar la realidad (Otros Costos es transversal a todos los clientes; Gestión de Usuarios es administración de la app, no de un portal).
+
+- **`Funciones/menuModulos.ts`**: grupo nuevo **OTROS COSTOS** (ítems `oc_activos` → `/OtrosCostos` y `oc_historico` → `/HistoricoOtrosCostos`, para ADMIN/ANALISTA/CONTROL/COORDINADOR/OPERATIVO/DESPACHADOR — `PERFILES_OTROS_COSTOS`; navegan con `destino` plano, SIN `portal`: los guards de esas páginas leen solo usuario/perfil) y grupo nuevo **ADMINISTRACIÓN** (`gestion_usuarios` → `/GestionUsuarios`, solo ADMIN).
+- **`Componentes/HeaderModulo`** (nuevo, prefijo `HM-*`): header propio estilo UP-/DC-header (logo Integra ONE, título, pill usuario, logout que barre TODAS las cookies por sufijo/prefijo + tokens) con `enlaces` contextuales en píldoras. Reemplaza NavMedicalCare en `OtrosCostosP`, `HistoricoOtrosCostosP` y `GestionUsuariosP`.
+  - **FINANCIERO** (micro-portal): su «atrás» en Otros Costos es `/EleccionFinanciero` + enlace directo a **Estado de Vehículos** (conserva el camino al informe bancario que antes tenía desde el nav). `EleccionFinancieroP.irAOtrosCostos` CONSERVA la cookie `clientePedidosCookie=MEDICAL_CARE` (inocua para Otros Costos, necesaria si navega a EstadoVehiculos).
+- **`NavMedicalCare`**: fuera los ítems `usuarios`, `otroscostos`, `historicooc` (y del union `PaginaMC`); filtro FINANCIERO → solo `estadovehiculos`; VISUALIZADOR → solo `historico` (su entrada al Histórico OC sigue siendo la tarjeta de `/indicadores`). Dropdowns de `Pedidos` y `PedidosCompletados`: fuera «Gestión de usuarios» (Tarifas se queda).
+- **`Funciones/hogarPorPerfil.ts`** (nuevo): el mapa micro-portal (FINANCIERO→/EleccionFinanciero, VISUALIZADOR→/indicadores, …) extraído de ModulosP; los guards de OtrosCostosP/HistoricoOtrosCostosP ahora expulsan al HOGAR del perfil (antes a /MedicalCare).
+- Dep backend + frontend JUNTOS (mejor backend primero: perfiles-meta y telemetría extendida; el frontend degrada bien con backend viejo salvo los beacons generales).
+
+### GestionUsuarios — crear usuarios con la matriz de perfiles entendible
+
+- **`Funciones/perfilMeta.ts`** (nuevo): espejo del `PERFILES_META` del backend + `agruparPerfiles()` (optgroup por grupo; LEGADO al final; `excluirLegado` para el form de alta). Best-effort: intenta `GET /baseusuarios/perfiles-meta`, cae al local.
+- **Form «Nuevo usuario»**: select con **optgroup** por grupo + panel explicativo del perfil elegido (badge de grupo con color, descripción, chips «puede», aviso ámbar «Este perfil NO ingresa a la aplicación» para CLIENTE_FMC/legado). CONDUCTOR ya no se ofrece (F8 del backend); el select de la TABLA agrega el perfil del usuario si ya no está en la matriz (cuentas legado). `PERFILES_FALLBACK` alineado con el backend.
+- El backend ahora rechaza perfiles fuera de la matriz con 422 (blindaje en POST y PATCH perfil).
+
+### Telemetría general de la app (pageviews + acciones) y dashboard «Uso de la App»
+
+- **`Funciones/telemetriaApp.ts`** (nuevo): beacon fire-and-forget (mismo patrón del portal Kabi, MISMA sesión `tlm_sesion` compartida por pestaña). Identidad: `usuarioPedidosCookie` (app) o `conductorCorreo` (portal de conductores, módulo fijo `conductores`); sin identidad → no-op (logins públicos no miden). Tabla `MODULOS_POR_RUTA` (prefijo→módulo, orden importa), `trackPageview`, `trackAccion(accion, detalle)` y `trackLogin(tipo, usuario)`.
+- **`Componentes/TelemetriaGlobal`** (nuevo, sin UI) montado en `ClientProviders`: un pageview por CAMBIO de ruta en TODA la app (`usePathname` + dedupe `useRef` anti-StrictMode; basePath stripeado defensivamente). **Skip `/indicadores*`**: el portal de clientes ya instrumenta sus páginas (evita duplicar).
+- **Acciones instrumentadas** (1 `trackAccion` por handler): `buscar_solicitud` (SolicitudVehiculos), `export_excel` (OtrosCostos, HistóricoOC, HistóricoPedidos, Cruce), `recalcular_cruce`, `crear_oc/editar_oc/aprobar_oc/rechazar_oc/devolver_oc/anular_oc/tramite_vulcano_oc/pagar_oc/importar_pagos` (OtrosCostos), `cargar_excel_citas` (CitasEntrega), `cargar_excel_novedades` (NovedadesOT), `crear_usuario/cambiar_perfil/reset_clave` (GestionUsuarios), `login` (LoginUsuarios y LoginConductores).
+- **`Paginas/UsoAppP` + `/indicadores/uso-app`** (nuevo, solo ADMIN; reutiliza estilos UP-* de UsoPortalKP + `UA-*` propios): filtros rango/módulo/usuario-foco, 4 KPIs, **histograma por hora 0-23** (horas pico, hora Colombia computada en backend), **tabla por módulo** (eventos, usuarios, % y barra; clic filtra el módulo), actividad por día, tabla de usuarios, Excel de 5 hojas. Tarjeta «Uso de la App (telemetría general)» en el menú `/indicadores` (se mantiene la de uso-kabi). Página SEPARADA de uso-kabi a propósito: ese reporte se presenta al cliente Kabi y no debe mezclarse con eventos internos.
+- ⚠️ **Deploy backend PRIMERO** (los beacons generales van sin `cliente_id`: contra el backend viejo mueren en 422 silencioso). Los datos empiezan a acumularse desde el deploy.
+
+## Actualizaciones Recientes (2026-11-25, 2.ª tanda — el hub concentra TODA la navegación)
+
+### Submenús de portales en /Modulos (Kabi y Medical Care despliegan todas sus opciones)
+
+- **`Funciones/menuModulos.ts`**: tipo nuevo **`ItemModuloHijo`** (1 nivel, siempre navegación interna) y `ItemModulo.hijos?`. **Kabi** despliega: Gestión de Pedidos, Pedidos Completados, Tarifas (ADMIN/CONTROL) — portal KABI. **Medical Care** despliega sus 13 páginas (Inicio, Pacientes, Pedidos V3, Cruce, Solicitud de Vehículos, Tarifas Rutas FMC, Divipolas, Historial Pedidos, Pedidos Anulados, Cuentas por Placa, Estado de Vehículos, Novedades OT, Citas de Entrega) — todas con `portal: MEDICAL_CARE` (las 5 páginas que expulsan por cookie de portal siguen cuadrando). Visibilidad: mapa exportado **`PERFILES_POR_ITEM_MC`/`PERFILES_POR_ITEM_KB`** (única fuente de verdad, espejo de los guards de cada página) y `construirMenu` refactorizado de switch a mapa de predicados `VISIBILIDAD`; filtra ítems y hijos (un padre sin hijos visibles sigue mostrándose: navega a la home).
+- **`Paginas/ModulosP`**: padres con fila principal (navega a la home del portal) + chevron que despliega hijos (`padresAbiertos`, cerrados por defecto; hojas con indentación extra `modx-nav-item--hoja`).
+
+### Sidebar colapsable (riel de iconos)
+
+- Botón «.Contraer/Expandir» junto al logo (`.modx-toggle`, FaAngleDoubleLeft/Right) alterna expandida (252px) ↔ **riel de 64px** con solo iconos (tooltips nativos title). Estado en `localStorage['integrapp.modx.sidebarColapsada']`, leído en el effect de sesión (NUNCA en render: shell prerenderizada con output:export). En riel: ítems directos navegan; grupos y padres EXPANDEN la sidebar y abren su contenido. ⚠️ El bloque CSS `modx-app--colapsada` va SIEMPRE antes del media query ≤768px (el móvil revierte todo con `display:revert` y oculta el toggle).
+
+### NavMedicalCare ELIMINADO — HeaderModulo en todas las páginas
+
+- Las 13 páginas del portal Medical Care (15 instancias: NovedadesOT y CitasEntrega tienen 2 renders cada una) pasaron de `<NavMedicalCare>` a `<HeaderModulo titulo="…">`: Medical Care, Pacientes, Pedidos V3, Cruce Pacientes↔V3, Solicitud de Vehículos, Tarifas Rutas FMC, Divipolas, Historial Pedidos, Pedidos Anulados, Cuentas por Placa, Estado de Vehículos, Novedades OT, Citas de Entrega. Componente `Componentes/NavMedicalCare` borrado (sin consumidores; los casos FINANCIERO/VISUALIZADOR de su filtro desaparecen — llegan por /EleccionFinanciero y /indicadores).
+- **HeaderModulo**: el logo y el ítem «Torre de Control» ahora navegan a `hogarPorPerfil()` (FINANCIERO→/EleccionFinanciero, VISUALIZADOR→/indicadores, resto→/Modulos).
+- **Dropdowns de Pedidos/PedidosCompletados**: fuera «Ir a Medical», «Pedidos Completados»/«Gestión de Pedidos», «Indicadores» y «Tarifas»; queda «Torre de Control» + «Cerrar sesión». FAB y headers propios intactos. Los h1 del cuerpo de las páginas MC quedaron intactos (limpieza opcional futura).
+- Dep **SOLO frontend**. La telemetría general ya cubre las rutas (MODULOS_POR_RUTA).
+
+## Actualizaciones Recientes (2026-11-25, 3.ª tanda — modal «Notificaciones» unificado)
+
+Cambio backend asociado en `integrappi/README.md` (2026-11-25, 3.ª tanda).
+
+- **Modal «🔔 Notificaciones»** (GestionUsuarios, campana de la fila — ahora visible para TODOS los usuarios, badge con nº de suscripciones activas): un solo lugar muestra TODO lo que la persona recibe, con guardado instantáneo por toggle (patrón del viejo modal MC). Secciones según perfil: 📧 **Placas aprobadas** (FINANCIERO, flag `notificar_placas`), 📧📱 **Placas pendientes de revisión** (SEGURIDAD, `notificar_revisiones`), 📱 **WhatsApp de Otros Costos** (`notificar_otros_costos`, con nota si el perfil no aplica; su checkbox salió del modal Editar usuario), 📧 **Correos Medical Care** (retraso/sin cruce, mismo PATCH de siempre; visible con portal MC o CLIENTE_FMC). Avisos «sin correo configurado» cuando no hay dato. El viejo modal «Notificaciones MC» desapareció.
+- **API**: `actualizarDatosUsuario` acepta los 3 flags booleanos; `BaseUsuario` (tipos.tsx) suma `notificar_placas`/`notificar_revisiones`.
+- Dep **backend PRIMERO**, luego frontend.
+
+## Actualizaciones Recientes (2026-11-25, 4.ª tanda — lanzador global de módulos)
+
+### La Torre de Control a un clic en TODAS las páginas
+
+Problema: el sidebar solo existía en /Modulos — al entrar a un módulo el usuario perdía la navegación. Ahora una **pestaña vertical verde en el borde izquierdo** («MÓDULOS», fija, centrada) aparece en todas las páginas autenticadas; al tocarla se despliega la MISMA barra de módulos como **overlay** (la página no se mueve; Escape/fondo/navegar la cierran).
+
+- **`Componentes/SidebarModulos`** (nuevo): el sidebar extraído de ModulosP como componente autónomo (lee sus cookies, `construirMenu`, `abrir()` con cookies de portal, popover usuario + logout). `modo="hub"` = comportamiento idéntico al de siempre en /Modulos (riel colapsable con localStorage); `modo="overlay"` = siempre expandida + callback `alNavegar` para cerrarse. Su CSS (`modx-sidebar*`/`modx-nav-*`/grupos/padres/riel) migró de ModulosP/estilos.css — con las variables de color definidas también en `.modx-sidebar` (el overlay no cuelga de `.modx-app`) y el override del riel como `.modx-app--colapsada .modx-sidebar`.
+- **`Componentes/LanzadorModulos`** (nuevo, montado en `ClientProviders` junto a TelemetriaGlobal): pestaña + overlay. **Visibilidad**: solo con `usuarioPedidosCookie` Y `hogarPorPerfil() === '/Modulos'` (micro-portales FINANCIERO/VISUALIZADOR/CLIENTE y el portal de Seguridad con cookie SEGURIDAD NO la ven, igual que el hub); nunca en `/`, `/Modulos`, `/LoginUsuario` ni prefijos públicos; oculto en ≤768px. Bloquea el scroll del fondo mientras está abierto.
+- `Paginas/ModulosP` quedó como shell fino (`<SidebarModulos modo="hub"/>` + lienzo).
+- Dep SOLO frontend. Los pageviews de TelemetriaGlobal registran cada navegación desde el overlay.
+
+## Actualizaciones Recientes (2026-11-25, 5.ª tanda — fuera la pantalla de botones de /MedicalCare)
+
+Redundante con los submenús del hub (y el lanzador global): la pantalla de bienvenida de `/MedicalCare` fue **eliminada**. Sus dos funciones ADMIN/CONTROL que solo existían ahí fueron rescatadas.
+
+- **`/ConfigMC` (nuevo, `Paginas/ConfigMCP` + `app/ConfigMC/page.tsx`)**: página con HeaderModulo y guard ADMIN/CONTROL que reúne **Causales de Fusión** (CRUD completo, `/siscore/causales*`) y **Sincronización V3** (toggle activo + horarios, `/sync-v3/*`) — APIs intactas. Ítem del submenú: `mc_config` «Causales y Sync» (ADMIN/CONTROL).
+- **`/MedicalCare` → redirect a `/GestionPacientes`** (decisión del usuario; la ruta se conserva por bookmarks y guards). Todo el cuerpo de `MedicalCareP` (botones, vistas inline que duplicaban Cruce, modales) y su CSS fueron eliminados.
+- **`menuModulos.ts`**: padre Medical Care apunta a `/GestionPacientes`; fuera el hijo `mc_inicio`.
+- **Guards**: `PedidosAnuladosP`, `EstadoVehiculosP`, `CuentasPlacaP`, `CrucePacientesV3P`, `GestionPedidosV3P` e `HistoricoPedidosP` expulsan a `hogarPorPerfil()` (antes a /MedicalCare).
+- Telemetría: `/ConfigMC` → módulo medical_care. Dep SOLO frontend.
+
+### Ajuste (2026-11-25, 6.ª tanda): «Medical Care» se muestra como «Otros Clientes» y aterriza en Solicitud de Vehículos
+
+- Solo el NOMBRE visible: el padre del hub ahora dice **«Otros Clientes»** (desc: Solicitud de Vehículos, pacientes, cruces e históricos) y su destino —igual que el redirect de `/MedicalCare`— es **`/SolicitudVehiculos`**. Id (`medical_care`), cookie de portal (`MEDICAL_CARE`) y rutas intactos: nada del backend ni guards cambia.
+
+### Ajuste (2026-11-25, 7.ª tanda): fuera el campo «Usuario» del alta/edición de usuarios
+
+El login de la app es por CORREO (estricto: `_buscar_baseusuario_activo` exige «@») — el campo `usuario` es un identificador interno (cookies de sesión, trazabilidad, telemetría) que nadie debería digitar. Form «Nuevo usuario»: fuera el campo Usuario; el **Correo pasa a ser obligatorio para todos los perfiles** (hint «con este correo entra a la aplicación») y `usuario` se **deriva** = correo en mayúsculas. Modal Editar: fuera el campo; si se cambia el correo, el usuario interno sigue al nuevo correo (si un histórico no tiene correo, se conserva su usuario actual). El backend no cambia (usuario sigue existiendo y único).
+
+### Ajuste (2026-11-25, 8.ª tanda): lanzador visible dentro del portal de Seguridad
+
+Bug de diseño del lanzador: la visibilidad usaba `hogarPorPerfil()`, que devuelve `/revision` cuando `clientePedidosCookie=SEGURIDAD` — así un ADMIN dentro de `/revision` quedaba SIN pestaña para volver. Ahora la visibilidad es **por PERFIL** (`esPerfilMicroPortal()`, nuevo helper de `hogarPorPerfil.ts`): solo FINANCIERO/VISUALIZADOR/CLIENTE/CLIENTE_ESTUDIOS/PADRINO no la ven; un multi-módulo la ve en cualquier página, incluida `/revision`. En `/revision` la pestaña se corre a la derecha de su sidebar (`.lmz-pestania--juntoSidebar`, left 262px; vuelve al borde en ≤900px, donde ese sidebar pasa a drawer).
+
+### Ajuste (2026-11-25, 9.ª tanda): gráficos de uso apilados por módulo
+
+En `/indicadores/uso-app`, «Actividad por hora del día» y «Actividad por día» ahora son **barras apiladas por módulo**: cada segmento es un módulo con color estable (paleta categórica; el orden de colores sigue a la tabla por módulo, de mayor a menor uso — el módulo más usado siempre tiene el mismo color en ambos gráficos; eventos del portal de clientes en gris). Leyenda de colores compartida entre los dos gráficos; tooltips con desglose (top 5 módulos); el Excel agrega columnas por módulo en las hojas Por día y Por hora. Backend (ver `integrappi/README.md` 9.ª tanda): `por_dia`/`por_hora` ganan `por_modulo` por cubeta — aditivo, uso-kabi intacto. Dep **backend PRIMERO** (las pilas llegan vacías contra el backend viejo, sin romper nada).
+
+## Actualizaciones Recientes (2026-11-25, 10.ª tanda — header ÚNICO + efectos de temporada)
+
+### Un solo header para toda la app interna
+
+Los headers propios (Ped-*, PC-*, IM-*, UP-* de uso-app/uso-kabi y fin-header del Módulo Financiero) fueron ELIMINADOS: todas las páginas internas usan **`Componentes/HeaderModulo`** — un cambio de marca/UX toca UN componente. El pill de usuario ahora muestra `perfil · regional` en todas partes. El FAB de Pedidos vivía fuera del header y quedó intacto; el Financiero conserva su sesión (`AvisoSesion`) y gana subtítulo por sección (map `SUBTITULOS` en `FinancieroP`). Los CSS de headers muertos quedaron inertes en sus archivos (limpieza opcional). Fuera del alcance a propósito: /revision (shell con sidebar), DashboardCliente (cara al cliente), portal de conductores y logins públicos.
+
+### Efectos de temporada configurables por el ADMIN (/Apariencia)
+
+- **Backend** `rutas/apariencia.py`: colección `config_apariencia` (1 doc), catálogo `EFECTOS_VALIDOS` (ninguno, navidad, halloween, patrias, celebracion, san_valentin, semana_santa). `GET /apariencia` PÚBLICO con cache 60 s; `PUT` solo ADMIN (audita quién/cuándo, invalida cache). Tests: `tests/test_apariencia.py` (5).
+- **Frontend**: `Funciones/efectosTemporada.ts` (catálogo único con color de acento) + `Componentes/EfectoTemporada` montado en `ClientProviders`: consulta el efecto (cache localStorage 5 min), pinta clase `efecto-<id>` en el `<body>` (filo del header unificado del color de la temporada) y renderiza partículas CSS puras (❄ 🦇 🇨🇴 💗 🕊 / confeti) en un overlay `pointer-events:none` z-930; `prefers-reduced-motion` → sin partículas (solo color).
+- **Página `/Apariencia`** (`Paginas/AparienciaP`, guard ADMIN, ítem en el grupo ADMINISTRACIÓN): tarjetas por efecto con preview del color, confirmación Swal, aplica al instante (refresca el cache global) y muestra quién lo configuró y cuándo.
+- Dep **backend PRIMERO** (sin él: sin partículas y la página admin muestra error claro — nada se rompe).
+
+### Ajuste (2026-11-25, 11.ª tanda): fuera el botón «⬄ Módulos» del header + submenú IntegrApp
+
+- **Enlaces de «atrás» fuera del header** (redundantes con la pestaña lateral del LanzadorModulos): las páginas internas ya no pasan `enlaces`. Excepción — micro-portales que NO ven el lanzador: FINANCIERO conserva «⬅ Inicio» + «Estado de Vehículos» en Otros Costos/Histórico OC, y VISUALIZADOR «⬄ Indicadores» en el Histórico OC (su única forma de volver).
+- **INDICADORES → IntegrApp despliega submenú**: Indicadores por Cliente · Costo de Operación · Mis Indicadores (portal clientes — ADMIN/VISUALIZADOR/ANALISTA/OPERATIVO) · Uso de la App (ADMIN) · Uso del Portal (ADMIN). Mismas visibilidades que las tarjetas de /indicadores (la página de tarjetas sigue existiendo: es el hogar del VISUALIZADOR). Dep SOLO frontend.
+
+### Ajuste (2026-11-25, 11.ª tanda bis): el efecto de temporada llega casi en vivo a los usuarios en línea
+
+`EfectoTemporada` ahora RECONSULTA `/apariencia` cuando el usuario vuelve a enfocar la pestaña (`visibilitychange`/`focus`) si su caché local pasó 1 minuto (la caché sigue de 5 min para las cargas normales). Resultado: activas Navidad en /Apariencia y quienes están en línea la ven al volver a su pestaña — sin recargar la app.
+
+### Fix (2026-11-25, 11.ª tanda bis 2): las partículas NO aparecían al activar el efecto
+
+**Bug real reportado por el usuario**: al activar Navidad solo cambiaba el filo del header — sin copos. Causa: `EfectoTemporada` está montado desde el arranque con el estado inicial "ninguno"; la página /Apariencia actualizaba la caché y la clase del body (→ color) pero NADIE actualizaba el ESTADO del componente → el overlay nunca se renderizaba sin recargar. Fix con 3 vías de refresco: (1) evento local `efecto-temporada-cambiado` que dispara /Apariencia tras el PUT → partículas al instante en la misma sesión; (2) evento `storage` → las OTRAS pestañas del navegador se actualizan solas al cambiar la caché; (3) al enfocar la pestaña: caché fresca se APLICA al estado (antes solo se consultaba cuando estaba vieja) y caché >1 min reconsulta. Además: partículas con `drop-shadow` (el ❄ blanco no se veía sobre fondo blanco) y variantes por efecto (❄❅❆⛄, 🦇🎃👻, 💗❤️💕…).
+
+### Ajuste (2026-11-25, 11.ª tanda bis 3): partículas SOLO en la franja del header
+
+A pedido del usuario: los efectos NO van sobre el área de trabajo. El overlay de `EfectoTemporada` pasó de pantalla completa a `height: 64px` (la franja del header unificado) — los copos/calabazas/corazones caen dentro del header y desaparecen en su borde inferior; el resto de la pantalla queda limpio. Partículas recalibradas para el recorrido corto (más pequeñas y rápidas). El color de temporada del filo se mantiene.

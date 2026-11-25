@@ -1,120 +1,23 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
 import Image from 'next/image';
-import {
-  FaChartBar, FaSignOutAlt, FaBoxOpen, FaCheckCircle,
-  FaMapMarkerAlt, FaUserCircle, FaChevronDown,
-  FaUsers, FaTable, FaBars, FaTimes, FaExchangeAlt,
-} from 'react-icons/fa';
+import { FaMapMarkerAlt } from 'react-icons/fa';
 import TablaPedidosCompletados from '@/Componentes/PedidosComponentes/TablaPedidosCompletados';
-import Cookies from 'js-cookie';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import logo from '@/Imagenes/albatros.png';
-import { LOGO_INTEGRA } from '@/Funciones/logoIntegra';
 import './estilos.css';
 
 const PedidosCompletados: React.FC = () => {
-  const perfil = Cookies.get('perfilPedidosCookie') || '';
-  const usuario = Cookies.get('usuarioPedidosCookie') || '';
-  const regional = Cookies.get('regionalPedidosCookie') || '';
-  const clientes = (Cookies.get('clientesPedidosCookie') || '').split(',').filter(Boolean);
-  const router = useRouter();
-  const [menuAbierto, setMenuAbierto] = useState(false);
-  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const cerrarSesion = () => {
-    ['usuarioPedidosCookie', 'regionalPedidosCookie', 'perfilPedidosCookie', 'clientePedidosCookie', 'clientesPedidosCookie'].forEach(name => {
-      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
-    });
-    router.push('/LoginUsuario');
-  };
-
-  // Cambiar al portal Fresenius Medical Care (solo si el usuario tiene el cliente MEDICAL_CARE)
-  const irAMedical = () => {
-    setMenuAbierto(false);
-    const expiracion = new Date();
-    expiracion.setDate(expiracion.getDate() + 14);
-    document.cookie = `clientePedidosCookie=MEDICAL_CARE; path=/; expires=${expiracion.toUTCString()}`;
-    router.push('/MedicalCare');
-  };
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuAbierto(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
   return (
     <div className="PC-layout">
 
-      {/* ── HEADER ── */}
-      <header className="PC-header">
-        <div className="PC-headerInner">
-
-          {/* Logo */}
-          <button className="PC-brand" onClick={() => router.push('/')} title="Inicio">
-            <Image src={LOGO_INTEGRA} alt="Integra Logística" width={201} height={40} priority />
-          </button>
-
-
-          {/* Nav tabs */}
-          <nav className="PC-nav">
-            <button className="PC-navTab PC-navTabActive" onClick={() => router.push('/PedidosCompletados')}>
-              <FaCheckCircle /> Pedidos Completados
-            </button>
-          </nav>
-
-          {/* Usuario + menú */}
-          <div className="PC-userZone" ref={menuRef}>
-            <button className="PC-userBtn" onClick={() => setMenuAbierto(o => !o)}>
-              <FaUserCircle className="PC-userIcon" />
-              <div className="PC-userInfo">
-                <span className="PC-userName">{usuario || 'Usuario'}</span>
-                <span className="PC-userPerfil">{perfil}{regional ? ` · ${regional}` : ''}</span>
-              </div>
-              <FaChevronDown className={`PC-chevron ${menuAbierto ? 'PC-chevronOpen' : ''}`} />
-            </button>
-
-            {menuAbierto && (
-              <div className="PC-dropdown">
-                {clientes.includes('MEDICAL_CARE') && (
-                  <button className="PC-dropItem PC-dropItemSwitch" onClick={irAMedical}>
-                    <FaExchangeAlt /> Ir a Medical
-                  </button>
-                )}
-                {clientes.includes('MEDICAL_CARE') && <div className="PC-dropDivider" />}
-                <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/Pedidos'); }}>
-                  <FaBoxOpen /> Gestión de Pedidos
-                </button>
-                <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/indicadores'); }}>
-                  <FaChartBar /> Indicadores
-                </button>
-                {(perfil === 'ADMIN' || perfil === 'CONTROL') && (
-                  <>
-                    {perfil === 'ADMIN' && (
-                      <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/GestionUsuarios'); }}>
-                        <FaUsers /> Gestión de usuarios
-                      </button>
-                    )}
-                    <button className="PC-dropItem" onClick={() => { setMenuAbierto(false); router.push('/Tarifas'); }}>
-                      <FaTable /> Tarifas
-                    </button>
-                  </>
-                )}
-                <div className="PC-dropDivider" />
-                <button className="PC-dropItem PC-dropItemDanger" onClick={cerrarSesion}>
-                  <FaSignOutAlt /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* (2026-11-25, 10.ª tanda) Header UNIFICADO de la app (HeaderModulo):
+          el header propio PC-* fue eliminado — un cambio de marca/UX toca un
+          solo componente. */}
+      <HeaderModulo
+        titulo="Pedidos Completados"
+        subtitulo="Pedidos Kabi finalizados"
+      />
 
       {/* ── TABLA PRINCIPAL ── */}
       <main className="PC-main">

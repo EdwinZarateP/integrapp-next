@@ -16,7 +16,7 @@ import {
   descargarExcelDivipolas,
 } from '@/Funciones/ApiPedidos/divipolas';
 import type { Divipola } from '@/Funciones/ApiPedidos/divipolas';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
 
@@ -187,7 +187,7 @@ const GestionDivipolasP: React.FC = () => {
 
   return (
     <div className="GTR-layout">
-      <NavMedicalCare paginaActual="divipolas" />
+      <HeaderModulo titulo="Divipolas" />
 
       <main className="GTR-main">
         <div className="GTR-actionsBar">

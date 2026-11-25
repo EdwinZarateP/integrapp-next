@@ -16,7 +16,7 @@ import {
   descargarTarifasExcel,
 } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
 import type { TarifaRutaFmc } from '@/Funciones/ApiPedidos/tarifasRutasFmc';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import ModalHistorialTarifas, { HistorialPorRegistro } from '@/Componentes/ModalHistorialTarifas';
 import logo from '@/Imagenes/albatros.png';
 import './estilos.css';
@@ -212,7 +212,7 @@ const GestionTarifasRutasP: React.FC = () => {
 
   return (
     <div className="GTR-layout">
-      <NavMedicalCare paginaActual="tarifas" />
+      <HeaderModulo titulo="Tarifas Rutas FMC" />
 
       <main className="GTR-main">
         <div className="GTR-contenedor">

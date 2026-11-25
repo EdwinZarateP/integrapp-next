@@ -1,0 +1,452 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR DE MÓDULOS (2026-11-25, 4.ª tanda) — barra compartida de la Torre
+   de Control: modo hub (dentro de /Modulos, con riel colapsable) y modo
+   overlay (LanzadorModulos, siempre expandida sobre cualquier página).
+   Extraída de Paginas/ModulosP; el colapso lo gobierna la clase
+   modx-app--colapsada que pone el hub en su raíz. Prefijo MODX-.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.modx-sidebar {
+  /* Variables propias (el overlay NO cuelga de .modx-app): mismas del hub. */
+  --modx-acento: #98c74c;
+  --modx-acento-oscuro: #6f9430;
+  --modx-acento-suave: #eef4e0;
+  --modx-borde: #e6e9ee;
+  --modx-texto: #1f2b38;
+  --modx-texto-suave: #67737f;
+  --modx-rojo: #e5484d;
+  --modx-sidebar-ancho: 252px;
+
+  display: flex;
+  flex-direction: column;
+  width: var(--modx-sidebar-ancho);
+  background: #fff;
+  border-right: 1px solid var(--modx-borde);
+  /* Toda la altura de la pantalla, con scroll interno si hace falta. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  overflow-y: auto;
+  transition: width 0.15s ease;
+}
+
+/* Modo overlay (LanzadorModulos): fija a la izquierda, encima del contenido. */
+.modx-sidebar--overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: 100vh;
+  z-index: 950;
+  box-shadow: 8px 0 30px rgba(16, 42, 67, 0.22);
+  animation: modx-overlay-entra 0.15s ease-out;
+}
+@keyframes modx-overlay-entra {
+  from { transform: translateX(-16px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.modx-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px 12px;
+  min-height: 56px;
+}
+
+/* (2026-11-18) Logo horizontal Integra ONE (ratio ~5:1). */
+.modx-logo {
+  width: auto;
+  height: 30px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.modx-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  flex: 1;
+}
+
+.modx-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  color: var(--modx-texto-suave);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modx-nav-item svg {
+  font-size: 1rem;
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.modx-nav-item:hover { background: #f2f5f7; color: var(--modx-texto); }
+
+/* Sub-ítem dentro de un grupo: indentado y un punto más pequeño. */
+.modx-nav-item--sub {
+  font-size: 0.85rem;
+  padding: 9px 12px 9px 26px;
+}
+
+.modx-nav-item--sub svg {
+  font-size: 0.88rem;
+  width: 17px;
+}
+
+/* Ítems directos = módulos principales: mayúsculas y NEGRILLA. */
+.modx-nav-item--directo {
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  font-weight: 700;
+  color: var(--modx-texto);
+}
+
+/* Ítem deshabilitado (módulo sin link todavía / próximo a lanzarse). */
+.modx-nav-item--deshabilitado {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.modx-nav-item--deshabilitado:hover {
+  background: transparent;
+  color: var(--modx-texto-suave);
+}
+
+.modx-nav-texto {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modx-nav-badge {
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--modx-acento-oscuro);
+  background: var(--modx-acento-suave);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+
+.modx-nav-externo {
+  font-size: 0.58rem !important;
+  width: 10px !important;
+  color: var(--modx-texto-suave);
+  opacity: 0.8;
+}
+
+.modx-nav-divisor {
+  height: 1px;
+  background: var(--modx-borde);
+  margin: 8px 10px;
+}
+
+/* Grupo colapsable (PROGRAMACIÓN / EN RUTA). Misma tipografía que los
+   módulos principales: también son módulos de primer nivel. */
+.modx-grupo { display: flex; flex-direction: column; }
+
+.modx-grupo-cab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  color: var(--modx-texto);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.modx-grupo-cab:hover { background: #f2f5f7; }
+
+.modx-grupo-cab svg:first-child {
+  font-size: 1rem;
+  width: 20px;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.modx-grupo-cab span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modx-grupo-chevron {
+  font-size: 0.64rem;
+  color: var(--modx-texto-suave);
+}
+
+.modx-grupo-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Ítems PADRE con submenú (Kabi / Medical Care) ── */
+.modx-item-padre { display: flex; flex-direction: column; }
+
+.modx-item-padre-principal {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  padding-right: 4px;
+}
+
+/* Fila del padre: botón principal + chevron lado a lado. */
+.modx-item-padre-fila { display: flex; align-items: stretch; }
+
+.modx-item-padre-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--modx-texto-suave);
+  font-size: 0.62rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.modx-item-padre-chevron:hover { background: #f2f5f7; color: var(--modx-texto); }
+
+/* Contenedor de los hijos desplegados. */
+.modx-item-hijos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Hoja (sub-ítem de un padre): indentación extra para distinguirse de los
+   ítems de primer nivel del grupo. */
+.modx-nav-item--hoja {
+  font-size: 0.82rem;
+  padding: 8px 12px 8px 38px;
+}
+.modx-nav-item--hoja svg { font-size: 0.84rem; width: 15px; }
+
+/* ── Botón toggle del riel (solo hub) ── */
+.modx-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--modx-texto-suave);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.modx-toggle:hover { background: #f2f5f7; color: var(--modx-texto); }
+
+/* ── MODO RIEL (sidebar colapsada, 64px — solo hub) ────────────────────────
+   ⚠️ Este bloque va SIEMPRE ANTES del media query ≤768px para que el móvil
+   gane por cascada y revierta el modo. La clase la pone la RAÍZ de /Modulos
+   (modx-app--colapsada); se referencia el sidebar directo para ganar a la
+   definición por defecto de la variable. */
+.modx-app--colapsada .modx-sidebar { --modx-sidebar-ancho: 64px; }
+
+.modx-app--colapsada .modx-logo,
+.modx-app--colapsada .modx-nav-texto,
+.modx-app--colapsada .modx-nav-badge,
+.modx-app--colapsada .modx-nav-externo,
+.modx-app--colapsada .modx-grupo-cab > span,
+.modx-app--colapsada .modx-grupo-chevron,
+/* Grupos cerrados en riel: solo el icono (al clic se expande la sidebar). */
+.modx-app--colapsada .modx-grupo-items,
+.modx-app--colapsada .modx-item-padre-chevron,
+.modx-app--colapsada .modx-item-hijos,
+.modx-app--colapsada .modx-sidebar-usuario-datos {
+  display: none;
+}
+
+.modx-app--colapsada .modx-nav-item,
+.modx-app--colapsada .modx-grupo-cab,
+.modx-app--colapsada .modx-sidebar-usuario {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.modx-app--colapsada .modx-sidebar-logo { justify-content: center; }
+.modx-app--colapsada .modx-toggle { margin-left: 0; }
+
+/* ── Pie del sidebar: usuario con popover ── */
+.modx-sidebar-pie {
+  position: relative;
+  border-top: 1px solid var(--modx-borde);
+  padding: 12px;
+}
+
+.modx-sidebar-usuario {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.modx-sidebar-usuario:hover { background: #f2f5f7; }
+.modx-sidebar-usuario--activo { background: var(--modx-acento-suave); }
+
+.modx-sidebar-usuario-datos { display: flex; flex-direction: column; min-width: 0; }
+
+.modx-sidebar-usuario-datos strong {
+  font-size: 0.84rem;
+  color: var(--modx-texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modx-sidebar-usuario-datos small {
+  color: var(--modx-texto-suave);
+  font-size: 0.7rem;
+}
+
+.modx-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--modx-acento);
+  /* Verde claro: texto oscuro para contraste. */
+  color: #0b1526;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* Popover del usuario (se abre hacia arriba). */
+.modx-user-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 10px;
+  width: 220px;
+  background: #fff;
+  border: 1px solid var(--modx-borde);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 42, 67, 0.14);
+  padding: 6px;
+  z-index: 95;
+}
+
+.modx-user-pop-cab {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--modx-borde);
+  margin-bottom: 6px;
+}
+
+.modx-user-pop-cab strong { font-size: 0.86rem; }
+.modx-user-pop-cab small { color: var(--modx-texto-suave); font-size: 0.74rem; }
+
+.modx-user-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--modx-texto);
+  font-size: 0.85rem;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.modx-user-pop-item:hover { background: #f2f5f7; }
+.modx-user-pop-item--rojo:hover { background: #fdeeee; color: var(--modx-rojo); }
+
+/* ── Responsive (hub): el menú ocupa toda la pantalla en pequeñas ──────────
+   El overlay no llega acá (el lanzador está oculto en móvil). */
+@media (max-width: 768px) {
+  .modx-sidebar {
+    width: 100%;
+    border-right: none;
+  }
+
+  /* Revertir el modo riel (los display:none del bloque colapsado). */
+  .modx-app--colapsada .modx-sidebar { --modx-sidebar-ancho: 100%; }
+
+  .modx-app--colapsada .modx-logo,
+  .modx-app--colapsada .modx-nav-texto,
+  .modx-app--colapsada .modx-nav-badge,
+  .modx-app--colapsada .modx-nav-externo,
+  .modx-app--colapsada .modx-grupo-cab > span,
+  .modx-app--colapsada .modx-grupo-chevron,
+  .modx-app--colapsada .modx-grupo-items,
+  .modx-app--colapsada .modx-item-padre-chevron,
+  .modx-app--colapsada .modx-item-hijos,
+  .modx-app--colapsada .modx-sidebar-usuario-datos {
+    display: revert;
+  }
+
+  .modx-app--colapsada .modx-nav-item,
+  .modx-app--colapsada .modx-grupo-cab,
+  .modx-app--colapsada .modx-sidebar-usuario {
+    justify-content: flex-start;
+    padding-left: revert;
+    padding-right: revert;
+  }
+
+  .modx-app--colapsada .modx-sidebar-logo { justify-content: flex-start; }
+
+  .modx-toggle { display: none; }
+}
+
+/* Movimiento reducido: sin transiciones. */
+@media (prefers-reduced-motion: reduce) {
+  .modx-sidebar,
+  .modx-sidebar *,
+  .modx-sidebar *::before,
+  .modx-sidebar *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

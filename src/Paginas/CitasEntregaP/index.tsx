@@ -19,7 +19,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import './estilos.css';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || '';
@@ -187,6 +188,7 @@ export default function CitasEntregaP() {
   const subirExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0];
     if (!archivo) return;
+    trackAccion('cargar_excel_citas');
     setSubiendo(true);
     setError('');
     setResultado(null);
@@ -285,7 +287,7 @@ export default function CitasEntregaP() {
   if (!autorizado) {
     return (
       <div className="CE-pagina">
-        <NavMedicalCare paginaActual="citasentrega" />
+        <HeaderModulo titulo="Citas de Entrega" />
         <div className="CE-container">
           <div className="CE-sinAcceso">
             <h1>Citas de Entrega</h1>
@@ -301,7 +303,7 @@ export default function CitasEntregaP() {
 
   return (
     <div className="CE-pagina">
-      <NavMedicalCare paginaActual="citasentrega" />
+      <HeaderModulo titulo="Citas de Entrega" />
       <div className="CE-container">
       <header className="CE-header">
         <div>

@@ -19,6 +19,11 @@ export interface BaseUsuario {
   // (2026-11-24) False = NO recibe los WhatsApp de Otros Costos aunque tenga
   // el perfil (FINANCIERO, COORDINADOR, CONTROL, ANALISTA).
   notificar_otros_costos?: boolean;
+  // (2026-11-25) False = NO recibe el correo de placas aprobadas (informe
+  // financiero, perfil FINANCIERO) ni el correo/WA de placas pendientes de
+  // revisión (perfil SEGURIDAD). Default True en ambos.
+  notificar_placas?: boolean;
+  notificar_revisiones?: boolean;
   notificaciones_mc?: string[];
   // Módulo Estudios de Seguridad (solo perfil SEGURIDAD)
   empresa_id_seguridad?: string;

@@ -3,7 +3,9 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaSearch, FaFileExcel, FaCalendarAlt, FaTimes, FaUndo, FaPaperclip } from 'react-icons/fa';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo, { type EnlaceModulo } from '@/Componentes/HeaderModulo';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
 import {
@@ -94,7 +96,9 @@ const HistoricoOtrosCostosP: React.FC = () => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     const p = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
     if (!u) { router.replace('/LoginUsuario'); return; }
-    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace('/MedicalCare'); return; }
+    // (2026-11-25) El módulo salió del portal Medical Care: volver al hogar
+    // del perfil (VISUALIZADOR → /indicadores, resto → /Modulos).
+    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace(hogarPorPerfil()); return; }
     setUsuario(u);
     setPerfil(p);
     getClientes().then(setClientes).catch(() => {});
@@ -178,6 +182,7 @@ const HistoricoOtrosCostosP: React.FC = () => {
   };
 
   const onExportExcel = async () => {
+    trackAccion('export_excel', { origen: 'historico_otros_costos' });
     Swal.fire({ title: 'Generando Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
       const blob = await exportarExcel({
@@ -202,9 +207,29 @@ const HistoricoOtrosCostosP: React.FC = () => {
   const paginas = Math.ceil(total / limit) || 1;
   const paginaActual = Math.floor(skip / limit) + 1;
 
+  // (2026-11-25) Chrome propio. Enlaces de «atrás» SOLO para micro-portales
+  // (sin lanzador global): FINANCIERO → su Elección; VISUALIZADOR → /indicadores
+  // (11.ª tanda: el resto navega con la pestaña lateral).
+  const enlacesHeader = (): EnlaceModulo[] => {
+    if (perfil === 'FINANCIERO') {
+      return [
+        { etiqueta: '⬅ Inicio', ruta: '/EleccionFinanciero' },
+        { etiqueta: 'Estado de Vehículos', ruta: '/EstadoVehiculos' },
+      ];
+    }
+    if (perfil === 'VISUALIZADOR') {
+      return [{ etiqueta: '⬄ Indicadores', ruta: '/indicadores' }];
+    }
+    return [];
+  };
+
   return (
     <div className="OC-layout">
-      <NavMedicalCare paginaActual={'historicooc' as any} />
+      <HeaderModulo
+        titulo="Histórico Otros Costos"
+        subtitulo="Consulta del histórico de solicitudes pagadas y anuladas"
+        enlaces={enlacesHeader()}
+      />
 
       <main className="OC-main">
         <div className="OC-header">

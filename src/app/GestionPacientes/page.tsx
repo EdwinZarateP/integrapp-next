@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
 import animationPuntos from '@/Imagenes/AnimationPuntos.json';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import Swal from 'sweetalert2';
 import {
   obtenerPacientes,
@@ -394,7 +394,7 @@ const GestionPacientes: React.FC = () => {
   return (
     <div className="GP-layout">
       {/* HEADER */}
-      <NavMedicalCare paginaActual="pacientes" />
+      <HeaderModulo titulo="Pacientes" subtitulo="Gestión de pacientes FMC" />
 
       {/* MAIN */}
       <main className="GP-main">

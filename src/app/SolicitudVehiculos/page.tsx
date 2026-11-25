@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaMapMarkerAlt, FaSearch, FaCheckCircle, FaTimesCircle, FaTruck, FaPaperPlane, FaEdit, FaSave, FaTrash, FaPen, FaUnlink, FaCodeBranch, FaObjectGroup, FaCheck, FaFileExport, FaFileImport, FaTimes, FaLockOpen, FaChevronDown, FaChevronRight, FaUndo } from 'react-icons/fa';
 import logo from '@/Imagenes/albatros.png';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import { usoVehiculoSolicitado, badgeUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import Swal from 'sweetalert2';
 import './estilos.css';
 
@@ -909,6 +910,8 @@ const SolicitudVehiculos: React.FC = () => {
       .split(/[\n,;\s]+/)  // Dividir por comas, saltos de línea, punto y coma, o espacios múltiples
       .map(p => p.trim())  // Quitar espacios alrededor de cada planilla
       .filter(p => p.length > 0);  // Eliminar vacíos
+
+    trackAccion('buscar_solicitud', { planillas: planillasProcesadas.length });
 
     if (planillasProcesadas.length === 0) {
       Swal.fire('Advertencia', 'Por favor ingresa al menos una planilla válida', 'warning');
@@ -3357,7 +3360,7 @@ const SolicitudVehiculos: React.FC = () => {
 
   return (
     <div className="SV-layout">
-      <NavMedicalCare paginaActual="solicitud" />
+      <HeaderModulo titulo="Solicitud de Vehículos" />
 
       <main className="SV-main">
         <div className="SV-header">

@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BaseUsuario, LoginRespuesta } from "./tipos";
+import type { PerfilMeta } from "../perfilMeta";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 const BASE_URL = `${API_BASE}/baseusuarios`;
@@ -7,6 +8,13 @@ const BASE_URL = `${API_BASE}/baseusuarios`;
 // Obtener perfiles distintos que existen en la colección
 export const obtenerPerfilesDisponibles = async (): Promise<string[]> => {
   const res = await axios.get<string[]>(`${BASE_URL}/perfiles-disponibles`);
+  return res.data;
+};
+
+// (2026-11-25) Matriz de perfiles con grupo/etiqueta/descripción (para el
+// formulario agrupado de GestionUsuarios). Espejo del PERFILES_META del backend.
+export const obtenerPerfilesMeta = async (): Promise<PerfilMeta[]> => {
+  const res = await axios.get<PerfilMeta[]>(`${BASE_URL}/perfiles-meta`);
   return res.data;
 };
 
@@ -79,7 +87,14 @@ export const actualizarPerfilesAdicionales = async (
 // Actualizar datos básicos (nombre, correo, regional, celular, clave opcional, usuario opcional)
 export const actualizarDatosUsuario = async (
   id: string,
-  datos: { nombre: string; correo?: string; regional: string; celular?: string; clave?: string; usuario?: string; notificar_otros_costos?: boolean }
+  datos: {
+    nombre: string; correo?: string; regional: string; celular?: string;
+    clave?: string; usuario?: string;
+    // Interruptores de notificaciones (None/undefined = no cambiar)
+    notificar_otros_costos?: boolean;
+    notificar_placas?: boolean;
+    notificar_revisiones?: boolean;
+  }
 ): Promise<{ mensaje: string; usuario: BaseUsuario }> => {
   const res = await axios.patch<{ mensaje: string; usuario: BaseUsuario }>(
     `${BASE_URL}/${id}/datos`,

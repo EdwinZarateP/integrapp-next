@@ -6,12 +6,14 @@ import {
   FaMapMarkerAlt, FaSearch, FaFileExcel, FaCalendarAlt, FaUndo, FaTimes, FaBan,
   FaChevronRight, FaChevronDown,
 } from 'react-icons/fa';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import { usoVehiculoSolicitado, badgeUsoVehiculo, cumpleFiltroUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
 import { compararValorColumna } from '@/Funciones/ordenTabla';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
 import './estilos.css';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
 
 interface HistoricoDoc {
   _id: string;
@@ -301,7 +303,7 @@ const HistoricoPedidosP: React.FC = () => {
 
     if (!perfilCookie) { router.replace('/LoginUsuario'); return; }
     if (!['ADMIN', 'ANALISTA', 'CONTROL', 'COORDINADOR', 'OPERATIVO', 'VISUALIZADOR'].includes(perfilCookie)) {
-      router.replace('/MedicalCare');
+      router.replace(hogarPorPerfil());
       return;
     }
 
@@ -353,6 +355,7 @@ const HistoricoPedidosP: React.FC = () => {
       return;
     }
 
+    trackAccion('export_excel', { origen: 'historico_pedidos' });
     setDescargando(true);
     try {
       Swal.fire({ title: 'Generando Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -643,7 +646,7 @@ const HistoricoPedidosP: React.FC = () => {
 
   return (
     <div className="HP-layout">
-      <NavMedicalCare paginaActual="historico" />
+      <HeaderModulo titulo="Historial de Pedidos" />
 
       <main className="HP-main">
         <div className="HP-header">

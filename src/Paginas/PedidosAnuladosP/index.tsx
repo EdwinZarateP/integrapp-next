@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaSearch, FaCalendarAlt, FaBan, FaTimes } from 'react-icons/fa';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import Swal from 'sweetalert2';
 // Reutiliza los estilos del Histórico (clases HP-*): ambas vistas son auditoría del mismo dominio.
 import '@/Paginas/HistoricoPedidosP/estilos.css';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
 
 interface AnuladoDoc {
   _id: string;
@@ -53,7 +54,7 @@ const PedidosAnuladosP: React.FC = () => {
 
     // Solo ADMIN puede ver los pedidos anulados.
     if (perfilCookie !== 'ADMIN') {
-      router.replace(perfilCookie ? '/MedicalCare' : '/LoginUsuario');
+      router.replace(perfilCookie ? hogarPorPerfil() : '/LoginUsuario');
       return;
     }
 
@@ -146,7 +147,7 @@ const PedidosAnuladosP: React.FC = () => {
 
   return (
     <div className="HP-layout">
-      <NavMedicalCare paginaActual="pedidosanulados" />
+      <HeaderModulo titulo="Pedidos Anulados" />
 
       <main className="HP-main">
         <div className="HP-header">

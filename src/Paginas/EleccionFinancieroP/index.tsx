@@ -28,7 +28,10 @@ export default function EleccionFinancieroP() {
   }, [router]);
 
   const irAOtrosCostos = () => {
-    // Otros Costos vive bajo el menú Medical Care: fija su cookie de portal.
+    // (2026-11-25) Otros Costos ya es módulo propio (header HeaderModulo) y su
+    // guard lee solo usuario/perfil — pero SE CONSERVA la cookie MEDICAL_CARE:
+    // si el FINANCIERO navega desde Otros Costos a Estado de Vehículos (que
+    // sigue en el portal Medical Care), la necesita. Inocua para Otros Costos.
     document.cookie = 'clientePedidosCookie=MEDICAL_CARE; path=/; max-age=1209600';
     router.push('/OtrosCostos');
   };

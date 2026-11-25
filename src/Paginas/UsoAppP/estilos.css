@@ -1,0 +1,98 @@
+/* Uso de la App (telemetría general, 2026-11-25) — solo los estilos NUEVOS
+   (histograma por hora y barra de módulos); todo lo demás hereda UP-* de
+   UsoPortalKP/estilos.css (importado desde el index). Prefijo UA-. */
+
+/* Histograma 0-23: como UP-barras pero columnas más angostas */
+.UA-horas {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-height: 180px;
+  padding-top: 18px; /* espacio para el valor encima */
+  overflow-x: auto;
+}
+.UA-horaCol {
+  flex: 1 0 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+  min-width: 26px;
+}
+
+/* (9.ª tanda) Pila de segmentos por módulo: cada segmento crece
+   proporcional a sus eventos (flexGrow); el alto total de la pila es el
+   % del máximo del gráfico. Primer/último segmento con esquinas redondeadas. */
+.UA-horaPila {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 2px;
+  overflow: hidden;
+  border-radius: 5px 5px 0 0;
+}
+.UA-seg { width: 100%; min-height: 1px; }
+.UA-diaPila { border-radius: 5px 5px 0 0; }
+
+.UA-horaEtiqueta {
+  font-size: 0.68rem;
+  color: #6b7280;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Desglose por módulo dentro del tooltip (UP-tooltip ya existe). */
+.UA-tooltipSegs {
+  display: block;
+  font-style: normal;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  margin-top: 4px;
+  max-width: 240px;
+  white-space: normal;
+}
+
+/* Leyenda de módulos (colores de los gráficos apilados) */
+.UA-leyendaCard { padding: 14px 20px; }
+.UA-leyendaCard .UP-cardTitulo { font-size: 0.85rem; margin-bottom: 8px; }
+.UA-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.UA-leyendaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: #334155;
+}
+.UA-leyendaPunto {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Barra de distribución en la tabla por módulo */
+.UA-barraModuloPista {
+  width: 100%;
+  min-width: 90px;
+  height: 10px;
+  background: #f1f4f8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.UA-barraModulo {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #98c74c, #6ea832);
+}
+
+@media (max-width: 768px) {
+  .UA-horas { gap: 2px; }
+  .UA-horaCol { flex: 1 0 18px; min-width: 18px; }
+  .UA-horaEtiqueta { font-size: 0.58rem; }
+}

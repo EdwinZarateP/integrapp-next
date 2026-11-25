@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaSearch, FaTruck, FaEye, FaTimes, FaHistory, FaCheckCircle, FaMapMarkerAlt, FaFilePdf, FaFileInvoiceDollar, FaSpinner } from 'react-icons/fa';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo from '@/Componentes/HeaderModulo';
 import Swal from 'sweetalert2';
 import {
   listarEstadoFlota, consultarDetalleFlota,
   type VehiculoEstado, type DetalleVehiculoEstado,
 } from '@/Funciones/ApiPedidos/estadoFlota';
 import './estilos.css';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 
@@ -82,7 +83,7 @@ const EstadoVehiculosP: React.FC = () => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     const p = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
     if (!u) { router.replace('/LoginUsuario'); return; }
-    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace('/MedicalCare'); return; }
+    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace(hogarPorPerfil()); return; }
     setUsuario(u);
     setPerfil(p);
   }, [router]);
@@ -216,7 +217,7 @@ const EstadoVehiculosP: React.FC = () => {
 
   return (
     <div className="EV-layout">
-      <NavMedicalCare paginaActual="estadovehiculos" />
+      <HeaderModulo titulo="Estado de Vehículos" subtitulo="Flota aprobada · solo consulta" />
 
       <main className="EV-main">
         <div className="EV-header">

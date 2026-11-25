@@ -7,7 +7,8 @@ import {
   FaPaperPlane, FaCheck, FaUndo, FaBan, FaMoneyBillWave, FaEdit, FaEye, FaWallet,
   FaFileUpload, FaUniversity, FaPaperclip,
 } from 'react-icons/fa';
-import NavMedicalCare from '@/Componentes/NavMedicalCare';
+import HeaderModulo, { type EnlaceModulo } from '@/Componentes/HeaderModulo';
+import { hogarPorPerfil } from '@/Funciones/hogarPorPerfil';
 import logo from '@/Imagenes/albatros.png';
 import Swal from 'sweetalert2';
 import {
@@ -20,6 +21,7 @@ import {
   type Adjunto,
 } from '@/Funciones/ApiPedidos/otrosCostos';
 import { consultarCuentaPorPlaca } from '@/Funciones/ApiPedidos/cuentasPlaca';
+import { trackAccion } from '@/Funciones/telemetriaApp';
 import './estilos.css';
 
 const PERFILES_PERMITIDOS = ['ADMIN', 'OPERATIVO', 'DESPACHADOR', 'COORDINADOR', 'CONTROL', 'FINANCIERO', 'ANALISTA'];
@@ -210,7 +212,9 @@ const OtrosCostosP: React.FC = () => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
     const p = document.cookie.match(/(^| )perfilPedidosCookie=([^;]+)/)?.[2] || '';
     if (!u) { router.replace('/LoginUsuario'); return; }
-    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace('/MedicalCare'); return; }
+    // (2026-11-25) El módulo ya no vive en el portal Medical Care: quien no
+    // tiene perfil vuelve a SU hogar (hub /Modulos o el micro-portal suyo).
+    if (!PERFILES_PERMITIDOS.includes(p)) { router.replace(hogarPorPerfil()); return; }
     setUsuario(u);
     setPerfil(p);
     getTiposCosto().then(setTiposCosto).catch(() => {});
@@ -574,6 +578,7 @@ const OtrosCostosP: React.FC = () => {
   const guardar = async (enviar: boolean) => {
     const err = validarForm(enviar);
     if (err) { Swal.fire('Validación', err, 'warning'); return; }
+    trackAccion(form.consecutivo ? 'editar_oc' : 'crear_oc', { enviar: enviar ? 1 : 0 });
     setGuardando(true);
     try {
       const payload = {
@@ -724,7 +729,7 @@ const OtrosCostosP: React.FC = () => {
     }
     accion(() => enviarAprobacion(it.consecutivo!, usuario), it, '¿Enviar a aprobación?', `<b>${it.consecutivo}</b> quedará pendiente de aprobación.`);
   };
-  const onAprobar = (it: OtroCosto) => accion((obs) => aprobarSolicitud(it.consecutivo!, usuario, obs), it, '¿Aprobar solicitud?', `<b>${it.consecutivo}</b> por ${formatMoney(it.valor_total)}.`, 'text', 'Observación (opcional)');
+  const onAprobar = (it: OtroCosto) => { trackAccion('aprobar_oc'); return accion((obs) => aprobarSolicitud(it.consecutivo!, usuario, obs), it, '¿Aprobar solicitud?', `<b>${it.consecutivo}</b> por ${formatMoney(it.valor_total)}.`, 'text', 'Observación (opcional)'); };
   // Devolución dirigida: desde la bandeja de Financiero (aprobada + trámite OK)
   // se elige a qué etapa devolver — al Analista (su registro en Vulcano) o al
   // creador (datos de la solicitud). En el resto de casos va al creador, como
@@ -732,6 +737,7 @@ const OtrosCostosP: React.FC = () => {
   const puedeDevolverATramite = (it: OtroCosto) =>
     (perfil === 'FINANCIERO' || perfil === 'ADMIN') && it.estado === 'aprobado' && it.tramite_vulcano === 'ok';
   const onDevolver = (it: OtroCosto) => {
+    trackAccion('devolver_oc');
     if (puedeDevolverATramite(it)) {
       Swal.fire({
         title: '¿Devolver solicitud?',
@@ -777,10 +783,11 @@ const OtrosCostosP: React.FC = () => {
     }
     accion((obs) => devolverSolicitud(it.consecutivo!, usuario, obs), it, '¿Devolver solicitud?', `<b>${it.consecutivo}</b> volverá al creador para corrección.`, 'textarea', 'Motivo de devolución', true);
   };
-  const onRechazar = (it: OtroCosto) => accion((obs) => rechazarSolicitud(it.consecutivo!, usuario, obs), it, '¿Rechazar solicitud?', `<b>${it.consecutivo}</b> será rechazada.`, 'textarea', 'Motivo de rechazo', true);
-  const onAnular = (it: OtroCosto) => accion((obs) => anularSolicitud(it.consecutivo!, usuario, obs), it, '¿Anular solicitud?', `<b>${it.consecutivo}</b> será anulada y movida a anulados.`, 'textarea', 'Motivo de anulación', true);
+  const onRechazar = (it: OtroCosto) => { trackAccion('rechazar_oc'); return accion((obs) => rechazarSolicitud(it.consecutivo!, usuario, obs), it, '¿Rechazar solicitud?', `<b>${it.consecutivo}</b> será rechazada.`, 'textarea', 'Motivo de rechazo', true); };
+  const onAnular = (it: OtroCosto) => { trackAccion('anular_oc'); return accion((obs) => anularSolicitud(it.consecutivo!, usuario, obs), it, '¿Anular solicitud?', `<b>${it.consecutivo}</b> será anulada y movida a anulados.`, 'textarea', 'Motivo de anulación', true); };
 
   const onTramiteVulcano = (it: OtroCosto) => {
+    trackAccion('tramite_vulcano_oc');
     const marcarOk = it.tramite_vulcano !== 'ok';
     accion(
       (obs) => marcarTramiteVulcano(it.consecutivo!, usuario, marcarOk ? 'ok' : 'pendiente', obs),
@@ -820,6 +827,7 @@ const OtrosCostosP: React.FC = () => {
     }).then(async (r) => {
       if (!r.isConfirmed) return;
       const { ref, vdr, obs } = r.value as { ref: string; vdr?: number; obs: string };
+      trackAccion('pagar_oc');
       Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
       try {
         await registrarPago({
@@ -837,6 +845,7 @@ const OtrosCostosP: React.FC = () => {
   };
 
   const onExportExcel = async () => {
+    trackAccion('export_excel', { origen: 'otros_costos' });
     Swal.fire({ title: 'Generando Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
       const blob = await exportarExcel({
@@ -956,6 +965,7 @@ const OtrosCostosP: React.FC = () => {
   };
 
   const onImportarPago = async (file: File) => {
+    trackAccion('importar_pagos');
     setImportando(true);
     Swal.fire({ title: 'Procesando archivo bancario...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
@@ -985,9 +995,27 @@ const OtrosCostosP: React.FC = () => {
   const paginaActual = Math.floor(skip / limit) + 1;
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  // (2026-11-25) Chrome propio (HeaderModulo). Los enlaces de «atrás» SOLO
+  // para quienes NO ven el lanzador global (micro-portales): el FINANCIERO
+  // vuelve a su Elección y conserva el acceso al informe bancario de Estado
+  // de Vehículos. El resto navega con la pestaña lateral (11.ª tanda).
+  const enlacesHeader = (): EnlaceModulo[] => {
+    if (perfil === 'FINANCIERO') {
+      return [
+        { etiqueta: '⬅ Inicio', ruta: '/EleccionFinanciero' },
+        { etiqueta: 'Estado de Vehículos', ruta: '/EstadoVehiculos' },
+      ];
+    }
+    return [];
+  };
+
   return (
     <div className="OC-layout">
-      <NavMedicalCare paginaActual={'otroscostos' as any} />
+      <HeaderModulo
+        titulo="Otros Costos"
+        subtitulo="Solicitudes, aprobaciones y pagos de costos adicionales"
+        enlaces={enlacesHeader()}
+      />
 
       <main className="OC-main">
         <div className="OC-header">
