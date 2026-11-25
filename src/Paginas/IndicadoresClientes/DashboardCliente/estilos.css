@@ -1027,24 +1027,41 @@
   padding: 0 0.5rem;
 }
 .DC-opTlTitulo {
-  font-size: 0.78rem;
+  /* (2026-11-25) El WS manda TODO EN MAYÚSCULAS: se muestra en minúsculas
+     con SOLO la primera letra en mayúscula (::first-letter — funciona porque
+     el elemento es block/-webkit-box, no inline). Fechas/números quedan
+     igual. Tamaño bajado un punto (0,78 → 0,72rem), a pedido del usuario. */
+  font-size: 0.72rem;
   font-weight: 600;
   color: #475569;
   line-height: 1.25;
-  /* Alto fijo: garantiza que TODOS los marcadores queden sobre la misma
-     línea sin importar cuántas líneas ocupe el nombre (máx 4 — mensajes
-     largos como «PEDIDO EN STAGE, EN PROCESO DE ACONDICIONAMIENTO» no se
-     cortan; el completo vive en el title del paso). */
-  height: 4.1em;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  overflow: hidden;
+  text-transform: lowercase;
+  /* Alto fijo de 2 líneas con «…» (line-clamp): garantiza que TODOS los
+     marcadores queden sobre la misma línea y los detalles largos (ej.
+     «SOLICITA RECOLECCION EL DÍA… PUESTO QUE LA PERSONA ENCARGADA…») ya NO
+     se cortan a mitad de palabra — CLIC sobre el título los expande (clase
+     .DC-opTlAbierto); el completo también vive en el title del hover. */
+  height: 2.6em;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 2;
   -webkit-box-pack: center;
   -webkit-box-align: end;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0 0.35rem;
+}
+.DC-opTlTitulo::first-letter { text-transform: uppercase; }
+.DC-opTlTitulo:hover { background: rgba(15, 25, 40, 0.05); }
+/* Detalle EXPANDIDO: sin tope de líneas, alto natural y fondo suave para
+   que se lea como «se abrió» (compartido con la timeline vertical móvil). */
+.DC-opTlTitulo.DC-opTlAbierto {
+  height: auto;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  cursor: pointer;
+  background: #f1f5f9;
 }
 /* Marca: la caja que avanza — centrada sobre la línea continua */
 .DC-opTlMarca {
@@ -1150,11 +1167,30 @@
   padding-top: 1px;
 }
 .DC-opTlVTitulo {
-  font-size: 0.82rem;
+  /* (2026-11-25) Mismo criterio del horizontal: minúsculas con primera letra
+     en mayúscula (::first-letter) y un punto menos de tamaño (0,82→0,75rem). */
+  font-size: 0.75rem;
   font-weight: 600;
   color: #334155;
   line-height: 1.25;
+  text-transform: lowercase;
   overflow-wrap: anywhere;
+  /* (2026-11-25) Detalle largo → 3 líneas con «…» y TOCA para expandir
+     (mismo patrón del título horizontal de escritorio). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0.15rem 0.4rem;
+  margin-left: -0.4rem;
+}
+.DC-opTlVTitulo::first-letter { text-transform: uppercase; }
+.DC-opTlVTitulo.DC-opTlAbierto {
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  background: #f1f5f9;
 }
 .DC-opTlVFecha {
   font-size: 0.7rem;

@@ -479,6 +479,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
   const [consultandoGuiaOp, setConsultandoGuiaOp] = useState(false);
   const [errorGuiaOp, setErrorGuiaOp] = useState<string | null>(null);
   const [resultadoGuiaOp, setResultadoGuiaOp] = useState<any>(null);
+  // (2026-11-25) Movimiento de la trayectoria con el detalle EXPANDIDO (clic
+  // sobre un título truncado con «…»): índice del movimiento o null. Se resetea
+  // con cada consulta de guía.
+  const [movAbierto, setMovAbierto] = useState<number | null>(null);
+  const alternarMov = (i: number) => setMovAbierto((v) => (v === i ? null : i));
 
   // Timeline de la trayectoria: SIEMPRE horizontal. Arranca posicionada en
   // el estado MÁS RECIENTE (final del recorrido; los movimientos vienen en
@@ -498,6 +503,7 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     setConsultandoGuiaOp(true);
     setErrorGuiaOp(null);
     setResultadoGuiaOp(null);
+    setMovAbierto(null);
     try {
       const params = new URLSearchParams({ guia: g });
       if (modoExterno) {
@@ -3507,7 +3513,19 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                                   <span className="DC-opTlCaja">📦</span>
                                 </span>
                                 <span className="DC-opTlVCuerpo">
-                                  <span className="DC-opTlVTitulo">
+                                  {/* (2026-11-25) Detalle largo → 3 líneas con
+                                      «…» y TOCA para expandir el texto completo. */}
+                                  <span
+                                    className={`DC-opTlVTitulo${movAbierto === i ? ' DC-opTlAbierto' : ''}`}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-expanded={movAbierto === i}
+                                    title={m.DetalleMov || m.Tipo_Movimiento || undefined}
+                                    onClick={() => alternarMov(i)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternarMov(i); }
+                                    }}
+                                  >
                                     {m.DetalleMov || m.Tipo_Movimiento || 'Movimiento'}
                                   </span>
                                   <span className="DC-opTlVFecha">{fechaMov(m.FecMov)}</span>
@@ -3524,9 +3542,22 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
                               <div
                                 key={i}
                                 className="DC-opTlPaso"
-                                title={m.DetalleMov || m.Tipo_Movimiento || ''}
                               >
-                                <span className="DC-opTlTitulo">
+                                {/* (2026-11-25) Detalle largo → 2 líneas con «…»
+                                    y CLIC para expandir (antes: clamp de 4 que
+                                    cortaba feo a mitad de palabra). El title
+                                    del hover conserva el texto completo. */}
+                                <span
+                                  className={`DC-opTlTitulo${movAbierto === i ? ' DC-opTlAbierto' : ''}`}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-expanded={movAbierto === i}
+                                  title={m.DetalleMov || m.Tipo_Movimiento || undefined}
+                                  onClick={() => alternarMov(i)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternarMov(i); }
+                                  }}
+                                >
                                   {m.DetalleMov || m.Tipo_Movimiento || 'Movimiento'}
                                 </span>
                                 {/* La CAJA avanza sobre la línea: es el marcador
