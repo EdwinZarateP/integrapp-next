@@ -10,7 +10,7 @@ import {
   FaUserPlus,
 } from "react-icons/fa";
 import PhoneField from "@/Componentes/PhoneField";
-import { abrirPanelComoConductor } from "./impersonacion";
+import { abrirPanelComoConductor, nombreSeguridad } from "./impersonacion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -47,6 +47,9 @@ interface ResultadoBusqueda {
   alta_por_seguridad: boolean;
   politicas_pendientes: boolean;
   placas_propias: number;
+  /** (2026-11-25) Placas donde llega como conductor invitado — si tiene, NO
+   *  puede promoverse a TENEDOR (el backend responde 409). */
+  placas_invitado?: number;
 }
 
 /** Cuenta con correo registrado pero SIN ninguna placa inscrita (2026-10-13). */
@@ -156,6 +159,32 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
 
   useEffect(() => { cargarSinVehiculo(); }, []);
 
+  // ── (2026-11-25) Búsqueda LIBRE de cuentas para corregir su perfil:
+  //    el caso nuevo es el CONDUCTOR que ya inscribió su placa y necesita
+  //    registrar más (pasarlo a TENEDOR) — esas cuentas NO aparecen en la
+  //    lista de arriba (solo sin vehículo) ni en el paso 2 del alta (que
+  //    exige una placa pendiente). ──
+  const [busquedaCuenta, setBusquedaCuenta] = useState("");
+  const [buscandoCuenta, setBuscandoCuenta] = useState(false);
+  const [resultadosCuenta, setResultadosCuenta] = useState<ResultadoBusqueda[] | null>(null);
+
+  const buscarCuentasPerfil = async () => {
+    const q = busquedaCuenta.trim();
+    if (q.length < 3) {
+      Swal.fire("Muy corto", "Escribe al menos 3 caracteres (correo, cédula o nombre).", "warning");
+      return;
+    }
+    setBuscandoCuenta(true);
+    try {
+      const res = await axios.get<{ cuentas: ResultadoBusqueda[] }>(
+        `${API_BASE}/conductores/buscar`, { params: { q, _t: Date.now() } });
+      setResultadosCuenta(res.data.cuentas || []);
+    } catch {
+      setResultadosCuenta([]);
+      Swal.fire("Error", "No se pudo buscar.", "error");
+    } finally { setBuscandoCuenta(false); }
+  };
+
   /** (2026-11-17) Modal compartido: CORREO y CELULAR editables antes del
    *  envío — corrige el clásico GMAIL.XOM en el mismo reenvío (si no, el
    *  WhatsApp rescata la activación pero la cuenta queda con un correo
@@ -247,15 +276,21 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
   };
 
   /** (2026-10-19) Corrige el PERFIL de una cuenta que se registró con el rol
-   *  equivocado (p.ej. TENEDOR que en realidad es CONDUCTOR): solo se permite
-   *  mientras no tenga placas inscritas (el backend rechaza con 409 si tiene). */
-  const cambiarPerfil = async (c: CuentaSinVehiculo) => {
+   *  equivocado. (2026-11-25) RELAJADO: un CONDUCTOR con placas PROPIAS sí
+   *  puede pasar a TENEDOR (para registrar varias placas — cada ficha queda
+   *  auditada); con placas INVITADAS el backend rechaza (409). TENEDOR→
+   *  CONDUCTOR sigue exigiendo 0 placas. El `solicitante` (nombre de
+   *  Seguridad) viaja siempre: el endpoint ya no es anónimo. */
+  const cambiarPerfil = async (c: { id: string; correo: string; perfil: string }) => {
     const esTenedor = c.perfil === "TENEDOR";
     const destino = esTenedor ? "CONDUCTOR" : "TENEDOR";
+    const detalle = esTenedor
+      ? "<small>Solo se puede cambiar mientras no tenga ninguna placa inscrita.</small>"
+      : `<small>Podrá <b>registrar varias placas</b> e invitar conductores; sigue conduciendo su placa actual. Ya NO podrá ser conductor invitado en fichas de otros (si lo está, el cambio se rechaza). El cambio queda auditado en cada ficha propia.</small>`;
     const res = await Swal.fire({
       icon: "question",
       title: "¿Corregir el perfil?",
-      html: `<b>${c.correo}</b> aparece como <b>${esTenedor ? "Tenedor" : "Conductor"}</b>.<br/>¿Pasarla a <b>${destino === "CONDUCTOR" ? "Conductor" : "Tenedor"}</b>?<br/><small>Solo se puede cambiar mientras no tenga placas inscritas.</small>`,
+      html: `<b>${c.correo}</b> aparece como <b>${esTenedor ? "Tenedor" : "Conductor"}</b>.<br/>¿Pasarla a <b>${destino === "CONDUCTOR" ? "Conductor" : "Tenedor"}</b>?<br/>${detalle}`,
       showCancelButton: true,
       confirmButtonText: "Sí, cambiar",
       cancelButtonText: "Cancelar",
@@ -265,14 +300,33 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
     setEnviandoCorreo(c.id);
     try {
       const resp = await axios.post<{ mensaje: string }>(
-        `${API_BASE}/conductores/${c.id}/cambiar-perfil`, { perfil: destino });
-      // Actualización OPTIMISTA: la fila cambia YA (el refetch re-sincroniza).
+        `${API_BASE}/conductores/${c.id}/cambiar-perfil`,
+        { perfil: destino, solicitante: nombreSeguridad() });
+      // Actualización OPTIMISTA en ambas listas (el refetch re-sincroniza).
       setSinVehiculo(prev => prev.map(x => x.id === c.id ? { ...x, perfil: destino } : x));
+      setResultados(prev => prev
+        ? prev.map(x => x.id === c.id ? { ...x, perfil: destino } : x)
+        : prev);
+      setResultadosCuenta(prev => prev
+        ? prev.map(x => x.id === c.id ? { ...x, perfil: destino } : x)
+        : prev);
       Swal.fire({ icon: "success", title: "Perfil corregido", text: resp.data.mensaje, timer: 2400, showConfirmButton: false });
       await cargarSinVehiculo();
     } catch (err: any) {
       Swal.fire("No se pudo cambiar", err?.response?.data?.detail || "Error de conexión.", "error");
     } finally { setEnviandoCorreo(null); }
+  };
+
+  /** (2026-11-25) ¿Se puede corregir el perfil de esta cuenta? Devuelve el
+   *  motivo del bloqueo para el tooltip cuando no. */
+  const bloqueoCorregirPerfil = (r: { perfil: string; placas_propias?: number; placas_invitado?: number }): string | null => {
+    const propias = r.placas_propias || 0;
+    const invitado = r.placas_invitado || 0;
+    if (r.perfil === "TENEDOR" && (propias + invitado) > 0)
+      return "Para volver a Conductor no debe tener ninguna placa inscrita.";
+    if (r.perfil !== "TENEDOR" && invitado > 0)
+      return "Es conductor invitado en otra(s) placa(s): desvincúlalo primero (un tenedor no puede ser conductor invitado).";
+    return null;
   };
 
   /** (2026-10-19) Desactiva una cuenta BASURA (correo mal digitado que solo
@@ -596,7 +650,8 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
             {conductorConPlaca && (
               <p className="revx-alta-aviso">
                 ⚠ Esta cuenta de CONDUCTOR ya tiene {cuenta.placasPropias} placa(s) propia(s):
-                el backend solo permite 1 por conductor. Para varias placas la cuenta debe ser TENEDOR.
+                el backend solo permite 1 por conductor. Para varias placas la cuenta debe ser
+                TENEDOR — usa <b>«Corregir perfil» (⇄)</b> para promoverla.
               </p>
             )}
           </>
@@ -659,9 +714,21 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
                             <td>{r.cedula || "—"}</td>
                             <td>{r.placas_propias}</td>
                             <td>
-                              <button className="revx-alta-btn-copiar" onClick={() => vincular(r)} disabled={!r.activo}>
-                                <FaLink /> Vincular
-                              </button>
+                              <span className="revx-alta-fila-acciones" role="group" aria-label="Acciones de la cuenta">
+                                <button className="revx-alta-btn-copiar" onClick={() => vincular(r)} disabled={!r.activo}>
+                                  <FaLink /> Vincular
+                                </button>
+                                {/* (2026-11-25) Corrección de perfil desde el alta:
+                                    p.ej. la advertencia de CONDUCTOR con placas
+                                    propias («debe ser TENEDOR») se vuelve accionable. */}
+                                {!bloqueoCorregirPerfil(r) && (
+                                  <button className="revx-alta-btn-copiar"
+                                    onClick={() => cambiarPerfil(r)} disabled={enviandoCorreo === r.id}
+                                    title={`Pasar a ${r.perfil === "TENEDOR" ? "Conductor" : "Tenedor"}`}>
+                                    <FaExchangeAlt /> Corregir perfil
+                                  </button>
+                                )}
+                              </span>
                             </td>
                           </tr>
                         ))}
@@ -904,10 +971,12 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
                         </button>
                       )}
                       {/* Corrección de perfil: se registró con el rol equivocado
-                          (p.ej. TENEDOR siendo CONDUCTOR). */}
+                          (p.ej. TENEDOR siendo CONDUCTOR). (2026-11-25) Un
+                          CONDUCTOR con placas PROPIAS también puede pasar a
+                          TENEDOR; con invitadas el backend rechaza. */}
                       <button className="revx-alta-btn-mini"
                         onClick={() => cambiarPerfil(c)} disabled={enviandoCorreo === c.id}
-                        title={`Corregir perfil — hoy es ${c.perfil === "TENEDOR" ? "Tenedor" : "Conductor"} (solo sin placas)`}>
+                        title={`Corregir perfil — hoy es ${c.perfil === "TENEDOR" ? "Tenedor" : "Conductor"} (a Tenedor puede con placas propias; a Conductor solo sin ninguna placa)`}>
                         <FaExchangeAlt aria-hidden="true" />
                       </button>
                       {/* Cuenta basura: correo mal digitado — se DESACTIVA. */}
@@ -923,6 +992,71 @@ const VistaAlta: React.FC<VistaAltaProps> = ({ onVolver }) => {
             </tbody>
           </table>
           </div>
+        )}
+
+        {/* ── (2026-11-25) Corregir perfil de cualquier cuenta (con o sin
+               placas): el caso nuevo es el CONDUCTOR que ya inscribió su
+               placa y necesita registrar más → pasarlo a TENEDOR. ── */}
+        <div className="revx-alta-cab" style={{ marginTop: 24 }}>
+          <h3 style={{ margin: 0 }}>🔎 Buscar cuenta y corregir su perfil</h3>
+        </div>
+        <p className="revx-alta-nota">
+          Busca por <b>correo, cédula o nombre</b>. Un <b>Conductor</b> con placas
+          propias puede pasar a <b>Tenedor</b> para registrar varias placas (queda
+          auditado); con placas <b>invitadas</b> no se puede (desvincúlalo antes).
+          Un <b>Tenedor</b> solo vuelve a Conductor sin ninguna placa.
+        </p>
+        <div className="revx-alta-fila">
+          <input
+            value={busquedaCuenta}
+            onChange={e => setBusquedaCuenta(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") buscarCuentasPerfil(); }}
+            placeholder="Correo, cédula o nombre" style={{ maxWidth: 340 }}
+          />
+          <button className="revx-alta-btn-primario" onClick={buscarCuentasPerfil} disabled={buscandoCuenta}>
+            <FaSearch /> {buscandoCuenta ? "Buscando…" : "Buscar"}
+          </button>
+        </div>
+        {resultadosCuenta && (
+          resultadosCuenta.length === 0 ? (
+            <p className="revx-alta-nota">Sin resultados para esa búsqueda.</p>
+          ) : (
+            <div className="rev-tabla-wrap">
+              <table className="rev-est-tabla revx-alta-tabla">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Correo</th>
+                    <th>Perfil</th>
+                    <th>Placas propias</th>
+                    <th>Placas invitado</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resultadosCuenta.map(r => {
+                    const bloqueo = bloqueoCorregirPerfil(r);
+                    return (
+                      <tr key={r.id}>
+                        <td>{r.nombre}{!r.activo && <small className="revx-alta-mut"> (inactiva)</small>}</td>
+                        <td>{r.correo}</td>
+                        <td>{r.perfil === "TENEDOR" ? "Tenedor" : "Conductor"}</td>
+                        <td>{r.placas_propias || 0}</td>
+                        <td>{r.placas_invitado || 0}</td>
+                        <td>
+                          <button className="revx-alta-btn-copiar"
+                            onClick={() => cambiarPerfil(r)} disabled={enviandoCorreo === r.id || !!bloqueo}
+                            title={bloqueo || `Pasar a ${r.perfil === "TENEDOR" ? "Conductor" : "Tenedor"}`}>
+                            <FaExchangeAlt /> Corregir perfil
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </section>
     </div>

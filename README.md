@@ -1047,3 +1047,13 @@ Réplica interna del módulo financiero externo, con el sistema de diseño Integ
 - **`/Modulos` blindado**: los perfiles micro-portal (FINANCIERO, VISUALIZADOR, CLIENTE, CLIENTE_ESTUDIOS, PADRINO, Seguridad) que entren por URL se redirigen a su hogar; ítem «Planeación» ahora solo ADMIN.
 - **UX del módulo**: modales con scroll interno y pie fijo que crecen con la pantalla (`--fin-ancho`); permisos por sección como lista de switches con estado (igual que el rol / ajustado); alta de usuarios con autocompletado de FINANCIEROS reales (correo/nombre/username derivados, sin texto libre).
 - **GestionUsuarios**: checkbox «Recibir WhatsApp de Otros Costos» por usuario (`notificar_otros_costos`).
+
+## Actualizaciones Recientes (2026-11-25)
+
+### Seguridad convierte un CONDUCTOR con placa propia en TENEDOR (cambio backend asociado en `integrappi/README.md` 2026-11-25)
+
+- **`/revision/alta` — tarjeta «🔎 Buscar cuenta y corregir su perfil»** (`VistaAlta.tsx`, sección Cuentas sin vehículo): búsqueda libre por correo/cédula/nombre (`GET /conductores/buscar`) SIN necesidad de una placa pendiente del alta — el caso nuevo (CONDUCTOR que ya inscribió su placa y necesita registrar más) no aparecía en ninguna vista. Tabla con Nombre/Correo/Perfil/**Placas propias/Placas invitado** y acción «Corregir perfil», deshabilitada con explicación en el tooltip cuando la cuenta es conductor invitado (no puede ser TENEDOR) o TENEDOR con placas (no puede volver a CONDUCTOR).
+- **`cambiarPerfil` generalizado**: sirve para las 3 tablas (sin vehículo, alta, búsqueda); envía `solicitante` (`nombreSeguridad()` de `impersonacion.ts`) — el backend lo exige y rechaza con 403 sin él. Swal direccional: →TENEDOR avisa que podrá registrar varias placas, sigue conduciendo su placa, ya no podrá ser conductor invitado y queda auditado; →CONDUCTOR solo sin ninguna placa. Actualización optimista en las 3 listas.
+- **Paso 2 del alta**: los resultados de búsqueda ganan el botón «Corregir perfil» — la advertencia «Para varias placas la cuenta debe ser TENEDOR» quedó accionable.
+- **`PanelConductores`**: `esTenedor` pasó de leerse de la cookie en cada render a **estado** (`perfilCuenta`); la carga de vehículos refresca cookie + estado con el `perfil` que ahora devuelve `obtener-vehiculos` → el conductor desbloquea «Registrar vehículo» e invitaciones SIN re-loguearse tras la corrección de Seguridad.
+- Dep backend + frontend JUNTOS (si se separan, frontend primero: el backend viejo ignora `solicitante`).

@@ -117,6 +117,10 @@ type FilaGuia = {
   // TEXT crudo del TMS ('D/M/YYYY' cuando la operación digita; basura histórica
   // también) — el backend la parsea para el OT pero viaja tal cual.
   fecha_cita: string | null;
+  // (2026-11-25) La cita con la que SE JUZGÓ la guía (manual de /CitasEntrega
+  // o citas_agendadas; ISO 'YYYY-MM-DD'). La del TMS (fecha_cita) NO se usa
+  // para el veredicto — con origen CITA esta es la fecha que debe verse.
+  fecha_cita_usada?: string | null;
   // On Time: emisión vs fecha promesa (CITA si es servible, si no emisión +
   // promesa_entrega_dias hábiles del destino en Tarifas). ot=1/0/null.
   fecha_promesa: string | null;
@@ -2071,7 +2075,11 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
     'Días Hábiles': f.dias_habiles ?? '',
     'OT': f.ot ?? '',
     'F. Digitalización': f.fecha_digitalizacion ? formatearFechaExcel(f.fecha_digitalizacion) : '',
-    'F. Cita': f.fecha_cita ? formatearFechaExcel(f.fecha_cita) : '',
+    // (2026-11-25) La cita que SE usó para juzgar (manual o agendada), no la
+    // del TMS: con origen CITA la del TMS puede venir vacía o divergir.
+    'F. Cita': (f.fecha_cita_usada || f.fecha_cita)
+      ? formatearFechaExcel(f.fecha_cita_usada || f.fecha_cita)
+      : '',
     'Causal (justificada)': f.novedad?.causal ?? '',
     'Justificación': f.novedad?.justificacion ?? '',
     'Registrada por': f.novedad ? (f.novedad.nombre || f.novedad.usuario || '') : '',
@@ -2098,7 +2106,9 @@ const DashboardCliente: React.FC<{ clienteId: string; modoExterno?: boolean }> =
       if (dm) return new Date(+dm[3], +dm[2] - 1, +dm[1]).getTime();
       return null;
     };
-    const juzgada = parseFecha(f.origen_promesa === 'CITA' ? (f.fecha_cita || f.fecha_promesa) : f.fecha_promesa);
+    // (2026-11-25) Con origen CITA se resta la cita CON LA QUE SE JUZGÓ
+    // (fecha_cita_usada) — la del TMS puede divergir de la usada.
+    const juzgada = parseFecha(f.origen_promesa === 'CITA' ? (f.fecha_cita_usada || f.fecha_cita || f.fecha_promesa) : f.fecha_promesa);
     const ref = f.fecha_entrega ? parseFecha(f.fecha_entrega) : Date.now();
     if (juzgada == null || ref == null) return '';
     const d = Math.round((ref - juzgada) / 86400000);
@@ -4759,7 +4769,7 @@ ${sel ? 'Quitar de la selección' : 'Ver solo este estado (toca varios para comb
                                     : <span className={`DC-guiaChip ${f.ot === 1 ? 'DC-guiaChipOTSi' : 'DC-guiaChipOTNo'}`}>{f.ot === 1 ? '✓ 1' : '✗ 0'}</span>}
                                 </td>
                                 <td>{formatearFecha(f.fecha_digitalizacion)}</td>
-                                <td>{formatearFecha(f.fecha_cita)}</td>
+                                <td>{formatearFecha(f.fecha_cita_usada || f.fecha_cita)}</td>
                               </tr>
                             ))}
                           </tbody>

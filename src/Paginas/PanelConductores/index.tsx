@@ -746,8 +746,12 @@ const PanelConductoresVista: React.FC = () => {
   const [vehiculosRechazadosDefinitivos, setVehiculosRechazadosDefinitivos] = useState<any[]>([]);
 
   // Perfil del usuario logueado (TENEDOR gestiona flota + conductores invitados).
-  const perfilUsuario = (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase();
-  const esTenedor = perfilUsuario === 'TENEDOR';
+  // (2026-11-25) En ESTADO, no leído de la cookie en cada render: si Seguridad
+  // corrigió el perfil (CONDUCTOR→TENEDOR), la carga de vehículos refresca
+  // cookie + estado y el panel se desbloquea SIN re-loguearse.
+  const [perfilCuenta, setPerfilCuenta] = useState<string>(
+    () => (Cookies.get('conductorPerfil') || 'CONDUCTOR').toUpperCase());
+  const esTenedor = perfilCuenta === 'TENEDOR';
   // Sesión IMPERSONADA (Seguridad entró vía login-como desde el alta): marca
   // el popup «Modo Seguridad» al entrar y viaja como editado_por en TODAS las
   // mutaciones → la bitácora del vehículo queda con el actor real.
@@ -904,6 +908,15 @@ const PanelConductoresVista: React.FC = () => {
         setVehiculosRechazadosDefinitivos(rechazadosDefinitivos);
         setVehiculosPropios(data.vehiculos.filter((v: any) => v.idUsuario === idUsuario));
 
+        // (2026-11-25) Perfil actual de la cuenta (el backend lo resuelve):
+        // si Seguridad lo corrigió —p. ej. CONDUCTOR→TENEDOR para que registre
+        // más placas— cookie + estado se refrescan aquí y el panel desbloquea
+        // «Registrar vehículo» e invitaciones sin re-loguearse.
+        const perfilServidor = (data.perfil || '').toUpperCase();
+        if (perfilServidor && perfilServidor !== perfilCuenta) {
+          Cookies.set('conductorPerfil', perfilServidor, { expires: 30 });
+          setPerfilCuenta(perfilServidor);
+        }
       } else {
           setVehicles([]);
           setVehiculosPropios([]);
