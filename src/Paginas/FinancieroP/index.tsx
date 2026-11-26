@@ -11,6 +11,7 @@ import HeaderModulo from '@/Componentes/HeaderModulo';
 import TrasladosP from './pestanas/TrasladosP';
 import ViajesP from './pestanas/ViajesP';
 import RequisicionesP from './pestanas/RequisicionesP';
+import ProveedoresNuevosP from './pestanas/ProveedoresNuevosP';
 import ContabilidadP from './pestanas/ContabilidadP';
 import PagosP from './pestanas/PagosP';
 import ServiciosP from './pestanas/ServiciosP';
@@ -26,6 +27,7 @@ const SUBTITULOS: Record<string, string> = {
   traslados: 'Traslados de presupuesto — aprobación de Presidencia',
   viajes: 'Solicitudes de viaje, anticipos y legalización',
   requisiciones: 'Requisiciones de compra y órdenes de compra',
+  proveedores: 'Proveedores nuevos — aprobación de Compras y carga en software contable',
   contabilidad: 'Facturas DIAN — recepción, radicación y causación',
   pagos: 'Pagos urgentes de Tesorería',
   servicios: 'Servicios públicos por inmueble y periodo',
@@ -34,7 +36,7 @@ const SUBTITULOS: Record<string, string> = {
 };
 
 export default function FinancieroP({ pestana = 'inicio' }: {
-  pestana?: 'inicio' | 'traslados' | 'viajes' | 'requisiciones' | 'contabilidad' | 'pagos' | 'servicios' | 'cajas' | 'config';
+  pestana?: 'inicio' | 'traslados' | 'viajes' | 'requisiciones' | 'proveedores' | 'contabilidad' | 'pagos' | 'servicios' | 'cajas' | 'config';
 }) {
   const sesion = useSesionFin();
 
@@ -56,6 +58,8 @@ export default function FinancieroP({ pestana = 'inicio' }: {
           <ViajesP usuario={sesion.usuario} />
         ) : pestana === 'requisiciones' ? (
           <RequisicionesP usuario={sesion.usuario} />
+        ) : pestana === 'proveedores' ? (
+          <ProveedoresNuevosP usuario={sesion.usuario} />
         ) : pestana === 'contabilidad' ? (
           <ContabilidadP usuario={sesion.usuario} />
         ) : pestana === 'pagos' ? (

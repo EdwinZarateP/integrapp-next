@@ -20,7 +20,7 @@ import './estilos.css';
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 const CACHE_KEY = 'integrapp.efectoTemporada';
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const N_PARTICULAS = 26;
+const N_PARTICULAS = 25;
 
 type CacheEfecto = { efecto: string; ts: number };
 

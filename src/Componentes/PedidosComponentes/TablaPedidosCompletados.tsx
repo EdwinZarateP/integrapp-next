@@ -2,12 +2,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Cookies from 'js-cookie';
 import Swal from 'sweetalert2';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import { FaFileExport, FaFileExcel, FaTable } from 'react-icons/fa';
 import {
   listarVehiculosCompletados,
   exportarCompletados,
   exportarCompletadosDetallado,
   asignarCausalCompletado,
+  reabrirVehiculo,
   ListarCompletadosResponse
 } from '@/Funciones/ApiPedidos/apiPedidos';
 import { usoVehiculoSolicitado, badgeUsoVehiculo, cumpleFiltroUsoVehiculo } from '@/Funciones/usoVehiculoSolicitado';
@@ -52,6 +55,7 @@ const numeroSeguro = (v?: number | string | null) => {
 };
 
 const TablaPedidosCompletados: React.FC = () => {
+  const router = useRouter();
   const perfil = Cookies.get('perfilPedidosCookie') || '';
   const usuario = Cookies.get('usuarioPedidosCookie') || '';
   const usuarioRegional = Cookies.get('regionalPedidosCookie') || '';
@@ -271,6 +275,64 @@ const TablaPedidosCompletados: React.FC = () => {
     </th>
   );
 
+  const confirmarReapertura = async (consecutivo: string) => {
+    const { value: destino } = await Swal.fire({
+      title: 'Reabrir en Pedidos',
+      text: `Se devolverán todos los pedidos de ${consecutivo}. Los números anteriores quedarán en el historial de reapertura.`,
+      input: 'select',
+      inputPlaceholder: 'Selecciona qué necesitas corregir',
+      inputOptions: { vulcano: 'Volver a cargar números de Vulcano', edicion: 'Editar y volver a autorizar el vehículo' },
+      inputValidator: (value) => value ? null : 'Selecciona el destino',
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar',
+      confirmButtonText: 'Continuar',
+    });
+    if (destino !== 'vulcano' && destino !== 'edicion') return;
+
+    const resultado = await Swal.fire<{ pedidos_reabiertos: number }>({
+      title: 'Motivo de reapertura',
+      text: consecutivo,
+      input: 'textarea',
+      inputAttributes: { maxlength: '500', 'aria-label': 'Motivo de reapertura' },
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar',
+      confirmButtonText: 'Reabrir consecutivo completo',
+      showLoaderOnConfirm: true,
+      allowOutsideClick: () => !Swal.isLoading(),
+      allowEscapeKey: () => !Swal.isLoading(),
+      preConfirm: async (value: string) => {
+        const motivo = value.trim();
+        if (!motivo) {
+          Swal.showValidationMessage('Escribe el motivo de la reapertura');
+          return false;
+        }
+        try {
+          return await reabrirVehiculo(consecutivo, motivo, destino);
+        } catch (error) {
+          const respuesta = axios.isAxiosError(error) ? error.response : undefined;
+          const detalle = respuesta?.data?.detail;
+          Swal.showValidationMessage(respuesta?.status === 401
+            ? 'Vuelve a iniciar sesión para reabrir el vehículo'
+            : typeof detalle === 'string' ? detalle
+              : error instanceof Error ? error.message : 'No se pudo reabrir el consecutivo');
+          return false;
+        }
+      },
+    });
+    if (!resultado.value) return;
+
+    setData(actuales => actuales.filter(g => g.consecutivo_vehiculo !== consecutivo));
+    const siguiente = await Swal.fire({
+      title: 'Consecutivo reabierto',
+      text: `${resultado.value.pedidos_reabiertos} registros volvieron a Pedidos.`,
+      icon: 'success',
+      confirmButtonText: 'Ir a Pedidos',
+      showCancelButton: true,
+      cancelButtonText: 'Cerrar',
+    });
+    if (siguiente.isConfirmed) router.push('/Pedidos/');
+  };
+
   const asignarCausal = async (g: ListarCompletadosResponse) => {
     const opcionesHtml = OPCIONES_CAUSAL
       .map(op => `<option value="${op}">${op}</option>`).join('');
@@ -474,7 +536,14 @@ const TablaPedidosCompletados: React.FC = () => {
                           {expanded.has(g.consecutivo_vehiculo) ? '−' : '+'}
                         </button>
                       </td>
-                      <td>{g.consecutivo_vehiculo}</td>
+                      <td>
+                        {g.consecutivo_vehiculo}
+                        {perfil === 'ADMIN' && (
+                          <button type="button" onClick={() => confirmarReapertura(g.consecutivo_vehiculo)}>
+                            Reabrir en Pedidos
+                          </button>
+                        )}
+                      </td>
                       <td>{(g.tipo_vehiculo || '').split('_')[0] || '—'}</td>
                       <td>{(g.tipo_vehiculo_sicetac || '').split('_')[0] || '—'}</td>
                       <td>{g.destino}</td>

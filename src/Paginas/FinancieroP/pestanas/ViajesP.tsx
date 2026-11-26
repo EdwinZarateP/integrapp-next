@@ -1,20 +1,31 @@
 'use client';
 
 /**
- * Viajes y anticipos: solicitud → autorización → presupuesto (tarifa A/B/C
- * confidencial) → tiquetes → anticipo → legalización → cierre.
- * Puerto React de views-viajes.js del módulo externo (1.135 líneas).
+ * Viajes y anticipos: bandeja con vistas (mías / por gestionar / todos),
+ * búsqueda, columna «pendiente de» derivada de la máquina serializada
+ * (Autoriza → Controller: presupuesto → Compras: tiquetes → Anticipo),
+ * menú ⋮ con impresiones y detalle con timeline de 4 pasos. Puerto React de
+ * views-viajes.js (1.135 líneas) sobre la API /fin/viajes.
  */
-import { useEffect, useState } from 'react';
-import { FaPlus, FaEye, FaCheck, FaTimes, FaBan, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import { useMemo, useState } from 'react';
 import {
-  AutorizadorViaje, CIUDADES_VIAJE, UsuarioFin, Viaje,
-  corregirViaje, crearViaje, listarAutorizadores, listarViajes, transicionViaje,
+  FaPlus, FaEye, FaCheck, FaTimes, FaBan, FaUndo, FaPrint, FaEllipsisV, FaTrash, FaPlane, FaMoneyBillWave, FaCog,
+} from 'react-icons/fa';
+import {
+  UsuarioFin, Viaje, eliminarViajeAdmin, listarViajes, transicionViaje,
 } from '@/Funciones/ApiPedidos/financiero';
 import { useFinDatos } from '../nucleo/useFinDatos';
 import { Campo, ModalFin, fechaCorta, pesos, toastFin } from '../nucleo/componentes';
-import { confirmar, pedirNumero, pedirTexto } from '../nucleo/dialogos';
+import { confirmar, pedirTexto } from '../nucleo/dialogos';
 import { AdjuntosFin } from './adjuntosFin';
+import ModalViajeForm from './viajes/ModalViajeForm';
+import ModalTiquetes from './viajes/ModalTiquetes';
+import ModalAnticipo from './viajes/ModalAnticipo';
+import ModalPresupuesto from './viajes/ModalPresupuesto';
+import ModalTarifas from './viajes/ModalTarifas';
+import { imprimirViaje } from '../utiles/imprimirViaje';
+import { DiaPresupuesto, totalGrupo, totalOtros, totalPresupuesto } from '../utiles/viajes/presupuesto';
+import { listaDias, tipoDia } from '../utiles/viajes/festivos';
 
 const ES_ADMIN = (u: UsuarioFin) => u.es_admin || u.rol === 'admin';
 const ES_CONTROLLER = (u: UsuarioFin) => ['controller', 'gerente_financiero'].includes(u.rol) || ES_ADMIN(u);
@@ -32,320 +43,376 @@ const ETIQUETA: Record<string, string> = {
   CERRADO: 'Cerrado', ANULADO: 'Anulado', BORRADOR: 'Borrador',
 };
 const ESTADOS = ['', ...Object.keys(ETIQUETA)];
+const BADGE: Record<string, string> = {
+  SOLICITADO: 'fin-badgeAmb', AUTORIZADO: 'fin-badgeInfo', PRESUPUESTO_ASIGNADO: 'fin-badgeInfo',
+  TIQUETES_GESTIONADOS: 'fin-badgeAmb', ANTICIPO_PAGADO: 'fin-badgeOk',
+  LEGALIZADO: 'fin-badgeOk', CERRADO: 'fin-badgeGris', RECHAZADO: 'fin-badgeMal', ANULADO: 'fin-badgeMal',
+};
+
+type Vista = 'mias' | 'turno' | 'todas';
+
+function BadgeEstadoViaje({ estado }: { estado: string }) {
+  return <span className={`fin-badge ${BADGE[estado] ?? 'fin-badgeGris'}`}>{ETIQUETA[estado] ?? estado}</span>;
+}
+
+/** Turno del usuario sobre el viaje, derivado del estado serializado + rol. */
+function turnoDe(v: Viaje, u: UsuarioFin): string {
+  if (v.estado === 'SOLICITADO' && (ES_AUTORIZADOR(u) || v.autorizador_id === u.id)) return 'Autorizar';
+  if (v.estado === 'AUTORIZADO' && ES_CONTROLLER(u)) return 'Generar presupuesto';
+  if (v.estado === 'PRESUPUESTO_ASIGNADO' && ES_COMPRAS(u) && v.requiere_tiquetes) return 'Comprar tiquetes';
+  if (v.estado === 'TIQUETES_GESTIONADOS' && ES_TESORERIA(u)) return 'Gestionar anticipo';
+  return '';
+}
+
+/** «Pendiente de» que se muestra bajo el estado en la fila. */
+function pendienteDe(v: Viaje): string {
+  switch (v.estado) {
+    case 'SOLICITADO': return 'Pendiente de autorización';
+    case 'AUTORIZADO': return 'Controller: presupuesto';
+    case 'PRESUPUESTO_ASIGNADO': return 'Compras: tiquetes';
+    case 'TIQUETES_GESTIONADOS': return 'Anticipo: Tesorería';
+    default: return '';
+  }
+}
 
 export default function ViajesP({ usuario }: { usuario: UsuarioFin }) {
   const [estado, setEstado] = useState('');
+  const [vista, setVista] = useState<Vista>('mias');
+  const [busqueda, setBusqueda] = useState('');
   const { datos, cargando, error, recargar } = useFinDatos<Viaje[]>(
     () => listarViajes(estado || undefined), [estado],
   );
   const [modalNuevo, setModalNuevo] = useState(false);
   const [editar, setEditar] = useState<Viaje | null>(null);
   const [detalle, setDetalle] = useState<Viaje | null>(null);
+  const [tarifas, setTarifas] = useState(false);
+  const [menuFila, setMenuFila] = useState<string | null>(null);
+
+  const mias = (datos ?? []).filter((v) => v.solicitante_id === usuario.id);
+  const enTurno = (datos ?? []).filter((v) => turnoDe(v, usuario));
+
+  const filtradas = useMemo(() => {
+    let base = datos ?? [];
+    if (vista === 'mias') base = mias;
+    else if (vista === 'turno') base = enTurno;
+    const q = busqueda.trim().toLowerCase();
+    if (q) {
+      base = base.filter((v) => [v.consecutivo, v.viajero_nombre, v.origen, v.destino, v.objetivo, v.solicitante_nombre]
+        .filter(Boolean).join(' ').toLowerCase().includes(q));
+    }
+    return base;
+  }, [datos, vista, busqueda, usuario]);
+
+  const accion = async (v: Viaje, acc: string, recargarFn: () => void, datosAdicionales?: Record<string, unknown>) => {
+    let observacion = '';
+    if (acc === 'RECHAZAR') {
+      const motivo = await pedirTexto(`Rechazar ${v.consecutivo}`, 'Motivo del rechazo (obligatorio)');
+      if (motivo === null) return;
+      observacion = motivo;
+    } else if (acc !== 'AUTORIZAR' && !(await confirmar(`${acc.replace('_', ' ')} · ${v.consecutivo}`))) {
+      return;
+    }
+    try {
+      const r = await transicionViaje(v.id, { accion: acc, observacion, version: v.version, datos_adicionales: datosAdicionales });
+      toastFin(`${v.consecutivo}: ${ETIQUETA[r.estado] ?? r.estado}`);
+      recargarFn();
+    } catch (e) {
+      toastFin(e instanceof Error ? e.message : 'Error', 'mal');
+    }
+  };
+
+  const eliminar = async (v: Viaje) => {
+    if (!await confirmar(`Eliminar ${v.consecutivo}`, 'Acción irreversible de administrador. Queda con snapshot en la bitácora.')) return;
+    const motivo = await pedirTexto(`Eliminar ${v.consecutivo}`, 'Motivo (mínimo 5 caracteres)');
+    if (!motivo) return;
+    try {
+      await eliminarViajeAdmin(v.id, motivo);
+      toastFin(`${v.consecutivo} eliminado`);
+      recargar();
+      setDetalle(null);
+    } catch (e) {
+      toastFin(e instanceof Error ? e.message : 'Error', 'mal');
+    }
+  };
 
   return (
-    <div className="fin-pagina">
+    <div className="fin-pagina" onClick={() => setMenuFila(null)}>
       <div className="fin-barra">
         <h2 className="fin-titulo">Viajes y anticipos</h2>
         <div className="fin-filtros">
+          <input className="fin-input" placeholder="Buscar nº, viajero, destino…"
+                 value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           <select className="fin-input" value={estado} onChange={(e) => setEstado(e.target.value)}>
             {ESTADOS.map((e) => <option key={e} value={e}>{e ? ETIQUETA[e] : 'Todos los estados'}</option>)}
           </select>
+          {ES_ADMIN(usuario) && (
+            <button className="fin-btn fin-btnSecundario" onClick={() => setTarifas(true)}>
+              <FaCog /> Tarifas y autorizadores
+            </button>
+          )}
           <button className="fin-btn fin-btnPrimario" onClick={() => setModalNuevo(true)}>
             <FaPlus /> Solicitar viaje
           </button>
         </div>
       </div>
 
+      <div className="fin-tabs">
+        {([
+          ['mias', 'Mis viajes', mias.length],
+          ['turno', 'Por gestionar', enTurno.length],
+          ['todas', 'Todos', (datos ?? []).length],
+        ] as [Vista, string, number][]).map(([v, etiqueta, n]) => (
+          <button key={v} className={`fin-tab ${vista === v ? 'fin-tabActivo' : ''}`} onClick={() => setVista(v)}>
+            {etiqueta} <span className="fin-badge fin-badgeGris">{n}</span>
+          </button>
+        ))}
+      </div>
+
       {cargando && !datos && <div className="fin-vacio">Cargando viajes…</div>}
       {error && <div className="fin-error">{error}</div>}
-      {datos && datos.length === 0 && !cargando && <div className="fin-vacio">No hay viajes para ti en este filtro.</div>}
+      {datos && filtradas.length === 0 && !cargando && <div className="fin-vacio">No hay viajes en este filtro.</div>}
 
-      {!!datos?.length && (
+      {!!filtradas.length && (
         <div className="fin-tablaWrap">
           <table className="fin-tabla">
             <thead>
               <tr>
-                <th>Consecutivo</th><th>Ruta</th><th>Viajero</th><th>Fecha viaje</th>
+                <th>Consecutivo</th><th>Viajero</th><th>Ruta</th><th>Fechas</th>
                 <th className="fin-num">Presupuesto</th><th>Estado</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {datos.map((v) => (
-                <tr key={v.id} className={`fin-fila fin-filaV-${v.estado}`}>
-                  <td><button className="fin-link" onClick={() => setDetalle(v)}>{v.consecutivo}</button></td>
-                  <td>{v.origen} → {v.destino}</td>
-                  <td>{v.viajero_nombre}</td>
-                  <td>{(v.fecha_inicio || '').slice(0, 10)}</td>
-                  <td className="fin-num">{pesos(v.total_presupuesto)}</td>
-                  <td><BadgeEstadoViaje estado={v.estado} /></td>
-                  <td className="fin-acciones">
-                    {v.estado === 'SOLICITADO' && ES_AUTORIZADOR(usuario) && (
-                      <>
-                        <button className="fin-btnIcono fin-icoOk" title="Autorizar"
-                                onClick={() => accion(v, 'AUTORIZAR', recargar)}><FaCheck /></button>
-                        <button className="fin-btnIcono fin-icoMal" title="Rechazar"
-                                onClick={() => accion(v, 'RECHAZAR', recargar)}><FaTimes /></button>
-                      </>
-                    )}
-                    {(v.estado === 'SOLICITADO' || v.estado === 'RECHAZADO') && v.solicitante_id === usuario.id && (
-                      v.estado === 'RECHAZADO'
-                        ? <button className="fin-btnIcono fin-icoAzul" title="Corregir y reenviar"
-                                  onClick={() => setEditar(v)}><FaUndo /></button>
-                        : <button className="fin-btnIcono fin-icoGris" title="Anular"
-                                  onClick={() => accion(v, 'ANULAR', recargar)}><FaBan /></button>
-                    )}
-                    <button className="fin-btnIcono fin-icoAzul" title="Detalle" onClick={() => setDetalle(v)}><FaEye /></button>
-                  </td>
-                </tr>
-              ))}
+              {filtradas.map((v) => {
+                const turno = turnoDe(v, usuario);
+                return (
+                  <tr key={v.id} className={`fin-fila fin-filaV-${v.estado}`}>
+                    <td><button className="fin-link" onClick={() => setDetalle(v)}>{v.consecutivo}</button></td>
+                    <td><b>{v.viajero_nombre}</b>
+                      {v.categoria_tarifa && <div className="fin-suave" style={{ fontSize: 11 }}>Cat. {v.categoria_tarifa}</div>}
+                    </td>
+                    <td>{v.origen} → {v.destino}</td>
+                    <td>{(v.fecha_inicio || '').slice(0, 10)}<div className="fin-suave" style={{ fontSize: 11 }}>→ {(v.fecha_fin || '').slice(0, 10)}</div></td>
+                    <td className="fin-num">{v.total_presupuesto ? pesos(v.total_presupuesto) : '—'}</td>
+                    <td>
+                      <BadgeEstadoViaje estado={v.estado} />
+                      {pendienteDe(v) && <div className="fin-suave" style={{ fontSize: 11 }}>{pendienteDe(v)}</div>}
+                    </td>
+                    <td className="fin-acciones">
+                      {turno && <span className="fin-badge fin-badgeAmb">{turno}</span>}
+                      {v.estado === 'SOLICITADO' && ES_AUTORIZADOR(usuario) && (
+                        <>
+                          <button className="fin-btnIcono fin-icoOk" title="Autorizar"
+                                  onClick={() => void accion(v, 'AUTORIZAR', recargar)}><FaCheck /></button>
+                          <button className="fin-btnIcono fin-icoMal" title="Rechazar"
+                                  onClick={() => void accion(v, 'RECHAZAR', recargar)}><FaTimes /></button>
+                        </>
+                      )}
+                      {(v.estado === 'SOLICITADO' || v.estado === 'RECHAZADO') && v.solicitante_id === usuario.id && (
+                        v.estado === 'RECHAZADO'
+                          ? <button className="fin-btnIcono fin-icoAzul" title="Corregir y reenviar"
+                                    onClick={() => setEditar(v)}><FaUndo /></button>
+                          : <button className="fin-btnIcono fin-icoGris" title="Anular"
+                                    onClick={() => void accion(v, 'ANULAR', recargar)}><FaBan /></button>
+                      )}
+                      <button className="fin-btnIcono fin-icoAzul" title="Detalle" onClick={() => setDetalle(v)}><FaEye /></button>
+                      <span style={{ position: 'relative' }}>
+                        <button className="fin-btnIcono fin-icoGris" title="Más opciones"
+                                onClick={(e) => { e.stopPropagation(); setMenuFila(menuFila === v.id ? null : v.id); }}>
+                          <FaEllipsisV />
+                        </button>
+                        {menuFila === v.id && (
+                          <div className="fin-menuFila" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => { setMenuFila(null); setDetalle(v); }}><FaEye /> Ver detalle del viaje</button>
+                            <button onClick={() => { setMenuFila(null); imprimirViaje(v, diasDe(v), otrosDe(v)); }}>
+                              <FaPrint /> {v.total_presupuesto ? 'Imprimir presupuesto' : 'Imprimir formato'}
+                            </button>
+                            {ES_ADMIN(usuario) && (
+                              <button className="fin-textoMal" onClick={() => { setMenuFila(null); void eliminar(v); }}>
+                                <FaTrash /> Eliminar (admin)
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       {(modalNuevo || editar) && (
-        <ModalViajeForm
-          usuario={usuario}
-          editar={editar}
-          onCerrar={() => { setModalNuevo(false); setEditar(null); }}
-          onListo={() => { setModalNuevo(false); setEditar(null); recargar(); }}
-        />
+        <ModalViajeForm usuario={usuario} editar={editar}
+                        onCerrar={() => { setModalNuevo(false); setEditar(null); }}
+                        onListo={() => { setModalNuevo(false); setEditar(null); recargar(); }} />
       )}
+      {tarifas && <ModalTarifas onCerrar={() => setTarifas(false)} />}
       {detalle && (
         <ModalViajeDetalle viaje={detalle} usuario={usuario}
                            onCerrar={() => setDetalle(null)}
                            onCorregir={(v) => { setDetalle(null); setEditar(v); }}
-                           onCambio={() => { recargar(); setDetalle(null); }} />
+                           onCambio={() => { recargar(); setDetalle(null); }}
+                           onEliminar={() => void eliminar(detalle)} />
       )}
     </div>
   );
 }
 
-function BadgeEstadoViaje({ estado }: { estado: string }) {
-  const claves: Record<string, string> = {
-    SOLICITADO: 'fin-badgeAmb', AUTORIZADO: 'fin-badgeInfo', PRESUPUESTO_ASIGNADO: 'fin-badgeInfo',
-    TIQUETES_GESTIONADOS: 'fin-badgeAmb', ANTICIPO_PAGADO: 'fin-badgeOk',
-    LEGALIZADO: 'fin-badgeOk', CERRADO: 'fin-badgeGris', RECHAZADO: 'fin-badgeMal', ANULADO: 'fin-badgeMal',
-  };
-  return <span className={`fin-badge ${claves[estado] ?? 'fin-badgeGris'}`}>{ETIQUETA[estado] ?? estado}</span>;
+/** items del presupuesto → DiasPresupuesto (para resumen e impresión). */
+function diasDe(v: Viaje): DiaPresupuesto[] {
+  return (v.presupuesto_items ?? []) as unknown as DiaPresupuesto[];
 }
 
-async function accion(v: Viaje, acc: string, recargar: () => void, datosAdicionales?: Record<string, unknown>) {
-  let observacion = '';
-  if (acc === 'RECHAZAR') {
-    const motivo = await pedirTexto(`Rechazar ${v.consecutivo}`, 'Motivo del rechazo (obligatorio)');
-    if (motivo === null) return;
-    observacion = motivo;
-  } else if (acc !== 'AUTORIZAR' && !(await confirmar(`${acc.replace('_', ' ')} · ${v.consecutivo}`))) {
-    return;
-  }
-  try {
-    const r = await transicionViaje(v.id, { accion: acc, observacion, version: v.version, datos_adicionales: datosAdicionales });
-    toastFin(`${v.consecutivo}: ${ETIQUETA[r.estado] ?? r.estado}`);
-    recargar();
-  } catch (e) {
-    toastFin(e instanceof Error ? e.message : 'Error', 'mal');
-  }
+/** otros gastos del detalle → array para resumen e impresión. */
+function otrosDe(v: Viaje): { n?: string; v?: number[] }[] {
+  const det = (v.presupuesto_detalle ?? {}) as Record<string, unknown>;
+  return (det.otros as { n?: string; v?: number[] }[]) ?? [];
 }
 
-// ── Modal: solicitar / corregir viaje ──────────────────────────────────────
+// ── Modal: detalle con timeline de 4 pasos ─────────────────────────────────
 
-function ModalViajeForm({ usuario, editar, onCerrar, onListo }: {
-  usuario: UsuarioFin; editar: Viaje | null; onCerrar: () => void; onListo: () => void;
-}) {
-  const [autorizadores, setAutorizadores] = useState<AutorizadorViaje[] | null>(null);
-  const [form, setForm] = useState({
-    origen: editar?.origen ?? 'BARRANQUILLA',
-    destino: editar?.destino ?? 'BOGOTA',
-    fecha_inicio: (editar?.fecha_inicio ?? '').slice(0, 10),
-    fecha_fin: (editar?.fecha_fin ?? '').slice(0, 10),
-    objetivo: editar?.objetivo ?? '',
-    autorizador_id: editar?.autorizador_id ?? '',
-    requiere_tiquetes: editar?.requiere_tiquetes ?? true,
-    observaciones: editar?.observaciones ?? '',
-    viajero_cargo: editar?.viajero_cargo ?? '',
-  });
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    listarAutorizadores().then(setAutorizadores).catch(() => setAutorizadores([]));
-  }, []);
-
-  const guardar = async () => {
-    if (!form.fecha_inicio || !form.fecha_fin) return setError('Define las fechas del viaje.');
-    if (form.objetivo.trim().length < 3) return setError('Describe el objetivo del viaje.');
-    if (!form.autorizador_id) return setError('Elige quién autoriza.');
-    if (form.fecha_fin < form.fecha_inicio) return setError('La fecha de fin es anterior a la de inicio.');
-    setGuardando(true);
-    const payload = {
-      viajero_nombre: usuario.nombre,
-      origen: form.origen, destino: form.destino,
-      fecha_inicio: new Date(form.fecha_inicio + 'T08:00:00').toISOString(),
-      fecha_fin: new Date(form.fecha_fin + 'T18:00:00').toISOString(),
-      objetivo: form.objetivo,
-      autorizador_id: form.autorizador_id,
-      requiere_tiquetes: form.requiere_tiquetes,
-      observaciones: form.observaciones || null,
-      viajero_cargo: form.viajero_cargo || null,
-    };
-    try {
-      const r = editar
-        ? await corregirViaje(editar.id, payload, editar.version)
-        : await crearViaje(payload);
-      toastFin(editar
-        ? `${r.consecutivo} corregido y reenviado a autorización`
-        : `Solicitud ${r.consecutivo} enviada a autorización`);
-      onListo();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al guardar');
-    } finally { setGuardando(false); }
-  };
-
-  return (
-    <ModalFin titulo={editar ? `Corregir viaje ${editar.consecutivo}` : 'Solicitud de viaje'} onCerrar={onCerrar} ancho={680}>
-      {error && <div className="fin-error">{error}</div>}
-      <p className="fin-suave">Viajero: <b>{usuario.nombre}</b> (solo puedes solicitar viajes para ti).</p>
-      <div className="fin-grid">
-        <Campo etiqueta="Origen">
-          <select className="fin-input" value={form.origen} onChange={(e) => setForm({ ...form, origen: e.target.value })}>
-            {CIUDADES_VIAJE.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </Campo>
-        <Campo etiqueta="Destino">
-          <select className="fin-input" value={form.destino} onChange={(e) => setForm({ ...form, destino: e.target.value })}>
-            {CIUDADES_VIAJE.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </Campo>
-        <Campo etiqueta="Fecha inicio">
-          <input type="date" className="fin-input" value={form.fecha_inicio}
-                 onChange={(e) => setForm({ ...form, fecha_inicio: e.target.value })} />
-        </Campo>
-        <Campo etiqueta="Fecha fin">
-          <input type="date" className="fin-input" value={form.fecha_fin}
-                 onChange={(e) => setForm({ ...form, fecha_fin: e.target.value })} />
-        </Campo>
-        <Campo etiqueta="Cargo del viajero (opcional)">
-          <input className="fin-input" value={form.viajero_cargo}
-                 onChange={(e) => setForm({ ...form, viajero_cargo: e.target.value })} />
-        </Campo>
-        <Campo etiqueta="Autoriza">
-          <select className="fin-input" value={form.autorizador_id}
-                  onChange={(e) => setForm({ ...form, autorizador_id: e.target.value })}>
-            <option value="">— elegir —</option>
-            {autorizadores?.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-          </select>
-        </Campo>
-      </div>
-      <Campo etiqueta="Objetivo del viaje">
-        <textarea className="fin-input" rows={2} value={form.objetivo}
-                  onChange={(e) => setForm({ ...form, objetivo: e.target.value })} />
-      </Campo>
-      <Campo etiqueta="Observaciones (opcional)">
-        <textarea className="fin-input" rows={2} value={form.observaciones}
-                  onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
-      </Campo>
-      <label className="fin-check">
-        <input type="checkbox" checked={form.requiere_tiquetes}
-               onChange={(e) => setForm({ ...form, requiere_tiquetes: e.target.checked })} />
-        Requiere gestión de tiquetes por Compras
-      </label>
-      <div className="fin-modalPie">
-        <button className="fin-btn fin-btnSecundario" onClick={onCerrar} disabled={guardando}>Cancelar</button>
-        <button className="fin-btn fin-btnPrimario" onClick={guardar} disabled={guardando}>
-          {guardando ? 'Enviando…' : editar ? 'Reenviar a autorización' : 'Enviar a autorización'}
-        </button>
-      </div>
-    </ModalFin>
-  );
-}
-
-// ── Modal: detalle con acciones por paso ───────────────────────────────────
-
-function ModalViajeDetalle({ viaje, usuario, onCerrar, onCambio, onCorregir }: {
-  viaje: Viaje; usuario: UsuarioFin; onCerrar: () => void; onCambio: () => void; onCorregir: (v: Viaje) => void;
+function ModalViajeDetalle({ viaje, usuario, onCerrar, onCambio, onCorregir, onEliminar }: {
+  viaje: Viaje; usuario: UsuarioFin; onCerrar: () => void; onCambio: () => void;
+  onCorregir: (v: Viaje) => void; onEliminar: () => void;
 }) {
   const v = viaje;
-  const [ppto, setPpto] = useState({ categoria_tarifa: v.categoria_tarifa ?? 'A', total: v.total_presupuesto || 0 });
   const [error, setError] = useState('');
+  const [modal, setModal] = useState<'tiquetes' | 'anticipo' | 'presupuesto' | null>(null);
 
-  const puedePpto = v.estado === 'AUTORIZADO' && ES_CONTROLLER(usuario);
-  const puedeTiquetes = v.estado === 'PRESUPUESTO_ASIGNADO' && ES_COMPRAS(usuario) && v.requiere_tiquetes;
-  const puedeAnticipo = v.estado === 'TIQUETES_GESTIONADOS' && ES_TESORERIA(usuario);
+  const esSolicitante = v.solicitante_id === usuario.id;
+  const veCategoria = ES_CONTROLLER(usuario) || ES_AUTORIZADOR(usuario) || v.autorizador_id === usuario.id;
+  const dias = listaDias((v.fecha_inicio || '').slice(0, 10), (v.fecha_fin || '').slice(0, 10));
+  const especiales = dias.filter((d) => tipoDia(d).tipo !== 'habil').length;
+  const diasPpto = diasDe(v);
+  const otros = otrosDe(v);
+  const det = (v.presupuesto_detalle ?? {}) as Record<string, unknown>;
+  const tq = (v.tiquetes_detalle ?? {}) as Record<string, unknown>;
+  const an = (v.anticipo_detalle ?? {}) as Record<string, unknown>;
+  const anticipoCambio = Boolean(an.valorPpto && Number(an.valorPpto) !== Number(v.total_presupuesto));
+
+  const pasos = [
+    { t: '1. Autorización', ok: v.estado !== 'SOLICITADO' && v.fecha_autorizacion != null,
+      s: v.estado === 'RECHAZADO' ? 'Rechazado' : (v.fecha_autorizacion ? fechaCorta(v.fecha_autorizacion) : 'Pendiente') },
+    { t: '2. Presupuesto (Controller)', ok: diasPpto.length > 0 || v.total_presupuesto > 0,
+      s: v.total_presupuesto ? `${pesos(v.total_presupuesto)}${det.por ? ` · ${det.por}` : ''}` : 'Pendiente' },
+    { t: '3. Tiquetes (Compras)', ok: Boolean(tq.hecho),
+      s: tq.hecho ? (tq.no_aplica || tq.noAplica ? 'No requiere tiquetes' : `${pesos(Number(tq.valor) || 0)}`) : (v.requiere_tiquetes ? 'Por comprar' : 'No requiere') },
+    { t: '4. Anticipo (Tesorería)', ok: v.estado === 'ANTICIPO_PAGADO' || v.estado === 'LEGALIZADO' || v.estado === 'CERRADO' || Boolean(an.hecho),
+      s: an.hecho ? `${pesos(Number(an.valor) || 0)}${an.por ? ` · ${an.por}` : ''}` : (tq.hecho ? 'Por gestionar el pago' : 'Espera los tiquetes') },
+  ];
+
+  const puedeAnular = !['CERRADO', 'ANULADO', 'RECHAZADO'].includes(v.estado) && (ES_ADMIN(usuario) || (esSolicitante && v.estado === 'SOLICITADO'));
+  const puedeCorregir = esSolicitante && v.estado === 'RECHAZADO';
+  const puedeTiquetes = ES_COMPRAS(usuario) && (v.estado === 'PRESUPUESTO_ASIGNADO' || (v.requiere_tiquetes && ['TIQUETES_GESTIONADOS', 'ANTICIPO_PAGADO'].includes(v.estado)));
+  const puedeAnticipo = ES_TESORERIA(usuario) && (v.estado === 'TIQUETES_GESTIONADOS' || ['ANTICIPO_PAGADO', 'LEGALIZADO'].includes(v.estado));
+  const puedePpto = ES_CONTROLLER(usuario) && (v.estado === 'AUTORIZADO' || ['PRESUPUESTO_ASIGNADO', 'TIQUETES_GESTIONADOS', 'ANTICIPO_PAGADO'].includes(v.estado));
   const puedeLegalizar = v.estado === 'ANTICIPO_PAGADO'
-    && (v.solicitante_id === usuario.id || ['contabilidad', 'tesoreria'].includes(usuario.rol) || ES_ADMIN(usuario));
+    && (esSolicitante || ['contabilidad', 'tesoreria'].includes(usuario.rol) || ES_ADMIN(usuario));
   const puedeCerrar = v.estado === 'LEGALIZADO' && ES_CONTA(usuario);
-  const puedeCorregir = v.solicitante_id === usuario.id && v.estado === 'RECHAZADO';
+
+  const accionSimple = async (acc: string, datos?: Record<string, unknown>) => {
+    try {
+      const r = await transicionViaje(v.id, { accion: acc, version: v.version, datos_adicionales: datos });
+      toastFin(`${v.consecutivo}: ${ETIQUETA[r.estado] ?? r.estado}`);
+      onCambio();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+  };
 
   return (
-    <ModalFin titulo={`Viaje ${v.consecutivo}`} onCerrar={onCerrar} ancho={860}>
+    <ModalFin titulo={`Viaje ${v.consecutivo}`} onCerrar={onCerrar} ancho={900}>
       {error && <div className="fin-error">{error}</div>}
+
+      {/* Timeline de pasos */}
+      {v.estado !== 'RECHAZADO' && v.estado !== 'ANULADO' && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {pasos.map((p) => (
+            <div key={p.t} className="fin-pasoCard" style={{
+              flex: '1 1 180px',
+              borderColor: p.ok ? '#16a34a' : undefined,
+              background: p.ok ? '#f0fdf4' : undefined,
+            }}>
+              <b style={{ fontSize: 12 }}>{p.ok ? '✅' : '⏳'} {p.t}</b>
+              <div className="fin-suave" style={{ fontSize: 11 }}>{p.s}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {v.estado === 'RECHAZADO' && Boolean(v.observacion_autorizacion) && (
+        <div className="fin-error"><b>Motivo del rechazo:</b> {v.observacion_autorizacion}</div>
+      )}
+
       <div className="fin-grid">
         <Campo etiqueta="Estado"><BadgeEstadoViaje estado={v.estado} /></Campo>
         <Campo etiqueta="Ruta">{v.origen} → {v.destino}</Campo>
         <Campo etiqueta="Viajero">{v.viajero_nombre}{v.viajero_cargo ? ` (${v.viajero_cargo})` : ''}</Campo>
-        <Campo etiqueta="Fechas">{fechaCorta(v.fecha_inicio)} → {fechaCorta(v.fecha_fin)}</Campo>
+        <Campo etiqueta="Fechas">{(v.fecha_inicio || '').slice(0, 10)} → {(v.fecha_fin || '').slice(0, 10)}
+          <div className="fin-suave" style={{ fontSize: 11 }}>{dias.length} día(s) · {Math.max(0, dias.length - 1)} noche(s){especiales ? ` · ${especiales} sáb/dom/festivo` : ''}</div>
+        </Campo>
         <Campo etiqueta="Objetivo">{v.objetivo}</Campo>
-        <Campo etiqueta="Presupuesto">{pesos(v.total_presupuesto)}</Campo>
         <Campo etiqueta="Categoría de tarifa">
           {v.categoria_tarifa ?? <span className="fin-suave">confidencial</span>}
         </Campo>
-        {v.observacion_autorizacion && (
-          <Campo etiqueta="Observación de autorización">
-            <span className={v.estado === 'RECHAZADO' ? 'fin-textoMal' : ''}>{v.observacion_autorizacion}</span>
-          </Campo>
+        {Boolean(v.observaciones) && <Campo etiqueta="Observaciones">{v.observaciones}</Campo>}
+        {Boolean(v.observacion_autorizacion) && v.estado !== 'RECHAZADO' && (
+          <Campo etiqueta="Observación de autorización">{v.observacion_autorizacion}</Campo>
         )}
       </div>
 
-      {puedePpto && (
+      {/* Tiquetes */}
+      {Boolean(tq.hecho) && !Boolean(tq.no_aplica || tq.noAplica) && (
         <div className="fin-pasoCard">
-          <h4 className="fin-subtitulo">Asignar presupuesto y tarifa (Controller)</h4>
-          <div className="fin-filaAcciones">
-            <select className="fin-input" value={ppto.categoria_tarifa}
-                    onChange={(e) => setPpto({ ...ppto, categoria_tarifa: e.target.value })}>
-              <option value="A">Categoría A</option><option value="B">Categoría B</option><option value="C">Categoría C</option>
-            </select>
-            <input className="fin-input fin-num" type="number" min={0} value={ppto.total}
-                   onChange={(e) => setPpto({ ...ppto, total: parseFloat(e.target.value) || 0 })} />
-            <button className="fin-btn fin-btnPrimario" onClick={async () => {
-              try {
-                await transicionViaje(v.id, {
-                  accion: 'ASIGNAR_PRESUPUESTO', version: v.version,
-                  datos_adicionales: { categoria_tarifa: ppto.categoria_tarifa, total: ppto.total },
-                });
-                toastFin('Presupuesto asignado'); onCambio();
-              } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
-            }}>Asignar</button>
+          <b>✈ Tiquetes:</b> {pesos(Number(tq.valor) || 0)} · {String(tq.detalle ?? '')}
+          {tq.fecha ? ` · comprados el ${String(tq.fecha).slice(0, 10)}` : ''}{tq.por ? ` por ${tq.por}` : ''}
+          {tq.nota ? <div className="fin-suave" style={{ fontSize: 11 }}>{String(tq.nota)}</div> : null}
+        </div>
+      )}
+      {Boolean(tq.hecho && (tq.no_aplica || tq.noAplica)) && (
+        <div className="fin-pasoCard">✈ Este viaje no requiere tiquetes.</div>
+      )}
+
+      {/* Resumen del presupuesto */}
+      {(diasPpto.length > 0 || v.total_presupuesto > 0) && (
+        <div className="fin-pasoCard">
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <b>Presupuesto del viaje</b>
+            <span className="fin-suave" style={{ fontSize: 11 }}>
+              {veCategoria && v.categoria_tarifa ? `Categoría ${v.categoria_tarifa} · ` : ''}
+              {String(det.por ?? '')}{det.at ? ` · ${fechaCorta(String(det.at))}` : ''}
+              {((det.agregados as string[])?.length || 0) + ((det.quitados as string[])?.length || 0)
+                ? ` · ${(det.agregados as string[])?.length || 0} agregado(s), ${(det.quitados as string[])?.length || 0} quitado(s)` : ''}
+            </span>
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginTop: 8, textAlign: 'center' }}>
+            {['ALIMENTACIÓN', 'TRANSPORTE', 'ALOJAMIENTO'].map((g) => (
+              <div key={g}><div className="fin-suave" style={{ fontSize: 10 }}>{g}</div><b>{pesos(totalGrupo(diasPpto, g))}</b></div>
+            ))}
+            <div><div className="fin-suave" style={{ fontSize: 10 }}>OTROS GASTOS</div><b>{pesos(totalOtros(otros))}</b></div>
+            <div><div className="fin-suave" style={{ fontSize: 10 }}>TOTAL VIÁTICOS</div><b>{pesos(totalPresupuesto(diasPpto, otros))}</b></div>
+          </div>
+          {det.nota ? <p className="fin-suave" style={{ fontSize: 11, margin: '6px 0 0' }}>Nota: {String(det.nota)}</p> : null}
         </div>
       )}
 
-      {(puedeTiquetes || puedeAnticipo || puedeLegalizar || puedeCerrar) && (
-        <div className="fin-pasoCard fin-filaAcciones">
-          {puedeTiquetes && (
-            <button className="fin-btn fin-btnPrimario"
-                    onClick={() => accion(v, 'REGISTRAR_TIQUETES', onCambio, { registrado_por: usuario.nombre })}>
-              Registrar tiquetes gestionados
-            </button>
-          )}
-          {puedeAnticipo && (
-            <button className="fin-btn fin-btnPrimario" onClick={async () => {
-              const valor = await pedirNumero('Registrar anticipo pagado', `${v.consecutivo} · presupuesto ${pesos(v.total_presupuesto)}`);
-              if (valor === null) return;
-              accion(v, 'PAGAR_ANTICIPO', onCambio, { valor });
-            }}><FaMoneyBillWave /> Registrar anticipo pagado</button>
-          )}
-          {puedeLegalizar && (
-            <button className="fin-btn fin-btnPrimario"
-                    onClick={() => accion(v, 'LEGALIZAR', onCambio, { legalizado_por: usuario.nombre })}>
-              Legalizar viaje
-            </button>
-          )}
-          {puedeCerrar && (
-            <button className="fin-btn fin-btnPrimario" onClick={() => accion(v, 'CERRAR', onCambio)}>Cerrar viaje</button>
+      {/* Anticipo */}
+      {Boolean(an.hecho) ? (
+        <div className="fin-pasoCard" style={{ borderColor: '#16a34a', background: '#f0fdf4' }}>
+          <b>💵 Anticipo gestionado:</b> {pesos(Number(an.valor) || 0)}{an.fecha ? ` · ${String(an.fecha).slice(0, 10)}` : ''}{an.por ? ` · por ${an.por}` : ''}
+          {an.ref ? <div>Referencia / comprobante: <b>{String(an.ref)}</b></div> : null}
+          {an.nota ? <div className="fin-suave" style={{ fontSize: 11 }}>{String(an.nota)}</div> : null}
+          {anticipoCambio && (
+            <p className="fin-textoMal" style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 700 }}>
+              ⚠ El presupuesto cambió después del anticipo (antes {pesos(Number(an.valorPpto) || 0)}, ahora {pesos(v.total_presupuesto)}): revisar el ajuste.
+            </p>
           )}
         </div>
-      )}
+      ) : (v.total_presupuesto > 0 && v.estado === 'TIQUETES_GESTIONADOS') ? (
+        <div className="fin-pasoCard" style={{ borderColor: '#d97706', background: '#fff7e0' }}>
+          <b>💵 Pendiente el anticipo:</b> el presupuesto ya está generado; Tesorería / aprobadores de pagos deben iniciar
+          el proceso de pago del anticipo por <b>{pesos(v.total_presupuesto)}</b>.
+        </div>
+      ) : null}
 
       {puedeCorregir && (
         <button className="fin-btn fin-btnSecundario" onClick={() => onCorregir(v)}>
@@ -367,14 +434,68 @@ function ModalViajeDetalle({ viaje, usuario, onCerrar, onCambio, onCorregir }: {
       </div>
 
       <div className="fin-modalPie">
-        {v.estado === 'SOLICITADO' && ES_AUTORIZADOR(usuario) && (
-          <>
-            <button className="fin-btn fin-btnPrimario" onClick={() => { onCerrar(); accion(v, 'AUTORIZAR', onCambio); }}><FaCheck /> Autorizar</button>
-            <button className="fin-btn fin-btnMal" onClick={() => { onCerrar(); accion(v, 'RECHAZAR', onCambio); }}><FaTimes /> Rechazar</button>
-          </>
-        )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="fin-btn fin-btnSecundario" onClick={() => imprimirViaje(v, diasPpto, otros)}>
+            <FaPrint /> {v.total_presupuesto ? 'Imprimir presupuesto' : 'Imprimir formato'}
+          </button>
+          {puedeAnular && (
+            <button className="fin-btn fin-btnSecundario" onClick={() => void accionSimple('ANULAR')}><FaBan /> Anular</button>
+          )}
+          {ES_ADMIN(usuario) && (
+            <button className="fin-btn fin-btnSecundario fin-textoMal" onClick={onEliminar}>
+              <FaTrash /> Eliminar (admin)
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {puedeTiquetes && (
+            <button className="fin-btn fin-btnSecundario" onClick={() => setModal('tiquetes')}>
+              <FaPlane /> {tq.hecho ? 'Editar tiquetes' : 'Registrar compra de tiquetes'}
+            </button>
+          )}
+          {puedeAnticipo && (
+            <button className="fin-btn fin-btnPrimario" onClick={() => setModal('anticipo')}>
+              <FaMoneyBillWave /> {an.hecho ? 'Editar anticipo' : 'Registrar anticipo'}
+            </button>
+          )}
+          {puedePpto && (
+            <button className="fin-btn fin-btnPrimario" onClick={() => setModal('presupuesto')}>
+              🧾 {v.total_presupuesto ? 'Editar presupuesto' : 'Generar presupuesto'}
+            </button>
+          )}
+          {puedeLegalizar && (
+            <button className="fin-btn fin-btnPrimario" onClick={() => void accionSimple('LEGALIZAR', { legalizado_por: usuario.nombre })}>
+              Legalizar viaje
+            </button>
+          )}
+          {puedeCerrar && (
+            <button className="fin-btn fin-btnPrimario" onClick={() => void accionSimple('CERRAR')}>Cerrar viaje</button>
+          )}
+          {v.estado === 'SOLICITADO' && (ES_AUTORIZADOR(usuario) || v.autorizador_id === usuario.id) && (
+            <>
+              <button className="fin-btn fin-btnMal" onClick={() => void accionSimple('RECHAZAR')}><FaTimes /> Rechazar</button>
+              <button className="fin-btn fin-btnPrimario" onClick={() => void accionSimple('AUTORIZAR')}><FaCheck /> Autorizar</button>
+            </>
+          )}
+        </div>
         <button className="fin-btn fin-btnSecundario" onClick={onCerrar}>Cerrar</button>
       </div>
+
+      {modal === 'tiquetes' && (
+        <ModalTiquetes viaje={v} yaRegistrado={Boolean(tq.hecho)}
+                       onCerrar={() => setModal(null)}
+                       onListo={() => { setModal(null); onCambio(); }} />
+      )}
+      {modal === 'anticipo' && (
+        <ModalAnticipo viaje={v} yaRegistrado={Boolean(an.hecho)}
+                       onCerrar={() => setModal(null)}
+                       onListo={() => { setModal(null); onCambio(); }} />
+      )}
+      {modal === 'presupuesto' && (
+        <ModalPresupuesto viaje={v} yaAsignado={v.total_presupuesto > 0} veCategoria={veCategoria}
+                          onCerrar={() => setModal(null)}
+                          onListo={() => { setModal(null); onCambio(); }} />
+      )}
     </ModalFin>
   );
 }

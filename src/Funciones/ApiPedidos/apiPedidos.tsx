@@ -5,6 +5,21 @@ import qs from 'qs';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL as string;
 
+export async function reabrirVehiculo(
+  consecutivo_vehiculo: string,
+  motivo: string,
+  destino: 'vulcano' | 'edicion',
+): Promise<{ pedidos_reabiertos: number }> {
+  const token = window.localStorage.getItem('baseUsuarioAccessToken');
+  if (!token) throw new Error('Vuelve a iniciar sesión para reabrir el vehículo');
+  const { data } = await axios.post(
+    `${API_BASE}/pedidos/reabrir-vehiculo`,
+    { consecutivo_vehiculo, motivo, destino },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return data;
+}
+
 // =======================
 // Interfaces / Tipos base
 // =======================

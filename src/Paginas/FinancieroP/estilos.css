@@ -173,6 +173,19 @@
 .fin-ccLista li { padding: 7px 10px; cursor: pointer; }
 .fin-ccLista li:hover { background: #f0fdf4; }
 
+/* Menú ⋮ de opciones por fila (requisiciones) */
+.fin-menuFila {
+  position: absolute; right: 0; top: 110%; z-index: 80; min-width: 230px;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16); padding: 4px; display: flex; flex-direction: column;
+}
+.fin-menuFila button {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  background: none; border: 0; padding: 8px 10px; font-size: 12.5px; font-weight: 600;
+  color: #374151; cursor: pointer; border-radius: 7px;
+}
+.fin-menuFila button:hover { background: #f3f4f6; }
+
 /* Modal: scroll INTERNO (cabecera fija, cuerpo que scrollea, pie siempre visible)
    y ancho que aprovecha las pantallas grandes (crece hasta 1200px). */
 .fin-modalFondo {
@@ -279,3 +292,8 @@
   .fin-usuario { margin-left: auto; }
   .fin-main { padding: 14px 10px; }
 }
+
+/* Calendario de pagos de servicios */
+.fin-calGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.fin-calDiaHead { font-size: 11px; font-weight: 800; color: #6b7280; text-transform: uppercase; text-align: center; padding: 4px 0; }
+.fin-diaCell { border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px; overflow: hidden; }

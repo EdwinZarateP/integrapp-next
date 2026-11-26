@@ -442,6 +442,13 @@ const GRUPOS: GrupoModulos[] = [
         destino: "/Financiero/Requisiciones",
       },
       {
+        id: "fin_proveedores",
+        etiqueta: "Prov. nuevos",
+        desc: "Proveedores nuevos: aprobación de Compras y carga en software",
+        icono: FaShoppingCart,
+        destino: "/Financiero/ProveedoresNuevos",
+      },
+      {
         id: "fin_contabilidad",
         etiqueta: "Facturas DIAN",
         desc: "Recepción, radicación y causación de facturas",
