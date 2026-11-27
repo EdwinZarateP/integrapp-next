@@ -133,6 +133,11 @@ export default function UsoPortalKP() {
         const params = new URLSearchParams({ usuario, desde, hasta, audiencia: aud });
         if (cli) params.set('cliente_id', cli);
         if (foco) params.set('usuario_filtro', foco.usuario);
+        // (2026-11-27) Esta página mide la adopción del PORTAL de clientes:
+        // excluir la telemetría general de la app (pageviews/acciones de
+        // todos los módulos) que comparte la colección eventos_portal con
+        // cliente_id null. Un backend viejo ignora el parámetro — inofensivo.
+        params.set('solo_portales', 'true');
         const r = await fetch(`${API}/telemetria/resumen?${params.toString()}`);
         const j = await r.json();
         if (!r.ok || !j?.success) throw new Error(j?.detail || 'Error al consultar la telemetría');

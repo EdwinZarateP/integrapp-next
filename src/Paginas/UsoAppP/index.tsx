@@ -23,6 +23,8 @@ import './estilos.css';
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 const PERFILES_AUTORIZADOS = ['ADMIN'];
+// (2026-11-27) La tabla de Usuarios no es eterna: filas por página.
+const TAM_PAG_USU = 15;
 
 // Etiquetas amables de los módulos (telemetriaApp.ts + portal Kabi legacy).
 const ETIQUETAS_MODULO: Record<string, string> = {
@@ -84,7 +86,12 @@ type ResumenTlm = {
   por_cliente: { cliente_id: string; eventos: number; usuarios: number }[];
   por_modulo: { modulo: string; eventos: number; usuarios: number }[];
   por_hora: { hora: number; eventos: number; usuarios: number; por_modulo?: Record<string, number> }[];
+  /** (2026-11-27) Usuarios ÚNICOS por día, desglosados por perfil. */
+  por_dia_perfil?: { fecha: string; por_perfil: Record<string, number> }[];
 };
+
+/** Popup de detalle: torta con segmentos {etiqueta, valor, color}. */
+type Torta = { titulo: string; subtitulo: string; segmentos: { etiqueta: string; valor: number; color: string }[] };
 
 // (9.ª tanda) Paleta categórica para las barras apiladas por módulo (mismo
 // orden de la tabla por módulo: de mayor a menor uso; cicla si hay más
@@ -94,6 +101,14 @@ const PALETA_MODULOS = [
   '#4a3aa7', '#e34948', '#14b8a6', '#8d6e63', '#0ea5e9', '#9333ea',
 ];
 const COLOR_GRIS = '#94a3b8';
+// (2026-11-27) Color por PERFIL (distinto del de módulos para no confundir):
+// se asigna por orden de uso (el perfil con más eventos toma el primer
+// color, estable dentro de la consulta) y lo comparten el ranking de
+// usuarios y el gráfico «Actividad por perfil».
+const PALETA_PERFILES = [
+  '#7c3aed', '#0ea5e9', '#f97316', '#0d9488', '#dc2626', '#65a30d',
+  '#c026d3', '#475569', '#d97706', '#2563eb', '#be185d', '#15803d',
+];
 
 const hoyStr = () => {
   const d = new Date(Date.now() - 5 * 3600 * 1000); // hora Colombia (UTC−5)
@@ -134,6 +149,19 @@ export default function UsoAppP() {
   const [datos, setDatos] = useState<ResumenTlm | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
+  // (2026-11-27, a pedido) Sin tooltips hover: al hacer CLIC en una barra
+  // (hora, día o usuario) se abre un popup con la torta del detalle.
+  const [torta, setTorta] = useState<Torta | null>(null);
+  // (2026-11-27) La tabla de Usuarios no es eterna: paginada de a 15 filas
+  // (se reinicia a la página 1 con cada consulta nueva).
+  const [pagUsu, setPagUsu] = useState(1);
+  useEffect(() => {
+    if (!torta) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setTorta(null); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [torta]);
+  useEffect(() => { setPagUsu(1); }, [datos]);
 
   useEffect(() => {
     const u = document.cookie.match(/(^| )usuarioPedidosCookie=([^;]+)/)?.[2] || '';
@@ -255,20 +283,100 @@ export default function UsoAppP() {
   /** Segmentos de una cubeta ordenados por tamaño desc (la pila se lee mejor). */
   const segmentosDe = (pm?: Record<string, number>): [string, number][] =>
     Object.entries(pm || {}).sort((a, b) => b[1] - a[1]);
-  /** Desglose legible para tooltips: top 5 + «y N más». */
-  const desglose = (pm?: Record<string, number>): string => {
-    const segs = segmentosDe(pm).filter(([, n]) => n > 0);
-    const top = segs.slice(0, 5).map(([m, n]) => `${etiquetaModulo(m)}: ${num(n)}`);
-    if (segs.length > 5) top.push(`y ${segs.length - 5} más…`);
-    return top.join(' · ');
+  /** Torta de una cubeta de hora/día: desglose por módulo (mismos colores de
+   *  los gráficos). Devuelve null si no hay nada que mostrar. */
+  const tortaDeModulos = (
+    titulo: string,
+    eventos: number,
+    usuarios: number,
+    pm?: Record<string, number>,
+  ): Torta | null => {
+    const segmentos = segmentosDe(pm)
+      .filter(([, n]) => n > 0)
+      .map(([m, n]) => ({ etiqueta: etiquetaModulo(m), valor: n, color: colorDe(m) }));
+    if (segmentos.length === 0) return null;
+    return {
+      titulo,
+      subtitulo: `${num(eventos)} eventos · ${num(usuarios)} ${usuarios === 1 ? 'usuario' : 'usuarios'}`,
+      segmentos,
+    };
   };
+  /** Torta de un usuario: desglose por TIPO de evento. */
+  const tortaDeUsuario = (u: PorUsuario): Torta => ({
+    titulo: u.nombre || u.usuario,
+    subtitulo: `Perfil ${u.perfil || '—'} · ${num(u.eventos)} eventos en ${num(u.dias_activos)} ${u.dias_activos === 1 ? 'día' : 'días'}`,
+    segmentos: Object.entries(u.por_evento || {})
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([ev, n], i) => ({
+        etiqueta: ETIQUETAS_EVENTO[ev] || ev,
+        valor: n,
+        color: PALETA_MODULOS[i % PALETA_MODULOS.length],
+      })),
+  });
+  /** Torta de un PERFIL: comportamiento agregado (tipos de evento de todos
+   *  sus usuarios) — el gráfico de «Actividad por perfil». */
+  const tortaDePerfil = (p: { perfil: string; eventos: number; usuarios: number; por_evento: Record<string, number> }): Torta => ({
+    titulo: `Perfil ${p.perfil}`,
+    subtitulo: `${num(p.usuarios)} ${p.usuarios === 1 ? 'usuario' : 'usuarios'} · ${num(p.eventos)} eventos`,
+    segmentos: Object.entries(p.por_evento || {})
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([ev, n], i) => ({
+        etiqueta: ETIQUETAS_EVENTO[ev] || ev,
+        valor: n,
+        color: PALETA_MODULOS[i % PALETA_MODULOS.length],
+      })),
+  });
   const totalModulo = Math.max(1, datos?.por_modulo.reduce((s, m) => s + m.eventos, 0) ?? 1);
   const usuariosRecientes = [...(datos?.por_usuario ?? [])].sort(
     (a, b) => (b.ultima_conexion ? new Date(b.ultima_conexion).getTime() : 0)
             - (a.ultima_conexion ? new Date(a.ultima_conexion).getTime() : 0),
   );
+  // (2026-11-27) Paginación de la tabla: página actual acotada al rango real
+  // (por si un filtro reduce las filas estando en la página 5).
+  const totalPagsUsu = Math.max(1, Math.ceil(usuariosRecientes.length / TAM_PAG_USU));
+  const pagUsuEfectiva = Math.min(pagUsu, totalPagsUsu);
+  const usuPagina = usuariosRecientes.slice(
+    (pagUsuEfectiva - 1) * TAM_PAG_USU,
+    pagUsuEfectiva * TAM_PAG_USU,
+  );
   // Opciones del filtro módulo: las que existen en el rango consultado.
   const modulosDisponibles = (datos?.por_modulo ?? []).map(m => m.modulo);
+  // (2026-11-27) Ranking de usuarios por eventos, de mayor a menor.
+  const usuariosPorEventos = [...(datos?.por_usuario ?? [])].sort((a, b) => b.eventos - a.eventos);
+  const maxUsuEvt = Math.max(1, ...(datos?.por_usuario ?? []).map(u => u.eventos));
+  // (2026-11-27) Comportamiento POR PERFIL: se agrega desde por_usuario
+  // (eventos totales, cuántos usuarios y suma de sus tipos de evento) —
+  // de mayor a menor uso de la aplicación general.
+  const perfilesOrdenados = (() => {
+    const mapa = new Map<string, { perfil: string; eventos: number; usuarios: number; por_evento: Record<string, number> }>();
+    (datos?.por_usuario ?? []).forEach(u => {
+      const clave = (u.perfil || 'SIN PERFIL').toUpperCase();
+      const acc = mapa.get(clave) || { perfil: clave, eventos: 0, usuarios: 0, por_evento: {} };
+      acc.eventos += u.eventos;
+      acc.usuarios += 1;
+      Object.entries(u.por_evento || {}).forEach(([ev, n]) => {
+        acc.por_evento[ev] = (acc.por_evento[ev] || 0) + n;
+      });
+      mapa.set(clave, acc);
+    });
+    return [...mapa.values()].sort((a, b) => b.eventos - a.eventos);
+  })();
+  const maxPerfil = Math.max(1, ...perfilesOrdenados.map(p => p.eventos));
+  // (2026-11-27) Usuarios únicos por día (por perfil): total del día = suma
+  // de los usuarios únicos de cada perfil (el backend ya contó distintos).
+  const porDiaPerfil = datos?.por_dia_perfil ?? [];
+  const totalUsuDia = (dd: { por_perfil: Record<string, number> }) =>
+    Object.values(dd.por_perfil || {}).reduce((s, n) => s + n, 0);
+  const maxUsuDia = Math.max(1, ...porDiaPerfil.map(totalUsuDia));
+  /** Color estable por perfil (mismo mapa en el ranking de usuarios y en el
+   *  gráfico por perfil): orden = perfilesOrdenados (uso desc). */
+  const colorDePerfil = (perfil?: string | null): string => {
+    const clave = (perfil || 'SIN PERFIL').toUpperCase();
+    const i = perfilesOrdenados.findIndex(p => p.perfil === clave);
+    return i >= 0 ? PALETA_PERFILES[i % PALETA_PERFILES.length] : COLOR_GRIS;
+  };
 
   return (
     <div className="UP-container">
@@ -418,7 +526,18 @@ export default function UsoAppP() {
                     const d = datos.por_hora.find(x => x.hora === h);
                     const alto = d ? Math.max(3, (d.eventos / maxHora) * 100) : 2;
                     return (
-                      <div key={h} className="UA-horaCol" tabIndex={0}>
+                      <div
+                        key={h}
+                        className="UA-horaCol"
+                        tabIndex={0}
+                        title={d ? `Clic: detalle de la franja ${String(h).padStart(2, '0')}:00` : undefined}
+                        onClick={() =>
+                          setTorta(tortaDeModulos(
+                            `${String(h).padStart(2, '0')}:00 – ${String(h).padStart(2, '0')}:59`,
+                            d?.eventos ?? 0, d?.usuarios ?? 0, d?.por_modulo,
+                          ))
+                        }
+                      >
                         <span className="UP-barraValor">{d ? num(d.eventos) : ''}</span>
                         <div className="UA-horaPila" style={{ height: `${alto}%` }} aria-hidden="true">
                           {segmentosDe(d?.por_modulo).map(([m, n]) => (
@@ -426,19 +545,187 @@ export default function UsoAppP() {
                           ))}
                         </div>
                         <span className="UA-horaEtiqueta">{String(h).padStart(2, '0')}</span>
-                        {d && (
-                          <span className="UP-tooltip">
-                            <strong>{String(h).padStart(2, '0')}:00 – {String(h).padStart(2, '0')}:59</strong>
-                            {num(d.eventos)} eventos · {num(d.usuarios)} {d.usuarios === 1 ? 'usuario' : 'usuarios'}
-                            <em className="UA-tooltipSegs">{desglose(d.por_modulo)}</em>
-                          </span>
-                        )}
                       </div>
                     );
                   })}
                 </div>
               )}
             </section>
+
+            {/* (2026-11-27) «Actividad por día» y «Usuarios únicos por día»
+                lado a lado en pantallas grandes (mismo UA-parGraficos del par
+                de abajo), apilados en pequeñas. */}
+            <div className="UA-parGraficos">
+
+            {/* Actividad por día — apilado por módulo (mismos colores/orden). */}
+            <section className="UP-card">
+              <h2 className="UP-cardTitulo">Actividad por día</h2>
+              {datos.por_dia.length === 0 ? (
+                <p className="UP-vacio">Sin eventos en el rango seleccionado.</p>
+              ) : (
+                <div className="UP-barras" role="img" aria-label={`Eventos por día entre ${fmtFechaLarga(desde)} y ${fmtFechaLarga(hasta)}, apilados por módulo`}>
+                  {datos.por_dia.map(d => (
+                    <div
+                      key={d.fecha}
+                      className="UP-barraCol"
+                      tabIndex={0}
+                      title={`Clic: detalle del ${fmtFechaLarga(d.fecha)}`}
+                      onClick={() => setTorta(tortaDeModulos(fmtFechaLarga(d.fecha), d.eventos, d.usuarios, d.por_modulo))}
+                    >
+                      <span className="UP-barraValor">{num(d.eventos)}</span>
+                      <div className="UA-horaPila UA-diaPila" style={{ height: `${Math.max(3, (d.eventos / maxDia) * 100)}%` }} aria-hidden="true">
+                        {segmentosDe(d.por_modulo).map(([m, n]) => (
+                          <div key={m} className="UA-seg" style={{ flexGrow: n, background: colorDe(m) }} />
+                        ))}
+                      </div>
+                      <span className="UP-barraFecha">{fmtFecha(d.fecha)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* (2026-11-27) Usuarios ÚNICOS por día, apilado por PERFIL (mismos
+                colores de perfil): cuánta gente de cada perfil entra a la app a
+                hacer algo cada día. Clic en un día → torta del desglose. */}
+            <section className="UP-card">
+              <h2 className="UP-cardTitulo">Usuarios únicos por día</h2>
+              {porDiaPerfil.length === 0 ? (
+                <p className="UP-vacio">Sin eventos en el rango seleccionado.</p>
+              ) : (
+                <div className="UP-barras" role="img" aria-label="Usuarios únicos por día, apilados por perfil">
+                  {porDiaPerfil.map(dd => {
+                    const totalDia = totalUsuDia(dd);
+                    const segs = Object.entries(dd.por_perfil || {})
+                      .filter(([, n]) => n > 0)
+                      .sort((a, b) => b[1] - a[1]);
+                    return (
+                      <div
+                        key={dd.fecha}
+                        className="UP-barraCol"
+                        tabIndex={0}
+                        title={`Clic: detalle del ${fmtFechaLarga(dd.fecha)}`}
+                        onClick={() =>
+                          setTorta({
+                            titulo: fmtFechaLarga(dd.fecha),
+                            subtitulo: `${num(totalDia)} usuarios únicos`,
+                            segmentos: segs.map(([p, n]) => ({
+                              etiqueta: p,
+                              valor: n,
+                              color: colorDePerfil(p),
+                            })),
+                          })
+                        }
+                      >
+                        <span className="UP-barraValor">{num(totalDia)}</span>
+                        <div className="UA-horaPila UA-diaPila" style={{ height: `${Math.max(3, (totalDia / maxUsuDia) * 100)}%` }} aria-hidden="true">
+                          {segs.map(([p, n]) => (
+                            <div key={p} className="UA-seg" style={{ flexGrow: n, background: colorDePerfil(p) }} />
+                          ))}
+                        </div>
+                        <span className="UP-barraFecha">{fmtFecha(dd.fecha)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            </div>{/* /.UA-parGraficos (día + usuarios únicos por día) */}
+
+            {/* (2026-11-27) Los dos gráficos nuevos JUNTOS: uno al lado del
+                otro en pantallas grandes (≥1024px), apilados en pequeñas,
+                debajo de los gráficos principales de actividad. */}
+            <div className="UA-parGraficos">
+
+            {/* (2026-11-27) Usuarios con más eventos, de mayor a menor. Cada
+                PERFIL tiene su propio color (mismo mapa del gráfico «Actividad
+                por perfil»). Clic en un usuario → torta de sus tipos de evento. */}
+            <section className="UP-card">
+              <h2 className="UP-cardTitulo">Usuarios con más eventos</h2>
+              {usuariosPorEventos.length === 0 ? (
+                <p className="UP-vacio">Sin usuarios en el rango.</p>
+              ) : (
+                <>
+                  <div className="UA-usuarios">
+                    {usuariosPorEventos.map(u => (
+                      <button
+                        key={u.usuario}
+                        type="button"
+                        className="UA-usuarioFila"
+                        onClick={() => setTorta(tortaDeUsuario(u))}
+                        title={u.nombre ? 'Clic: detalle por tipo de evento' : `${u.usuario} — usuario sin registro en baseusuarios (identidad cruda del beacon)`}
+                      >
+                        <span className="UA-usuarioNombre">
+                          {u.nombre || u.usuario}
+                          <small style={{ color: colorDePerfil(u.perfil) }}>
+                            {u.perfil || 'SIN PERFIL'}
+                          </small>
+                        </span>
+                        <span className="UA-usuarioPista">
+                          <span
+                            className="UA-usuarioBarra"
+                            style={{
+                              width: `${Math.max(2, (u.eventos / maxUsuEvt) * 100)}%`,
+                              background: colorDePerfil(u.perfil),
+                            }}
+                          />
+                        </span>
+                        <span className="UA-usuarioValor">{num(u.eventos)}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="UA-usuariosLeyenda">
+                    {perfilesOrdenados.map(p => (
+                      <span key={p.perfil} className="UA-leyendaItem">
+                        <span className="UA-leyendaPunto" style={{ background: colorDePerfil(p.perfil) }} />
+                        {p.perfil}
+                      </span>
+                    ))}
+                  </p>
+                </>
+              )}
+            </section>
+
+            {/* (2026-11-27) Actividad POR PERFIL: comportamiento de cada perfil
+                en el uso de la aplicación general (eventos agregados de todos
+                sus usuarios, de mayor a menor, con cuántos usuarios lo usan).
+                Clic → torta con los tipos de evento que lo componen. */}
+            <section className="UP-card">
+              <h2 className="UP-cardTitulo">Actividad por perfil</h2>
+              {perfilesOrdenados.length === 0 ? (
+                <p className="UP-vacio">Sin perfiles en el rango.</p>
+              ) : (
+                <div className="UA-usuarios">
+                  {perfilesOrdenados.map(p => (
+                    <button
+                      key={p.perfil}
+                      type="button"
+                      className="UA-usuarioFila"
+                      onClick={() => setTorta(tortaDePerfil(p))}
+                      title="Clic: comportamiento por tipo de evento"
+                    >
+                      <span className="UA-usuarioNombre">
+                        {p.perfil}
+                        <small>{num(p.usuarios)} {p.usuarios === 1 ? 'usuario' : 'usuarios'}</small>
+                      </span>
+                      <span className="UA-usuarioPista">
+                        <span
+                          className="UA-usuarioBarra"
+                          style={{
+                            width: `${Math.max(2, (p.eventos / maxPerfil) * 100)}%`,
+                            background: colorDePerfil(p.perfil),
+                          }}
+                        />
+                      </span>
+                      <span className="UA-usuarioValor">{num(p.eventos)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            </div>{/* /.UA-parGraficos */}
 
             {/* Módulos: dónde se concentra el trabajo */}
             <section className="UP-card">
@@ -485,33 +772,6 @@ export default function UsoAppP() {
               )}
             </section>
 
-            {/* Actividad por día — apilado por módulo (mismos colores/orden). */}
-            <section className="UP-card">
-              <h2 className="UP-cardTitulo">Actividad por día</h2>
-              {datos.por_dia.length === 0 ? (
-                <p className="UP-vacio">Sin eventos en el rango seleccionado.</p>
-              ) : (
-                <div className="UP-barras" role="img" aria-label={`Eventos por día entre ${fmtFechaLarga(desde)} y ${fmtFechaLarga(hasta)}, apilados por módulo`}>
-                  {datos.por_dia.map(d => (
-                    <div key={d.fecha} className="UP-barraCol" tabIndex={0}>
-                      <span className="UP-barraValor">{num(d.eventos)}</span>
-                      <div className="UA-horaPila UA-diaPila" style={{ height: `${Math.max(3, (d.eventos / maxDia) * 100)}%` }} aria-hidden="true">
-                        {segmentosDe(d.por_modulo).map(([m, n]) => (
-                          <div key={m} className="UA-seg" style={{ flexGrow: n, background: colorDe(m) }} />
-                        ))}
-                      </div>
-                      <span className="UP-barraFecha">{fmtFecha(d.fecha)}</span>
-                      <span className="UP-tooltip">
-                        <strong>{fmtFechaLarga(d.fecha)}</strong>
-                        {num(d.eventos)} eventos · {num(d.usuarios)} {d.usuarios === 1 ? 'usuario' : 'usuarios'}
-                        <em className="UA-tooltipSegs">{desglose(d.por_modulo)}</em>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
             {/* Usuarios */}
             <section className="UP-card">
               <h2 className="UP-cardTitulo">Usuarios ({datos.por_usuario.length})</h2>
@@ -531,7 +791,7 @@ export default function UsoAppP() {
                       </tr>
                     </thead>
                     <tbody>
-                      {usuariosRecientes.map(u => (
+                      {usuPagina.map(u => (
                         <tr key={u.usuario} className="UP-filaUsu" onClick={() => enfocarUsuario(u)} title="Clic: ver solo este usuario">
                           <td>{u.nombre || '—'}</td>
                           <td><span className={`UP-badge UP-badge--${(u.perfil || 'desconocido').toLowerCase()}`}>{u.perfil || '—'}</span></td>
@@ -547,6 +807,29 @@ export default function UsoAppP() {
                       ))}
                     </tbody>
                   </table>
+                  {usuariosRecientes.length > TAM_PAG_USU && (
+                    <div className="UP-paginacion">
+                      <button
+                        type="button"
+                        className="UP-pagBtn"
+                        onClick={() => setPagUsu(p => Math.max(1, p - 1))}
+                        disabled={pagUsuEfectiva <= 1}
+                      >
+                        ‹ Anterior
+                      </button>
+                      <span>
+                        Página {pagUsuEfectiva} de {totalPagsUsu} · {num(usuariosRecientes.length)} usuarios
+                      </span>
+                      <button
+                        type="button"
+                        className="UP-pagBtn"
+                        onClick={() => setPagUsu(p => Math.min(totalPagsUsu, p + 1))}
+                        disabled={pagUsuEfectiva >= totalPagsUsu}
+                      >
+                        Siguiente ›
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -597,6 +880,65 @@ export default function UsoAppP() {
             </p>
           </>
         )}
+
+        {/* (2026-11-27) Popup de detalle: torta SVG (anillo) del elemento al
+            que se le dio clic — barra de hora/día (desglose por módulo, mismos
+            colores de los gráficos) o usuario (desglose por tipo de evento).
+            Cierra con ✕, clic en el fondo o Escape. */}
+        {torta && (() => {
+          const total = torta.segmentos.reduce((s, x) => s + x.valor, 0) || 1;
+          const RADIO = 70;
+          const CIRC = 2 * Math.PI * RADIO;
+          let acumulado = 0;
+          return (
+            <div className="UA-modalFondo" onClick={() => setTorta(null)} role="dialog" aria-modal="true" aria-label={torta.titulo}>
+              <div className="UA-modal" onClick={e => e.stopPropagation()}>
+                <div className="UA-modalCab">
+                  <div>
+                    <h3 className="UA-modalTitulo">{torta.titulo}</h3>
+                    <p className="UA-modalSub">{torta.subtitulo}</p>
+                  </div>
+                  <button className="UA-modalCerrar" onClick={() => setTorta(null)} aria-label="Cerrar detalle">✕</button>
+                </div>
+                <div className="UA-tortaWrap">
+                  <svg viewBox="0 0 200 200" className="UA-tortaSvg" role="img" aria-label={`Distribución: ${torta.segmentos.map(s => `${s.etiqueta} ${s.valor}`).join(', ')}`}>
+                    {torta.segmentos.map(s => {
+                      const largo = (s.valor / total) * CIRC;
+                      const arco = (
+                        <circle
+                          key={s.etiqueta}
+                          cx="100" cy="100" r={RADIO}
+                          fill="none"
+                          stroke={s.color}
+                          strokeWidth="26"
+                          strokeDasharray={`${largo} ${CIRC - largo}`}
+                          strokeDashoffset={-acumulado}
+                          transform="rotate(-90 100 100)"
+                        />
+                      );
+                      acumulado += largo;
+                      return arco;
+                    })}
+                    <text x="100" y="100" textAnchor="middle" dominantBaseline="middle" className="UA-tortaCentro">
+                      {num(total)}
+                    </text>
+                  </svg>
+                  <div className="UA-tortaLeyenda">
+                    {torta.segmentos.map(s => (
+                      <div key={s.etiqueta} className="UA-tortaLeyendaItem">
+                        <span className="UA-leyendaPunto" style={{ background: s.color }} aria-hidden="true" />
+                        <span className="UA-tortaEtiqueta">{s.etiqueta}</span>
+                        <span className="UA-tortaCifra">
+                          {num(s.valor)} · {((s.valor / total) * 100).toFixed(1).replace('.', ',')}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </main>
     </div>
   );
