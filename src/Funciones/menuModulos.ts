@@ -231,6 +231,9 @@ const GRUPOS: GrupoModulos[] = [
         icono: FaChartBar,
         destino: "/indicadores",
         hijos: [
+          // (2026-11-27) Home del submenú: el padre ya no navega al clic (solo
+          // despliega), así que la portada de tarjetas queda como primer hijo.
+          { id: "ind_inicio", etiqueta: "Inicio", icono: FaChartBar, destino: "/indicadores" },
           { id: "ind_cliente", etiqueta: "Indicadores por Cliente", icono: FaBuilding, destino: "/indicadores/clientes" },
           { id: "ind_costo", etiqueta: "Costo de Operación", icono: FaWarehouse, destino: "/indicadores/costo-operacion" },
           { id: "ind_mis", etiqueta: "Mis Indicadores (portal clientes)", icono: FaChartBar, destino: "/indicadores/mis-clientes" },

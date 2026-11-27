@@ -9,7 +9,10 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 64px;          /* la altura del header unificado */
+  /* Alto sincronizado por JS con el header real (.HM-header — en móvil envuelve
+     en 2 filas y mide >64px). La variable también alimenta la distancia de
+     caída de las keyframes. Fallback: el header unificado de 64px. */
+  height: var(--ET-alto, 64px);
   pointer-events: none;
   overflow: hidden;
   z-index: 930;
@@ -41,16 +44,18 @@
   opacity: 0.9;
 }
 
-/* Caída dentro de la franja del header (−12px → 76px). */
+/* Caída dentro de la franja del header: arranca sobre el borde superior
+   (top: -12px) y aterriza pasado el alto real del header (+20px, el
+   overflow:hidden del overlay recorta el sobrante). */
 @keyframes ET-caer {
   0%   { transform: translateY(0) translateX(0); }
-  50%  { transform: translateY(44px) translateX(6px); }   /* vaivén suave */
-  100% { transform: translateY(88px) translateX(-4px); }
+  50%  { transform: translateY(calc(var(--ET-alto, 64px) * 0.5)) translateX(6px); }  /* vaivén suave */
+  100% { transform: translateY(calc(var(--ET-alto, 64px) + 20px)) translateX(-4px); }
 }
 
 @keyframes ET-caer-girar {
   0%   { transform: translateY(0) rotate(0deg); }
-  100% { transform: translateY(88px) rotate(540deg); }
+  100% { transform: translateY(calc(var(--ET-alto, 64px) + 20px)) rotate(540deg); }
 }
 
 /* ── Acento de temporada: filo del header unificado y del lanzador ──

@@ -13,8 +13,8 @@
  */
 'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import {
   FaChevronDown,
@@ -57,6 +57,7 @@ type Props = {
 const SidebarModulos: React.FC<Props> = ({ modo = "hub", alNavegar }) => {
   const esHub = modo === "hub";
   const router = useRouter();
+  const pathname = usePathname() || "";
   const [info, setInfo] = useState<UsuarioInfo | null>(null);
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
   const [gruposAbiertos, setGruposAbiertos] = useState<Record<string, boolean>>({});
@@ -100,6 +101,43 @@ const SidebarModulos: React.FC<Props> = ({ modo = "hub", alNavegar }) => {
     perfilesAdicionales: info?.perfiles_adicionales || [],
     clientes,
   });
+
+  /* ---------------------------------------------------------------- */
+  /* (2026-11-27) Ubicación intuitiva: la barra señala DÓNDE está el   */
+  /* usuario. Ruta normalizada sin basePath ni slash final para        */
+  /* comparar con los `destino` del menú (/integrapp/Pedidos/ →        */
+  /* /Pedidos), ítem de la página actual resaltado y su camino         */
+  /* (grupo + padre) desplegado al abrir la barra.                     */
+  /* ---------------------------------------------------------------- */
+  const rutaActual = useMemo(() => {
+    let r = pathname.replace(/\/+$/, "");
+    if (r.startsWith("/integrapp")) r = r.slice("/integrapp".length) || "/";
+    return r;
+  }, [pathname]);
+
+  const esActivo = (destino?: string) =>
+    !!destino && destino.replace(/\/+$/, "") === rutaActual;
+
+  // Despliega el camino hacia el ítem activo (p.ej. estar en /Pedidos abre
+  // PROGRAMACIÓN → Kabi). Solo ABRE, nunca cierra lo que el usuario abriera.
+  useEffect(() => {
+    const grupos: Record<string, boolean> = {};
+    const padres: Record<string, boolean> = {};
+    menu.grupos.forEach((grupo) => {
+      grupo.items.forEach((item) => {
+        const hijoActivo = item.hijos?.some((h) => esActivo(h.destino)) ?? false;
+        if (hijoActivo || esActivo(item.destino)) grupos[grupo.id] = true;
+        if (hijoActivo) padres[item.id] = true;
+      });
+    });
+    setGruposAbiertos((prev) =>
+      Object.entries(grupos).every(([k, v]) => prev[k] === v) ? prev : { ...prev, ...grupos });
+    setPadresAbiertos((prev) =>
+      Object.entries(padres).every(([k, v]) => prev[k] === v) ? prev : { ...prev, ...padres });
+    // `menu`/`esActivo` se recalculan en cada render dependiendo solo de las
+    // cookies y de rutaActual: depender de su identidad causaría un loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rutaActual]);
 
   /* ---------------------------------------------------------------- */
   /* Navegación: setea las cookies de portal antes de entrar           */
@@ -219,9 +257,10 @@ const SidebarModulos: React.FC<Props> = ({ modo = "hub", alNavegar }) => {
   const itemNav = (item: ItemModulo, esSub: boolean) => {
     const Icono = item.icono;
 
-    // Ítem PADRE con submenú (Kabi / Medical Care): botón principal que
-    // navega a la home del portal + chevron que despliega los hijos. En modo
-    // riel el botón principal EXPANDE y despliega (no navega).
+    // Ítem PADRE con submenú (Kabi / Medical Care): el clic en el botón
+    // principal DESPLIEGA sus opciones (a pedido del usuario, 2026-11-27 —
+    // antes navegaba directo a la home del portal; la home siempre existe
+    // como primer hijo). En modo riel expande la sidebar y despliega igual.
     if (item.hijos && item.hijos.length > 0) {
       const abierto = padreAbierto(item.id);
       return (
@@ -229,7 +268,8 @@ const SidebarModulos: React.FC<Props> = ({ modo = "hub", alNavegar }) => {
           <div className="modx-item-padre-fila">
             <button
               className="modx-nav-item modx-item-padre-principal"
-              onClick={() => (colapsada ? activarPadreEnRiel(item.id) : abrir(item))}
+              onClick={() => (colapsada ? activarPadreEnRiel(item.id) : alternarPadre(item.id))}
+              aria-expanded={abierto}
               title={item.etiqueta}
             >
               <Icono />
@@ -279,9 +319,10 @@ const SidebarModulos: React.FC<Props> = ({ modo = "hub", alNavegar }) => {
     return (
       <button
         key={item.id}
-        className={`modx-nav-item ${esSub ? "modx-nav-item--sub" : "modx-nav-item--directo"}`}
+        className={`modx-nav-item ${esSub ? "modx-nav-item--sub" : "modx-nav-item--directo"}${esActivo(item.destino) ? " modx-nav-item--activo" : ""}`}
         onClick={() => abrir(item)}
         title={tip}
+        aria-current={esActivo(item.destino) ? "page" : undefined}
       >
         {contenido}
       </button>
@@ -303,9 +344,10 @@ const SidebarModulos: React.FC<Props> = ({ modo = "hub", alNavegar }) => {
     return (
       <button
         key={h.id}
-        className="modx-nav-item modx-nav-item--sub modx-nav-item--hoja"
+        className={`modx-nav-item modx-nav-item--sub modx-nav-item--hoja${esActivo(h.destino) ? " modx-nav-item--activo" : ""}`}
         onClick={() => abrir(h)}
         title={h.etiqueta}
+        aria-current={esActivo(h.destino) ? "page" : undefined}
       >
         <Icono />
         <span className="modx-nav-texto">{h.etiqueta}</span>

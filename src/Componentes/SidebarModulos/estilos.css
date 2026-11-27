@@ -97,6 +97,20 @@
 
 .modx-nav-item:hover { background: #f2f5f7; color: var(--modx-texto); }
 
+/* (2026-11-27) Ítem de la página ACTUAL: la barra señala dónde está el
+   usuario (fondo suave + filo izquierdo del acento). */
+.modx-nav-item--activo {
+  background: var(--modx-acento-suave);
+  color: var(--modx-acento-oscuro);
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--modx-acento);
+}
+.modx-nav-item--activo svg { color: var(--modx-acento-oscuro); }
+.modx-nav-item--activo:hover {
+  background: var(--modx-acento-suave);
+  color: var(--modx-acento-oscuro);
+}
+
 /* Sub-ítem dentro de un grupo: indentado y un punto más pequeño. */
 .modx-nav-item--sub {
   font-size: 0.85rem;
